@@ -1,0 +1,120 @@
+[
+  {
+    "argv": [
+      "inspect",
+      "corpus/moved_paths.nml",
+      "--limit",
+      "5"
+    ],
+    "exit_code": 0,
+    "stdout": "root_version=20\nprogram=Traktor\ncollection_entries=1\ncollection_entries_with_location=1\ncollection_entries_with_primarykey=0\nplaylist_entry_refs=0\nplaylist_primarykeys=0\nall_entry_nodes_in_document=1\nsample artist='Aphex Twin' title='Xtal' volume='C:' dir='/:Users/:dj/:Music/:' file='xtal.mp3'\n",
+    "stderr": "",
+    "output_files": {}
+  },
+  {
+    "argv": [
+      "inspect",
+      "corpus/playlist_tree.nml",
+      "--limit",
+      "5",
+      "--csv",
+      "out/inspect.csv"
+    ],
+    "exit_code": 0,
+    "stdout": "root_version=20\nprogram=Traktor\ncollection_entries=1\ncollection_entries_with_location=1\ncollection_entries_with_primarykey=0\nplaylist_entry_refs=1\nplaylist_primarykeys=1\nall_entry_nodes_in_document=2\nsample artist='Four Tet' title='Baby' volume='C:' dir='/:Music/:' file='baby.mp3'\ncsv_written=out\\inspect.csv\n",
+    "stderr": "",
+    "output_files": {
+      "out/inspect.csv": "YXJ0aXN0LHRpdGxlLHZvbHVtZSx2b2x1bWVpZCxkaXIsZmlsZSxkZWNvZGVkX3BhdGgscHJpbWFyeV9rZXkNCkZvdXIgVGV0LEJhYnksQzosQzosLzpNdXNpYy86LGJhYnkubXAzLC9NdXNpYy9iYWJ5Lm1wMyxDOi86TXVzaWMvOmJhYnkubXAzDQo="
+    }
+  },
+  {
+    "argv": [
+      "encode-dir",
+      "C:\\Music\\Foo"
+    ],
+    "exit_code": 0,
+    "stdout": "/:C:/:Music/:Foo/:\n",
+    "stderr": "",
+    "output_files": {}
+  },
+  {
+    "argv": [
+      "preview-diff",
+      "corpus/moved_paths.nml",
+      "--old-volume",
+      "C:",
+      "--old-dir-prefix",
+      "/:Users/:dj/:Music/:",
+      "--new-volume",
+      "D:",
+      "--new-dir-prefix",
+      "/:Music/:"
+    ],
+    "exit_code": 0,
+    "stdout": "collection_location_changes=1\nother_location_changes=0\nprimarykey_changes=0\nsample_collection_location_changes:\n- Aphex Twin - Xtal\n  before=/Users/dj/Music/xtal.mp3\n  after=/Music/xtal.mp3\n",
+    "stderr": "",
+    "output_files": {}
+  },
+  {
+    "argv": [
+      "preview-compare",
+      "corpus/duplicate_rips.nml",
+      "corpus/duplicate_rips.nml",
+      "--limit",
+      "5"
+    ],
+    "exit_code": 0,
+    "stdout": "old_collection_entries=2\nnew_collection_entries=2\nmatched=2\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=2\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nunmatched=0\nambiguous=0\nprimarykey_updates_available=2\nsample_matches:\n- Burial - Archangel\n  matched_by=artist_title_file\n  before=/Music/v1/archangel_128.mp3\n  after=/Music/v1/archangel_128.mp3\n- Burial - Archangel\n  matched_by=artist_title_file\n  before=/Music/v2/archangel_320.mp3\n  after=/Music/v2/archangel_320.mp3\n",
+    "stderr": "",
+    "output_files": {}
+  },
+  {
+    "argv": [
+      "scan-compare-candidates",
+      "corpus/moved_paths.nml",
+      "corpus",
+      "--limit",
+      "5"
+    ],
+    "exit_code": 0,
+    "stdout": "target=corpus\\moved_paths.nml\ncandidates_scanned=6\ntop_candidates:\n- path=corpus\\moved_paths.nml matched=1 ratio=1.0000 ambiguous=0 unmatched=0 audio_id=0 title_size_time=1 title_file=0 file_size_time=0 album_time=0 title_only=0\n- path=corpus\\duplicate_rips.nml matched=0 ratio=0.0000 ambiguous=0 unmatched=2 audio_id=0 title_size_time=0 title_file=0 file_size_time=0 album_time=0 title_only=0\n- path=corpus\\playlist_tree.nml matched=0 ratio=0.0000 ambiguous=0 unmatched=1 audio_id=0 title_size_time=0 title_file=0 file_size_time=0 album_time=0 title_only=0\n- path=corpus\\renamed_file.nml matched=0 ratio=0.0000 ambiguous=0 unmatched=1 audio_id=0 title_size_time=0 title_file=0 file_size_time=0 album_time=0 title_only=0\n- path=corpus\\sets_section.nml matched=0 ratio=0.0000 ambiguous=0 unmatched=1 audio_id=0 title_size_time=0 title_file=0 file_size_time=0 album_time=0 title_only=0\n",
+    "stderr": "",
+    "output_files": {}
+  },
+  {
+    "argv": [
+      "rewrite",
+      "corpus/moved_paths.nml",
+      "out/rewrite_out.nml",
+      "--old-volume",
+      "C:",
+      "--old-dir-prefix",
+      "/:Users/:dj/:Music/:",
+      "--new-volume",
+      "D:",
+      "--new-dir-prefix",
+      "/:Music/:"
+    ],
+    "exit_code": 0,
+    "stdout": "collection_locations_rewritten=1\nhistory_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_rewritten_directly=0\nprimarykeys_unchanged=0\noutput_written=out\\rewrite_out.nml\n",
+    "stderr": "",
+    "output_files": {
+      "out/rewrite_out.nml": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIiA/Pgo8Tk1MIFZFUlNJT049IjIwIj48SEVBRCBQUk9HUkFNPSJUcmFrdG9yIiBWRVJTSU9OPSIxIj48L0hFQUQ+PENPTExFQ1RJT04gRU5UUklFUz0iMSI+PEVOVFJZIE1PRElGSUVEX0RBVEU9IjIwMjQvMS8xIiBNT0RJRklFRF9USU1FPSIwIiBBVURJT19JRD0iIiBUSVRMRT0iWHRhbCIgQVJUSVNUPSJBcGhleCBUd2luIj48TE9DQVRJT04gRElSPSIvOk11c2ljLzoiIEZJTEU9Inh0YWwubXAzIiBWT0xVTUU9IkQ6IiBWT0xVTUVJRD0iRDoiPjwvTE9DQVRJT04+PElORk8gQklUUkFURT0iMzIwIiBQTEFZVElNRT0iMTgwIiBQTEFZVElNRV9GTE9BVD0iMTgwLjAiIEZJTEVTSVpFPSI0MDk2Ij48L0lORk8+PC9FTlRSWT4KPC9DT0xMRUNUSU9OPjxQTEFZTElTVFM+PE5PREUgVFlQRT0iRk9MREVSIiBOQU1FPSIkUk9PVCI+PFNVQk5PREVTIENPVU5UPSIwIj48L1NVQk5PREVTPjwvTk9ERT48L1BMQVlMSVNUUz48U0VUUz48L1NFVFM+PElOREVYSU5HPjwvSU5ERVhJTkc+PC9OTUw+"
+    }
+  },
+  {
+    "argv": [
+      "rewrite-from-collection-compare",
+      "corpus/renamed_file.nml",
+      "corpus/renamed_file.nml",
+      "out/compare_out.nml",
+      "--allow-artist-title-only"
+    ],
+    "exit_code": 0,
+    "stdout": "collection_locations_rewritten=0\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=1\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nunmatched=0\nambiguous=0\ndestination_collisions=0\nsample_matches:\n- Boards of Canada - Roygbiv\n  matched_by=artist_title_size_time\n  before=/Music/roygbiv_final.mp3\n  after=/Music/roygbiv_final.mp3\noutput_written=out\\compare_out.nml\n",
+    "stderr": "",
+    "output_files": {
+      "out/compare_out.nml": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIiA/Pgo8Tk1MIFZFUlNJT049IjIwIj48SEVBRCBQUk9HUkFNPSJUcmFrdG9yIiBWRVJTSU9OPSIxIj48L0hFQUQ+PENPTExFQ1RJT04gRU5UUklFUz0iMSI+PEVOVFJZIE1PRElGSUVEX0RBVEU9IjIwMjQvMS8xIiBNT0RJRklFRF9USU1FPSIwIiBBVURJT19JRD0iIiBUSVRMRT0iUm95Z2JpdiIgQVJUSVNUPSJCb2FyZHMgb2YgQ2FuYWRhIj48TE9DQVRJT04gRElSPSIvOk11c2ljLzoiIEZJTEU9InJveWdiaXZfZmluYWwubXAzIiBWT0xVTUU9IkM6IiBWT0xVTUVJRD0iQzoiPjwvTE9DQVRJT04+PElORk8gQklUUkFURT0iMzIwIiBQTEFZVElNRT0iMTgwIiBQTEFZVElNRV9GTE9BVD0iMTgwLjAiIEZJTEVTSVpFPSI0MDk2Ij48L0lORk8+PC9FTlRSWT4KPC9DT0xMRUNUSU9OPjxQTEFZTElTVFM+PE5PREUgVFlQRT0iRk9MREVSIiBOQU1FPSIkUk9PVCI+PFNVQk5PREVTIENPVU5UPSIwIj48L1NVQk5PREVTPjwvTk9ERT48L1BMQVlMSVNUUz48U0VUUz48L1NFVFM+PElOREVYSU5HPjwvSU5ERVhJTkc+PC9OTUw+"
+    }
+  }
+]

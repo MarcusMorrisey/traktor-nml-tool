@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+
+# Personal Traktor library fixture used for real-corpus tests.
+# Real personal data (artist/track/folder names) - never commit this.
+# Tests that use it skip gracefully when it's absent.
+/collection_textual_patch_test.nml
+
+# Local tag-read cache produced by scan-reconnect-candidates/rewrite-from-reconnect
+.traktor_nml_tagcache.json
