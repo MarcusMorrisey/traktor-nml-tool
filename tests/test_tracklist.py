@@ -68,6 +68,22 @@ def test_empty_half_is_unparseable() -> None:
     assert len(unparseable) == 1
 
 
+def test_leading_track_number_prefix_is_stripped() -> None:
+    text = "1 - Artist Name - Track Title\n"
+    parsed, unparseable = parse_tracklist(text)
+    assert unparseable == []
+    assert parsed[0].artist == "Artist Name"
+    assert parsed[0].title == "Track Title"
+
+
+def test_artist_starting_with_a_digit_is_not_treated_as_a_track_number() -> None:
+    text = "2Pac - California Love\n"
+    parsed, unparseable = parse_tracklist(text)
+    assert unparseable == []
+    assert parsed[0].artist == "2Pac"
+    assert parsed[0].title == "California Love"
+
+
 # exercises the per-line match_records call (DL-025): two identical lines
 # must resolve independently rather than collapsing onto one shared result
 def test_two_identical_lines_resolve_independently() -> None:

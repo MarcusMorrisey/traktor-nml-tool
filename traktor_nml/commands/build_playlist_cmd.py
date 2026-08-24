@@ -4,50 +4,49 @@ track list matched against a base collection."""
 from __future__ import annotations
 
 import argparse
-import csv
 import sys
 from pathlib import Path
 
 from ..buildplaylist import UnresolvedRow, assemble_output
-from ..rewrite import read_and_parse_source, write_bytes_atomically
+from ..rewrite import path_collides, read_and_parse_source, write_bytes_atomically, write_row_report
 
 
-def _write_unresolved_report(rows: list[UnresolvedRow], csv_path: Path | None) -> None:
+def _write_unresolved_report(rows: list[UnresolvedRow], csv_path: Path | None) -> str | None:
     # An unresolved report is always written, matching splice_cmd.py's own
-    # _write_conflict_report convention: a record of what a run could not
-    # resolve is kept whether or not the run itself aborted (DL-027, DL-034).
-    for row in rows:
-        print(f"unresolved line={row.line_number} kind={row.kind} text={row.raw_text!r}")
-    if csv_path is not None:
-        with csv_path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["line_number", "raw_text", "artist", "title", "kind"])
-            writer.writeheader()
-            for row in rows:
-                writer.writerow(
-                    {
-                        "line_number": row.line_number,
-                        "raw_text": row.raw_text,
-                        "artist": row.artist,
-                        "title": row.title,
-                        "kind": row.kind,
-                    }
-                )
-        print(f"unresolved_report_written={csv_path}")
+    # _write_conflict_report convention (both now go through the shared
+    # write_row_report): a record of what a run could not resolve is kept
+    # whether or not the run itself aborted (DL-027, DL-034).
+    return write_row_report(
+        rows,
+        csv_path,
+        fieldnames=["line_number", "raw_text", "artist", "title", "kind"],
+        to_dict=lambda row: {
+            "line_number": row.line_number,
+            "raw_text": row.raw_text,
+            "artist": row.artist,
+            "title": row.title,
+            "kind": row.kind,
+        },
+        print_line=lambda row: f"unresolved line={row.line_number} kind={row.kind} text={row.raw_text!r}",
+        label="unresolved",
+    )
 
 
 def _handle_build_playlist(args: argparse.Namespace) -> int:
-    # Refuses output == base or == tracklist, mirroring splice_cmd.py's own
-    # bespoke tuple-membership check for its multi-input shape (DL-033).
-    # --unresolved-report is checked against the same protected set: it is
-    # a second destination this run can write to, and a report path
-    # pointed at base or tracklist would truncate an input the run is
-    # supposed to leave untouched, on a run this command otherwise
+    # Refuses output == base or == tracklist, via the shared path_collides
+    # helper rather than write_nml_safely's extra_inputs, which exists only
+    # on the attribute-patching write path this span-assembly command does
+    # not use (DL-033). --unresolved-report is checked against base,
+    # tracklist, and output together: it is a second destination this run
+    # can write to, and a report path pointed at any of them would corrupt
+    # an input or the primary output, on a run this command otherwise
     # describes as writing nothing (DL-027).
-    protected = {args.base.resolve(), args.tracklist.resolve()}
-    if args.output.resolve() in protected:
+    if path_collides(args.output, args.base, args.tracklist):
         print("output_must_differ_from_input", file=sys.stderr)
         return 2
-    if args.unresolved_report is not None and args.unresolved_report.resolve() in protected | {args.output.resolve()}:
+    if args.unresolved_report is not None and path_collides(
+        args.unresolved_report, args.base, args.tracklist, args.output
+    ):
         print("unresolved_report_must_differ_from_input", file=sys.stderr)
         return 2
 
@@ -59,7 +58,10 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
 
     try:
         tracklist_bytes = args.tracklist.read_bytes()
-    except FileNotFoundError:
+    except OSError:
+        # OSError, not just FileNotFoundError: a directory or a
+        # permission-denied path must report the same clean diagnostic
+        # rather than an unhandled traceback.
         print(f"input_not_found={args.tracklist}", file=sys.stderr)
         return 2
 
@@ -82,7 +84,8 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
 
     for key, value in result.stats.items():
         print(f"{key}={value}")
-    _write_unresolved_report(result.unresolved_rows, args.unresolved_report)
+    if _write_unresolved_report(result.unresolved_rows, args.unresolved_report) is not None:
+        return 2
 
     if result.output is None:
         for error in result.errors:

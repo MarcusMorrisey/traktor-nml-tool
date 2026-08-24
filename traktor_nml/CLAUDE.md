@@ -9,7 +9,7 @@
 | `model.py`         | `LocationParts`/`RewriteRule`/`EntryRecord`, LOCATION/PRIMARYKEY parsing | Adding an identity field, changing LOCATION encode/decode  |
 | `xmlio.py`         | lxml/stdlib ET parsing wrapper                             | Changing how NML files are parsed or serialized            |
 | `textpatch.py`     | `apply_text_patches`/`ElemPatch` byte-preserving attribute writes | Changing how LOCATION/PRIMARYKEY attribute rewrites are applied |
-| `rewrite.py`       | Rule-based and compare-based rewrite patch collection, `write_nml_safely`; also `read_and_parse_source` and `write_bytes_atomically`, reusable read/write helpers other commands are expected to call | Modifying the rewrite/compare cascade or the write path    |
+| `rewrite.py`       | Rule-based and compare-based rewrite patch collection, `write_nml_safely`; also `read_and_parse_source`, `write_bytes_atomically`, `path_collides`, and `write_row_report`, reusable read/write/report helpers other commands are expected to call | Modifying the rewrite/compare cascade or the write path    |
 | `confidence.py`    | `MatchConfidence` ordered enum (strict/loose/filename)     | Adding a match tier or confidence level                    |
 | `matching.py`      | `record_keys`/`match_records` tiered match cascade         | Changing match-key tiers or ambiguity detection            |
 | `diskscan.py`      | Filesystem candidate scanning for reconnection             | Adding or changing disk-scan candidate discovery            |

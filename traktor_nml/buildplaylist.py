@@ -57,15 +57,23 @@ def _find_target_subnodes(base_root, base_source: str, target_folder: Optional[s
     the PLAYLISTS root NODE, matching DL-030's own wording ('anywhere in
     the PLAYLISTS tree') - a same-named FOLDER living outside PLAYLISTS
     (there is none in the confirmed schema, but nothing rules one out)
-    must never satisfy or falsely ambiguate this lookup. A base with no
-    PLAYLISTS section, root FOLDER, or SUBNODES element at all reports
+    must never satisfy or falsely ambiguate this lookup. target_folder
+    naming the root NODE's own NAME (conventionally "$ROOT") takes the
+    default-root path rather than the descendant search, so it behaves
+    the same as omitting --target-folder. A base with no PLAYLISTS
+    section, root FOLDER, or SUBNODES element at all reports
     no_root_subnodes, mirroring splice.py's own check for the identical
-    absence (DL-038)."""
+    absence (DL-038); a named folder that exists but has no SUBNODES
+    child of its own reports the distinct target_folder_no_subnodes."""
     playlists_root = base_root.find(".//PLAYLISTS/NODE")
     if playlists_root is None or playlists_root.find("SUBNODES") is None:
         return None, 0, "no_root_subnodes"
 
-    if target_folder is None:
+    # target_folder naming the root NODE's own NAME (conventionally "$ROOT")
+    # takes the same default-root path as omitting --target-folder: the
+    # descendant-only findall() below would otherwise never match the root
+    # NODE itself and wrongly report target_folder_not_found.
+    if target_folder is None or playlists_root.attrib.get("NAME", "") == target_folder:
         subnodes_span = find_element_span(base_source, "SUBNODES")
         if subnodes_span is None:
             return None, 0, "no_root_subnodes"
@@ -84,7 +92,9 @@ def _find_target_subnodes(base_root, base_source: str, target_folder: Optional[s
 
     folder_subnodes = matching_folders[0].find("SUBNODES")
     if folder_subnodes is None:
-        return None, 0, "no_root_subnodes"
+        # distinct from the whole-document no_root_subnodes case above: the
+        # named folder itself exists but is malformed, not absent
+        return None, 0, "target_folder_no_subnodes"
 
     span_index = SpanIndex(base_source, base_root)
     subnodes_span = span_index.span_of(folder_subnodes)

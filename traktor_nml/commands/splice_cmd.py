@@ -3,34 +3,33 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import sys
 from pathlib import Path
 
 from ..confidence import MatchConfidence, parse_match_confidence
 from ..splice import ConflictRow, assemble_output
-from ..rewrite import read_and_parse_source, write_bytes_atomically
+from ..rewrite import path_collides, read_and_parse_source, write_bytes_atomically, write_row_report
 
 
-def _write_conflict_report(rows: list[ConflictRow], csv_path: Path | None) -> None:
+def _write_conflict_report(rows: list[ConflictRow], csv_path: Path | None) -> str | None:
     # A conflict report is always written, even when --on-conflict resolves
     # every conflict, so an accepted override still leaves a record of what
-    # was dropped (DL-008).
-    for row in rows:
-        print(f"conflict_key={row.identity_key} attrs={row.attrs} resolution={row.resolution}")
-    if csv_path is not None:
-        with csv_path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(handle, fieldnames=["identity_key", "attrs", "resolution"])
-            writer.writeheader()
-            for row in rows:
-                writer.writerow({"identity_key": row.identity_key, "attrs": row.attrs, "resolution": row.resolution})
-        print(f"conflict_report_written={csv_path}")
+    # was dropped (DL-008). Shares write_row_report with build_playlist_cmd
+    # so the open/DictWriter/writeheader/writerow shape has one definition.
+    return write_row_report(
+        rows,
+        csv_path,
+        fieldnames=["identity_key", "attrs", "resolution"],
+        to_dict=lambda row: {"identity_key": row.identity_key, "attrs": row.attrs, "resolution": row.resolution},
+        print_line=lambda row: f"conflict_key={row.identity_key} attrs={row.attrs} resolution={row.resolution}",
+        label="conflict",
+    )
 
 
 def _handle_splice(args: argparse.Namespace) -> int:
     # Refuses output == any input path (the tool's existing dry-run
     # convention, extended here to every splice input, not just base).
-    if args.output.resolve() in {args.base.resolve(), *(p.resolve() for p in args.input)}:
+    if path_collides(args.output, args.base, *args.input):
         print("output_must_differ_from_input", file=sys.stderr)
         return 2
 
@@ -60,7 +59,8 @@ def _handle_splice(args: argparse.Namespace) -> int:
 
     for key, value in result.stats.items():
         print(f"{key}={value}")
-    _write_conflict_report(result.conflict_rows, args.conflict_report)
+    if _write_conflict_report(result.conflict_rows, args.conflict_report) is not None:
+        return 2
 
     if result.output is None:
         for error in result.errors:

@@ -268,6 +268,38 @@ def test_ambiguous_target_folder_name_aborts_no_output(tmp_path: Path) -> None:
     assert "target_folder_ambiguous=Dup:count=2" in result.stderr
 
 
+def test_target_folder_naming_the_root_behaves_like_the_default(tmp_path: Path) -> None:
+    base = tmp_path / "base.nml"
+    base.write_text(_nml(_entry("A", "One", "one.mp3"), 1, ""), encoding="utf-8", newline="")
+    tracklist = tmp_path / "tracks.txt"
+    tracklist.write_text("A - One\n", encoding="utf-8")
+    out = tmp_path / "out.nml"
+
+    result = run_tool(
+        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--target-folder", "$ROOT"],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 0
+    assert out.exists()
+
+
+def test_named_target_folder_with_no_subnodes_reports_distinct_error(tmp_path: Path) -> None:
+    base = tmp_path / "base.nml"
+    malformed_folder = '<NODE TYPE="FOLDER" NAME="Empty"></NODE>'
+    base.write_text(_nml(_entry("A", "One", "one.mp3"), 1, malformed_folder), encoding="utf-8", newline="")
+    tracklist = tmp_path / "tracks.txt"
+    tracklist.write_text("A - One\n", encoding="utf-8")
+    out = tmp_path / "out.nml"
+
+    result = run_tool(
+        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--target-folder", "Empty"],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 2
+    assert not out.exists()
+    assert "target_folder_no_subnodes" in result.stderr
+
+
 def test_output_path_resolving_to_base_or_tracklist_is_refused(tmp_path: Path) -> None:
     base = tmp_path / "base.nml"
     base.write_text(_nml(_entry("A", "One", "one.mp3"), 1, ""), encoding="utf-8", newline="")
@@ -303,6 +335,38 @@ def test_missing_tracklist_reports_input_not_found(tmp_path: Path) -> None:
     )
     assert result.exit_code == 2
     assert "input_not_found" in result.stderr
+
+
+def test_tracklist_path_pointing_at_a_directory_reports_input_not_found(tmp_path: Path) -> None:
+    base = tmp_path / "base.nml"
+    base.write_text(_nml(_entry("A", "One", "one.mp3"), 1, ""), encoding="utf-8", newline="")
+    tracklist_dir = tmp_path / "tracks.txt"
+    tracklist_dir.mkdir()
+    out = tmp_path / "out.nml"
+
+    result = run_tool(["build-playlist", str(base), str(tracklist_dir), str(out), "--name", "MyList"], cwd=tmp_path)
+    assert result.exit_code == 2
+    assert "input_not_found" in result.stderr
+
+
+def test_unresolved_report_path_with_missing_parent_dir_reports_write_error(tmp_path: Path) -> None:
+    base = tmp_path / "base.nml"
+    base.write_text(_nml(_entry("A", "One", "one.mp3"), 1, ""), encoding="utf-8", newline="")
+    tracklist = tmp_path / "tracks.txt"
+    tracklist.write_text("A - One\nB - Two\n", encoding="utf-8")
+    out = tmp_path / "out.nml"
+    bad_report_path = tmp_path / "does_not_exist" / "report.csv"
+
+    result = run_tool(
+        [
+            "build-playlist", str(base), str(tracklist), str(out),
+            "--name", "MyList", "--allow-unmatched", "--unresolved-report", str(bad_report_path),
+        ],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 2
+    assert "unresolved_report_write_error" in result.stderr
+    assert not out.exists()
 
 
 def test_empty_and_all_unparseable_and_all_unmatched_abort_with_no_output(tmp_path: Path) -> None:

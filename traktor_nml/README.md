@@ -110,11 +110,17 @@ every stricter tier unreachable (DL-032).
   `SUBNODES`, or an existing folder named by `--target-folder`; a named
   folder absent from the base aborts rather than being created, since a
   fabricated folder's `SORTING_INFO`/nesting semantics are unverified
-  against the one confirmed schema version (DL-030).
-- The external track-list parser splits each line on its first `" - "`
-  occurrence only, never a bare hyphen, and reports (rather than silently
-  mis-splits) any line without that delimiter, since a bare-hyphen split
-  would corrupt real artist/title text like "Jean-Michel" (DL-031).
+  against the one confirmed schema version (DL-030). `--target-folder`
+  naming the root folder's own name (conventionally `"$ROOT"`) resolves to
+  the same default-root path as omitting the flag, rather than aborting
+  with `target_folder_not_found`, since the root folder is a legitimate,
+  reachable target and not merely a fallback.
+- The external track-list parser strips a leading numeric track-number
+  prefix (`"1 - Artist - Title"`) before splitting, then splits the
+  remainder on its first `" - "` occurrence only, never a bare hyphen, and
+  reports (rather than silently mis-splits) any line without that
+  delimiter, since a bare-hyphen split would corrupt real artist/title
+  text like "Jean-Michel" (DL-031).
 - `build-playlist` calls the matching cascade at a fixed
   `MatchConfidence.LOOSE` with no `--match-confidence` flag, because a
   text-only track list carries only artist and title, making every tier
@@ -129,16 +135,17 @@ every stricter tier unreachable (DL-032).
   partial win while adding new matching-cascade code; deferred rather
   than built.
 - `build-playlist`'s output-path refusal covers the track-list path as
-  well as the base path, via a bespoke set-membership check mirroring
-  `splice_cmd.py`'s own multi-input collision check, not
-  `write_nml_safely`'s `extra_inputs` parameter (which exists only on
-  the attribute-patching write path this span-assembly command does not
-  use) (DL-033).
-- `build-playlist`'s unresolved-line report is written as CSV via
-  `csv.DictWriter` with a header row, `newline=""`, and UTF-8 encoding,
-  matching `splice_cmd.py`'s `_write_conflict_report` exactly rather than
-  adopting a second CSV convention for the same kind of artifact
-  (DL-034).
+  well as the base path, via `rewrite.path_collides`, a small shared
+  helper also used by `splice_cmd.py`, rather than `write_nml_safely`'s
+  `extra_inputs` parameter (which exists only on the attribute-patching
+  write path these span-assembly commands do not use) (DL-033).
+- `build-playlist`'s unresolved-line report is written through
+  `rewrite.write_row_report`, a shared helper (`csv.DictWriter`, header
+  row, `newline=""`, UTF-8 encoding) also used by `splice_cmd.py`'s
+  conflict report, rather than each command hand-rolling its own copy of
+  the same CSV shape; a write failure (e.g. the report path's parent
+  directory doesn't exist) is reported and exits 2 like every other
+  input/output error, instead of raising unhandled (DL-034).
 - `build-playlist` returns exit code 2 for both an input error (a
   malformed base, a missing track list) and an unresolved-track abort,
   rather than a distinct code per failure class, matching
@@ -159,7 +166,11 @@ every stricter tier unreachable (DL-032).
   root `FOLDER`, or `SUBNODES` element at all aborts with a
   `no_root_subnodes` error rather than synthesizing the missing
   structure, reusing the same error name `splice.py` already returns for
-  the identical failure mode (DL-038).
+  the identical failure mode (DL-038). A named `--target-folder` that
+  exists but has no `SUBNODES` child of its own reports the distinct
+  `target_folder_no_subnodes` instead, so the two failure modes (whole
+  document missing its PLAYLISTS structure vs. one malformed named
+  folder) are never conflated in the error a user sees.
 - `build-playlist`'s synthesized fragment is inserted exactly as
   `ET.tostring` serializes it (attribute quoting, empty-element
   shorthand, absence of extra whitespace), with no attempt to match the

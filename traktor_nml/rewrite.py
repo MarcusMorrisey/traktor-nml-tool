@@ -11,12 +11,13 @@ existing write commands share one read/print/write shell.
 
 from __future__ import annotations
 
+import csv
 import os
 import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Protocol
+from typing import Any, Callable, Iterable, Optional, Protocol, TypeVar
 
 from .confidence import MatchConfidence
 from .matching import KeyProvider, build_new_indexes, match_records
@@ -329,6 +330,55 @@ def write_bytes_atomically(output: Path, data: bytes) -> None:
         except OSError:
             pass
         raise
+
+
+def path_collides(candidate: Path, *protected: Path) -> bool:
+    """True if candidate resolves to any of protected. write_nml_safely's
+    own extra_inputs parameter covers this for the attribute-patching write
+    path; splice/split/build-playlist take the byte-span assembly path
+    instead and share this helper for their own output/report-path
+    collision refusals, resolving each protected path once per call rather
+    than each command re-deriving its own set-membership check."""
+    resolved = candidate.resolve()
+    return any(resolved == p.resolve() for p in protected)
+
+
+_Row = TypeVar("_Row")
+
+
+def write_row_report(
+    rows: Iterable[_Row],
+    csv_path: Optional[Path],
+    fieldnames: list[str],
+    to_dict: Callable[[_Row], dict[str, Any]],
+    print_line: Callable[[_Row], str],
+    label: str,
+) -> Optional[str]:
+    """Print each row via print_line, then - if csv_path is given - write
+    it as CSV (DictWriter, header row, newline="", UTF-8) and print
+    "{label}_report_written=path". Shared by splice_cmd.py and
+    build_playlist_cmd.py's conflict/unresolved reports, which otherwise
+    hand-roll the identical open/DictWriter/writeheader/writerow shape.
+    Returns None on success, or an already-stderr-printed error string if
+    csv_path's parent doesn't exist or the write otherwise fails - callers
+    return exit code 2 on a non-None result, matching every other
+    input/output error in these commands."""
+    rows = list(rows)
+    for row in rows:
+        print(print_line(row))
+    if csv_path is not None:
+        try:
+            with csv_path.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(to_dict(row))
+        except OSError as exc:
+            error = f"{label}_report_write_error={exc}"
+            print(error, file=sys.stderr)
+            return error
+        print(f"{label}_report_written={csv_path}")
+    return None
 
 
 def apply_and_write(source_bytes: bytes, patches: list[ElemPatch], output: Path) -> None:
