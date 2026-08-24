@@ -4,6 +4,7 @@
 
 | File               | What                                                       | When to read                                              |
 | ------------------ | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| `README.md`        | Architecture, design decisions, invariants, tradeoffs      | Understanding why the package is structured this way       |
 | `__init__.py`      | Package marker                                             | -                                                           |
 | `model.py`         | `LocationParts`/`RewriteRule`/`EntryRecord`, LOCATION/PRIMARYKEY parsing | Adding an identity field, changing LOCATION encode/decode  |
 | `xmlio.py`         | lxml/stdlib ET parsing wrapper                             | Changing how NML files are parsed or serialized            |

@@ -1,0 +1,36 @@
+# traktor-nml-tool
+
+A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.nml` collection files.
+
+## Files
+
+| File                    | What                                                        | When to read                                    |
+| ------------------------ | ------------------------------------------------------------ | ------------------------------------------------ |
+| `traktor_nml_tool.py`   | Thin argv-forwarding shim into the `traktor_nml` package    | Changing the CLI entry point itself             |
+| `README.md`             | User-facing overview, install, usage                         | Onboarding, understanding what the tool does    |
+| `TODO.md`                | Planned future work (replace-playlist, fuzzy matching, guided repair review) | Picking up or scoping a future feature          |
+| `LICENSE`                | GPL-2.0-only license text                                    | -                                                |
+| `pytest.ini`             | Pytest configuration                                          | Changing test discovery or markers              |
+| `.gitignore`             | Excludes caches, personal collection fixtures, tag cache      | Adding a new local-only artifact                |
+
+## Subdirectories
+
+| Directory      | What                                              | When to read                                          |
+| -------------- | -------------------------------------------------- | ------------------------------------------------------ |
+| `traktor_nml/` | The package: parsing, matching, rewrite/reconnect/splice/split/build-playlist cores, and CLI subcommands | Implementing or modifying any tool behavior           |
+| `tests/`       | Pytest suite, fixtures, and baseline-parity corpus | Adding or changing tests                               |
+| `docs/`        | Retained planning material and development context | Looking up why a past design decision was made         |
+
+## Build
+
+No build step; run directly with Python 3.10+.
+
+## Test
+
+```bash
+pytest tests/ -q
+```
+
+## Development
+
+See [README.md](README.md) for install instructions and [traktor_nml/README.md](traktor_nml/README.md) for architecture, design decisions, and invariants.
