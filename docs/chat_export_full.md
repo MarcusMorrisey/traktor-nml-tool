@@ -181,25 +181,25 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 ```
 1	#!/usr/bin/env python3
 2	"""Inspect and rewrite Traktor NML paths.
-3	
+3
 4	This tool is built around the path patterns observed in the local Traktor corpus:
-5	
+5
 6	- Main collection entries store paths in LOCATION/VOLUME, LOCATION/VOLUMEID, LOCATION/DIR, LOCATION/FILE
 7	- Playlist and some history entries store flattened references in PRIMARYKEY/KEY
 8	- PRIMARYKEY/KEY is derived as VOLUME + DIR + FILE
-9	
+9
 10	The rewrite flow is conservative:
-11	
+11
 12	1. Rewrite matching LOCATION elements
 13	2. Rebuild collection-derived primary key mappings
 14	3. Update PRIMARYKEY references from the mapping when possible
 15	4. Fall back to directly rewriting PRIMARYKEY values using the same rules
-16	
+16
 17	Write strategy — lxml text-patching vs. stdlib tree serialisation:
-18	
+18
 19	  Two write paths exist because they have fundamentally different fidelity
 20	  guarantees for Traktor NML files.
-21	
+21
 22	  lxml path (default when lxml is installed):
 23	    The source file is read as raw bytes.  lxml parses it and records the
 24	    source-line number of every element.  Only the attribute values that need
@@ -208,18 +208,18 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 27	    encoding declaration with standalone="no" — is preserved byte-for-byte.
 28	    This produces minimal diffs and avoids any risk that a serialiser's
 29	    formatting choices confuse Traktor or version-control tools.
-30	
+30
 31	  stdlib fallback (when lxml is absent):
 32	    The tree is mutated in-place and written back via ET.tostring.  This does
 33	    not preserve whitespace, attribute order, or the standalone="no" declaration
 34	    form, but is functionally correct for path substitution.
-35	
+35
 36	  The lxml path is preferred.  Do not remove it to simplify the code without
 37	  understanding that the stdlib path will silently change the file's formatting.
 38	"""
-39	
+39
 40	from __future__ import annotations
-41	
+41
 42	import argparse
 43	import csv
 44	import html
@@ -229,43 +229,43 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 48	from dataclasses import dataclass, field
 49	from pathlib import Path, PurePosixPath
 50	from typing import Iterable
-51	
+51
 52	# lxml provides two capabilities the stdlib ET cannot: source-line metadata on
 53	# every element (needed by apply_text_patches to locate the right tag in the raw
 54	# text) and whitespace-preserving parse/serialise (so round-trips don't reformat
 55	# the document).  See the module docstring for the full write-strategy rationale.
 56	try:
 57	    import lxml.etree as ET
-58	
+58
 59	    HAS_LXML = True
 60	    _XML_PARSE_ERROR = ET.XMLSyntaxError
 61	except ImportError:  # pragma: no cover - fallback for environments without lxml
 62	    import xml.etree.ElementTree as ET
-63	
+63
 64	    HAS_LXML = False
 65	    _XML_PARSE_ERROR = ET.ParseError
-66	
-67	
+66
+67
 68	@dataclass(frozen=True)
 69	class LocationParts:
 70	    volume: str
 71	    volumeid: str
 72	    dir_value: str
 73	    file_name: str
-74	
+74
 75	    @property
 76	    def primary_key(self) -> str:
 77	        return f"{self.volume}{self.dir_value}{self.file_name}"
-78	
+78
 79	    @property
 80	    def decoded_dir(self) -> PurePosixPath:
 81	        return decode_traktor_dir(self.dir_value)
-82	
+82
 83	    @property
 84	    def decoded_path(self) -> PurePosixPath:
 85	        return self.decoded_dir / self.file_name
-86	
-87	
+86
+87
 88	@dataclass(frozen=True)
 89	class RewriteRule:
 90	    old_volume: str
@@ -273,10 +273,10 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 92	    new_volume: str
 93	    new_dir_prefix: str
 94	    new_volumeid: str | None = None
-95	
+95
 96	    def matches(self, loc: LocationParts) -> bool:
 97	        return loc.volume == self.old_volume and loc.dir_value.startswith(self.old_dir_prefix)
-98	
+98
 99	    def apply(self, loc: LocationParts) -> LocationParts:
 100	        suffix = loc.dir_value[len(self.old_dir_prefix) :]
 101	        return LocationParts(
@@ -285,8 +285,8 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 104	            dir_value=f"{self.new_dir_prefix}{suffix}",
 105	            file_name=loc.file_name,
 106	        )
-107	
-108	
+107
+108
 109	@dataclass
 110	class EntryRecord:
 111	    entry: ET.Element
@@ -299,50 +299,50 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 118	    album: str
 119	    file_name: str
 120	    location: LocationParts
-121	
+121
 122	    @property
 123	    def primary_key(self) -> str:
 124	        return self.location.primary_key
-125	
-126	
+125
+126
 127	@dataclass
 128	class ElemPatch:
 129	    sourceline: int
 130	    tag_name: str
 131	    locator: tuple[tuple[str, str], ...]
 132	    changes: list[tuple[str, str, str]] = field(default_factory=list)  # (attr, old, new)
-133	
-134	
+133
+134
 135	XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n'
-136	
-137	
+136
+137
 138	def parse_xml(path: Path):
 139	    if HAS_LXML:
 140	        parser = ET.XMLParser(remove_blank_text=False, strip_cdata=False, recover=False)
 141	        return ET.parse(str(path), parser)
 142	    return ET.parse(path)
-143	
-144	
+143
+144
 145	def decode_traktor_dir(dir_value: str) -> PurePosixPath:
 146	    if not dir_value or dir_value == "/:":
 147	        return PurePosixPath("/")
-148	
+148
 149	    trimmed = dir_value
 150	    if trimmed.startswith("/:"):
 151	        trimmed = trimmed[2:]
 152	    if trimmed.endswith("/:"):
 153	        trimmed = trimmed[:-2]
-154	
+154
 155	    parts = [part for part in trimmed.split("/:") if part]
 156	    return PurePosixPath("/") / PurePosixPath(*parts)
-157	
-158	
+157
+158
 159	def encode_traktor_dir(path_value: str) -> str:
 160	    normalized = path_value.replace("\\", "/").strip()
 161	    parts = [part for part in normalized.split("/") if part]
 162	    return "/:" + "/:".join(parts) + "/:"
-163	
-164	
+163
+164
 165	def normalize_dir_prefix(value: str) -> str:
 166	    stripped = value.strip()
 167	    if "/:" in stripped:
@@ -352,8 +352,8 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 171	            stripped = stripped.rstrip("/") + "/:"
 172	        return stripped
 173	    return encode_traktor_dir(stripped)
-174	
-175	
+174
+175
 176	def parse_location_element(elem: ET.Element) -> LocationParts:
 177	    return LocationParts(
 178	        volume=elem.attrib.get("VOLUME", ""),
@@ -361,8 +361,8 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 180	        dir_value=elem.attrib.get("DIR", ""),
 181	        file_name=elem.attrib.get("FILE", ""),
 182	    )
-183	
-184	
+183
+184
 185	def collection_records(root: ET.Element) -> list[EntryRecord]:
 186	    records: list[EntryRecord] = []
 187	    for entry in collection_entries(root):
@@ -386,8 +386,8 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 205	            )
 206	        )
 207	    return records
-208	
-209	
+208
+209
 210	def location_rows(entries: list[ET.Element]) -> list[dict[str, str]]:
 211	    rows: list[dict[str, str]] = []
 212	    for entry in entries:
@@ -6281,21 +6281,21 @@ Now updating the plan to reflect all four decisions.
 **[TOOL RESULT]**
 ```
 1	# Implementation Plan: Generalized Path Reconnection + Splice/Split for `traktor_nml_tool.py`
-2	
+2
 3	## Phase 0 — Shared groundwork (do first, opportunistically — not a hard blocker)
-4	
+4
 5	Three refactors, each already justified by duplication that exists in the code today:
-6	
+6
 7	1. **Widen `EntryRecord.entry` to `ET.Element | None`.** Audit every call site that dereferences `.entry` (`record_label`, `_collect_compare_patches`, `_collect_rewrite_patches`) so entry-less records are only ever used on the "candidate" side of matching, never the "being-written" side.
 8	2. **Unify `_process_non_collection_rule_entries` and `_process_non_collection_compare_entries`** into one cascade helper parameterized by a `resolve(old_key_or_loc) -> Optional[NewTarget]` callable — verified line-by-line (793-850 vs 852-888) to be structurally identical modulo the resolution function.
 9	3. **Unify `cmd_rewrite`/`cmd_rewrite_from_collection_compare`'s** read-bytes/HAS_LXML-branch/patch-collect/write skeleton into one `write_nml_safely` helper, scoped strictly to today's 1-in/1-out shape. Expect this helper to need a second revision once Phase 2 lands (splice is N-in/1-out, split is 1-in/N-out) — that's a planned future touch-point, not a sign Phase 0 was mis-scoped.
-10	
+10
 11	Validate each extraction by diffing `rewrite`/`rewrite-from-collection-compare` output bytes against pre-refactor output — must be identical.
-12	
+12
 13	## Phase 1 — Generalized disk-scan path reconnection
-14	
+14
 15	New subcommand pair following the existing `scan-compare-candidates` → `rewrite-from-collection-compare` naming pattern (e.g. `scan-reconnect-candidates` + `rewrite-from-reconnect`):
-16	
+16
 17	- `DiskCandidate`/`TagReadResult` (mutagen-based) + `index_scan_roots()` walking repeatable `--scan-root` paths, deduped by resolved absolute path.
 18	- `disk_candidate_to_entry_record()` wraps each readable file as an `EntryRecord` with `entry=None`, populated from tags (artist/title/album/filesize/playtime/bitrate/file_name). AUDIO_ID can never be populated this way — it's a Traktor-internal fingerprint, not a standard tag — so disk-side records structurally never hit that top match tier.
 19	- Feed disk records as the `new_records` side of the **existing, unmodified** `match_records`/`record_keys` cascade. Reuse `_collect_compare_patches` + the (Phase-0-unified) cascade helper + `apply_text_patches`/`_apply_and_write` completely unchanged for writing — this is the load-bearing reuse insight: no modification to the matching or write core is required, only additive code.
@@ -6304,25 +6304,25 @@ Now updating the plan to reflect all four decisions.
 22	- **Scope decision to flag explicitly**: ship tag-reading (mutagen) in v1; treat acoustic fingerprinting (chromaprint/AcoustID) as a separate, later, optional-dependency-gated addition, matching the existing `HAS_LXML`-style import-guard convention. This is a real scope/dependency fork, not a detail.
 23	- **CLI/flag consistency note**: a shared `--match-confidence {strict,loose,filename}`-style enum would be cleaner than a proliferation of booleans — but only actually resolves CLI coherence if it also supersedes the existing `--allow-artist-title-only` on `preview-compare`/`rewrite-from-collection-compare` (as a backward-compatible alias), not just applied to the new command alone. Worth deciding explicitly before implementation, since introducing a second, differently-shaped "loosen the match" mechanism would make the tool feel less coherent, not more.
 24	- Ambiguous/unmatched cases extend the existing `match_records` stats and get CSV export via the existing `location_rows`/`csv.DictWriter` pattern — never silently resolved.
-25	
+25
 26	## Phase 2 — Splice and split (independent command surface, ships second)
-27	
+27
 28	**Splice** (`splice <input1> <input2> [...] --output OUT`):
 29	- Identity/dedup built on the existing `record_keys` tier ordering (AUDIO_ID first) — note this reuses the tier *function*, not `match_records` itself, since splice needs N-way grouping rather than pairwise old-vs-new comparison.
 30	- Default conflict policy `keep-first` — a usability trade-off (most merges have few true conflicts), not a strict safety-maximizing choice. `fail` is the more conservative option under "never silently corrupt" and should be recommended to any user wanting zero-guessing behavior. Every non-key attribute divergence is reported regardless of policy, so the risk of `keep-first` is bounded to "silently picks a side," never "silently hides that a conflict happened."
 31	- Write mechanism: a **new, additive primitive**, not an `ElemPatch` extension — non-base entries are serialized via `ET.tostring()` and spliced into the base file's raw text before `</COLLECTION>`; base-native entries stay fully byte-untouched. This is an explicit, accepted fidelity trade-off: splice cannot be 100% byte-preserving for foreign entries, unlike every other operation in this tool.
 32	- PRIMARYKEY is never invented, only redirected: conflict-losers' playlist/history references get rewritten to the winner's key via the existing `old_to_new_key` + cascade-redirect idiom.
-33	
+33
 34	**Split** (`split <input> --group OUTPUT FILTER [--group OUTPUT FILTER ...]`):
 35	- Small composable filter clauses (`folder:`, `playlist:`, `artist:`/`artist~`, date ranges, explicit entry lists) evaluated per group over `collection_records`.
 36	- Dangling-reference policy is explicit and user-facing: default `exclude` (drop non-selected refs — always yields a valid file, never duplicates audio); `pull-in` (opt-in only, explicitly documented as reintroducing cross-output divergence risk); `fail` (strict validation). A playlist reduced to zero kept entries is omitted from output entirely (not written empty), reported as `playlist_dropped=<name>`; partially-kept playlists are always reported as `playlist_partial=<name>:<kept>/<total>` — never silent.
 37	- Write mechanism: also a new, additive primitive, but near-100% byte-preserving (unlike splice) — kept entries and playlist-child spans are pure byte-range concatenations from the single source file.
 38	- **Unresolved and flagged, not guessed**: the exact tag/attribute names for history containers and any playlist-entry-count attribute are absent from this source file (confirmed by direct search — the code only ever uses generic `.//PLAYLIST/ENTRY` and `.//ENTRY` XPath, never naming a concrete history tag). This must be confirmed against a real NML sample before implementation.
-39	
+39
 40	## Why this order
-41	
+41
 42	Phase 1 reuses the existing compare-based matching and write path essentially unchanged — it's additive, not a modification of shared internals, so it doesn't strictly require Phase 0 first. Phase 2 is architecturally harder: both splice and split need a genuinely new structural write primitive (insert/remove whole elements) since the existing `apply_text_patches` is attribute-substitution only — this was independently arrived at by reasoning about the write mechanism and reasoning about existing code risk, which is a meaningful cross-check. Building Phase 1 first exercises and hardens the shared write path against one new consumer before Phase 2 asks it to support a fundamentally different (multi-document) shape.
-43	
+43
 44	## Open items requiring a decision before/during implementation
 45	- Tag-reading (mutagen) vs. acoustic fingerprinting scope for v1 of Phase 1.
 46	- Whether to unify `--allow-artist-title-only` and any new confidence flag into one enum across old and new co
@@ -6434,21 +6434,21 @@ Keep the existing text-patching invariant: reconnection writes must change only 
 **[TOOL RESULT]**
 ```
 1	# Implementation Plan: Generalized Path Reconnection + Splice/Split for `traktor_nml_tool.py`
-2	
+2
 3	## Phase 0 — Shared groundwork (do first, opportunistically — not a hard blocker)
-4	
+4
 5	Three refactors, each already justified by duplication that exists in the code today:
-6	
+6
 7	1. **Widen `EntryRecord.entry` to `ET.Element | None`.** Audit every call site that dereferences `.entry` (`record_label`, `_collect_compare_patches`, `_collect_rewrite_patches`) so entry-less records are only ever used on the "candidate" side of matching, never the "being-written" side.
 8	2. **Unify `_process_non_collection_rule_entries` and `_process_non_collection_compare_entries`** into one cascade helper parameterized by a `resolve(old_key_or_loc) -> Optional[NewTarget]` callable — verified line-by-line (793-850 vs 852-888) to be structurally identical modulo the resolution function.
 9	3. **Unify `cmd_rewrite`/`cmd_rewrite_from_collection_compare`'s** read-bytes/HAS_LXML-branch/patch-collect/write skeleton into one `write_nml_safely` helper, scoped strictly to today's 1-in/1-out shape. Expect this helper to need a second revision once Phase 2 lands (splice is N-in/1-out, split is 1-in/N-out) — that's a planned future touch-point, not a sign Phase 0 was mis-scoped.
-10	
+10
 11	Validate each extraction by diffing `rewrite`/`rewrite-from-collection-compare` output bytes against pre-refactor output — must be identical.
-12	
+12
 13	## Phase 1 — Generalized disk-scan path reconnection
-14	
+14
 15	New subcommand pair following the existing `scan-compare-candidates` → `rewrite-from-collection-compare` naming pattern (e.g. `scan-reconnect-candidates` + `rewrite-from-reconnect`):
-16	
+16
 17	- `DiskCandidate`/`TagReadResult` (mutagen-based) + `index_scan_roots()` walking repeatable `--scan-root` paths, deduped by resolved absolute path.
 18	- `disk_candidate_to_entry_record()` wraps each readable file as an `EntryRecord` with `entry=None`, populated from tags (artist/title/album/filesize/playtime/bitrate/file_name). AUDIO_ID can never be populated this way — it's a Traktor-internal fingerprint, not a standard tag — so disk-side records structurally never hit that top match tier.
 19	- Feed disk records as the `new_records` side of the **existing, unmodified** `match_records`/`record_keys` cascade. Reuse `_collect_compare_patches` + the (Phase-0-unified) cascade helper + `apply_text_patches`/`_apply_and_write` completely unchanged for writing — this is the load-bearing reuse insight: no modification to the matching or write core is required, only additive code.
@@ -6457,15 +6457,15 @@ Keep the existing text-patching invariant: reconnection writes must change only 
 22	- **Scope decision (confirmed): tags + acoustic fingerprinting in v1.** Ship mutagen-based tag reading as the primary signal, and additionally compute an acoustic fingerprint (e.g. via chromaprint/AcoustID) for candidates as a higher-confidence check — used both to resolve cases where tags are missing/stripped/edited and to add a top-tier match key stronger than tag-based fields. Both dependencies are gated behind an import-guard matching the existing `HAS_LXML` convention, so the tool still runs (with reduced matching power / a clear error) if either is absent. Fingerprinting adds real cost (slower scans, a heavier dependency) — the cache design below is therefore load-bearing, not optional, for this scope.
 23	- **CLI/flag design (confirmed): unify into one enum.** Introduce a shared `--match-confidence {strict,loose,filename}`-style enum used by both the new disk-scan command and the existing `preview-compare`/`rewrite-from-collection-compare` commands. `--allow-artist-title-only` becomes a backward-compatible alias for the `loose` value on those existing commands (parsed and mapped internally, still accepted on the command line) rather than being replaced outright — this is a small, deliberate migration touching existing commands, not just new-command scope.
 24	- Ambiguous/unmatched cases extend the existing `match_records` stats and get CSV export via the existing `location_rows`/`csv.DictWriter` pattern — never silently resolved.
-25	
+25
 26	## Phase 2 — Splice and split (independent command surface, ships second)
-27	
+27
 28	**Splice** (`splice <input1> <input2> [...] --output OUT`):
 29	- Identity/dedup built on the existing `record_keys` tier ordering (AUDIO_ID first) — note this reuses the tier *function*, not `match_records` itself, since splice needs N-way grouping rather than pairwise old-vs-new comparison.
 30	- Default conflict policy `keep-first` — a usability trade-off (most merges have few true conflicts), not a strict safety-maximizing choice. `fail` is the more conservative option under "never silently corrupt" and should be recommended to any user wanting zero-guessing behavior. Every non-key attribute divergence is reported regardless of policy, so the risk of `keep-first` is bounded to "silently picks a side," never "silently hides that a conflict happened."
 31	- Write mechanism: a **new, additive primitive**, not an `ElemPatch` extension — non-base entries are serialized via `ET.tostring()` and spliced into the base file's raw text before `</COLLECTION>`; base-native entries stay fully byte-untouched. This is an explicit, accepted fidelity trade-off: splice cannot be 100% byte-preserving for foreign entries, unlike every other operation in this tool.
 32	- PRIMARYKEY is never invented, only redirected: conflict-losers' playlist references get rewritten to the winner's key via the existing `old_to_new_key` + cascade-redirect idiom. (History entries are out of scope for v1 — see the History scope note under Split below, which applies equally to splice.)
-33	
+33
 34	**Split** (`split <input> --group OUTPUT PLAYLIST [--group OUTPUT PLAYLIST ...]`):
 35	- **Filter scope (confirmed, simplified): named playlist(s) only** — each `--group` names one or more existing playlists (by path/name) whose entries go to that output, rather than a general folder/artist/date/entry-list clause language. This is a deliberate simplification over the original "arbitrary filter" framing: it trades away folder-prefix, artist, date-range, and explicit-entry-list selection in exchange for a much smaller, easier-to-specify and easier-to-implement filter surface. Multiple playlists can be assigned to one `--group` (their entries are unioned); a playlist can appear in more than one group's list if the user wants overlapping outputs.
 36	- Dangling-reference policy is explicit and user-facing: default `exclude` (drop non-selected refs — always yields a valid file, never duplicates audio); `pull-in` (opt-in only, explicitly documented as reintroducing cross-output divergence risk); `fail` (strict validation). A playlist reduced to zero kept entries is omitted from output entirely (not written empty), reported as `playlist_dropped=<name>`; partially-kept playlists are always reported as `playlist_partial=<name>:<kept>/<total>` — never silent. Note that with the named-playlist filter scope, "partial" now only arises when a referenced *other* playlist's entries partially overlap the group's own named playlists — the common case (a group is exactly the entries of its named playlists) is always fully included, not partial.
@@ -6548,25 +6548,25 @@ The file C:\ClaudeProjects\claude_design_PCFS\claude-config\traktor_nml_tool_pla
 **[TOOL RESULT]**
 ```
 1	# Implementation Plan: Generalized Path Reconnection + Splice/Split for `traktor_nml_tool.py`
-2	
+2
 3	## Phase 0 — Shared groundwork (do first, opportunistically — not a hard blocker)
-4	
+4
 5	Three refactors, each already justified by duplication that exists in the code today:
-6	
+6
 7	1. **Widen `EntryRecord.entry` to `ET.Element | None`.** Audit every call site that dereferences `.entry` (`record_label`, `_collect_compare_patches`, `_collect_rewrite_patches`) so entry-less records are only ever used on the "candidate" side of matching, never the "being-written" side.
 8	2. **Unify `_process_non_collection_rule_entries` and `_process_non_collection_compare_entries`** into one cascade helper parameterized by a `resolve(old_key_or_loc) -> Optional[NewTarget]` callable — verified line-by-line (793-850 vs 852-888) to be structurally identical modulo the resolution function.
 9	3. **Unify `cmd_rewrite`/`cmd_rewrite_from_collection_compare`'s** read-bytes/HAS_LXML-branch/patch-collect/write skeleton into one `write_nml_safely` helper, scoped strictly to today's 1-in/1-out shape. Expect this helper to need a second revision once Phase 2 lands (splice is N-in/1-out, split is 1-in/N-out) — that's a planned future touch-point, not a sign Phase 0 was mis-scoped.
-10	
+10
 11	Validate each extraction by diffing `rewrite`/`rewrite-from-collection-compare` output bytes against pre-refactor output — must be identical.
-12	
+12
 13	**Phase 0 acceptance criteria**: `rewrite` and `rewrite-from-collection-compare` produce byte-identical output before and after each extraction, run against the existing fixture corpus plus at least one real-world-sized NML; no new CLI flags or behavior are introduced in this phase.
-14	
+14
 15	## Phase 1 — Generalized disk-scan path reconnection
-16	
+16
 17	**Hard invariant, unchanged from the existing tool**: reconnection writes only ever change the intended `LOCATION` and `PRIMARYKEY` attribute values via the existing `apply_text_patches` mechanism. Every other byte of the source file — whitespace, attribute order, unrelated elements — is preserved exactly. Nothing in this phase introduces a second write path; disk-scan reconnection is a new *candidate source* feeding the same attribute-patch pipeline `rewrite-from-collection-compare` already uses.
-18	
+18
 19	New subcommand pair following the existing `scan-compare-candidates` → `rewrite-from-collection-compare` naming pattern (e.g. `scan-reconnect-candidates` + `rewrite-from-reconnect`):
-20	
+20
 21	- `DiskCandidate`/`TagReadResult` (mutagen-based) + `index_scan_roots()` walking repeatable `--scan-root` paths, deduped by resolved absolute path.
 22	- `disk_candidate_to_entry_record()` wraps each readable file as an `EntryRecord` with `entry=None`, populated from tags (artist/title/album/filesize/playtime/bitrate/file_name). AUDIO_ID can never be populated this way — it's a Traktor-internal fingerprint, not a standard tag — so disk-side records structurally never hit that top match tier.
 23	- Feed disk records as the `new_records` side of the **existing, unmodified** `match_records`/`record_keys` cascade. Reuse `_collect_compare_patches` + the (Phase-0-unified) cascade helper + `apply_text_patches`/`_apply_and_write` completely unchanged for writing — this is the load-bearing reuse insight: no modification to the matching or write core is required, only additive code.
@@ -6939,25 +6939,25 @@ There's a local corpus. Let me actually inspect it for playlist/history schema, 
 **[TOOL RESULT]**
 ```
 1	# Implementation Plan: Generalized Path Reconnection + Splice/Split for `traktor_nml_tool.py`
-2	
+2
 3	## Phase 0 — Shared groundwork (do first, opportunistically — not a hard blocker)
-4	
+4
 5	Three refactors, each already justified by duplication that exists in the code today:
-6	
+6
 7	1. **Widen `EntryRecord.entry` to `ET.Element | None`.** Audit every call site that dereferences `.entry` (`record_label`, `_collect_compare_patches`, `_collect_rewrite_patches`) so entry-less records are only ever used on the "candidate" side of matching, never the "being-written" side.
 8	2. **Unify `_process_non_collection_rule_entries` and `_process_non_collection_compare_entries`** into one cascade helper parameterized by a `resolve(old_key_or_loc) -> Optional[NewTarget]` callable — verified line-by-line (793-850 vs 852-888) to be structurally identical modulo the resolution function.
 9	3. **Unify `cmd_rewrite`/`cmd_rewrite_from_collection_compare`'s** read-bytes/HAS_LXML-branch/patch-collect/write skeleton into one `write_nml_safely` helper, scoped strictly to today's 1-in/1-out shape. Expect this helper to need a second revision once Phase 2 lands (splice is N-in/1-out, split is 1-in/N-out) — that's a planned future touch-point, not a sign Phase 0 was mis-scoped.
-10	
+10
 11	Validate each extraction by diffing `rewrite`/`rewrite-from-collection-compare` output bytes against pre-refactor output — must be identical.
-12	
+12
 13	**Phase 0 acceptance criteria**: `rewrite` and `rewrite-from-collection-compare` produce byte-identical output before and after each extraction, run against the existing fixture corpus plus at least one real-world-sized NML; no new CLI flags or behavior are introduced in this phase.
-14	
+14
 15	## Phase 1 — Generalized disk-scan path reconnection
-16	
+16
 17	**Hard invariant, unchanged from the existing tool**: reconnection writes only ever change the intended `LOCATION` and `PRIMARYKEY` attribute values via the existing `apply_text_patches` mechanism. Every other byte of the source file — whitespace, attribute order, unrelated elements — is preserved exactly. Nothing in this phase introduces a second write path; disk-scan reconnection is a new *candidate source* feeding the same attribute-patch pipeline `rewrite-from-collection-compare` already uses.
-18	
+18
 19	New subcommand pair following the existing `scan-compare-candidates` → `rewrite-from-collection-compare` naming pattern (e.g. `scan-reconnect-candidates` + `rewrite-from-reconnect`):
-20	
+20
 21	- `DiskCandidate`/`TagReadResult` (mutagen-based) + `index_scan_roots()` walking repeatable `--scan-root` paths, deduped by resolved absolute path.
 22	- `disk_candidate_to_entry_record()` wraps each readable file as an `EntryRecord` with `entry=None`, populated from tags (artist/title/album/filesize/playtime/bitrate/file_name). AUDIO_ID can never be populated this way — it's a Traktor-internal fingerprint, not a standard tag — so disk-side records structurally never hit that top match tier.
 23	- Feed disk records as the `new_records` side of the **existing, unmodified** `match_records`/`record_keys` cascade. Reuse `_collect_compare_patches` + the (Phase-0-unified) cascade helper + `apply_text_patches`/`_apply_and_write` completely unchanged for writing — this is the load-bearing reuse insight: no modification to the matching or write core is required, only additive code.
@@ -7064,25 +7064,25 @@ Phase 2 splice/split needs one revision first: define the exact playlist-import 
 **[TOOL RESULT]**
 ```
 1	# Implementation Plan: Generalized Path Reconnection + Splice/Split for `traktor_nml_tool.py`
-2	
+2
 3	## Phase 0 — Shared groundwork (do first, opportunistically — not a hard blocker)
-4	
+4
 5	Three refactors, each already justified by duplication that exists in the code today:
-6	
+6
 7	1. **Widen `EntryRecord.entry` to `ET.Element | None`.** Audit every call site that dereferences `.entry` (`record_label`, `_collect_compare_patches`, `_collect_rewrite_patches`) so entry-less records are only ever used on the "candidate" side of matching, never the "being-written" side.
 8	2. **Unify `_process_non_collection_rule_entries` and `_process_non_collection_compare_entries`** into one cascade helper parameterized by a `resolve(old_key_or_loc) -> Optional[NewTarget]` callable — verified line-by-line (793-850 vs 852-888) to be structurally identical modulo the resolution function.
 9	3. **Unify `cmd_rewrite`/`cmd_rewrite_from_collection_compare`'s** read-bytes/HAS_LXML-branch/patch-collect/write skeleton into one `write_nml_safely` helper, scoped strictly to today's 1-in/1-out shape. Expect this helper to need a second revision once Phase 2 lands (splice is N-in/1-out, split is 1-in/N-out) — that's a planned future touch-point, not a sign Phase 0 was mis-scoped.
-10	
+10
 11	Validate each extraction by diffing `rewrite`/`rewrite-from-collection-compare` output bytes against pre-refactor output — must be identical.
-12	
+12
 13	**Phase 0 acceptance criteria**: `rewrite` and `rewrite-from-collection-compare` produce byte-identical output before and after each extraction, run against the existing fixture corpus plus at least one real-world-sized NML; no new CLI flags or behavior are introduced in this phase.
-14	
+14
 15	## Phase 1 — Generalized disk-scan path reconnection
-16	
+16
 17	**Hard invariant, unchanged from the existing tool**: reconnection writes only ever change the intended `LOCATION` and `PRIMARYKEY` attribute values via the existing `apply_text_patches` mechanism. Every other byte of the source file — whitespace, attribute order, unrelated elements — is preserved exactly. Nothing in this phase introduces a second write path; disk-scan reconnection is a new *candidate source* feeding the same attribute-patch pipeline `rewrite-from-collection-compare` already uses.
-18	
+18
 19	New subcommand pair following the existing `scan-compare-candidates` → `rewrite-from-collection-compare` naming pattern (e.g. `scan-reconnect-candidates` + `rewrite-from-reconnect`):
-20	
+20
 21	- `DiskCandidate`/`TagReadResult` (mutagen-based) + `index_scan_roots()` walking repeatable `--scan-root` paths, deduped by resolved absolute path.
 22	- `disk_candidate_to_entry_record()` wraps each readable file as an `EntryRecord` with `entry=None`, populated from tags (artist/title/album/filesize/playtime/bitrate/file_name). AUDIO_ID can never be populated this way — it's a Traktor-internal fingerprint, not a standard tag — so disk-side records structurally never hit that top match tier.
 23	- Feed disk records as the `new_records` side of the **existing, unmodified** `match_records`/`record_keys` cascade. Reuse `_collect_compare_patches` + the (Phase-0-unified) cascade helper + `apply_text_patches`/`_apply_and_write` completely unchanged for writing — this is the load-bearing reuse insight: no modification to the matching or write core is required, only additive code.
@@ -7298,102 +7298,102 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 **[TOOL RESULT]**
 ```
 1	# Plan Format
-2	
+2
 3	Write your plan using this structure:
-4	
+4
 5	```markdown
 6	# [Plan Title]
-7	
+7
 8	## Overview
-9	
+9
 10	[Problem statement, chosen approach, and key decisions in 1-2 paragraphs]
-11	
+11
 12	## Planning Context
-13	
+13
 14	This section is consumed VERBATIM by downstream agents (Technical Writer,
 15	Quality Reviewer). Quality matters: vague entries here produce poor annotations
 16	and missed risks.
-17	
+17
 18	### Decision Log
-19	
+19
 20	| Decision           | Reasoning Chain                                              |
 21	| ------------------ | ------------------------------------------------------------ |
 22	| [What you decided] | [Multi-step reasoning: premise -> implication -> conclusion] |
-23	
+23
 24	Each rationale must contain at least 2 reasoning steps. Single-step rationales
 25	are insufficient.
-26	
+26
 27	INSUFFICIENT: "Polling over webhooks | Webhooks are unreliable" SUFFICIENT:
 28	"Polling over webhooks | Third-party API has 30% webhook delivery failure in
 29	testing -> unreliable delivery would require fallback polling anyway -> simpler
 30	to use polling as primary mechanism"
-31	
+31
 32	INSUFFICIENT: "500ms timeout | Matches upstream latency" SUFFICIENT: "500ms
 33	timeout | Upstream 95th percentile is 450ms -> 500ms covers 95% of requests
 34	without timeout -> remaining 5% should fail fast rather than queue"
-35	
+35
 36	Include BOTH architectural decisions AND implementation-level micro-decisions:
-37	
+37
 38	- Architectural: "Event sourcing over CRUD | Need audit trail + replay
 39	  capability -> CRUD would require separate audit log -> event sourcing provides
 40	  both natively"
 41	- Implementation: "Mutex over channel | Single-writer case -> channel
 42	  coordination adds complexity without benefit -> mutex is simpler with
 43	  equivalent safety"
-44	
+44
 45	Technical Writer sources ALL code comments from this table. If a micro-decision
 46	isn't here, TW cannot document it.
-47	
+47
 48	### Rejected Alternatives
-49	
+49
 50	| Alternative          | Why Rejected                                                        |
 51	| -------------------- | ------------------------------------------------------------------- |
 52	| [Approach not taken] | [Concrete reason: performance, complexity, doesn't fit constraints] |
-53	
+53
 54	Technical Writer uses this to add "why not X" context to code comments.
-55	
+55
 56	### Constraints & Assumptions
-57	
+57
 58	- [Technical: API limits, language version, existing patterns to follow]
 59	- [Organizational: timeline, team expertise, approval requirements]
 60	- [Dependencies: external services, libraries, data formats]
 61	- [Default conventions applied: cite any `<default-conventions domain="...">`
 62	  used]
-63	
+63
 64	### Known Risks
-65	
+65
 66	| Risk            | Mitigation                                    | Anchor                                     |
 67	| --------------- | --------------------------------------------- | ------------------------------------------ |
 68	| [Specific risk] | [Concrete mitigation or "Accepted: [reason]"] | [file:L###-L### if claiming code behavior] |
-69	
+69
 70	**Anchor requirement**: If mitigation claims existing code behavior ("no change
 71	needed", "already handles X"), cite the file:line + brief excerpt that proves
 72	the claim. Skip anchors for hypothetical risks or external unknowns.
-73	
+73
 74	Quality Reviewer excludes these from findings but will challenge unverified
 75	behavioral claims.
-76	
+76
 77	## Invisible Knowledge
-78	
+78
 79	This section captures knowledge NOT deducible from reading the code alone.
 80	Technical Writer uses this to create README.md files **in the same directory as
 81	the affected code** during post-implementation.
-82	
+82
 83	**Placement principle**: Invisible knowledge must be captured CLOSE to
 84	implementation. README.md files go in the package/directory containing the
 85	relevant code, not in a separate documentation directory.
-86	
+86
 87	**Self-contained principle**: Code-adjacent documentation must be
 88	self-contained. Do NOT reference external authoritative sources (doc/
 89	directories, wikis, external documentation). If knowledge exists in an
 90	authoritative source, it must be summarized in the code-adjacent README.md.
 91	Duplication is acceptable; maintenance burden is the cost of locality.
-92	
+92
 93	**The test**: Would a new team member understand this from reading the source
 94	files? If no, it belongs here.
-95	
+95
 96	**Categories** (not exhaustive -- apply the principle):
-97	
+97
 98	1. **Architectural decisions**: Component relationships, data flow, module
 99	   boundaries
 100	2. **Business rules**: Domain constraints that shape implementation choices
@@ -7404,66 +7404,66 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 105	5. **Performance characteristics**: Non-obvious efficiency properties or
 106	   requirements
 107	6. **Tradeoffs**: Costs and benefits of chosen approaches
-108	
+108
 109	### Architecture
 110	```
-111	
+111
 112	[ASCII diagram showing component relationships]
-113	
+113
 114	Example: User Request | v +----------+ +-------+ | Auth |---->| Cache |
 115	+----------+ +-------+ | v +----------+ +------+ | Handler |---->| DB |
 116	+----------+ +------+
-117	
+117
 118	```
-119	
+119
 120	### Data Flow
-121	
+121
 122	```
-123	
+123
 124	[How data moves through the system - inputs, transformations, outputs]
-125	
+125
 126	Example: HTTP Request --> Validate --> Transform --> Store --> Response | v Log
 127	(async)
-128	
+128
 129	````
-130	
+130
 131	### Why This Structure
-132	
+132
 133	[Reasoning behind module organization that isn't obvious from file names]
-134	
+134
 135	- Why these boundaries exist
 136	- What would break if reorganized differently
-137	
+137
 138	### Invariants
-139	
+139
 140	[Rules that must be maintained but aren't enforced by code]
-141	
+141
 142	- Ordering requirements
 143	- State consistency rules
 144	- Implicit contracts between components
-145	
+145
 146	### Tradeoffs
-147	
+147
 148	[Key decisions with their costs and benefits]
-149	
+149
 150	- What was sacrificed for what gain
 151	- Performance vs. readability choices
 152	- Consistency vs. flexibility choices
-153	
+153
 154	## Milestones
-155	
+155
 156	Milestone numbering starts at 1 within each plan. Use sequential integers (1, 2, 3),
 157	not phase-prefixed numbers (2.1, 3.1) unless explicitly managing multi-phase plans.
-158	
+158
 159	### Milestone 1: [Name]
-160	
+160
 161	**Files**: [exact paths - e.g., src/auth/handler.py, not "auth files"]
-162	
+162
 163	**Flags** (optional):
-164	
+164
 165	- `flag-name`: optional focus note
 166	- `another-flag`
-167	
+167
 168	| Flag | Consumer | Effect |
 169	|------|----------|--------|
 170	| `error-handling` | QR | Extra RULE 0 scrutiny on error paths |
@@ -7472,27 +7472,27 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 173	| `performance` | QR | Focus on hot paths, allocations, complexity |
 174	| `needs-rationale` | TW | Add extra WHY comments from Decision Log |
 175	| `complex-algorithm` | TW | Add Tier 5 block for non-obvious logic |
-176	
+176
 177	Add flags when:
-178	
+178
 179	- Multiple valid approaches existed -> `conformance`
 180	- Error paths involve retries, fallbacks, recovery -> `error-handling`
 181	- Code touches auth, user input, external data -> `security`
 182	- Hot path or non-obvious complexity -> `performance`
 183	- Thresholds, timeouts, magic numbers need justification -> `needs-rationale`
 184	- Algorithm strategy not obvious from code -> `complex-algorithm`
-185	
+185
 186	**Requirements**:
-187	
+187
 188	- [Specific: "Add retry with exponential backoff", not "improve error handling"]
-189	
+189
 190	**Acceptance Criteria**:
-191	
+191
 192	- [Testable: "Returns 429 after 3 failed attempts" - QR can verify pass/fail]
 193	- [Avoid vague: "Works correctly" or "Handles errors properly"]
-194	
+194
 195	**Tests** (milestone not complete until tests pass):
-196	
+196
 197	- **Test files**: [exact paths, e.g., tests/test_retry.py]
 198	- **Test type**: [integration | property-based | unit] - see default-conventions
 199	- **Backing**: [user-specified | doc-derived | default-derived]
@@ -7514,27 +7514,27 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 **[TOOL RESULT]**
 ```
 1	# Planner Skill Design Intent
-2	
+2
 3	Authoritative design specification for the planner skill. This document governs WHY the system works the way it does. Implementation MUST conform to this spec.
-4	
+4
 5	## Philosophy
-6	
+6
 7	Three principles govern this design:
-8	
+8
 9	**RESOLVE AMBIGUITY EARLY**: Business decisions happen in planning phase, BEFORE code is written. Execution is mechanical. Questions about requirements, architecture, or approach get answered during planning, not discovered during implementation.
-10	
+10
 11	**CAPTURE INVISIBLE KNOWLEDGE**: Decisions, rationale, and context are captured in state files so any agent can understand WHY, not just WHAT. When a sub-agent picks up work, it reads state files and has full context. No information lives only in conversation history.
-12	
+12
 13	**QUALITY OVER SPEED**: LLMs make mistakes. Multiple QR gates with iteration loops catch errors before they propagate. This skill explicitly trades execution time for correctness.
-14	
+14
 15	## State Files
-16	
+16
 17	All state mutation (except initial context capture) happens via Python scripts. The orchestrator dispatches sub-agents; sub-agents invoke scripts; scripts emit prompts; LLM performs work and writes state.
-18	
+18
 19	### context.json
-20	
+20
 21	Created by orchestrator in step 2 (context-verify). Persists user-provided planning context for sub-agent handover.
-22	
+22
 23	```json
 24	{
 25	  "task_spec": ["goal sentence", "scope: dir/module", "out-of-scope: X"],
@@ -7548,48 +7548,48 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 33	  "reference_docs": ["doc/spec.md - what it specifies"]
 34	}
 35	```
-36	
+36
 37	All fields are string arrays. Empty arrays are acceptable; omitting fields is not.
-38	
+38
 39	**QR workflow access**: context.json is available to all QR sub-agents (decompose, verify, fix) as read-only reference for semantic validation against original user requirements. This enables QR agents to verify not just structural correctness but also alignment with user intent.
-40	
+40
 41	### plan.json
-42	
+42
 43	Primary state file. Created in step 1 (plan-init) as skeleton. Mutated through planning phases.
-44	
+44
 45	**No schema versioning**: State files (context.json, plan.json, qr-\*.json) are ephemeral, created and consumed within a single planning session. Schema versioning adds complexity without benefit for short-lived artifacts. Pydantic v2 models in `shared/schema.py`.
-46	
+46
 47	```
 48	Plan
 49	  overview
 50	    problem: string       -- what we're solving
 51	    approach: string      -- how we're solving it
-52	
+52
 53	  planning_context
 54	    decisions: Decision[]
 55	      id: "DL-001"
 56	      decision: string
 57	      reasoning: string   -- logical chain using -> notation
 58	                          -- e.g. "high call volume -> bcrypt too slow -> use HMAC-SHA256"
-59	
+59
 60	    rejected_alternatives: RejectedAlternative[]
 61	      alternative: string
 62	      reason: string
 63	      decision_ref: "DL-XXX"
-64	
+64
 65	    constraints: string[] -- free-form, e.g. "MUST: support Python 3.9+ (user-specified)"
-66	
+66
 67	    risks: Risk[]
 68	      risk: string
 69	      mitigation: string
 70	      anchor: string | null       -- "file:L###-L###" if location-specific
 71	      decision_ref: "DL-XXX" | null
-72	
+72
 73	  invisible_knowledge
 74	    system: string        -- architecture, data flow, structure rationale as prose
 75	    invariants: string[]  -- must-preserve properties
 76	    tradeoffs: string[]   -- known compromises
-77	
+77
 78	  diagram_graphs: DiagramGraph[]   -- populated by Architect (IR), rendered by TW
 79	    id: "DIAG-001"
 80	    type: "architecture" | "state" | "sequence" | "dataflow"
@@ -7605,7 +7605,7 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 90	      label: string       -- free-form, e.g. "validates", "sends", "reads"
 91	      protocol: string | null  -- free-form, e.g. "gRPC", "HTTP"
 92	    ascii_render: string | null  -- populated by TW, null until rendered
-93	
+93
 94	  milestones: Milestone[]
 95	    id: "M-001"
 96	    name: string
@@ -7616,31 +7616,31 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 101	                          -- "file:tests/test_auth.py"
 102	                          -- "scenario:EDGE empty token returns 401"
 103	                          -- "skip:no integration environment"
-104	
+104
 105	    code_intents: CodeIntent[]  -- populated by Architect
 106	      id: "CI-001"
 107	      file: string
 108	      behavior: string    -- what the code should do, includes function/params
 109	      decision_refs: string[]
-110	
+110
 111	    code_changes: CodeChange[]  -- populated by Developer, amended by TW
 112	      intent_ref: "CI-XXX" | null  -- null for cross-cutting docs (README.md)
 113	      file: string
 114	      diff: string                 -- unified diff, includes all documentation
 115	      comments: string             -- change-level context, may reference decisions
-116	
+116
 117	    is_documentation_only: bool
 118	    delegated_to: string | null
-119	
+119
 120	  waves: Wave[]
 121	    id: "W-001"
 122	    milestones: string[]  -- M-XXX refs
 123	```
-124	
+124
 125	Waves execute in array order. All milestones in W-001 complete before W-002 begins. Milestones within a wave may execute in parallel.
-126	
+126
 127	Cross-reference validation: `Plan.validate_refs()` checks:
-128	
+128
 129	- `code_changes.intent_ref` -> `code_intents.id` (within same milestone, when not null)
 130	- `code_intents.decision_refs` -> `decisions.id`
 131	- `rejected_alternatives.decision_ref` -> `decisions.id`
@@ -7648,11 +7648,11 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 133	- `diagram_graphs.edges.source` -> `diagram_graphs.nodes.id` (within same diagram)
 134	- `diagram_graphs.edges.target` -> `diagram_graphs.nodes.id` (within same diagram)
 135	- `diagram_graphs.scope` -> `milestones.id` (when scope is `milestone:M-XXX`)
-136	
+136
 137	### qr-{phase}.json
-138	
+138
 139	Ephemeral QR state. Created during QR decomposition. Deleted after phase passes. Five phases: plan-design, plan-code, plan-docs, impl-code, impl-docs.
-140	
+140
 141	```json
 142	{
 143	  "phase": "plan-design",
@@ -7668,28 +7668,28 @@ Shell cwd was reset to C:\ClaudeProjects\claude_design_PCFS\claude-config
 153	  ]
 154	}
 155	```
-156	
+156
 157	**Top-level fields:**
-158	
+158
 159	- phase: Which QR phase this file tracks
 160	- iteration: Current QR loop count (1 = first attempt, 2+ = retry after failures)
-161	
+161
 162	**Item fields:**
-163	
+163
 164	- id: Unique identifier within phase (qa-001, qa-002, ...)
 165	- scope: Free-form location specifier (see Scope Philosophy below)
 166	- check: Actionable verification instruction
 167	- status: "TODO" | "PASS" | "FAIL"
 168	- finding: null or explanation string (required when FAIL)
-169	
+169
 170	The number of items in the array is adaptive -- determined by content complexity, not preset ranges. Simple phases may have fewer items; complex phases with many architectural concerns may have more.
-171	
+171
 172	#### Iteration as Single Source of Truth
-173	
+173
 174	The `iteration` field tracks QR loop count within the file itself. This is the authoritative source for iteration state -- no CLI flags track iteration.
-175	
+175
 176	**Decompose step behavior:**
-177	
+177
 178	Decomposition runs exac
 
 ...[truncated, 44533 more chars]...
@@ -8680,21 +8680,21 @@ drwxr-xr-x 1 marcu 197121    0 Aug 21 05:23 references
 2	name: planner
 3	description: Interactive planning and execution for complex tasks. IMMEDIATELY invoke when user asks to use planner.
 4	---
-5	
+5
 6	## Activation
-7	
+7
 8	When this skill activates, IMMEDIATELY invoke the corresponding script. The
 9	script IS the workflow.
-10	
+10
 11	| Mode      | Intent                             | Command                                                                                                          |
 12	| --------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 13	| planning  | "plan", "design", "architect"      | `<invoke working-dir="~/.claude/skills/scripts" cmd="python3 -m skills.planner.orchestrator.planner --step 1" />`  |
 14	| execution | "execute", "implement", "run plan" | `<invoke working-dir="~/.claude/skills/scripts" cmd="python3 -m skills.planner.orchestrator.executor --step 1" />` |
-15	
+15
 16	## References
-17	
+17
 18	See `references/plan-format.md`, `references/plan-json-schema.md`, `references/explore-output-format.md`, and `references/INTENT.md` for the authoritative planner state-file and design specifications loaded at runtime by `scripts/planner/shared/resources.py`.
-19	
+19
 ```
 
 
@@ -9236,7 +9236,7 @@ Task: Verify QR group: parent-qa-001 (6 items)
 
 Items: qa-001,qa-001a,qa-001b,qa-001c,qa-001d,qa-001e
 
-Checks: invisible_knowledge carries the non-reco; The byte-preserving write invariant (rec; The one-to-one assignment invariant and 
+Checks: invisible_knowledge carries the non-reco; The byte-preserving write invariant (rec; The one-to-one assignment invariant and
 
 
 
@@ -9272,7 +9272,7 @@ Task: Verify QR group: parent-qa-002 (3 items)
 
 Items: qa-002,qa-002a,qa-002b
 
-Checks: planning_context.constraints records the; The seven MUST-class constraints (byte-p; The two SHOULD-class constraints (reuse 
+Checks: planning_context.constraints records the; The seven MUST-class constraints (byte-p; The two SHOULD-class constraints (reuse
 
 
 
@@ -10087,7 +10087,7 @@ Task: Verify QR group: parent-qa-001 (6 items)
 
 Items: qa-001,qa-001a,qa-001b,qa-001c,qa-001d,qa-001e
 
-Checks: invisible_knowledge carries the non-reco; The byte-preserving write invariant (rec; The one-to-one assignment invariant and 
+Checks: invisible_knowledge carries the non-reco; The byte-preserving write invariant (rec; The one-to-one assignment invariant and
 
 
 
@@ -10123,7 +10123,7 @@ Task: Verify QR group: parent-qa-002 (3 items)
 
 Items: qa-002,qa-002a,qa-002b
 
-Checks: planning_context.constraints records the; The seven MUST-class constraints (byte-p; The two SHOULD-class constraints (reuse 
+Checks: planning_context.constraints records the; The seven MUST-class constraints (byte-p; The two SHOULD-class constraints (reuse
 
 
 
@@ -10267,7 +10267,7 @@ Task: Verify QR group: qa-009 (1 items)
 
 Items: qa-009
 
-Checks: overview.approach states the 
+Checks: overview.approach states the
 
 ...[truncated, 2259 more chars]...
 ```
@@ -11680,7 +11680,7 @@ Task: Verify QR group: qa-006 (1 items)
 
 Items: qa-006
 
-Checks: An explicit --volume-map entry is found 
+Checks: An explicit --volume-map entry is found
 
 
 
@@ -11716,7 +11716,7 @@ Task: Verify QR group: qa-007 (1 items)
 
 Items: qa-007
 
-Checks: Prefix comparison between scan_root and 
+Checks: Prefix comparison between scan_root and
 
 
 
@@ -11824,7 +11824,7 @@ Task: Verify QR group: qa-010 (1 items)
 
 Items: qa-010
 
-Checks: A collection ENTRY span is 
+Checks: A collection ENTRY span is
 
 ...[truncated, 13831 more chars]...
 ```
@@ -12729,7 +12729,7 @@ Task: Verify QR group: qa-006 (1 items)
 
 Items: qa-006
 
-Checks: An explicit --volume-map entry is found 
+Checks: An explicit --volume-map entry is found
 
 
 
@@ -12765,7 +12765,7 @@ Task: Verify QR group: qa-007 (1 items)
 
 Items: qa-007
 
-Checks: Prefix comparison between scan_root and 
+Checks: Prefix comparison between scan_root and
 
 
 
@@ -12873,7 +12873,7 @@ Task: Verify QR group: qa-010 (1 items)
 
 Items: qa-010
 
-Checks: A collection ENTRY span is 
+Checks: A collection ENTRY span is
 
 ...[truncated, 13831 more chars]...
 ```
@@ -19163,7 +19163,7 @@ Got it, disregarding that. Continuing the planner workflow to fix all 8 findings
 ```json
 {
   "file_path": "C:\\Users\\marcu\\AppData\\Local\\Temp\\planner-ogdu594n\\context.json",
-  "content": "{\n  \"task_spec\": [\n    \"Fix 8 confirmed code-review findings in the traktor_nml package (C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\ and traktor_nml\\\\commands\\\\), all independently verified CONFIRMED against the real implemented codebase\",\n    \"scope: traktor_nml/commands/compare_cmd.py, traktor_nml/fingerprint.py, traktor_nml/split.py, traktor_nml/commands/splice_cmd.py, traktor_nml/commands/split_cmd.py, traktor_nml/playlists.py, traktor_nml/spans.py, traktor_nml/splice.py\",\n    \"out-of-scope: any new features; this is a fix-only pass against 8 specific, already-diagnosed findings, not a broader refactor\"\n  ],\n  \"constraints\": [\n    \"MUST: preserve all existing test suite passes (42 passed, 2 skipped as of last run) - pytest tests/ -q from C:\\\\codex\\\\general_tasks\",\n    \"MUST: preserve the existing byte-preserving write invariants (attribute-patch path via write_nml_safely, span-transplantation path via OutputBuilder/spans.py) - fixes must not regress these\",\n    \"MUST: add or extend tests to actually exercise each fixed bug, since several of these findings exist precisely because the current test suite didn't cover the failure scenario (e.g. no test covers extra_inputs on rewrite-from-collection-compare, no test covers a dangling reference in an out-of-scope playlist for split, no test covers old_side_fingerprint against a real volume-carrying path)\",\n    \"SHOULD: fix the two efficiency findings (playlists.py per-node full-text rescan, spans.py element_span_by_identity per-entry rescan) by adding a single-pass precomputation, consistent with the existing single-pass pattern already used correctly by spans.py's own element_span function - do not introduce a third, different indexing strategy\"\n  ],\n  \"entry_points\": [\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\compare_cmd.py:_handle_rewrite_from_collection_compare (~line 187) - write_nml_safely call missing extra_inputs=(args.new_input,), so output==new_input is not rejected\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\compare_cmd.py:_collect_patches/mutate_tree (~line 47) - calls matching.match_records directly, bypassing reconnect.resolve_reconnection's one-to-one/destination-collision post-pass (DL-004 invariant)\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\fingerprint.py:old_side_fingerprint (~line 105) - builds Path(str(record.location.decoded_path)) directly; decoded_path is volume-relative (no drive/mount prefix), so .is_file() essentially never finds the real file. Compare to traktor_nml\\\\volumes.py/reconnect.py which DO reattach volume identity for the candidate side\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\split.py:apply_dangling_policy (~line 86) - iterates find_playlist_nodes(root) unfiltered (every playlist in the whole file), instead of scoping to the current --group's playlist_names, so an out-of-scope playlist's dangling reference wrongly affects this group's outcome\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\splice_cmd.py and split_cmd.py:_handle_splice/_handle_split (~line 40) - parse_xml_bytes calls only wrapped in except FileNotFoundError, missing the except XML_PARSE_ERROR handler that traktor_nml\\\\rewrite.py:write_nml_safely uses for every other write command\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\splice_cmd.py and split_cmd.py (~line 66/62) - final output written via plain Path.write_bytes(...) instead of traktor_nml\\\\rewrite.py:_write_bytes_atomically (temp-file + os.replace), so an interrupted write can leave a truncated/corrupt output file\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\playlists.py:_locate_node_start (~line 191) - does source_text.find() then source_text.rfind() over the WHOLE document per call; called once per playlist node in import_playlists, giving O(n*document_size) total cost on large real files\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\spans.py:element_span_by_identity (~line 113) - re-walks root.iter(tag_name) and rescans source from the start on every call; called once per surviving entry in split.py (line 138) and via splice.py's _entry_span_text, giving O(n^2) total cost on large collections (6412-entry real fixture)\"\n  ],\n  \"rejected_alternatives\": [\n    \"none discussed - this is a straightforward fix-the-diagnosed-bugs task, not a design decision\"\n  ],\n  \"current_understanding\": [\n    \"This codebase was built via a prior planner/executor run (8 milestones: package extraction, disk-scan reconnection with optional acoustic fingerprint matching, splice/split commands using a new byte-span-transplantation write primitive alongside the existing attribute-patch write primitive). It just passed a full 8-angle independent code review (Angle A line-by-line, B removed-behavior, C cross-file tracer, D reuse, E simplification, F efficiency, G altitude, H conventions) with all 8 selected candidate findings independently CONFIRMED by a separate verifier agent.\",\n    \"The codebase has two parallel write mechanisms: textpatch.py/rewrite.py's attribute-patching path (used by rewrite/rewrite-from-collection-compare/rewrite-from-reconnect, all via the shared write_nml_safely helper which has the safety/atomicity/error-handling conventions - extra_inputs protection, except XML_PARSE_ERROR, atomic temp-file+rename write) and spans.py's newer span-transplantation path (used by splice/split). The 8 findings are essentially cases where splice/split/compare-cmd don't fully inherit conventions that write_nml_safely already correctly implements for the older commands.\",\n    \"reconnect.py's resolve_reconnection wraps matching.py's raw match_records specifically to add a one-to-one/destination-collision guarantee (DL-004) as a post-pass; compare_cmd.py's rewrite-from-collection-compare uses match_records directly without this wrapper, so it lacks the same guarantee.\",\n    \"decoded_path (in model.py's LocationParts) is volume-relative by design - VOLUME/VOLUMEID are separate fields, and reconstructing a real OS path requires combining them (see volumes.py/reconnect.py's location_from_disk_path pattern for the candidate/disk side). fingerprint.py's old_side_fingerprint never does this reattachment for the old/existing-collection side.\",\n    \"spans.py's element_span function is correctly single-pass (documented in its own docstring/comments as deliberately avoiding rescanning from the start on each call); element_span_by_identity does NOT follow this pattern and is called once per entry in loops in split.py and splice.py, and playlists.py's _locate_node_start has the same per-call full-rescan problem, called once per playlist node.\"\n  ],\n  \"assumptions\": [\n    \"Fixing efficiency findings 7-8 with a single upfront pass (e.g. precomputing all element offsets once via one iteration, keyed by identity/tag+ordinal) is the right shape, consistent with element_span's existing single-pass design - not verified against a specific alternative design, but directly implied by the existing correct pattern in the same file (H confidence)\",\n    \"The real 6412-entry / 11.7MB fixture corpus used during original development (C:\\\\codex\\\\general_tasks\\\\collection_textual_patch_test.nml) is still available for performance verification of the efficiency fixes if needed (M confidence - not re-confirmed this session, but was present and used earlier)\"\n  ],\n  \"invisible_knowledge\": [\n    \"All 8 findings were arrived at via a structured 8-angle review + independent one-vote verification process and are marked CONFIRMED, not speculative - each verifier quoted the exact triggering code and the exact contrasting correct-pattern code elsewhere in the same codebase, so these are not judgment calls, they are real, demonstrated bugs/gaps.\",\n    \"Fix 
+  "content": "{\n  \"task_spec\": [\n    \"Fix 8 confirmed code-review findings in the traktor_nml package (C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\ and traktor_nml\\\\commands\\\\), all independently verified CONFIRMED against the real implemented codebase\",\n    \"scope: traktor_nml/commands/compare_cmd.py, traktor_nml/fingerprint.py, traktor_nml/split.py, traktor_nml/commands/splice_cmd.py, traktor_nml/commands/split_cmd.py, traktor_nml/playlists.py, traktor_nml/spans.py, traktor_nml/splice.py\",\n    \"out-of-scope: any new features; this is a fix-only pass against 8 specific, already-diagnosed findings, not a broader refactor\"\n  ],\n  \"constraints\": [\n    \"MUST: preserve all existing test suite passes (42 passed, 2 skipped as of last run) - pytest tests/ -q from C:\\\\codex\\\\general_tasks\",\n    \"MUST: preserve the existing byte-preserving write invariants (attribute-patch path via write_nml_safely, span-transplantation path via OutputBuilder/spans.py) - fixes must not regress these\",\n    \"MUST: add or extend tests to actually exercise each fixed bug, since several of these findings exist precisely because the current test suite didn't cover the failure scenario (e.g. no test covers extra_inputs on rewrite-from-collection-compare, no test covers a dangling reference in an out-of-scope playlist for split, no test covers old_side_fingerprint against a real volume-carrying path)\",\n    \"SHOULD: fix the two efficiency findings (playlists.py per-node full-text rescan, spans.py element_span_by_identity per-entry rescan) by adding a single-pass precomputation, consistent with the existing single-pass pattern already used correctly by spans.py's own element_span function - do not introduce a third, different indexing strategy\"\n  ],\n  \"entry_points\": [\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\compare_cmd.py:_handle_rewrite_from_collection_compare (~line 187) - write_nml_safely call missing extra_inputs=(args.new_input,), so output==new_input is not rejected\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\compare_cmd.py:_collect_patches/mutate_tree (~line 47) - calls matching.match_records directly, bypassing reconnect.resolve_reconnection's one-to-one/destination-collision post-pass (DL-004 invariant)\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\fingerprint.py:old_side_fingerprint (~line 105) - builds Path(str(record.location.decoded_path)) directly; decoded_path is volume-relative (no drive/mount prefix), so .is_file() essentially never finds the real file. Compare to traktor_nml\\\\volumes.py/reconnect.py which DO reattach volume identity for the candidate side\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\split.py:apply_dangling_policy (~line 86) - iterates find_playlist_nodes(root) unfiltered (every playlist in the whole file), instead of scoping to the current --group's playlist_names, so an out-of-scope playlist's dangling reference wrongly affects this group's outcome\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\splice_cmd.py and split_cmd.py:_handle_splice/_handle_split (~line 40) - parse_xml_bytes calls only wrapped in except FileNotFoundError, missing the except XML_PARSE_ERROR handler that traktor_nml\\\\rewrite.py:write_nml_safely uses for every other write command\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\commands\\\\splice_cmd.py and split_cmd.py (~line 66/62) - final output written via plain Path.write_bytes(...) instead of traktor_nml\\\\rewrite.py:_write_bytes_atomically (temp-file + os.replace), so an interrupted write can leave a truncated/corrupt output file\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\playlists.py:_locate_node_start (~line 191) - does source_text.find() then source_text.rfind() over the WHOLE document per call; called once per playlist node in import_playlists, giving O(n*document_size) total cost on large real files\",\n    \"C:\\\\codex\\\\general_tasks\\\\traktor_nml\\\\spans.py:element_span_by_identity (~line 113) - re-walks root.iter(tag_name) and rescans source from the start on every call; called once per surviving entry in split.py (line 138) and via splice.py's _entry_span_text, giving O(n^2) total cost on large collections (6412-entry real fixture)\"\n  ],\n  \"rejected_alternatives\": [\n    \"none discussed - this is a straightforward fix-the-diagnosed-bugs task, not a design decision\"\n  ],\n  \"current_understanding\": [\n    \"This codebase was built via a prior planner/executor run (8 milestones: package extraction, disk-scan reconnection with optional acoustic fingerprint matching, splice/split commands using a new byte-span-transplantation write primitive alongside the existing attribute-patch write primitive). It just passed a full 8-angle independent code review (Angle A line-by-line, B removed-behavior, C cross-file tracer, D reuse, E simplification, F efficiency, G altitude, H conventions) with all 8 selected candidate findings independently CONFIRMED by a separate verifier agent.\",\n    \"The codebase has two parallel write mechanisms: textpatch.py/rewrite.py's attribute-patching path (used by rewrite/rewrite-from-collection-compare/rewrite-from-reconnect, all via the shared write_nml_safely helper which has the safety/atomicity/error-handling conventions - extra_inputs protection, except XML_PARSE_ERROR, atomic temp-file+rename write) and spans.py's newer span-transplantation path (used by splice/split). The 8 findings are essentially cases where splice/split/compare-cmd don't fully inherit conventions that write_nml_safely already correctly implements for the older commands.\",\n    \"reconnect.py's resolve_reconnection wraps matching.py's raw match_records specifically to add a one-to-one/destination-collision guarantee (DL-004) as a post-pass; compare_cmd.py's rewrite-from-collection-compare uses match_records directly without this wrapper, so it lacks the same guarantee.\",\n    \"decoded_path (in model.py's LocationParts) is volume-relative by design - VOLUME/VOLUMEID are separate fields, and reconstructing a real OS path requires combining them (see volumes.py/reconnect.py's location_from_disk_path pattern for the candidate/disk side). fingerprint.py's old_side_fingerprint never does this reattachment for the old/existing-collection side.\",\n    \"spans.py's element_span function is correctly single-pass (documented in its own docstring/comments as deliberately avoiding rescanning from the start on each call); element_span_by_identity does NOT follow this pattern and is called once per entry in loops in split.py and splice.py, and playlists.py's _locate_node_start has the same per-call full-rescan problem, called once per playlist node.\"\n  ],\n  \"assumptions\": [\n    \"Fixing efficiency findings 7-8 with a single upfront pass (e.g. precomputing all element offsets once via one iteration, keyed by identity/tag+ordinal) is the right shape, consistent with element_span's existing single-pass design - not verified against a specific alternative design, but directly implied by the existing correct pattern in the same file (H confidence)\",\n    \"The real 6412-entry / 11.7MB fixture corpus used during original development (C:\\\\codex\\\\general_tasks\\\\collection_textual_patch_test.nml) is still available for performance verification of the efficiency fixes if needed (M confidence - not re-confirmed this session, but was present and used earlier)\"\n  ],\n  \"invisible_knowledge\": [\n    \"All 8 findings were arrived at via a structured 8-angle review + independent one-vote verification process and are marked CONFIRMED, not speculative - each verifier quoted the exact triggering code and the exact contrasting correct-pattern code elsewhere in the same codebase, so these are not judgment calls, they are real, demonstrated bugs/gaps.\",\n    \"Fix
 
 ...[truncated, 1290 more chars]...
 ```
@@ -22159,7 +22159,7 @@ usage: python.exe -m traktor_nml.cli splice [-h] --input INPUT
 
                                             [--on-conflict {keep-first,keep-last}]
 
-                                    
+
 
 ...[truncated, 1145 more chars]...
 ```
@@ -22459,23 +22459,23 @@ Now updating the fixture path to be relative, and setting up `.gitignore`.
 **[TOOL RESULT]**
 ```
 1	"""Byte-span scanner: extent, nesting, escaping, and round-trip fidelity.
-2	
+2
 3	SpanIndex is the package's one element-to-span identity mechanism; the
 4	identity-location behavior it provides is asserted here directly against
 5	SpanIndex.span_of.
 6	"""
-7	
+7
 8	from __future__ import annotations
-9	
+9
 10	from pathlib import Path
-11	
+11
 12	import pytest
-13	
+13
 14	from traktor_nml.spans import SpanIndex, element_span, find_element_span, recalculate_count_attr
-15	
+15
 16	REAL_FIXTURE = Path(r"C:\codex\general_tasks\collection_textual_patch_test.nml")
-17	
-18	
+17
+18
 19	def test_self_closing_element_resolves_to_its_own_tag() -> None:
 20	    source = '<PARENT><CHILD A="1"/></PARENT>'
 ```
@@ -22586,20 +22586,20 @@ File created successfully at: /c/codex/traktor-nml-tool/.gitignore (file state i
 **[TOOL RESULT]**
 ```
 1	# traktor_nml
-2	
+2
 3	Inspect, rewrite, reconnect, splice and split Traktor NML collection files.
-4	
+4
 5	## Overview
-6	
+6
 7	traktor_nml_tool.py is a thin argv-forwarding shim over this package
 8	(DL-001). Scanning, caching, fingerprinting, span assembly and merge are
 9	separate modules so no single file carries all of them and independent
 10	features do not contend for one file.
-11	
+11
 12	## Architecture
-13	
+13
 14	Two write mechanisms coexist and never mix within one command:
-15	
+15
 16	- Attribute patching (`textpatch.py`, used by `rewrite.py`/`reconnect.py`):
 17	  substitutes attribute values inside opening tags located in the raw
 18	  source text. Every other byte of the source is preserved exactly.
@@ -22609,13 +22609,13 @@ File created successfully at: /c/codex/traktor-nml-tool/.gitignore (file state i
 22	  (DL-007) - `textpatch.py` has no concept of element extent, so
 23	  structural insert/remove could not go through it without falling back
 24	  to a full, format-losing serialisation.
-25	
+25
 26	`commands/` holds one module per subcommand; `cli.py` discovers them by
 27	iterating the package rather than listing them, so adding a subcommand
 28	never requires editing `cli.py` (DL-003).
-29	
+29
 30	## Design Decisions
-31	
+31
 32	- `matching.py`'s cascade accepts injected key providers; `fingerprint.py`
 33	  supplies one behind an availability guard, so the core matching path
 34	  never becomes import-guard-laden for a native chromaprint dependency
@@ -22658,9 +22658,9 @@ File created successfully at: /c/codex/traktor-nml-tool/.gitignore (file state i
 71	  exported from `rewrite.py` rather than carrying their own input handling
 72	  and a plain `write_bytes`, so both inherit the diagnostics and the atomic
 73	  write `write_nml_safely` already implements (DL-019).
-74	
+74
 75	## Invariants
-76	
+76
 77	- Every write command builds its complete output in memory and validates
 78	  it before any file handle opens; a failure partway through conflict
 79	  resolution or reference redirection leaves every output path untouched
@@ -22707,9 +22707,9 @@ File created successfully at: /c/codex/traktor-nml-tool/.gitignore (file state i
 120	  over any counted container rather than a fixed tag list, so a counted
 121	  container introduced by a later schema version is still recalculated
 122	  correctly instead of being silently left stale.
-123	
+123
 124	## Tradeoffs
-125	
+125
 126	- Reporting `destination_collisions` on the compare path costs one
 127	  regenerated baseline manifest case; accepted so a withdrawn match stays
 128	  distinguishable from a genuinely unmatched track (DL-016).
