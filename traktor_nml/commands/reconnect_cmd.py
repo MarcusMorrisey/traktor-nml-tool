@@ -56,7 +56,14 @@ def add_reconnect_args(parser: argparse.ArgumentParser) -> None:
         help="Explicit VOLUME/VOLUMEID for a scan root (repeatable); required when the "
         "prefix scan of the old collection cannot resolve a single unambiguous pair.",
     )
-    parser.add_argument("--cache", type=Path, default=Path(".traktor_nml_tagcache.json"))
+    parser.add_argument(
+        "--cache",
+        type=Path,
+        default=Path(".traktor_nml_tagcache.json"),
+        help="Disk-scan tag cache path. Written/updated as scan roots are indexed, "
+        "independently of --dry-run: --dry-run only suppresses writes to the output "
+        "NML, not this cache file.",
+    )
     parser.add_argument("--refresh-cache", action="store_true")
     parser.add_argument("--csv", type=Path)
     parser.add_argument(
@@ -246,6 +253,12 @@ def register(subparsers, handlers: dict) -> None:
     )
     rewrite_parser.add_argument("old_input", type=Path)
     rewrite_parser.add_argument("output", type=Path)
-    rewrite_parser.add_argument("--dry-run", action="store_true")
+    rewrite_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print stats without writing the output NML. Note: the --cache tag cache "
+        "is still written/updated during the disk scan, since it is a scan-speedup "
+        "cache and not the command's declared output.",
+    )
     add_reconnect_args(rewrite_parser)
     handlers["rewrite-from-reconnect"] = _handle_rewrite_from_reconnect

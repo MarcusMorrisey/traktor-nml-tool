@@ -14,6 +14,8 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 
 Every command previews before writing, refuses to overwrite any of its own inputs, and reports ambiguous or dangling matches explicitly (via stats and CSV export) rather than silently guessing.
 
+`--dry-run` only suppresses writes to the command's declared output file. One exception: `rewrite-from-reconnect` (and `scan-reconnect-candidates`) still write/update their `--cache` tag-cache file (default `.traktor_nml_tagcache.json`) during the disk scan, since that cache is a scan-speedup side file, not the command's output.
+
 ## Install
 
 ```bash
