@@ -10,6 +10,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
   - against a newer collection covering the same tracks (`rewrite-from-collection-compare`), or
   - against the actual files on disk, scanning one or more directories and matching by audio tags and optionally acoustic fingerprints (`rewrite-from-reconnect`).
 - **Merge** additional `.nml` files into a base collection (`splice`), or **partition** one collection into several outputs by playlist (`split`).
+- **Build a playlist** from an external plain-text track list, matched against a base collection (`build-playlist`).
 
 Every command previews before writing, refuses to overwrite any of its own inputs, and reports ambiguous or dangling matches explicitly (via stats and CSV export) rather than silently guessing.
 

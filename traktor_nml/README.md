@@ -40,6 +40,29 @@ every stricter tier unreachable (DL-032).
   supplies one behind an availability guard, so the core matching path
   never becomes import-guard-laden for a native chromaprint dependency
   most environments lack (DL-006).
+- Fingerprinting is old-side-gated: only attempted when the old track's
+  recorded path is still resolvable on disk at scan time, since a
+  fingerprint computed only from the new/candidate side has nothing to
+  compare against. Duration must agree within +/-1.0s before comparing;
+  similarity above 0.95 counts as a match, 0.80-0.95 is logged for human
+  review only and never auto-accepted (DL-013).
+- Disk-scan reconnection's returned mapping is strictly one-to-one: after
+  matching completes, any candidate holding more than one assignment
+  removes all of its claimants, counted as destination collisions and
+  exported to the ambiguity CSV rather than being rewritten, since two
+  distinct old entries unambiguously matching the same physical file must
+  never both point their playlist references at one `LOCATION` (DL-004).
+- `volumes.py` requires explicit `VOLUME`/`VOLUMEID` identity for a
+  disk-scan root rather than inferring it, since a guessed identity risks
+  fingerprinting or rewriting the wrong file (DL-005).
+- `splice`'s metadata-conflict abort writes a conflict report either way -
+  whether the run aborts or `--on-conflict` resolves every conflict -
+  so an accepted override still leaves a record of what was dropped
+  (DL-008).
+- `split`'s dangling references (a kept playlist pointing at a track
+  outside the selection) are excluded by default, referentially closing
+  every output; pull-in and fail are explicit, opt-in alternatives
+  (DL-009).
 - `--match-confidence` is one ordered enum (strict/loose/filename) rather
   than a second boolean flag, because disk-scan matching's filename-only
   tier and tag-based matching's artist-title-only tier are really one
@@ -60,9 +83,10 @@ every stricter tier unreachable (DL-032).
   `rewrite-from-collection-compare` reads two collections and declares
   `new_input`, so an output resolving to the newer collection is refused
   the same way one resolving to `old_input` already was (DL-023).
-- `volumes.py` owns both directions of the volume-relative to absolute
-  transformation: `location_from_disk_path` for the candidate side and
-  `local_path_for_location` for the old side (DL-017).
+- The volume-relative-to-absolute transformation is split by side rather
+  than owned by one module: `reconnect.py`'s `location_from_disk_path`
+  handles the candidate (new) side, and `volumes.py`'s
+  `local_path_for_location` handles the old side (DL-017).
 - `local_path_for_location` resolves only against mount anchors this run
   established explicitly - `--volume-map` entries and scan roots whose
   identity `resolve_volume_identity` resolved - and returns nothing for an
@@ -114,7 +138,10 @@ every stricter tier unreachable (DL-032).
   naming the root folder's own name (conventionally `"$ROOT"`) resolves to
   the same default-root path as omitting the flag, rather than aborting
   with `target_folder_not_found`, since the root folder is a legitimate,
-  reachable target and not merely a fallback.
+  reachable target and not merely a fallback. A `--target-folder` name
+  matching more than one `FOLDER` anywhere in the `PLAYLISTS` tree aborts
+  with `target_folder_ambiguous`, naming the match count, rather than
+  inserting into whichever one document order happens to list first.
 - The external track-list parser strips a leading numeric track-number
   prefix (`"1 - Artist - Title"`) before splitting, then splits the
   remainder on its first `" - "` occurrence only, never a bare hyphen, and
@@ -204,9 +231,9 @@ every stricter tier unreachable (DL-032).
   remaining inputs through `write_nml_safely`'s `extra_inputs` -
   `rewrite-from-collection-compare` declaring `new_input` is the case
   that motivated stating this generally (DL-023).
-- `volumes.py` owns both directions of the volume-relative-to-absolute
-  transformation; its old-side inverse (`local_path_for_location`)
-  resolves only against mount anchors the run established explicitly,
+- The old-side inverse of the volume-relative-to-absolute transformation
+  (`volumes.py`'s `local_path_for_location`) resolves only against mount
+  anchors the run established explicitly,
   returning nothing for an unknown VOLUME/VOLUMEID pair or when two
   anchors for one pair both resolve, because a guessed anchor can
   fingerprint a different file and rewrite a track onto an unrelated

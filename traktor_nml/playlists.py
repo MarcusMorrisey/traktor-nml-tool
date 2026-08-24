@@ -12,7 +12,7 @@ create a duplicate within the output file.
 
 Traktor's tolerance of that fresh UUID on a renamed/imported playlist is
 confirmed only by manual Traktor import/open validation, not by this test
-suite (R-004, DL-008); the regenerated UUID is an accepted, unverified risk
+suite (DL-008); the regenerated UUID is an accepted, unverified risk
 until that manual check is repeated for a given output.
 """
 
@@ -181,7 +181,7 @@ def import_playlists(
                     # not share one UUID). Traktor's tolerance of an
                     # imported playlist carrying a UUID other than the one
                     # it shipped with is confirmed only by manual Traktor
-                    # import, not by this test suite (R-004).
+                    # import, not by this test suite.
                     playlist_elem.attrib["UUID"] = uuid.uuid4().hex
             _redirect_keys(node_copy, old_to_new_key)
             fragment = ET.tostring(node_copy, encoding="unicode")

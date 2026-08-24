@@ -14,7 +14,7 @@ from ..model import (
     normalize_dir_prefix,
     playlist_entries,
 )
-from ..xmlio import parse_xml
+from ..xmlio import XML_PARSE_ERROR, parse_xml
 
 
 def inspect_nml(root, limit: int, csv_path: Path | None) -> int:
@@ -64,6 +64,9 @@ def _handle_inspect(args: argparse.Namespace) -> int:
         tree = parse_xml(args.input)
     except FileNotFoundError:
         print(f"input_not_found={args.input}", file=sys.stderr)
+        return 2
+    except XML_PARSE_ERROR as exc:
+        print(f"xml_parse_error={args.input}: {exc}", file=sys.stderr)
         return 2
     return inspect_nml(tree.getroot(), limit=args.limit, csv_path=args.csv)
 

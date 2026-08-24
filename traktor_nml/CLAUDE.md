@@ -14,7 +14,7 @@
 | `matching.py`      | `record_keys`/`match_records` tiered match cascade         | Changing match-key tiers or ambiguity detection            |
 | `diskscan.py`      | Filesystem candidate scanning for reconnection             | Adding or changing disk-scan candidate discovery            |
 | `tagcache.py`      | Tag-read caching                                           | Changing tag cache key composition or eviction             |
-| `reconnect.py`     | Disk-scan reconnection; `enforce_one_to_one` is the shared one-to-one assignment post-pass compare-based rewriting also calls | Modifying reconnection matching or destination-collision handling |
+| `reconnect.py`     | Disk-scan reconnection; `location_from_disk_path` (candidate-side volume-relative-to-absolute transform) and `enforce_one_to_one`, the shared one-to-one assignment post-pass compare-based rewriting also calls | Modifying reconnection matching or destination-collision handling |
 | `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |
 | `fingerprint.py`   | Acoustic fingerprint comparison (optional chromaprint dep); the old side resolves its path through `volumes.py` rather than from `decoded_path` | Modifying fingerprint matching or its availability guard   |
 | `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation, `SpanIndex` as the single-pass identity locator | Modifying splice/split's structural write path or count recalculation |

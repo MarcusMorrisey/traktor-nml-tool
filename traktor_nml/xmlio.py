@@ -39,14 +39,16 @@ def parse_xml(path: Path):
 
 
 def parse_xml_bytes(source_bytes: bytes):
-    """Parse raw bytes, raising XML_PARSE_ERROR on malformed input.
-
-    Only meaningful on the lxml path, where sourceline-carrying elements are
-    required for text patching; callers on the stdlib fallback path use
-    parse_xml against a file path instead.
-    """
-    parser = ET.XMLParser(remove_blank_text=False, strip_cdata=False, recover=False)
-    return ET.fromstring(source_bytes, parser)
+    """Parse raw bytes via whichever backend xmlio selected at import time,
+    raising XML_PARSE_ERROR on malformed input. Sourceline-carrying elements
+    (needed by textpatch.apply_text_patches) are only available on the lxml
+    path; the stdlib fallback's ET.fromstring takes no parser-tuning kwargs,
+    so this mirrors parse_xml's own HAS_LXML branch rather than assuming
+    lxml-only kwargs are always valid."""
+    if HAS_LXML:
+        parser = ET.XMLParser(remove_blank_text=False, strip_cdata=False, recover=False)
+        return ET.fromstring(source_bytes, parser)
+    return ET.fromstring(source_bytes)
 
 
 def write_traktor_xml(

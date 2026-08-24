@@ -57,6 +57,32 @@ def test_output_equal_to_old_input_is_refused(tmp_path: Path) -> None:
     assert "output_must_differ_from_input" in result.stderr
 
 
+def test_malformed_new_input_reports_xml_parse_error(tmp_path: Path) -> None:
+    old_path = tmp_path / "old.nml"
+    old_path.write_text(_nml(_entry("A", "Song", "song.mp3"), 1), encoding="utf-8")
+    new_path = tmp_path / "new.nml"
+    new_path.write_text("<NML><unclosed>", encoding="utf-8")
+    out_path = tmp_path / "out.nml"
+
+    result = run_tool(
+        ["rewrite-from-collection-compare", str(old_path), str(new_path), str(out_path)], cwd=tmp_path
+    )
+    assert result.exit_code == 2
+    assert "xml_parse_error" in result.stderr
+    assert not out_path.exists()
+
+
+def test_preview_compare_malformed_new_input_reports_xml_parse_error(tmp_path: Path) -> None:
+    old_path = tmp_path / "old.nml"
+    old_path.write_text(_nml(_entry("A", "Song", "song.mp3"), 1), encoding="utf-8")
+    new_path = tmp_path / "new.nml"
+    new_path.write_text("<NML><unclosed>", encoding="utf-8")
+
+    result = run_tool(["preview-compare", str(old_path), str(new_path)], cwd=tmp_path)
+    assert result.exit_code == 2
+    assert "xml_parse_error" in result.stderr
+
+
 def test_two_old_entries_matching_one_new_entry_are_both_withdrawn(tmp_path: Path) -> None:
     """Two old entries whose only artist/title/album/time match is one new
     entry both lose their match to the shared post-pass DL-004 already
@@ -107,6 +133,25 @@ def test_stdlib_branch_reports_the_same_destination_collision_stats(tmp_path: Pa
     )
     assert result.exit_code == 0
     assert "destination_collisions=2" in result.stdout
+
+
+def test_stdlib_branch_malformed_input_reports_xml_parse_error(tmp_path: Path, monkeypatch) -> None:
+    import traktor_nml.rewrite as rewrite_module
+
+    monkeypatch.setattr(rewrite_module, "HAS_LXML", False)
+
+    old_path = tmp_path / "old.nml"
+    old_path.write_text("<NML VERSION=\"20\"><UNCLOSED>", encoding="utf-8")
+    new_path = tmp_path / "new.nml"
+    new_path.write_text(_nml(_entry("A", "Song", "song.mp3"), 1), encoding="utf-8")
+    out_path = tmp_path / "out.nml"
+
+    result = run_tool(
+        ["rewrite-from-collection-compare", str(old_path), str(new_path), str(out_path)], cwd=tmp_path
+    )
+    assert result.exit_code == 2
+    assert f"xml_parse_error={old_path}" in result.stderr
+    assert not out_path.exists()
 
 
 def test_sync_current_copy_is_preferred_over_sync_old_duplicate() -> None:

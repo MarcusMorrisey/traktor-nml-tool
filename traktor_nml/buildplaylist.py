@@ -63,8 +63,11 @@ def _find_target_subnodes(base_root, base_source: str, target_folder: Optional[s
     the same as omitting --target-folder. A base with no PLAYLISTS
     section, root FOLDER, or SUBNODES element at all reports
     no_root_subnodes, mirroring splice.py's own check for the identical
-    absence (DL-038); a named folder that exists but has no SUBNODES
-    child of its own reports the distinct target_folder_no_subnodes."""
+    absence (DL-038); a root SUBNODES element that exists in the parsed
+    tree but whose span cannot be located in the raw source text reports
+    the distinct root_subnodes_span_not_found; a named folder that exists
+    but has no SUBNODES child of its own reports the distinct
+    target_folder_no_subnodes."""
     playlists_root = base_root.find(".//PLAYLISTS/NODE")
     if playlists_root is None or playlists_root.find("SUBNODES") is None:
         return None, 0, "no_root_subnodes"
@@ -76,7 +79,12 @@ def _find_target_subnodes(base_root, base_source: str, target_folder: Optional[s
     if target_folder is None or playlists_root.attrib.get("NAME", "") == target_folder:
         subnodes_span = find_element_span(base_source, "SUBNODES")
         if subnodes_span is None:
-            return None, 0, "no_root_subnodes"
+            # distinct from the whole-document no_root_subnodes case above:
+            # the root SUBNODES element does exist in the parsed tree (the
+            # check above already confirmed it), but its span could not be
+            # located in the raw source text - a source/tree mismatch, not
+            # an absence of subnodes
+            return None, 0, "root_subnodes_span_not_found"
         root_subnodes_elem = playlists_root.find("SUBNODES")
         count = 0 if root_subnodes_elem is None else len(list(root_subnodes_elem))
         return subnodes_span, count, None
@@ -152,14 +160,14 @@ def assemble_output(
     unresolved_tracks when any line is unresolved and allow_unmatched is
     false (DL-027); output None with no_entries_resolved, before any span
     lookup, when zero lines resolve at all (DL-036); output None with
-    no_root_subnodes/target_folder_not_found/target_folder_ambiguous=name:count=N
-    when the receiving container cannot be resolved (DL-030, DL-038). Duplicate
+    no_root_subnodes/root_subnodes_span_not_found/target_folder_not_found/
+    target_folder_no_subnodes/target_folder_ambiguous=name:count=N when the
+    receiving container cannot be resolved (DL-030, DL-038). Duplicate
     tracklist lines naming the same track resolve and serialize
     independently (DL-037). Every synthesized key is validated against the
     base collection's own primary keys before returning, mirroring
     splice.py's validate-before-write convention. The whole output is built
-    and validated in memory before the caller opens any file handle
-    (C-008)."""
+    and validated in memory before the caller opens any file handle."""
     parsed_lines, unparseable_lines = parse_tracklist(tracklist_text)
     records = collection_records(base_root)
     matched_keys, unresolved_rows, stats = _resolve_lines(parsed_lines, unparseable_lines, records)

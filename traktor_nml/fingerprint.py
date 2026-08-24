@@ -39,7 +39,7 @@ from .tagcache import TagCache
 # Availability is probed once here, at import time, rather than per call:
 # HAS_ACOUSTID is the flag both the startup warning line and the
 # active-provider stats counter (named per DL-006) read to report
-# whether this tier is live (R-002).
+# whether this tier is live.
 
 try:
     import acoustid

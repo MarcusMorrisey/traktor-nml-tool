@@ -12,6 +12,7 @@ from ..model import collection_records
 from ..reconnect import enforce_one_to_one
 from ..rewrite import (
     _collect_compare_patches,
+    read_and_parse_source,
     rewrite_from_collection_compare,
     write_nml_safely,
 )
@@ -87,6 +88,9 @@ def scan_compare_candidates(
     except FileNotFoundError:
         print(f"input_not_found={target_path}", file=sys.stderr)
         return 2
+    except XML_PARSE_ERROR as exc:
+        print(f"xml_parse_error={target_path}: {exc}", file=sys.stderr)
+        return 2
 
     candidates = sorted(candidates_dir.glob("**/*.nml"))
     if not candidates:
@@ -146,13 +150,28 @@ def scan_compare_candidates(
     return 0
 
 
-def _handle_preview_compare(args: argparse.Namespace) -> int:
+def _parse_input_or_none(path: Path) -> tuple[object, int | None]:
+    """Parse path, returning (tree, None) on success or (None, exit_code)
+    with the diagnostic already printed to stderr on failure - split per
+    path (rather than one try/except around both old_input and new_input)
+    so the printed error names the specific file that actually failed."""
     try:
-        old_tree = parse_xml(args.old_input)
-        new_tree = parse_xml(args.new_input)
-    except FileNotFoundError as exc:
-        print(f"input_not_found={exc.filename}", file=sys.stderr)
-        return 2
+        return parse_xml(path), None
+    except FileNotFoundError:
+        print(f"input_not_found={path}", file=sys.stderr)
+        return None, 2
+    except XML_PARSE_ERROR as exc:
+        print(f"xml_parse_error={path}: {exc}", file=sys.stderr)
+        return None, 2
+
+
+def _handle_preview_compare(args: argparse.Namespace) -> int:
+    old_tree, error_code = _parse_input_or_none(args.old_input)
+    if error_code is not None:
+        return error_code
+    new_tree, error_code = _parse_input_or_none(args.new_input)
+    if error_code is not None:
+        return error_code
     return preview_compare_nml(
         old_tree.getroot(), new_tree.getroot(), limit=args.limit, confidence=resolve_confidence(args)
     )
@@ -170,10 +189,20 @@ def _handle_scan_compare_candidates(args: argparse.Namespace) -> int:
 def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:
     confidence = resolve_confidence(args)
 
+    # Parsed once, upfront, with the same xml_parse_error/input_not_found
+    # handling old_input gets inside write_nml_safely - previously each
+    # closure below re-parsed new_input itself with no error handling at
+    # all, so a malformed new_input crashed with an unhandled exception
+    # instead of the documented diagnostic + exit 2.
+    new_result = read_and_parse_source(args.new_input)
+    if new_result.error is not None:
+        print(new_result.error, file=sys.stderr)
+        return 2
+    new_root = new_result.root
+
     def _collect_patches(old_root):
         old_records = collection_records(old_root)
-        new_tree = parse_xml(args.new_input)
-        new_records = collection_records(new_tree.getroot())
+        new_records = collection_records(new_root)
         indexes = build_new_indexes(new_records, confidence)
         mapping, match_stats, samples = match_records(old_records, new_records, confidence, indexes=indexes)
         mapping, match_stats, _collided = enforce_one_to_one(
@@ -183,9 +212,8 @@ def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:
         return patches, {**apply_stats, **match_stats}, samples
 
     def mutate_tree(old_root, dry_run):
-        new_tree = parse_xml(args.new_input)
         stats, samples = rewrite_from_collection_compare(
-            old_root, new_tree.getroot(), dry_run=dry_run, confidence=confidence
+            old_root, new_root, dry_run=dry_run, confidence=confidence
         )
         return stats, samples
 

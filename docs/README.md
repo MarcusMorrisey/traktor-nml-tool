@@ -12,6 +12,9 @@ for the maintained tool live in the [repository README](../README.md) and the
 - [`traktor_nml_tool_execution_plan.md`](traktor_nml_tool_execution_plan.md)
   records the detailed implementation plan, decisions, constraints, and
   acceptance criteria.
+- [`2026-08-24-build-playlist-plan.md`](2026-08-24-build-playlist-plan.md) is
+  the implementation plan for the `build-playlist` feature (design, code
+  diffs, docs).
 
 ## Development Context
 

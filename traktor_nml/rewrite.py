@@ -452,6 +452,9 @@ def write_nml_safely(
     except FileNotFoundError:
         print(f"input_not_found={input_path}", file=sys.stderr)
         return 2
+    except XML_PARSE_ERROR as exc:
+        print(f"xml_parse_error={input_path}: {exc}", file=sys.stderr)
+        return 2
     root = tree.getroot()
     stats, samples = mutate_tree(root, dry_run)
     print_stats_and_samples(stats, samples)

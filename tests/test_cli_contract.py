@@ -94,6 +94,39 @@ def test_split_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:
     assert not out_path.exists()
 
 
+def test_inspect_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:
+    src_path = tmp_path / "src.nml"
+    src_path.write_text("<NML VERSION=\"20\"><UNCLOSED>", encoding="utf-8")
+
+    result = run_tool(["inspect", str(src_path)], cwd=tmp_path)
+    assert result.exit_code == 2
+    assert f"xml_parse_error={src_path}" in result.stderr
+
+
+def test_preview_diff_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:
+    src_path = tmp_path / "src.nml"
+    src_path.write_text("<NML VERSION=\"20\"><UNCLOSED>", encoding="utf-8")
+
+    result = run_tool(
+        ["preview-diff", str(src_path), "--rule", "OldVol", "/old/", "NewVol", "/new/"], cwd=tmp_path
+    )
+    assert result.exit_code == 2
+    assert f"xml_parse_error={src_path}" in result.stderr
+
+
+def test_scan_reconnect_candidates_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:
+    src_path = tmp_path / "src.nml"
+    src_path.write_text("<NML VERSION=\"20\"><UNCLOSED>", encoding="utf-8")
+    scan_dir = tmp_path / "scan"
+    scan_dir.mkdir()
+
+    result = run_tool(
+        ["scan-reconnect-candidates", str(src_path), "--scan-root", str(scan_dir)], cwd=tmp_path
+    )
+    assert result.exit_code == 2
+    assert f"xml_parse_error={src_path}" in result.stderr
+
+
 def test_interrupted_commit_leaves_destination_and_no_temp_file(tmp_path: Path, monkeypatch) -> None:
     """Seed the destination with a valid collection, inject an OSError
     into the commit's own os.replace call, and confirm the destination

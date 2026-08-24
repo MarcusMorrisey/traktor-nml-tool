@@ -75,7 +75,7 @@ def element_span(source: str, open_lt_pos: int) -> Span:
     # scans source once via finditer rather than rescanning from the
     # start of source on each call, so collecting every element's span
     # across a full document stays linear instead of quadratic over its
-    # size (R-005, DL-012).
+    # size (DL-012).
 
     depth = 1
     pos = match_at_start.end()

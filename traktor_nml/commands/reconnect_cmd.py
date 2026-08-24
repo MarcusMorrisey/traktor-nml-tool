@@ -18,7 +18,7 @@ from ..rewrite import (
 )
 from ..tagcache import TagCache
 from ..volumes import VolumeIdentityError, parse_volume_map, resolve_volume_identity
-from ..xmlio import parse_xml
+from ..xmlio import XML_PARSE_ERROR, parse_xml
 from .compare_cmd import add_confidence_args, resolve_confidence
 
 try:
@@ -63,7 +63,7 @@ def add_reconnect_args(parser: argparse.ArgumentParser) -> None:
         "--fingerprint",
         action="store_true",
         help="Enable the acoustic-fingerprint match tier (requires pyacoustid/fpcalc); "
-        "opt-in and off by default since these are optional dependencies (R-002).",
+        "opt-in and off by default since these are optional dependencies.",
     )
     add_confidence_args(parser)
 
@@ -177,6 +177,9 @@ def _handle_scan_reconnect_candidates(args: argparse.Namespace) -> int:
         old_tree = parse_xml(args.old_input)
     except FileNotFoundError:
         print(f"input_not_found={args.old_input}", file=sys.stderr)
+        return 2
+    except XML_PARSE_ERROR as exc:
+        print(f"xml_parse_error={args.old_input}: {exc}", file=sys.stderr)
         return 2
     try:
         mapping, stats, ambiguity_rows, _old_records = _run_reconnection(args, old_tree.getroot())

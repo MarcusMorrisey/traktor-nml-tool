@@ -17,7 +17,7 @@ from ..model import (
     parse_primary_key,
 )
 from ..rewrite import _collect_rewrite_patches, rewrite_nml, write_nml_safely
-from ..xmlio import parse_xml
+from ..xmlio import XML_PARSE_ERROR, parse_xml
 
 
 def add_rule_args(parser: argparse.ArgumentParser) -> None:
@@ -179,6 +179,9 @@ def _handle_preview_diff(args: argparse.Namespace) -> int:
         tree = parse_xml(args.input)
     except FileNotFoundError:
         print(f"input_not_found={args.input}", file=sys.stderr)
+        return 2
+    except XML_PARSE_ERROR as exc:
+        print(f"xml_parse_error={args.input}: {exc}", file=sys.stderr)
         return 2
     try:
         rules = build_rules(args)
