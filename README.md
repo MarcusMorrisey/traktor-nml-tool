@@ -45,3 +45,6 @@ A few tests in `tests/test_spans.py` exercise a real-world-scale corpus (`collec
 
 The original design and implementation plans are retained in [`docs/`](docs/)
 for reference.
+# License
+
+This project is licensed under the GNU General Public License v2.0 only (GPL-2.0-only). See [LICENSE](LICENSE).
