@@ -108,6 +108,24 @@ def _redirect_keys(node_copy: ET.Element, old_to_new_key: dict[str, str]) -> Non
             pk.attrib["KEY"] = new_key
 
 
+def available_playlist_name(requested_name: str, existing_names: set[str]) -> str:
+    """Take a requested name and the set of names already in use and return
+    the requested name when free, otherwise the first free numbered-suffix
+    variant starting at 2, adding the result to the in-use set.
+    import_playlists' own collision handling reads through this one
+    function so the suffix rule has a single spelling shared by imported
+    and synthesized playlists."""
+    final_name = requested_name
+    suffix = 2
+    # starts at 2 so the first collision becomes "<name> (2)", the same
+    # numbering import_playlists also uses (DL-029)
+    while final_name in existing_names:
+        final_name = f"{requested_name} ({suffix})"
+        suffix += 1
+    existing_names.add(final_name)
+    return final_name
+
+
 def import_playlists(
     source_text: str,
     non_base_root: ET.Element,
@@ -140,12 +158,7 @@ def import_playlists(
 
     for node in find_playlist_nodes(non_base_root):
         original_name = node.attrib.get("NAME", "")
-        final_name = original_name
-        suffix = 2
-        while final_name in existing_names:
-            final_name = f"{original_name} ({suffix})"
-            suffix += 1
-        existing_names.add(final_name)
+        final_name = available_playlist_name(original_name, existing_names)
         renamed = final_name != original_name
 
         needs_redirect = any(
@@ -190,3 +203,28 @@ def import_playlists(
             result.sorting_info.append(_sorting_info_fragment(sorting_info, final_name))
 
     return result
+
+
+def synthesize_playlist_node(name: str, primary_keys: list[str]) -> str:
+    """Take a playlist name and an ordered list of primary keys and return
+    the serialized NODE TYPE=PLAYLIST fragment for them: a NODE carrying
+    TYPE=PLAYLIST and NAME, holding one PLAYLIST child with TYPE=LIST,
+    ENTRIES set to the key count, and UUID set to a fresh uuid4 hex,
+    holding one ENTRY per key in the given order, each with a single
+    PRIMARYKEY carrying TYPE=TRACK and KEY. The subtree is assembled as
+    ElementTree elements and returned as ET.tostring output, so the name
+    and every key are escaped by the serializer. It sits beside
+    import_playlists because both emit a playlist fragment under the same
+    naming and UUID policy, differing only in whether a source node
+    exists."""
+    node = ET.Element("NODE", {"TYPE": "PLAYLIST", "NAME": name})
+    playlist_elem = ET.SubElement(
+        node, "PLAYLIST",
+        {"ENTRIES": str(len(primary_keys)), "TYPE": "LIST", "UUID": uuid.uuid4().hex},
+    )
+    for key in primary_keys:
+        entry_elem = ET.SubElement(playlist_elem, "ENTRY")
+        ET.SubElement(entry_elem, "PRIMARYKEY", {"TYPE": "TRACK", "KEY": key})
+    # encoding="unicode" returns str (not bytes): callers splice this
+    # fragment directly into a text-based document assembly (DL-028)
+    return ET.tostring(node, encoding="unicode")

@@ -20,6 +20,8 @@
 | `playlists.py`     | Playlist import for splice (merge, rename, redirect); nodes are located through the shared `SpanIndex`, not a UUID text search | Modifying playlist merge, collision-rename, or PRIMARYKEY redirect logic |
 | `splice.py`        | Merge-command core: conflict resolution, playlist import; builds one `SpanIndex` per input source | Modifying splice's conflict policy or merge algorithm      |
 | `split.py`         | Partition-command core: filter, dangling-reference policy scoped to the group's own resolved playlist nodes, spans from the shared `SpanIndex` | Modifying split's selection filter or dangling-reference handling |
+| `tracklist.py`     | External track-list parsing and per-line collection resolution | Changing tracklist input format or per-line resolution      |
+| `buildplaylist.py` | build-playlist core: resolution, playlist synthesis, insertion | Modifying playlist synthesis or its insertion point          |
 | `cli.py`           | Subcommand discovery and argparse wiring                   | Adding a subcommand or changing dispatch                   |
 
 ## Subdirectories

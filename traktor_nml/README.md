@@ -27,6 +27,13 @@ Two write mechanisms coexist and never mix within one command:
 iterating the package rather than listing them, so adding a subcommand
 never requires editing `cli.py` (DL-003).
 
+`build-playlist` synthesizes its playlist node from an external track list
+with no source span to transplant, so it always takes the serialization
+path this split already sanctions for genuinely new content (DL-028), and
+it resolves track identity at a fixed `MatchConfidence.LOOSE` with no
+level selector, since a track list carrying only artist and title leaves
+every stricter tier unreachable (DL-032).
+
 ## Design Decisions
 
 - `matching.py`'s cascade accepts injected key providers; `fingerprint.py`
@@ -71,6 +78,93 @@ never requires editing `cli.py` (DL-003).
   exported from `rewrite.py` rather than carrying their own input handling
   and a plain `write_bytes`, so both inherit the diagnostics and the atomic
   write `write_nml_safely` already implements (DL-019).
+- `build-playlist` splits its core resolution/assembly logic into
+  `buildplaylist.py` with only the CLI surface in
+  `commands/build_playlist_cmd.py`, following the core-module-plus-thin-command
+  pairing every other write command uses (DL-024).
+- Resolving a track list against the collection calls `match_records` once
+  per input line, with a single shared candidate index passed through its
+  `indexes` parameter, because the mapping and stats `match_records`
+  returns are keyed and aggregated per call and would otherwise collide
+  every line onto one result (DL-025).
+- In `build-playlist`'s matching call, the track list is the cascade's old
+  (iterated, order-preserving) side and the collection is its new
+  (indexed, candidate) side, mirroring how disk-scan candidates take the
+  new side for reconnection (DL-026).
+- An unmatched or ambiguous track-list line aborts `build-playlist`'s
+  entire run with nothing written unless `--allow-unmatched` is passed,
+  and the unresolved-line report is written whether or not the run
+  aborts, matching splice's unresolved-conflict policy (DL-027).
+- A playlist synthesized from external text has no source span to
+  transplant, so its `NODE`/`PLAYLIST`/`ENTRY`/`PRIMARYKEY` fragment is
+  always built as an `ElementTree` subtree and serialized with
+  `ET.tostring`, which the existing span-transplant-vs-serialization split
+  already treats as the sanctioned path for genuinely new content
+  (DL-028).
+- A synthesized `PLAYLIST` always gets a fresh `uuid4` hex, and a name
+  collision with an existing playlist takes the same deterministic
+  `"<name> (2)"` suffix `playlists.py` already applies to imported
+  playlists, so playlist naming/UUID policy has one spelling across both
+  entry points (DL-029).
+- `build-playlist`'s insertion point defaults to the root `FOLDER`'s
+  `SUBNODES`, or an existing folder named by `--target-folder`; a named
+  folder absent from the base aborts rather than being created, since a
+  fabricated folder's `SORTING_INFO`/nesting semantics are unverified
+  against the one confirmed schema version (DL-030).
+- The external track-list parser splits each line on its first `" - "`
+  occurrence only, never a bare hyphen, and reports (rather than silently
+  mis-splits) any line without that delimiter, since a bare-hyphen split
+  would corrupt real artist/title text like "Jean-Michel" (DL-031).
+- `build-playlist` calls the matching cascade at a fixed
+  `MatchConfidence.LOOSE` with no `--match-confidence` flag, because a
+  text-only track list carries only artist and title, making every tier
+  above `artist_title` structurally unreachable for it (DL-032).
+- `build-playlist` makes no network or API calls of any kind - track
+  identity is resolved entirely against the local base collection through
+  the existing matching cascade, consistent with the tool's offline
+  posture elsewhere (no live Spotify/Apple/Beatport/Bandcamp lookups).
+- ISRC-based matching was considered and rejected for `build-playlist`'s
+  v1: Beatport downloads sometimes carry a label-sourced ISRC tag but
+  Bandcamp downloads mostly do not, so an ISRC tier would only be a
+  partial win while adding new matching-cascade code; deferred rather
+  than built.
+- `build-playlist`'s output-path refusal covers the track-list path as
+  well as the base path, via a bespoke set-membership check mirroring
+  `splice_cmd.py`'s own multi-input collision check, not
+  `write_nml_safely`'s `extra_inputs` parameter (which exists only on
+  the attribute-patching write path this span-assembly command does not
+  use) (DL-033).
+- `build-playlist`'s unresolved-line report is written as CSV via
+  `csv.DictWriter` with a header row, `newline=""`, and UTF-8 encoding,
+  matching `splice_cmd.py`'s `_write_conflict_report` exactly rather than
+  adopting a second CSV convention for the same kind of artifact
+  (DL-034).
+- `build-playlist` returns exit code 2 for both an input error (a
+  malformed base, a missing track list) and an unresolved-track abort,
+  rather than a distinct code per failure class, matching
+  `splice_cmd.py`'s own existing convention of not distinguishing them
+  (DL-035).
+- A `build-playlist` run that resolves zero lines (an empty track list,
+  every line unparseable, or every line unmatched with
+  `--allow-unmatched`) aborts with a dedicated error and writes nothing,
+  rather than writing a `PLAYLIST` with `ENTRIES=0`, matching `split.py`'s
+  own convention of dropping a playlist reduced to zero entries rather
+  than writing it empty (DL-036).
+- Two track-list lines naming the same collection track resolve and
+  serialize independently in `build-playlist`, producing duplicate
+  `ENTRY`/`PRIMARYKEY` elements rather than being deduplicated, since a
+  Traktor `PLAYLIST` is an ordered list of references and the operator's
+  input order and repetition are taken as authoritative (DL-037).
+- A base document `build-playlist` is given with no `PLAYLISTS` section,
+  root `FOLDER`, or `SUBNODES` element at all aborts with a
+  `no_root_subnodes` error rather than synthesizing the missing
+  structure, reusing the same error name `splice.py` already returns for
+  the identical failure mode (DL-038).
+- `build-playlist`'s synthesized fragment is inserted exactly as
+  `ET.tostring` serializes it (attribute quoting, empty-element
+  shorthand, absence of extra whitespace), with no attempt to match the
+  base document's own formatting conventions, the same as `playlists.py`'s
+  existing renamed/redirected fragments already do (DL-039).
 
 ## Invariants
 
@@ -120,6 +214,13 @@ never requires editing `cli.py` (DL-003).
   over any counted container rather than a fixed tag list, so a counted
   container introduced by a later schema version is still recalculated
   correctly instead of being silently left stale.
+- `match_records`' per-old-record loop does not stop at the first
+  ambiguous tier: a tier with more than one candidate sets its ambiguous
+  flag but does not break, and a later, weaker tier that lands on a
+  single candidate overrides the earlier tier's ambiguity and counts as
+  matched. Only a provider-returned AMBIGUOUS sentinel breaks the loop
+  immediately. `build-playlist` relies on this - a tracklist line
+  ambiguous at a stricter tier can still resolve at `artist_title`.
 
 ## Tradeoffs
 
