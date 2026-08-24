@@ -5,6 +5,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from traktor_nml.confidence import MatchConfidence
+from traktor_nml.matching import match_records
+from traktor_nml.model import EntryRecord, LocationParts
+from traktor_nml.xmlio import ET
 from tests.conftest import run_tool
 
 
@@ -103,3 +107,24 @@ def test_stdlib_branch_reports_the_same_destination_collision_stats(tmp_path: Pa
     )
     assert result.exit_code == 0
     assert "destination_collisions=2" in result.stdout
+
+
+def test_sync_current_copy_is_preferred_over_sync_old_duplicate() -> None:
+    def record(dir_value: str) -> EntryRecord:
+        location = LocationParts("FreqKing", "FreqKing", dir_value, "song.mp3")
+        return EntryRecord(
+            entry=ET.Element("ENTRY", ARTIST="Artist", TITLE="Song"),
+            artist="Artist", title="Song", audio_id="same-audio-id",
+            filesize="100", playtime_float="200.0", bitrate="320", album="Album",
+            file_name="song.mp3", location=location,
+        )
+
+    old = record("/:Users/:FreqKing/:Sync/:FreqKing_V02/:")
+    current = record("/:Sync_/:FreqKing_V02/:")
+    archived = record("/:Sync_old/:FreqKing_V02/:")
+
+    mapping, stats, _samples = match_records([old], [archived, current], MatchConfidence.STRICT)
+
+    assert mapping[old.primary_key] is current
+    assert stats["matched"] == 1
+    assert stats["ambiguous"] == 0

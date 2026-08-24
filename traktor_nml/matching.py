@@ -129,6 +129,19 @@ def build_new_indexes(
     return indexes
 
 
+def _prefer_current_sync_copy(candidates: list[EntryRecord]) -> list[EntryRecord]:
+    """Prefer the active Sync_ copy when an identity also has a Sync_old copy.
+
+    This is intentionally limited to the paired path convention used by the
+    collection migration. Other duplicate candidate sets remain ambiguous.
+    """
+    current = [record for record in candidates if "Sync_" in record.location.decoded_dir.parts]
+    old = [record for record in candidates if "Sync_old" in record.location.decoded_dir.parts]
+    if old and len(current) == 1:
+        return current
+    return candidates
+
+
 def match_records(
     old_records: list[EntryRecord],
     new_records: list[EntryRecord],
@@ -168,7 +181,7 @@ def match_records(
                 # match, so no further tiers are consulted for this record.
                 ambiguous_here = True
                 break
-            candidates = indexes.get(key_name, {}).get(key_value, [])
+            candidates = _prefer_current_sync_copy(indexes.get(key_name, {}).get(key_value, []))
             if len(candidates) == 1:
                 matched_new = candidates[0]
                 matched_by = key_name
