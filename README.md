@@ -29,7 +29,9 @@ python traktor_nml_tool.py inspect collection.nml
 python traktor_nml_tool.py rewrite-from-reconnect old.nml new.nml --scan-root D:/Music --dry-run
 ```
 
-See `traktor_nml/README.md` for architecture, design decisions, and invariants.
+See [the package architecture guide](traktor_nml/README.md) for design
+decisions and invariants. See [the documentation index](docs/README.md) for
+project planning material and retained development context.
 
 ## Tests
 
@@ -41,4 +43,5 @@ A few tests in `tests/test_spans.py` exercise a real-world-scale corpus (`collec
 
 ## Project history
 
-`traktor_nml_tool_plan.md` and `traktor_nml_tool_execution_plan.md` are the original design and implementation plans this project was built from, kept for reference.
+The original design and implementation plans are retained in [`docs/`](docs/)
+for reference.
