@@ -19,7 +19,7 @@ try:
     import mutagen
 
     HAS_MUTAGEN = True
-except ImportError:  # pragma: no cover - degrade to filename/filesize matching
+except ImportError:  # pragma: no cover - degrade to path/filename matching
     HAS_MUTAGEN = False
 
 AUDIO_EXTENSIONS = (".mp3", ".flac", ".wav", ".aiff", ".aif", ".m4a", ".ogg", ".stem.mp3", ".stem.flac")
@@ -86,7 +86,20 @@ def index_scan_roots(
     audio file, not skipped.
     """
     if not HAS_MUTAGEN:
-        print("tag_reading_unavailable=mutagen not installed; degrading to filename/filesize matching", file=sys.stderr)
+        # Naming the tiers that actually remain, and the confidence level
+        # that admits them: without tags every tag-derived tier is dead, and
+        # at the default strict confidence only the path-suffix tiers can
+        # fire - so a run that scans a moved library still matches, while a
+        # run over renamed folders matches nothing until --match-confidence
+        # filename is passed. The old wording promised "filename/filesize"
+        # matching, a tier pair that cannot fire at the default confidence
+        # and, for filesize, could never fire at all (Traktor stores
+        # kilobytes of audio payload, the scan stores bytes on disk).
+        print(
+            "tag_reading_unavailable=mutagen not installed; matching falls back to "
+            "path-suffix tiers, and to bare filename only at --match-confidence filename",
+            file=sys.stderr,
+        )
 
     if stats is None:
         stats = {}

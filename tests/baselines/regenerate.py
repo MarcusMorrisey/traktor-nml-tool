@@ -80,7 +80,7 @@ CASES: list[list[str]] = [
     # ambiguity and one dangling entry, so a single scan exercises all
     # three outcomes. --match-confidence filename is required: the audio
     # stubs have no readable tags, so a disk candidate offers only the
-    # filename_size key. --volume-map is required because the prefix scan
+    # filename key. --volume-map is required because the prefix scan
     # cannot resolve a single VOLUME/VOLUMEID pair from a relative scan
     # root, and leaving it implicit would pin the case to that failure.
     _RECON_SCAN,

@@ -10,6 +10,13 @@ from traktor_nml.fingerprint import HAS_ACOUSTID
 from tests.conftest import run_tool
 
 
+# Traktor's FILESIZE is the audio payload in KILOBYTES, not the file's byte
+# count, so a stub standing in for a FILESIZE="16" entry must be 16 KiB. The
+# cascade refutes a candidate whose size contradicts the collection's, and a
+# 16-byte stub beside FILESIZE="16" contradicts it by a factor of 1024.
+_STUB_KB = 16
+
+
 def _write_nml(path: Path, entries_xml: str, entries_count: int = 1) -> None:
     path.write_text(
         '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n'
@@ -22,7 +29,7 @@ def _write_nml(path: Path, entries_xml: str, entries_count: int = 1) -> None:
     )
 
 
-def _entry(artist, title, volume, dirv, filename, size="16", time="1.0"):
+def _entry(artist, title, volume, dirv, filename, size=str(_STUB_KB), time="1.0"):
     """Minimal COLLECTION ENTRY carrying only the attributes the
     file/size/time match tiers need; PLAYLISTS/SETS/INDEXING are always
     present but empty so the tool's other schema assumptions still hold."""
@@ -37,7 +44,7 @@ def _entry(artist, title, volume, dirv, filename, size="16", time="1.0"):
 def test_scan_reconnect_reports_match_without_writing(tmp_path: Path) -> None:
     music = tmp_path / "music"
     music.mkdir()
-    (music / "xtal.mp3").write_bytes(b"\x00" * 16)
+    (music / "xtal.mp3").write_bytes(b"\x00" * (_STUB_KB * 1024))
 
     old_nml = tmp_path / "old.nml"
     _write_nml(old_nml, _entry("Aphex Twin", "Xtal", "Z:", "/:gone/:", "xtal.mp3"))
@@ -61,7 +68,7 @@ def test_scan_reconnect_reports_match_without_writing(tmp_path: Path) -> None:
 def test_no_output_assigns_two_entries_the_same_location(tmp_path: Path) -> None:
     music = tmp_path / "music"
     music.mkdir()
-    (music / "track.mp3").write_bytes(b"\x00" * 16)
+    (music / "track.mp3").write_bytes(b"\x00" * (_STUB_KB * 1024))
 
     old_nml = tmp_path / "old.nml"
     _write_nml(
@@ -91,7 +98,7 @@ def test_no_output_assigns_two_entries_the_same_location(tmp_path: Path) -> None
 def test_absent_volume_map_and_ambiguous_prefix_is_hard_error(tmp_path: Path) -> None:
     music = tmp_path / "music"
     music.mkdir()
-    (music / "xtal.mp3").write_bytes(b"\x00" * 16)
+    (music / "xtal.mp3").write_bytes(b"\x00" * (_STUB_KB * 1024))
 
     old_nml = tmp_path / "old.nml"
     _write_nml(old_nml, _entry("Aphex Twin", "Xtal", "Z:", "/:gone/:", "xtal.mp3"))
@@ -106,7 +113,7 @@ def test_absent_volume_map_and_ambiguous_prefix_is_hard_error(tmp_path: Path) ->
 def test_dry_run_and_write_agree_on_counts(tmp_path: Path) -> None:
     music = tmp_path / "music"
     music.mkdir()
-    (music / "xtal.mp3").write_bytes(b"\x00" * 16)
+    (music / "xtal.mp3").write_bytes(b"\x00" * (_STUB_KB * 1024))
 
     old_nml = tmp_path / "old.nml"
     _write_nml(old_nml, _entry("Aphex Twin", "Xtal", "Z:", "/:gone/:", "xtal.mp3"))
@@ -128,7 +135,7 @@ def test_fingerprint_flag_without_dependency_warns_rather_than_silently_no_ops(t
     match), but a diagnostic naming the missing dependency is printed."""
     music = tmp_path / "music"
     music.mkdir()
-    (music / "xtal.mp3").write_bytes(b"\x00" * 16)
+    (music / "xtal.mp3").write_bytes(b"\x00" * (_STUB_KB * 1024))
 
     old_nml = tmp_path / "old.nml"
     _write_nml(old_nml, _entry("Aphex Twin", "Xtal", "Z:", "/:gone/:", "xtal.mp3"))
@@ -145,3 +152,242 @@ def test_fingerprint_flag_without_dependency_warns_rather_than_silently_no_ops(t
     )
     assert result.exit_code == 0
     assert "fingerprint_dependency_missing" in result.stderr
+
+
+# --- path-suffix tiers and tolerant verification -------------------------
+
+
+def _stub(path: Path, kb: int = _STUB_KB) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"\x00" * (kb * 1024))
+
+
+def _stat(stdout: str, key: str) -> str | None:
+    """One stats value read as a whole line.
+
+    Substring assertions cannot be used here: "matched=0" is a substring of
+    "unmatched=0", so `assert "matched=0" in stdout` passes for a run that
+    matched everything. That false pass hid a real gap in these tests until
+    a mutation run exposed it.
+    """
+    for line in stdout.splitlines():
+        name, _, value = line.partition("=")
+        if name == key:
+            return value
+    return None
+
+
+def test_wholesale_move_reconnects_at_default_confidence_without_tags(tmp_path: Path) -> None:
+    """The dominant real-world failure - a library moved as a unit - must
+    reconnect at strict confidence with no readable tags at all.
+
+    Every absolute path changed, but each file's position within its own
+    folders did not, which is exactly what the path-suffix tiers key on.
+    Before those tiers this run matched nothing and the tool reported the
+    whole collection as dangling.
+    """
+    music = tmp_path / "music"
+    _stub(music / "Techno" / "Artist" / "Album" / "track.mp3")
+
+    old_nml = tmp_path / "old.nml"
+    _write_nml(old_nml, _entry("A", "One", "Z:", "/:Techno/:Artist/:Album/:", "track.mp3"))
+
+    result = run_tool(
+        [
+            "scan-reconnect-candidates", str(old_nml),
+            "--scan-root", str(music),
+            "--volume-map", str(music), "C:", "C:",
+        ],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 0
+    assert _stat(result.stdout, "matched_path_suffix_3") == "1"
+    assert _stat(result.stdout, "reconnectable") == "1"
+
+
+def test_one_folder_suffix_is_not_admitted_at_strict(tmp_path: Path) -> None:
+    """A single folder plus filename collides across sibling libraries
+    ("Album/track01.mp3"), so it must wait for loose. A path too shallow
+    for the deep tiers therefore matches nothing at strict."""
+    music = tmp_path / "music"
+    _stub(music / "Album" / "track.mp3")
+
+    old_nml = tmp_path / "old.nml"
+    _write_nml(old_nml, _entry("A", "One", "Z:", "/:Album/:", "track.mp3"))
+
+    common = [
+        "scan-reconnect-candidates", str(old_nml),
+        "--scan-root", str(music),
+        "--volume-map", str(music), "C:", "C:",
+    ]
+    strict = run_tool(common, cwd=tmp_path)
+    loose = run_tool(common + ["--match-confidence", "loose"], cwd=tmp_path)
+
+    assert _stat(strict.stdout, "matched") == "0"
+    assert _stat(strict.stdout, "matched_path_suffix_1") is None
+    assert _stat(loose.stdout, "matched_path_suffix_1") == "1"
+
+
+def test_size_gap_of_traktor_tag_overhead_still_matches(tmp_path: Path) -> None:
+    """Traktor's FILESIZE counts the audio payload, so it sits below the
+    file's real size by whatever tags and artwork occupy - measured at up
+    to 0.41% over a real collection. A candidate that far off must still
+    match: rejecting it would leave a present file reported as missing,
+    which is the failure this tolerance exists to prevent.
+    """
+    music = tmp_path / "music"
+    # 1000 KiB on disk against a collection claiming 996 KB of payload: a
+    # 0.4% gap, inside the real-world maximum and inside the tolerance.
+    _stub(music / "Techno" / "Artist" / "Album" / "track.mp3", kb=1000)
+
+    old_nml = tmp_path / "old.nml"
+    _write_nml(old_nml, _entry("A", "One", "Z:", "/:Techno/:Artist/:Album/:", "track.mp3", size="996"))
+
+    result = run_tool(
+        [
+            "scan-reconnect-candidates", str(old_nml),
+            "--scan-root", str(music),
+            "--volume-map", str(music), "C:", "C:",
+        ],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 0
+    assert _stat(result.stdout, "matched_path_suffix_3") == "1"
+
+
+def test_size_contradiction_refutes_a_same_path_candidate(tmp_path: Path) -> None:
+    """A file sitting at the right path but an order of magnitude off in
+    size is a different recording, not the entry's file. Refuting it is
+    better than reconnecting the entry to the wrong audio."""
+    music = tmp_path / "music"
+    _stub(music / "Techno" / "Artist" / "Album" / "track.mp3", kb=1)
+
+    old_nml = tmp_path / "old.nml"
+    _write_nml(old_nml, _entry("A", "One", "Z:", "/:Techno/:Artist/:Album/:", "track.mp3", size="5000"))
+
+    result = run_tool(
+        [
+            "scan-reconnect-candidates", str(old_nml),
+            "--scan-root", str(music),
+            "--volume-map", str(music), "C:", "C:",
+        ],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 0
+    assert _stat(result.stdout, "matched") == "0"
+    assert _stat(result.stdout, "unmatched") == "1"
+
+
+def test_refuting_one_of_two_candidates_resolves_the_ambiguity(tmp_path: Path) -> None:
+    """Two files share a filename; one contradicts the entry's size. The
+    tier resolves cleanly to the plausible one instead of reporting an
+    ambiguity the operator would have to adjudicate by hand."""
+    music = tmp_path / "music"
+    _stub(music / "a" / "track.mp3", kb=_STUB_KB)
+    _stub(music / "b" / "track.mp3", kb=_STUB_KB * 100)
+
+    old_nml = tmp_path / "old.nml"
+    _write_nml(old_nml, _entry("A", "One", "Z:", "/:gone/:", "track.mp3"))
+
+    result = run_tool(
+        [
+            "scan-reconnect-candidates", str(old_nml),
+            "--scan-root", str(music),
+            "--volume-map", str(music), "C:", "C:",
+            "--match-confidence", "filename",
+        ],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 0
+    assert _stat(result.stdout, "matched_filename") == "1"
+    assert _stat(result.stdout, "ambiguous") == "0"
+
+
+def test_absent_size_never_refutes(tmp_path: Path) -> None:
+    """An entry Traktor recorded without a FILESIZE must be judged by the
+    tier keys alone; silence is not a contradiction."""
+    music = tmp_path / "music"
+    _stub(music / "Techno" / "Artist" / "Album" / "track.mp3")
+
+    old_nml = tmp_path / "old.nml"
+    _write_nml(old_nml, _entry("A", "One", "Z:", "/:Techno/:Artist/:Album/:", "track.mp3", size=""))
+
+    result = run_tool(
+        [
+            "scan-reconnect-candidates", str(old_nml),
+            "--scan-root", str(music),
+            "--volume-map", str(music), "C:", "C:",
+        ],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 0
+    assert _stat(result.stdout, "matched_path_suffix_3") == "1"
+
+
+# --- refutation unit tests ----------------------------------------------
+#
+# The duration branch cannot be reached through the CLI in this suite: the
+# audio stubs carry no tags, so a scanned candidate never has a
+# PLAYTIME_FLOAT to contradict the collection's. These exercise _refutes
+# directly rather than leaving the branch to a mutation nobody notices.
+
+
+def _record(*, filesize: str = "", playtime: str = "", from_disk: bool = False) -> "EntryRecord":
+    from traktor_nml.model import EntryRecord, LocationParts
+
+    return EntryRecord(
+        entry=None,
+        artist="A",
+        title="One",
+        audio_id="",
+        filesize=filesize,
+        playtime_float=playtime,
+        bitrate="",
+        album="",
+        file_name="track.mp3",
+        location=LocationParts(volume="C:", volumeid="C:", dir_value="/:Music/:", file_name="track.mp3"),
+        source_path=Path("C:/Music/track.mp3") if from_disk else None,
+    )
+
+
+@pytest.mark.parametrize(
+    "old_seconds, new_seconds, refuted",
+    [
+        # Traktor's PLAYTIME_FLOAT and mutagen's duration disagree by up to
+        # 0.172s over a real collection, and as strings they never match at
+        # all - so a sub-second gap must not refute.
+        ("212.345678", "212.5", False),
+        ("212.345678", "212.9", False),
+        # A different edit of the same track: minutes apart, refuted.
+        ("212.345678", "254.0", True),
+        # Silence on either side is not a contradiction.
+        ("", "212.5", False),
+        ("212.345678", "", False),
+    ],
+)
+def test_duration_refutation_tolerates_the_measured_disagreement(
+    old_seconds: str, new_seconds: str, refuted: bool
+) -> None:
+    from traktor_nml.matching import _refutes
+
+    old = _record(playtime=old_seconds)
+    candidate = _record(playtime=new_seconds, from_disk=True)
+    assert _refutes(old, candidate) is refuted
+
+
+def test_size_refutation_compares_kilobytes_against_bytes() -> None:
+    """The two sides are in different units, and the comparison must
+    convert rather than compare the raw strings: the collection records
+    kilobytes of audio payload, a scanned candidate records bytes on disk.
+    Comparing them directly is the bug this whole change exists to fix.
+    """
+    from traktor_nml.matching import _refutes
+
+    # 5,000 KB of payload against a 5,120,000-byte file: the same track.
+    old = _record(filesize="5000")
+    same_track = _record(filesize=str(5000 * 1024), from_disk=True)
+    assert _refutes(old, same_track) is False
+
+    # Raw-string equality would have called THIS one a match.
+    numeric_lookalike = _record(filesize="5000", from_disk=True)
+    assert _refutes(old, numeric_lookalike) is True

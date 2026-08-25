@@ -31,6 +31,16 @@ _BASE_STAT_TIERS: tuple[str, ...] = (
     "artist_title",
 )
 
+_EXTRA_STAT_TIERS: tuple[str, ...] = (
+    # Tiers added after the stats dict was first pinned, in cascade order.
+    # Unlike _BASE_STAT_TIERS these are printed only when the run's
+    # confidence admits them (see match_records).
+    "path_suffix_3",
+    "path_suffix_2",
+    "path_suffix_1",
+    "filename",
+)
+
 AMBIGUOUS = object()
 """Sentinel a KeyProvider.provide() may return in place of a key tuple to
 force this record into the ambiguous bucket, regardless of what any lower,
@@ -60,6 +70,88 @@ class KeyProvider:
 
     tier_name: str
     provide: Callable[[EntryRecord], Optional[tuple[str, ...]]]
+
+
+# --- tolerant verification -------------------------------------------
+#
+# Traktor's FILESIZE and PLAYTIME_FLOAT can never equal what the disk
+# reports, so neither can take part in an exact key against a candidate.
+# Measured against a real 6,386-entry collection and its files:
+#
+#   FILESIZE vs bytes/1024   median 0.17% error, max 0.41%  (Traktor
+#                            records the audio payload, excluding tag and
+#                            artwork overhead, so the gap grows with
+#                            embedded art)
+#   PLAYTIME_FLOAT vs mutagen  median 0.048s error, max 0.172s
+#
+# They are therefore used to REFUTE a candidate, never to identify one.
+# Tolerances sit well above the observed maxima on purpose: a too-tight
+# bound produces false negatives - a real file rejected, the user's track
+# left missing - whereas a loose one only slightly weakens tie-breaking,
+# and the tier keys are doing the identifying.
+_SIZE_REL_TOLERANCE = 0.02
+_DURATION_ABS_TOLERANCE = 1.0
+
+
+def _size_kb(record: EntryRecord) -> Optional[float]:
+    """Both sides' size in kilobytes, or None when unknown.
+
+    A disk-derived candidate (source_path set) carries the real byte count
+    from stat(); a collection record carries Traktor's own KB figure.
+    """
+    if not record.filesize:
+        return None
+    try:
+        value = float(record.filesize)
+    except ValueError:
+        return None
+    return value / 1024.0 if record.source_path is not None else value
+
+
+def _duration_seconds(record: EntryRecord) -> Optional[float]:
+    if not record.playtime_float:
+        return None
+    try:
+        return float(record.playtime_float)
+    except ValueError:
+        return None
+
+
+def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
+    """True when size or duration positively contradict the candidate.
+
+    Absent data never refutes: a candidate whose tags could not be read is
+    left for the tier keys to judge rather than silently discarded.
+    """
+    # `is not None`, not truthiness: a zero is a claim (an empty file, a
+    # zero-length entry), and one side claiming zero against the other's
+    # real value is a contradiction, not missing data. Only the two-zero
+    # case is skipped, which would otherwise divide by zero.
+    old_kb, new_kb = _size_kb(old_record), _size_kb(candidate)
+    if old_kb is not None and new_kb is not None and max(old_kb, new_kb) > 0:
+        if abs(old_kb - new_kb) / max(old_kb, new_kb) > _SIZE_REL_TOLERANCE:
+            return True
+
+    old_s, new_s = _duration_seconds(old_record), _duration_seconds(candidate)
+    if old_s is not None and new_s is not None and abs(old_s - new_s) > _DURATION_ABS_TOLERANCE:
+        return True
+
+    return False
+
+
+def _path_suffix(record: EntryRecord, depth: int) -> Optional[tuple[str, ...]]:
+    """The last `depth` folder names plus the filename, or None if the
+    path is too shallow.
+
+    Identifies a file by where it sits relative to its own folders, which
+    a wholesale move preserves exactly - the dominant real-world case.
+    Comparable from either side: a collection record decodes Traktor's DIR,
+    a disk candidate carries its real parent path.
+    """
+    parts = [part for part in record.location.decoded_dir.parts if part not in ("/", "")]
+    if len(parts) < depth or not record.file_name:
+        return None
+    return tuple(parts[len(parts) - depth:]) + (record.file_name,)
 
 
 def record_keys(
@@ -110,10 +202,27 @@ def record_keys(
                 (record.artist, record.title, record.album, record.playtime_float),
             )
         )
+    for depth in (3, 2):
+        tier = f"path_suffix_{depth}"
+        if confidence.admits(tier):
+            suffix = _path_suffix(record, depth)
+            if suffix is not None:
+                keys.append((tier, suffix))
     if confidence.admits("artist_title") and record.artist and record.title:
         keys.append(("artist_title", (record.artist, record.title)))
-    if confidence.admits("filename_size") and record.file_name and record.filesize:
-        keys.append(("filename_size", (record.file_name, record.filesize)))
+    if confidence.admits("path_suffix_1"):
+        suffix = _path_suffix(record, 1)
+        if suffix is not None:
+            keys.append(("path_suffix_1", suffix))
+    if confidence.admits("filename") and record.file_name:
+        keys.append(("filename", (record.file_name,)))
+    # There is deliberately no filename_size tier. It keyed on the raw
+    # FILESIZE string from both sides, which measure different quantities in
+    # different units (Traktor: kilobytes of audio payload; a disk scan:
+    # bytes on disk), so any match it produced was a numeric coincidence
+    # rather than evidence - and it sat last in the cascade, where its only
+    # effect was to break a filename ambiguity by accident. Size now enters
+    # through _refutes, where being approximate is sound.
     return keys
 
 
@@ -158,12 +267,13 @@ def match_records(
     # The six tag-derived tiers always get a stats key, matching every
     # pre-extraction stats dict exactly regardless of confidence (the
     # confidence level gates whether a tier can produce a match, not whether
-    # its counter is printed). filename_size and any injected provider tier
-    # are new additions with no baseline to preserve, so they only appear
-    # when actually reachable at this confidence / with providers supplied.
+    # its counter is printed). The path-suffix tiers and any injected
+    # provider tier are later additions with no such baseline to
+    # preserve, so they only appear when actually reachable at this
+    # confidence / with providers supplied - a counter for a tier that
+    # cannot fire reads as "tried and found nothing", which is a lie.
     tier_names = [p.tier_name for p in key_providers] + list(_BASE_STAT_TIERS)
-    if confidence is MatchConfidence.FILENAME:
-        tier_names.append("filename_size")
+    tier_names += [name for name in _EXTRA_STAT_TIERS if confidence.admits(name)]
     stats = {"matched": 0, **{f"matched_{name}": 0 for name in tier_names}, "unmatched": 0, "ambiguous": 0}
     samples: list[tuple[str, str, str, str]] = []
 
@@ -181,7 +291,13 @@ def match_records(
                 # match, so no further tiers are consulted for this record.
                 ambiguous_here = True
                 break
-            candidates = _prefer_current_sync_copy(indexes.get(key_name, {}).get(key_value, []))
+            candidates = indexes.get(key_name, {}).get(key_value, [])
+            # Refute before counting: a size or duration contradiction
+            # removes a candidate, so a tier with one plausible and one
+            # implausible hit resolves cleanly instead of reporting a
+            # false ambiguity the operator would have to adjudicate.
+            candidates = [c for c in candidates if not _refutes(old_record, c)]
+            candidates = _prefer_current_sync_copy(candidates)
             if len(candidates) == 1:
                 matched_new = candidates[0]
                 matched_by = key_name

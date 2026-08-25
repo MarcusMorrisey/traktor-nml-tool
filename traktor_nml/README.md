@@ -67,6 +67,29 @@ every stricter tier unreachable (DL-032).
   than a second boolean flag, because disk-scan matching's filename-only
   tier and tag-based matching's artist-title-only tier are really one
   cascade, not two independent knobs (DL-010).
+- `FILESIZE` and `PLAYTIME_FLOAT` refute a candidate; they never identify
+  one. Measured over a real 6,386-entry collection and its files, Traktor's
+  `FILESIZE` is the audio payload in KILOBYTES and sits 0.17% (median) to
+  0.41% (max) below `bytes / 1024`, because tag and artwork overhead is
+  excluded; `PLAYTIME_FLOAT` differs from what mutagen reports by up to
+  0.172s and, compared as strings, never matches at all. Exact equality
+  between the two sides is therefore impossible rather than merely
+  unreliable, so `matching.py` compares them with tolerances set well above
+  the observed maxima and uses the result only to remove an implausible
+  candidate. A too-tight bound would report a present file as missing,
+  which is worse than weaker tie-breaking (DL-040).
+- The path-suffix tiers (`path_suffix_3` / `_2` at strict, `_1` at loose)
+  key on a file's position within its own folders rather than its absolute
+  path, so a library moved as a unit still reconnects. At three folders
+  deep the key is unique for 97.2% of entries in the same measured
+  collection. Without these, a disk scan against untagged files had no
+  reachable tier at the default confidence at all: the documented
+  "degrade to filename/filesize matching" fallback was inert, because the
+  `filename_size` tier it named needed `--match-confidence filename` AND a
+  byte-for-byte size agreement that cannot occur. That tier is retired
+  rather than kept as a dead entry: sitting last in the cascade, its only
+  possible effect was to break a `filename` ambiguity on a numeric
+  coincidence (DL-041).
 - `spans.py` builds one `SpanIndex` per source document in a single pass -
   one pre-order walk for per-tag ordinals, one token scan for opening-tag
   offsets - and it is the only mechanism that maps a parsed element to its

@@ -172,12 +172,20 @@ if __name__ == "__main__":
 # shifts their candidate counts, silently invalidating baselines this
 # milestone does not intend to touch.
 #
-# The audio stubs carry no readable tags (16 zero bytes), so a disk
-# candidate offers exactly one match key: filename_size. The stale entries
-# therefore declare FILESIZE="16" to match, and every reconnect case runs
-# at --match-confidence filename, the only level admitting that tier. This
-# holds identically whether or not mutagen is installed: an unreadable stub
-# yields empty tags either way.
+# The audio stubs carry no readable tags, so a disk candidate offers no
+# tag-derived key at all and every reconnect case runs at
+# --match-confidence filename, the only level admitting the bare-filename
+# tier. This holds identically whether or not mutagen is installed: an
+# unreadable stub yields empty tags either way.
+#
+# Stub size matters, and is not arbitrary. Traktor's FILESIZE is the audio
+# payload in KILOBYTES, not the file's byte count, so a stub must be
+# _RECON_STUB_KB * 1024 bytes for the collection's FILESIZE to be a
+# truthful statement about the file beside it. Writing 16 bytes next to
+# FILESIZE="16" made the two sides collide numerically by accident and
+# encoded exactly the byte-equality assumption the cascade no longer makes:
+# the size check would now, correctly, refute such a candidate.
+_RECON_STUB_KB = 16
 
 FIXTURE_RECON_STALE = "stale.nml"
 
@@ -192,7 +200,7 @@ def _recon_stale() -> str:
     together rather than needing three near-identical fixtures."""
     entries = ""
     for artist, title, filename in (_RECON_SIMPLE, _RECON_AMBIGUOUS, _RECON_DANGLING):
-        entries += _entry(artist, title, "D:", "/:Gone/:Music/:", filename, size="16")
+        entries += _entry(artist, title, "D:", "/:Gone/:Music/:", filename, size=str(_RECON_STUB_KB))
     return _wrap(entries)
 
 
@@ -216,7 +224,7 @@ def build_reconnect_fixtures(target_dir: Path) -> list[Path]:
     ):
         stub_path = target_dir / "audio" / rel
         stub_path.parent.mkdir(parents=True, exist_ok=True)
-        stub_path.write_bytes(b"\x00" * 16)
+        stub_path.write_bytes(b"\x00" * (_RECON_STUB_KB * 1024))
         written.append(stub_path)
 
     return written
