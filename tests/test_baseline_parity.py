@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.baselines.run_root import normalise_run_root, normalise_run_root_bytes
 from tests.conftest import run_tool
 
 BASELINE_MANIFEST = Path(__file__).parent / "baselines" / "manifest.json"
@@ -35,11 +36,19 @@ def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Pa
     (tmp_path / "out").mkdir(exist_ok=True)
     result = run_tool(case["argv"], cwd=tmp_path)
 
+    # The same opt-in relaxation the manifest was written with, applied
+    # through the same shared helper so writer and reader cannot disagree
+    # about what was substituted (see tests/baselines/run_root.py).
+    relax = case.get("normalise_run_root", False)
+    stdout = normalise_run_root(result.stdout, tmp_path) if relax else result.stdout
+
     assert result.exit_code == case["exit_code"]
-    assert result.stdout == case["stdout"]
+    assert stdout == case["stdout"]
 
     for rel_path, expected_b64 in case["output_files"].items():
         written = (tmp_path / rel_path).read_bytes()
+        if relax:
+            written = normalise_run_root_bytes(written, tmp_path)
         assert written == base64.b64decode(expected_b64), f"output mismatch for {rel_path}"
 
 
@@ -91,3 +100,38 @@ def test_no_stored_stream_carries_a_host_path_separator() -> None:
         "host path separator in stored stream(s); print the path with "
         f"Path.as_posix() and regenerate: {offenders}"
     )
+
+
+def test_normalised_case_still_detects_a_non_run_root_byte_change(
+    fixture_corpus: Path, tmp_path: Path
+) -> None:
+    """Run-root normalisation must not relax anything but the run root.
+
+    Anchored deliberately: it first asserts the substitution round-trips
+    EXACTLY, then that a change outside the run-root prefix still fails.
+    Without the first assertion the test would pass even if normalisation
+    replaced the whole file, which would leave the rewritten LOCATION
+    bytes unguarded while looking green.
+    """
+    case = next(
+        (c for c in _load_manifest() if c.get("normalise_run_root") and c["output_files"]),
+        None,
+    )
+    assert case is not None, "no normalised case with an output file in the manifest"
+
+    (tmp_path / "out").mkdir(exist_ok=True)
+    run_tool(case["argv"], cwd=tmp_path)
+
+    rel_path, expected_b64 = next(iter(case["output_files"].items()))
+    expected = base64.b64decode(expected_b64)
+    written = normalise_run_root_bytes((tmp_path / rel_path).read_bytes(), tmp_path)
+
+    # 1. the substitution round-trips exactly
+    assert written == expected, f"normalised output did not round-trip for {rel_path}"
+
+    # 2. and a byte OUTSIDE the run-root prefix is still caught. The
+    #    filename is well clear of the substituted prefix.
+    assert b"xtal_recon.mp3" in expected, "fixture filename missing from stored output"
+    mutated = expected.replace(b"xtal_recon.mp3", b"xtal_recoNN.mp3")
+    assert mutated != expected
+    assert written != mutated, "normalisation masked a change outside the run root"

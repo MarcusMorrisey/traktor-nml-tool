@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.fixtures.build_fixtures import build_fixtures
+from tests.fixtures.build_fixtures import build_fixtures, build_reconnect_fixtures
 
 
 @dataclass
@@ -53,4 +53,9 @@ def fixture_corpus(tmp_path: Path) -> Path:
     tmp_path, so tests read real files rather than in-memory strings."""
     corpus_dir = tmp_path / "corpus"
     build_fixtures(corpus_dir)
+    # The reconnect tree is a SIBLING of the corpus, never inside it:
+    # stored cases that scan the corpus directory would otherwise see an
+    # extra .nml and report a different candidate count, invalidating
+    # baselines this fixture has no business touching.
+    build_reconnect_fixtures(tmp_path / "recon")
     return corpus_dir

@@ -163,3 +163,60 @@ if __name__ == "__main__":
     import sys
 
     build_fixtures(Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "corpus")
+
+
+# --- reconnect fixtures -------------------------------------------------
+#
+# Written into a SIBLING directory, never under the main corpus: several
+# stored cases scan the corpus directory itself, and an extra .nml there
+# shifts their candidate counts, silently invalidating baselines this
+# milestone does not intend to touch.
+#
+# The audio stubs carry no readable tags (16 zero bytes), so a disk
+# candidate offers exactly one match key: filename_size. The stale entries
+# therefore declare FILESIZE="16" to match, and every reconnect case runs
+# at --match-confidence filename, the only level admitting that tier. This
+# holds identically whether or not mutagen is installed: an unreadable stub
+# yields empty tags either way.
+
+FIXTURE_RECON_STALE = "stale.nml"
+
+_RECON_SIMPLE = ("Aphex Twin", "Xtal", "xtal_recon.mp3")
+_RECON_AMBIGUOUS = ("Burial", "Archangel", "archangel_recon.mp3")
+_RECON_DANGLING = ("Four Tet", "Baby", "absent_recon.mp3")
+
+
+def _recon_stale() -> str:
+    """One stale collection carrying all three reconnect outcomes, so a
+    single scan reports a match, an ambiguity and a dangling entry
+    together rather than needing three near-identical fixtures."""
+    entries = ""
+    for artist, title, filename in (_RECON_SIMPLE, _RECON_AMBIGUOUS, _RECON_DANGLING):
+        entries += _entry(artist, title, "D:", "/:Gone/:Music/:", filename, size="16")
+    return _wrap(entries)
+
+
+def build_reconnect_fixtures(target_dir: Path) -> list[Path]:
+    """Write the stale collection and the on-disk audio tree the reconnect
+    baseline cases scan. Deterministic like build_fixtures."""
+    target_dir.mkdir(parents=True, exist_ok=True)
+    written: list[Path] = []
+
+    stale_path = target_dir / FIXTURE_RECON_STALE
+    stale_path.write_text(_recon_stale(), encoding="utf-8", newline="")
+    written.append(stale_path)
+
+    # one copy -> a clean match; two copies of the same name under
+    # different folders -> an ambiguity no tier can break; the dangling
+    # entry's file is deliberately absent.
+    for rel in (
+        f"moved/{_RECON_SIMPLE[2]}",
+        f"dupes/a/{_RECON_AMBIGUOUS[2]}",
+        f"dupes/b/{_RECON_AMBIGUOUS[2]}",
+    ):
+        stub_path = target_dir / "audio" / rel
+        stub_path.parent.mkdir(parents=True, exist_ok=True)
+        stub_path.write_bytes(b"\x00" * 16)
+        written.append(stub_path)
+
+    return written

@@ -21,9 +21,39 @@ import json
 import os
 from pathlib import Path
 
-from tests.fixtures.build_fixtures import build_fixtures
+from tests.baselines.run_root import normalise_run_root, normalise_run_root_bytes
+from tests.fixtures.build_fixtures import build_fixtures, build_reconnect_fixtures
 
 MANIFEST_PATH = Path(__file__).parent / "manifest.json"
+
+_RECON_ARGS = [
+    "--scan-root", "recon/audio",
+    "--volume-map", "recon/audio", "D:", "D:",
+    "--match-confidence", "filename",
+    "--cache", "out/recon.tagcache.json",
+]
+
+_RECON_SCAN = ["scan-reconnect-candidates", "recon/stale.nml", *_RECON_ARGS]
+_RECON_DRY_RUN = ["rewrite-from-reconnect", "recon/stale.nml", "out/recon_dry.nml", *_RECON_ARGS, "--dry-run"]
+_RECON_MATCHED_WRITE = ["rewrite-from-reconnect", "recon/stale.nml", "out/recon_out.nml", *_RECON_ARGS]
+_RECON_AMBIGUITY_CSV = [
+    "rewrite-from-reconnect", "recon/stale.nml", "out/recon_csv.nml",
+    *_RECON_ARGS, "--csv", "out/recon_ambiguity.csv",
+]
+
+# Only the two cases whose OUTPUT NML contains a rewritten LOCATION need
+# the run directory substituted; a rewritten DIR is rebuilt from the
+# candidate's resolved absolute path. Every other case - including the
+# dangling-only surfaces and the ambiguity CSV, whose old_path column is
+# fixture-literal - is compared with no substitution at all.
+_NORMALISE_RUN_ROOT = {"rewrite-from-reconnect"}
+
+
+def normalises_run_root(argv: list[str]) -> bool:
+    """Single source of truth for which cases are relaxed, keyed on argv
+    exactly as _output_paths is, so writer and reader cannot drift."""
+    return argv[0] in _NORMALISE_RUN_ROOT and "--dry-run" not in argv
+
 
 CASES: list[list[str]] = [
     ["inspect", "corpus/moved_paths.nml", "--limit", "5"],
@@ -46,10 +76,22 @@ CASES: list[list[str]] = [
         "corpus/renamed_file.nml", "corpus/renamed_file.nml", "out/compare_out.nml",
         "--allow-artist-title-only",
     ],
+    # Reconnect cases. The stale collection carries one clean match, one
+    # ambiguity and one dangling entry, so a single scan exercises all
+    # three outcomes. --match-confidence filename is required: the audio
+    # stubs have no readable tags, so a disk candidate offers only the
+    # filename_size key. --volume-map is required because the prefix scan
+    # cannot resolve a single VOLUME/VOLUMEID pair from a relative scan
+    # root, and leaving it implicit would pin the case to that failure.
+    _RECON_SCAN,
+    _RECON_DRY_RUN,
+    _RECON_MATCHED_WRITE,
+    _RECON_AMBIGUITY_CSV,
 ]
 
 _OUTPUT_ARG_INDEX = {
     "rewrite": 2,
+    "rewrite-from-reconnect": 2,
     "rewrite-from-collection-compare": 3,
 }
 
@@ -72,6 +114,7 @@ def regenerate(target_dir: Path) -> list[dict]:
     from traktor_nml.cli import main
 
     build_fixtures(target_dir / "corpus")
+    build_reconnect_fixtures(target_dir / "recon")
     (target_dir / "out").mkdir(exist_ok=True)
 
     manifest = []
@@ -86,17 +129,25 @@ def regenerate(target_dir: Path) -> list[dict]:
                     exit_code = main(argv)
                 except SystemExit as exc:
                     exit_code = 0 if exc.code is None else int(exc.code)
+            relax = normalises_run_root(argv)
             entry = {
                 "argv": argv,
                 "exit_code": exit_code,
                 "stdout": stdout.getvalue(),
                 "stderr": stderr.getvalue(),
+                "normalise_run_root": relax,
                 "output_files": {},
             }
+            if relax:
+                entry["stdout"] = normalise_run_root(entry["stdout"], target_dir)
+                entry["stderr"] = normalise_run_root(entry["stderr"], target_dir)
             for rel_path in _output_paths(argv):
                 path = target_dir / rel_path
                 if path.exists():
-                    entry["output_files"][rel_path] = base64.b64encode(path.read_bytes()).decode("ascii")
+                    raw = path.read_bytes()
+                    if relax:
+                        raw = normalise_run_root_bytes(raw, target_dir)
+                    entry["output_files"][rel_path] = base64.b64encode(raw).decode("ascii")
             manifest.append(entry)
     finally:
         os.chdir(old_cwd)

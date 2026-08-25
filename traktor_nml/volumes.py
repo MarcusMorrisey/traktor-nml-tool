@@ -75,7 +75,7 @@ def resolve_volume_identity(
         return next(iter(observed))
 
     raise VolumeIdentityError(
-        f"volume_identity_ambiguous scan_root={scan_root} observed_pairs={sorted(observed)}; "
+        f"volume_identity_ambiguous scan_root={Path(scan_root).as_posix()} observed_pairs={sorted(observed)}; "
         "pass --volume-map"
     )
 
