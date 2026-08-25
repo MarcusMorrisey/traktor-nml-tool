@@ -10,57 +10,57 @@
   <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box}
-body{margin:0;width:1280px;height:800px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+body{margin:0;width:1280px;height:800px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:underline}
 .app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
-.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
 .hd-l{display:flex;align-items:center;gap:12px;min-width:0}
-.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em;white-space:nowrap}
-.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em;white-space:nowrap}
+.bar{width:1px;height:16px;background:#3C4248;flex:none}
 .task{font-weight:600;font-size:14px;white-space:nowrap}
 .rail{display:flex;gap:2px;align-items:center;flex:none}
-.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#7b746b;white-space:nowrap}
-.st .num{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
-.st.done{color:#aaa39a}
-.st.now{background:#2b2927;color:#eee9e1;box-shadow:inset 0 0 0 1px #4a463f;font-weight:600}
-.st.now .num{background:#e2a24c;border-color:#e2a24c;color:#1b1917}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;white-space:nowrap}
+.st .num{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#A5ADB4}
+.st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
 main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 400px;gap:20px;min-height:0;overflow:hidden}
 .col{display:flex;flex-direction:column;gap:14px;min-height:0}
-.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #38352f;background:#232120}
-.ft-note{margin:0;font-size:12.5px;color:#aaa39a;display:flex;align-items:center;gap:9px}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #2A2E32;background:#17191C}
+.ft-note{margin:0;font-size:12.5px;color:#A5ADB4;display:flex;align-items:center;gap:9px}
 .ft-act{display:flex;gap:10px;align-items:center;flex:none}
-.card{background:#232120;border:1px solid #38352f;border-radius:8px;min-height:0}
-.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #38352f}
+.card{background:#17191C;border:1px solid #2A2E32;border-radius:8px;min-height:0}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #2A2E32}
 .card-t{font-weight:600;font-size:13px;margin:0}
 .card-b{padding:15px;display:flex;flex-direction:column;gap:12px;min-height:0}
-.lbl{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
+.lbl{font:600 11.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8E979E}
 .mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
-.dim{color:#aaa39a}.faint{color:#7b746b}
-.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #4a463f;background:#2b2927;color:#eee9e1;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-.btn.off{opacity:.4;cursor:not-allowed}
-.btn-dgr{border-color:#7a4136;background:#2e211d;color:#efa694}
-.focus{outline:2px solid #eee9e1;outline-offset:2px}
-.note{display:flex;gap:10px;padding:11px 13px;border-radius:6px;border:1px solid #38352f;background:#201e1c;font-size:12.5px;color:#aaa39a;line-height:1.5}
-.note strong{color:#eee9e1;font-weight:600}
-.note.info{border-color:#31504c;background:#1c2422}
-.note.warn{border-color:#5e4b2d;background:#26211a}
+.dim{color:#A5ADB4}.faint{color:#8E979E}
+.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #3C4248;background:#22262A;color:#E8EBED;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn.off{background:#15171A;border-color:#2A2E32;color:#8A9299;cursor:not-allowed}
+.btn-dgr{border-color:#6A3F2C;background:#21160F;color:#E8956E}
+.focus{outline:2px solid #E8EBED;outline-offset:2px}
+.note{display:flex;gap:10px;padding:11px 13px;border-radius:6px;border:1px solid #2A2E32;background:#14171A;font-size:12.5px;color:#A5ADB4;line-height:1.5}
+.note strong{color:#E8EBED;font-weight:600}
+.note.info{border-color:#2F5A72;background:#12222B}
+.note.warn{border-color:#5A4E2A;background:#1F1D14}
 .ico{flex:none}
 .big{font:600 30px/1 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:-.01em}
-.prog{height:10px;border-radius:5px;background:#302d29;border:1px solid #46423b;overflow:hidden;position:relative}
-.prog i{display:block;height:100%;background:#e2a24c;width:33.9%;border-right:1px solid #1b1917}
+.prog{height:10px;border-radius:5px;background:#23272B;border:1px solid #3C4248;overflow:hidden;position:relative}
+.prog i{display:block;height:100%;background:#56B4E9;width:33.9%;border-right:1px solid #0F1113}
 .prog-l{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
 .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.tile{border:1px solid #38352f;border-radius:7px;background:#201e1c;padding:11px 12px;display:flex;flex-direction:column;gap:5px}
+.tile{border:1px solid #2A2E32;border-radius:7px;background:#14171A;padding:11px 12px;display:flex;flex-direction:column;gap:5px}
 .tile .v{font:600 21px/1 'IBM Plex Mono',ui-monospace,monospace}
-.tile .k{font-size:11.5px;color:#aaa39a;display:flex;align-items:center;gap:6px}
-.log{flex:1;min-height:0;overflow:hidden;background:#161513;border:1px solid #38352f;border-radius:6px;padding:11px 12px;font:400 11.5px/1.75 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#a29b91}
-.log b{color:#d8d2c8;font-weight:500}
-.log .g{color:#8db76b}
-.log .y{color:#d9b174}
-.tier{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:8px 0;border-bottom:1px solid #302d29}
+.tile .k{font-size:11.5px;color:#A5ADB4;display:flex;align-items:center;gap:6px}
+.log{flex:1;min-height:0;overflow:hidden;background:#0D0F11;border:1px solid #2A2E32;border-radius:6px;padding:11px 12px;font:400 11.5px/1.75 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#9BA4AB}
+.log b{color:#D2D8DC;font-weight:500}
+.log .g{color:#22C4A8}
+.log .y{color:#F5D96B}
+.tier{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:8px 0;border-bottom:1px solid #23272B}
 .tier:last-child{border-bottom:0}
-.tier .n{flex:1;color:#d8d2c8}
-.tier .s{font:500 11.5px/1 'IBM Plex Mono',monospace;color:#7b746b}
+.tier .n{flex:1;color:#D2D8DC}
+.tier .s{font:500 11.5px/1 'IBM Plex Mono',monospace;color:#8E979E}
   </style>
 </helmet>
 <div class="app">
@@ -95,16 +95,16 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 400px;gap:20px
 
       <div class="tiles">
         <div class="tile">
-          <span class="v" style="color:#a8cd8a">3,684</span>
-          <span class="k"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>Matched so far</span>
+          <span class="v" style="color:#4FD3BA">3,684</span>
+          <span class="k"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>Matched so far</span>
         </div>
         <div class="tile">
-          <span class="v" style="color:#d9b174">402</span>
-          <span class="k"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.7" fill="#d9b174" stroke="none"/></svg>Need your review</span>
+          <span class="v" style="color:#F5D96B">402</span>
+          <span class="k"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.7" fill="#F5D96B" stroke="none"/></svg>Need your review</span>
         </div>
         <div class="tile">
-          <span class="v" style="color:#e39885">126</span>
-          <span class="k"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#dc7561" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg>No match found</span>
+          <span class="v" style="color:#E8956E">126</span>
+          <span class="k"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#E07A4C" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg>No match found</span>
         </div>
       </div>
 
@@ -130,28 +130,28 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 400px;gap:20px
         <div class="card-h"><h2 class="card-t">Matching methods in use</h2></div>
         <div class="card-b" style="gap:0">
           <div class="tier">
-            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>
+            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>
             <span class="n">Tags and file names</span><span class="s">RUNNING</span>
           </div>
           <div class="tier">
-            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3.5 8h9"/></svg>
+            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3.5 8h9"/></svg>
             <span class="n faint">Acoustic fingerprinting</span><span class="s">SKIPPED</span>
           </div>
         </div>
       </section>
 
       <div class="note warn">
-        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
         <span><strong>Fingerprinting is off — fpcalc was not found.</strong> Tracks whose tags were rewritten may end up in "no match found" rather than being recognised.</span>
       </div>
 
       <div class="note info">
-        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#63b0a6" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
-        <span><strong>Writing to the tag cache</strong><br><span class="mono" style="font-size:11.5px;color:#c8c2b8">%LOCALAPPDATA%\…\tagcache.json</span><br>4,212 entries so far. This is the only file being written. Your collection has not been touched.</span>
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
+        <span><strong>Writing to the tag cache</strong><br><span class="mono" style="font-size:11.5px;color:#C2C9CE">%LOCALAPPDATA%\…\tagcache.json</span><br>4,212 entries so far. This is the only file being written. Your collection has not been touched.</span>
       </div>
 
       <div class="note">
-        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="2.2" y="3.4" width="11.6" height="9.2" rx="1.6"/><path d="M5 6.4h6M5 9.6h3.4"/></svg>
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="2.2" y="3.4" width="11.6" height="9.2" rx="1.6"/><path d="M5 6.4h6M5 9.6h3.4"/></svg>
         <span>You can stop at any time. Work done so far is kept in the cache, so starting again is quick.</span>
       </div>
     </div>
@@ -159,7 +159,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 400px;gap:20px
 
   <footer class="ft">
     <p class="ft-note">
-      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
       Your collection is not being modified.
     </p>
     <span class="ft-act">

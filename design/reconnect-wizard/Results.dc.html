@@ -10,55 +10,55 @@
   <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box}
-body{margin:0;width:1280px;height:800px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+body{margin:0;width:1280px;height:800px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:underline}
 .app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
-.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
 .hd-l{display:flex;align-items:center;gap:12px}
-.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em}
-.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#3C4248;flex:none}
 .task{font-weight:600;font-size:14px}
 .rail{display:flex;gap:2px;align-items:center;flex:none}
-.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#7b746b;white-space:nowrap}
-.st .num{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
-.st.done{color:#aaa39a}
-.st.now{background:#2b2927;color:#eee9e1;box-shadow:inset 0 0 0 1px #4a463f;font-weight:600}
-.st.now .num{background:#e2a24c;border-color:#e2a24c;color:#1b1917}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;white-space:nowrap}
+.st .num{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#A5ADB4}
+.st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
 main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px;min-height:0;overflow:hidden}
 .col{display:flex;flex-direction:column;gap:14px;min-height:0}
-.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #38352f;background:#232120}
-.ft-note{margin:0;font-size:12.5px;color:#aaa39a;display:flex;align-items:center;gap:9px}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #2A2E32;background:#17191C}
+.ft-note{margin:0;font-size:12.5px;color:#A5ADB4;display:flex;align-items:center;gap:9px}
 .ft-act{display:flex;gap:10px;align-items:center;flex:none}
-.card{background:#232120;border:1px solid #38352f;border-radius:8px}
-.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #38352f}
+.card{background:#17191C;border:1px solid #2A2E32;border-radius:8px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #2A2E32}
 .card-t{font-weight:600;font-size:13px;margin:0}
 .card-b{padding:16px;display:flex;flex-direction:column;gap:14px}
-.lbl{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
+.lbl{font:600 11.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8E979E}
 .mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
-.dim{color:#aaa39a}.faint{color:#7b746b}
-.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #4a463f;background:#2b2927;color:#eee9e1;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-.btn-pri{background:#e2a24c;border-color:#e2a24c;color:#1b1917;font-weight:600}
-.focus{outline:2px solid #eee9e1;outline-offset:2px}
-.note{display:flex;gap:10px;padding:12px 13px;border-radius:6px;border:1px solid #38352f;background:#201e1c;font-size:12.5px;color:#aaa39a;line-height:1.55}
-.note strong{color:#eee9e1;font-weight:600}
-.note.info{border-color:#31504c;background:#1c2422}
+.dim{color:#A5ADB4}.faint{color:#8E979E}
+.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #3C4248;background:#22262A;color:#E8EBED;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn-pri{background:#56B4E9;border-color:#56B4E9;color:#0F1113;font-weight:600}
+.focus{outline:2px solid #E8EBED;outline-offset:2px}
+.note{display:flex;gap:10px;padding:12px 13px;border-radius:6px;border:1px solid #2A2E32;background:#14171A;font-size:12.5px;color:#A5ADB4;line-height:1.55}
+.note strong{color:#E8EBED;font-weight:600}
+.note.info{border-color:#2F5A72;background:#12222B}
 .ico{flex:none}
 .hero{display:flex;align-items:baseline;gap:12px}
 .hero .n{font:600 40px/1 'IBM Plex Sans',system-ui,sans-serif;letter-spacing:-.02em}
-.hero .u{font-size:14px;color:#aaa39a}
-.dist{display:flex;height:34px;border-radius:6px;overflow:hidden;border:1px solid #46423b}
-.dist span{display:flex;align-items:center;justify-content:center;font:600 11px/1 'IBM Plex Mono',monospace;color:#1b1917;border-right:1px solid #1b1917}
+.hero .u{font-size:14px;color:#A5ADB4}
+.dist{display:flex;height:34px;border-radius:6px;overflow:hidden;border:1px solid #3C4248}
+.dist span{display:flex;align-items:center;justify-content:center;font:600 11px/1 'IBM Plex Mono',monospace;color:#0F1113;border-right:1px solid #0F1113}
 .dist span:last-child{border-right:0}
 .key{display:flex;flex-direction:column;gap:0}
-.kr{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid #302d29}
+.kr{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid #23272B}
 .kr:last-child{border-bottom:0}
 .kr .t{font-size:13px;font-weight:600}
-.kr .d{font-size:12px;color:#8f887f;margin-top:2px}
+.kr .d{font-size:12px;color:#97A0A7;margin-top:2px}
 .kr .v{font:600 17px/1 'IBM Plex Mono',monospace;text-align:right}
-.kr .p{font:400 12px/1 'IBM Plex Mono',monospace;color:#7b746b;width:46px;text-align:right}
+.kr .p{font:400 12px/1 'IBM Plex Mono',monospace;color:#8E979E;width:46px;text-align:right}
 .sub{margin:0;padding:0 0 0 33px;list-style:none;display:flex;flex-direction:column;gap:6px}
-.sub li{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#8f887f}
-.sub li .mono{color:#aaa39a}
+.sub li{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:#97A0A7}
+.sub li .mono{color:#A5ADB4}
   </style>
 </helmet>
 <div class="app">
@@ -83,36 +83,36 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
         <div class="card-h"><h2 class="card-t">Scan finished</h2><span class="lbl">12,542 files read in 6m 41s</span></div>
         <div class="card-b">
           <div class="hero">
-            <span class="n" style="color:#a8cd8a">18</span>
+            <span class="n" style="color:#4FD3BA">18</span>
             <span class="u">of your 26 playlists can play end to end again right now</span>
           </div>
-          <p class="dim" style="margin:-4px 0 0;font-size:12.5px;line-height:1.55">The other <strong style="color:#eee9e1">8</strong> are waiting on tracks that need a decision from you. Underneath, that is 10,932 of your 12,418 tracks found straight away:</p>
+          <p class="dim" style="margin:-4px 0 0;font-size:12.5px;line-height:1.55">The other <strong style="color:#E8EBED">8</strong> are waiting on tracks that need a decision from you. Underneath, that is 10,932 of your 12,418 tracks found straight away:</p>
 
           <div class="dist" role="img" aria-label="10,932 found, 1,204 need review, 282 not found">
-            <span style="background:#8db76b;width:88%">88%</span>
-            <span style="background:#d9b174;width:9.7%">10%</span>
-            <span style="background:#dc7561;width:2.3%">2%</span>
+            <span style="background:#22C4A8;width:88%">88%</span>
+            <span style="background:#F5D96B;width:9.7%">10%</span>
+            <span style="background:#E07A4C;width:2.3%">2%</span>
           </div>
 
           <div class="key">
             <div class="kr">
-              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
+              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
               <span><span class="t">Found</span><span class="d">Tags, duration and file name all agree. Nothing for you to decide.</span></span>
-              <span class="v" style="color:#a8cd8a">10,932</span><span class="p">88.0%</span>
+              <span class="v" style="color:#4FD3BA">10,932</span><span class="p">88.0%</span>
             </div>
             <div class="kr">
-              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="#d9b174" stroke="none"/></svg>
+              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="#F5D96B" stroke="none"/></svg>
               <span><span class="t">Needs your review</span><span class="d">Either more than one file could be the track, or the match is not close enough to trust.</span></span>
-              <span class="v" style="color:#e3c088">1,204</span><span class="p">9.7%</span>
+              <span class="v" style="color:#F5D96B">1,204</span><span class="p">9.7%</span>
             </div>
             <ul class="sub">
               <li><span>More than one candidate file</span><span class="mono">738</span></li>
               <li><span>Single candidate, but tags or duration differ</span><span class="mono">466</span></li>
             </ul>
             <div class="kr">
-              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#dc7561" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
+              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#E07A4C" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
               <span><span class="t">Not found</span><span class="d">No file in the folders you added looks like this track.</span></span>
-              <span class="v" style="color:#e39885">282</span><span class="p">2.3%</span>
+              <span class="v" style="color:#E8956E">282</span><span class="p">2.3%</span>
             </div>
             <ul class="sub">
               <li><span>Nothing similar in the scanned folders</span><span class="mono">214</span></li>
@@ -126,14 +126,14 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
 
     <div class="col">
       <div class="note info">
-        <svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#63b0a6" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
+        <svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
         <span><strong>This is a preview.</strong> Nothing has been written to your collection, and nothing will be until you confirm at step 4.</span>
       </div>
 
       <section class="card">
         <div class="card-h"><h2 class="card-t">What to do now</h2></div>
         <div class="card-b" style="gap:11px">
-          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">The <strong style="color:#eee9e1">1,204</strong> tracks that need review are the only ones asking anything of you — and they are what stands between 18 working playlists and 26.</p>
+          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">The <strong style="color:#E8EBED">1,204</strong> tracks that need review are the only ones asking anything of you — and they are what stands between 18 working playlists and 26.</p>
           <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">You do not have to decide all of them. A playlist with an undecided track still works, just with that entry unplayable — exactly as it is today. You can come back and scan again later.</p>
         </div>
       </section>
@@ -148,7 +148,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
       </section>
 
       <div class="note">
-        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
         <span>Fingerprinting was unavailable for this scan, so some of the 282 not-found tracks may simply have had their tags rewritten.</span>
       </div>
     </div>
@@ -156,7 +156,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
 
   <footer class="ft">
     <p class="ft-note">
-      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
       Nothing written yet.
     </p>
     <span class="ft-act">

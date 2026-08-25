@@ -10,56 +10,56 @@
   <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box}
-body{margin:0;width:1280px;height:800px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+body{margin:0;width:1280px;height:800px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:underline}
 .app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
-.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
 .hd-l{display:flex;align-items:center;gap:12px}
-.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em}
-.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#3C4248;flex:none}
 .task{font-weight:600;font-size:14px}
 .rail{display:flex;gap:2px;align-items:center;flex:none}
-.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#7b746b;white-space:nowrap}
-.st .num{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
-.st.done{color:#aaa39a}
-.st.now{background:#2b2927;color:#eee9e1;box-shadow:inset 0 0 0 1px #4a463f;font-weight:600}
-.st.now .num{background:#e2a24c;border-color:#e2a24c;color:#1b1917}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;white-space:nowrap}
+.st .num{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#A5ADB4}
+.st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
 main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px;min-height:0;overflow:hidden}
 .col{display:flex;flex-direction:column;gap:13px;min-height:0}
-.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #38352f;background:#232120}
-.ft-note{margin:0;font-size:12.5px;color:#aaa39a;display:flex;align-items:center;gap:9px}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #2A2E32;background:#17191C}
+.ft-note{margin:0;font-size:12.5px;color:#A5ADB4;display:flex;align-items:center;gap:9px}
 .ft-act{display:flex;gap:10px;align-items:center;flex:none}
-.card{background:#232120;border:1px solid #38352f;border-radius:8px}
-.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #38352f}
+.card{background:#17191C;border:1px solid #2A2E32;border-radius:8px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #2A2E32}
 .card-t{font-weight:600;font-size:13px;margin:0}
 .card-b{padding:15px;display:flex;flex-direction:column;gap:12px}
-.lbl{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
+.lbl{font:600 11.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8E979E}
 .mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
-.dim{color:#aaa39a}.faint{color:#7b746b}
-.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #4a463f;background:#2b2927;color:#eee9e1;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-.btn-pri{background:#e2a24c;border-color:#e2a24c;color:#1b1917;font-weight:600}
-.focus{outline:2px solid #eee9e1;outline-offset:2px}
-.note{display:flex;gap:10px;padding:11px 13px;border-radius:6px;border:1px solid #38352f;background:#201e1c;font-size:12.5px;color:#aaa39a;line-height:1.55}
-.note strong{color:#eee9e1;font-weight:600}
-.note.warn{border-color:#5e4b2d;background:#26211a}
-.note.info{border-color:#31504c;background:#1c2422}
+.dim{color:#A5ADB4}.faint{color:#8E979E}
+.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #3C4248;background:#22262A;color:#E8EBED;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn-pri{background:#56B4E9;border-color:#56B4E9;color:#0F1113;font-weight:600}
+.focus{outline:2px solid #E8EBED;outline-offset:2px}
+.note{display:flex;gap:10px;padding:11px 13px;border-radius:6px;border:1px solid #2A2E32;background:#14171A;font-size:12.5px;color:#A5ADB4;line-height:1.55}
+.note strong{color:#E8EBED;font-weight:600}
+.note.warn{border-color:#5A4E2A;background:#1F1D14}
+.note.info{border-color:#2F5A72;background:#12222B}
 .ico{flex:none}
-.dest{display:flex;flex-direction:column;gap:8px;padding:13px 14px;border:1px solid #4a463f;border-radius:7px;background:#1b1917}
-.dest .p{font:500 13px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#eee9e1;word-break:break-all}
-.badge{display:inline-flex;align-items:center;gap:6px;font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;padding:5px 7px;border-radius:4px;border:1px solid #3f5a33;color:#a8cd8a;background:#1e2419}
+.dest{display:flex;flex-direction:column;gap:8px;padding:13px 14px;border:1px solid #3C4248;border-radius:7px;background:#0F1113}
+.dest .p{font:500 13px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#E8EBED;word-break:break-all}
+.badge{display:inline-flex;align-items:center;gap:6px;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;padding:5px 7px;border-radius:4px;border:1px solid #2C5449;color:#4FD3BA;background:#12211D}
 .chg{display:flex;flex-direction:column}
-.cr{display:grid;grid-template-columns:20px 1fr auto;gap:11px;align-items:center;padding:9px 2px;border-bottom:1px solid #302d29;font-size:13px}
+.cr{display:grid;grid-template-columns:20px 1fr auto;gap:11px;align-items:center;padding:9px 2px;border-bottom:1px solid #23272B;font-size:13px}
 .cr:last-child{border-bottom:0}
 .cr .n{font:600 15px/1 'IBM Plex Mono',monospace;text-align:right}
-.cr .d{font-size:11.5px;color:#8f887f;margin-top:2px}
-.tot{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px 12px;border-radius:6px;background:#2b2723;border:1px solid #4a463f;font-size:13px;font-weight:600;align-items:center}
-.dlg{border:1px solid #565046;border-radius:10px;background:#26231f;box-shadow:0 14px 36px rgba(0,0,0,.5);padding:18px 19px 16px;display:flex;flex-direction:column;gap:12px}
+.cr .d{font-size:11.5px;color:#97A0A7;margin-top:2px}
+.tot{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px 12px;border-radius:6px;background:#1F2225;border:1px solid #3C4248;font-size:13px;font-weight:600;align-items:center}
+.dlg{border:1px solid #454C52;border-radius:10px;background:#1F2225;box-shadow:0 14px 36px rgba(0,0,0,.5);padding:18px 19px 16px;display:flex;flex-direction:column;gap:12px}
 .dlg h2{margin:0;font-size:16px;font-weight:600}
 .dlg ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
-.dlg li{display:flex;gap:9px;font-size:12.5px;color:#aaa39a;line-height:1.5}
+.dlg li{display:flex;gap:9px;font-size:12.5px;color:#A5ADB4;line-height:1.5}
 .dlg-a{display:flex;justify-content:flex-end;gap:9px;margin-top:2px}
-.cap{font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#7b746b;display:flex;align-items:center;gap:8px}
-.cap::after{content:"";flex:1;height:1px;background:#38352f}
+.cap{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#8E979E;display:flex;align-items:center;gap:8px}
+.cap::after{content:"";flex:1;height:1px;background:#2A2E32}
   </style>
 </helmet>
 <div class="app">
@@ -91,27 +91,27 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
 
           <div class="chg">
             <div class="cr">
-              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
               <span>Found automatically<span class="d">Repointed to the file that was found.</span></span>
-              <span class="n" style="color:#a8cd8a">10,932</span>
+              <span class="n" style="color:#4FD3BA">10,932</span>
             </div>
             <div class="cr">
-              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
               <span>You accepted<span class="d">Repointed to the file you chose.</span></span>
-              <span class="n" style="color:#a8cd8a">412</span>
+              <span class="n" style="color:#4FD3BA">412</span>
             </div>
             <div class="cr">
-              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#efa694" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#E8956E" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
               <span>You rejected<span class="d">Left exactly as it is — still missing in Traktor.</span></span>
-              <span class="n" style="color:#efa694">88</span>
+              <span class="n" style="color:#E8956E">88</span>
             </div>
             <div class="cr">
-              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="#d9b174" stroke="none"/></svg>
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="#F5D96B" stroke="none"/></svg>
               <span>You did not decide<span class="d">Left exactly as it is. Scan again later to pick these up.</span></span>
-              <span class="n" style="color:#e3c088">704</span>
+              <span class="n" style="color:#F5D96B">704</span>
             </div>
             <div class="cr">
-              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#8f887f" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2.6 8h10.8"/><circle cx="8" cy="8" r="6.4" stroke-dasharray="2.4 2.2"/></svg>
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#97A0A7" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2.6 8h10.8"/><circle cx="8" cy="8" r="6.4" stroke-dasharray="2.4 2.2"/></svg>
               <span>Not found<span class="d">Left exactly as it is.</span></span>
               <span class="n faint">282</span>
             </div>
@@ -122,13 +122,13 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
             <span class="mono faint" style="font-weight:400;font-size:12px">12,418 total</span>
           </div>
 
-          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">What this does to your playlists: <strong style="color:#eee9e1">3,910</strong> broken entries across <strong style="color:#eee9e1">24 playlists</strong> are repointed in the same write, leaving <strong style="color:#eee9e1">21 of your 26</strong> playing end to end and 5 with gaps. Names, order and history are untouched — nothing is added, removed or reordered.</p>
+          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">What this does to your playlists: <strong style="color:#E8EBED">3,910</strong> broken entries across <strong style="color:#E8EBED">24 playlists</strong> are repointed in the same write, leaving <strong style="color:#E8EBED">21 of your 26</strong> playing end to end and 5 with gaps. Names, order and history are untouched — nothing is added, removed or reordered.</p>
         </div>
       </section>
 
       <div class="note info">
-        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#63b0a6" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
-        <span><strong>A list of the 1,074 tracks left missing</strong> is saved beside the collection as <span class="mono" style="font-size:11.5px;color:#c8c2b8">collection.reconnected.unresolved.csv</span> so you can work through them later.</span>
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
+        <span><strong>A list of the 1,074 tracks left missing</strong> is saved beside the collection as <span class="mono" style="font-size:11.5px;color:#C2C9CE">collection.reconnected.unresolved.csv</span> so you can work through them later.</span>
       </div>
 
     </div>
@@ -138,11 +138,11 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
 
       <div class="dlg" role="alertdialog" aria-labelledby="w-t">
         <h2 id="w-t">Write 11,344 changes?</h2>
-        <p class="mono" style="margin:0;font-size:12px;color:#d8d2c8;word-break:break-all">E:\Traktor\collection.reconnected.nml</p>
+        <p class="mono" style="margin:0;font-size:12px;color:#D2D8DC;word-break:break-all">E:\Traktor\collection.reconnected.nml</p>
         <ul>
-          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span><strong style="color:#eee9e1">Your original collection is not modified.</strong> This writes a brand new file beside it.</span></li>
-          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>A dated copy of the original is saved first, as <span class="mono" style="font-size:11px">collection.pre_reconnect_20260825_141207.nml</span></span></li>
-          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg><span><strong style="color:#eee9e1">Close Traktor first.</strong> If it is running it will overwrite this file when it quits.</span></li>
+          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span><strong style="color:#E8EBED">Your original collection is not modified.</strong> This writes a brand new file beside it.</span></li>
+          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>A dated copy of the original is saved first, as <span class="mono" style="font-size:11px">collection.pre_reconnect_20260825_141207.nml</span></span></li>
+          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg><span><strong style="color:#E8EBED">Close Traktor first.</strong> If it is running it will overwrite this file when it quits.</span></li>
         </ul>
         <div class="dlg-a">
           <button class="btn focus">Cancel</button>
@@ -152,7 +152,7 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
       </div>
 
       <div class="note warn">
-        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
         <span><strong>If the destination already exists</strong>, the badge above reads <em>Will be overwritten</em>, names the existing file's size and date, and this dialog gains a second line naming what is being replaced.</span>
       </div>
     </div>
@@ -160,7 +160,7 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
 
   <footer class="ft">
     <p class="ft-note">
-      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
       Still nothing written. This is the last step before any change.
     </p>
     <span class="ft-act">

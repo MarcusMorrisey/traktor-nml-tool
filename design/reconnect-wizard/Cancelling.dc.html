@@ -10,56 +10,56 @@
   <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box}
-body{margin:0;width:1280px;height:800px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+body{margin:0;width:1280px;height:800px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:underline}
 .app{display:grid;grid-template-rows:56px 1fr;height:800px}
-.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
 .hd-l{display:flex;align-items:center;gap:12px;min-width:0}
-.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em}
-.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#3C4248;flex:none}
 .task{font-weight:600;font-size:14px}
 .rail{display:flex;gap:2px;align-items:center;flex:none}
-.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#7b746b;white-space:nowrap}
-.st .num{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
-.st.done{color:#aaa39a}
-.st.now{background:#2b2927;color:#eee9e1;box-shadow:inset 0 0 0 1px #4a463f;font-weight:600}
-.st.now .num{background:#e2a24c;border-color:#e2a24c;color:#1b1917}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;white-space:nowrap}
+.st .num{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#A5ADB4}
+.st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
 main{padding:0;min-height:0;display:grid;grid-template-rows:388px 1fr}
-.scrim{position:relative;border-bottom:1px solid #38352f;background:#1b1917;overflow:hidden;display:grid;place-items:center}
+.scrim{position:relative;border-bottom:1px solid #2A2E32;background:#0F1113;overflow:hidden;display:grid;place-items:center}
 .behind{position:absolute;inset:0;padding:22px 24px;opacity:.22;filter:saturate(.4)}
 .behind .row{display:flex;gap:12px;margin-bottom:12px}
-.behind .blk{background:#232120;border:1px solid #38352f;border-radius:8px;height:78px;flex:1}
+.behind .blk{background:#17191C;border:1px solid #2A2E32;border-radius:8px;height:78px;flex:1}
 .behind .blk.t{height:150px}
-.dlg{position:relative;width:520px;background:#26231f;border:1px solid #565046;border-radius:10px;box-shadow:0 18px 44px rgba(0,0,0,.62);padding:22px 24px 18px;display:flex;flex-direction:column;gap:13px}
+.dlg{position:relative;width:520px;background:#1F2225;border:1px solid #454C52;border-radius:10px;box-shadow:0 18px 44px rgba(0,0,0,.62);padding:22px 24px 18px;display:flex;flex-direction:column;gap:13px}
 .dlg h2{margin:0;font-size:17px;font-weight:600}
-.dlg p{margin:0;font-size:13px;line-height:1.55;color:#c2bcb2}
+.dlg p{margin:0;font-size:13px;line-height:1.55;color:#BEC5CA}
 .dlg ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
-.dlg li{display:flex;gap:9px;font-size:12.5px;color:#aaa39a;line-height:1.45}
+.dlg li{display:flex;gap:9px;font-size:12.5px;color:#A5ADB4;line-height:1.45}
 .dlg-a{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
 .mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
-.faint{color:#7b746b}.dim{color:#aaa39a}
-.lbl{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
-.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #4a463f;background:#2b2927;color:#eee9e1;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-.btn-pri{background:#e2a24c;border-color:#e2a24c;color:#1b1917;font-weight:600}
-.btn-dgr{border-color:#7a4136;background:#2e211d;color:#efa694}
-.focus{outline:2px solid #eee9e1;outline-offset:2px}
+.faint{color:#8E979E}.dim{color:#A5ADB4}
+.lbl{font:600 11.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8E979E}
+.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #3C4248;background:#22262A;color:#E8EBED;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn-pri{background:#56B4E9;border-color:#56B4E9;color:#0F1113;font-weight:600}
+.btn-dgr{border-color:#6A3F2C;background:#21160F;color:#E8956E}
+.focus{outline:2px solid #E8EBED;outline-offset:2px}
 .ico{flex:none}
 .seq{padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:18px;min-height:0}
 .step{display:flex;flex-direction:column;gap:9px;min-width:0}
 .step-h{display:flex;align-items:center;gap:9px}
-.step-n{font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;color:#7b746b;border:1px solid #4a463f;border-radius:4px;padding:4px 7px}
+.step-n{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;color:#8E979E;border:1px solid #3C4248;border-radius:4px;padding:4px 7px}
 .step-t{font-size:12.5px;font-weight:600}
-.panel{border:1px solid #38352f;border-radius:8px;background:#232120;padding:15px;display:flex;flex-direction:column;gap:11px;flex:1}
-.prog{height:10px;border-radius:5px;background:#302d29;border:1px solid #46423b;overflow:hidden}
-.prog i{display:block;height:100%;width:33.9%;background:#6d665c}
+.panel{border:1px solid #2A2E32;border-radius:8px;background:#17191C;padding:15px;display:flex;flex-direction:column;gap:11px;flex:1}
+.prog{height:10px;border-radius:5px;background:#23272B;border:1px solid #3C4248;overflow:hidden}
+.prog i{display:block;height:100%;width:33.9%;background:#5A6167}
 .rowb{display:flex;align-items:center;gap:10px;font-size:13px}
-.spin{width:15px;height:15px;border-radius:50%;border:2px solid #4a463f;border-top-color:#d9b174;flex:none}
-.note{display:flex;gap:10px;padding:11px 12px;border-radius:6px;border:1px solid #38352f;background:#201e1c;font-size:12.5px;color:#aaa39a;line-height:1.5}
-.note strong{color:#eee9e1;font-weight:600}
-.note.ok{border-color:#3f5a33;background:#1e2419}
-.note.info{border-color:#31504c;background:#1c2422}
-.kv{font:400 11.5px/1.8 'IBM Plex Mono',ui-monospace,monospace;color:#a29b91;background:#161513;border:1px solid #38352f;border-radius:6px;padding:9px 11px}
-.kv b{color:#d8d2c8;font-weight:500}
+.spin{width:15px;height:15px;border-radius:50%;border:2px solid #3C4248;border-top-color:#F5D96B;flex:none}
+.note{display:flex;gap:10px;padding:11px 12px;border-radius:6px;border:1px solid #2A2E32;background:#14171A;font-size:12.5px;color:#A5ADB4;line-height:1.5}
+.note strong{color:#E8EBED;font-weight:600}
+.note.ok{border-color:#2C5449;background:#12211D}
+.note.info{border-color:#2F5A72;background:#12222B}
+.kv{font:400 11.5px/1.8 'IBM Plex Mono',ui-monospace,monospace;color:#9BA4AB;background:#0D0F11;border:1px solid #2A2E32;border-radius:6px;padding:9px 11px}
+.kv b{color:#D2D8DC;font-weight:500}
 .acts{display:flex;gap:9px;margin-top:auto}
   </style>
 </helmet>
@@ -90,9 +90,9 @@ main{padding:0;min-height:0;display:grid;grid-template-rows:388px 1fr}
         <h2 id="cx-t">Stop scanning?</h2>
         <p id="cx-d">You are 4,212 files into 12,542.</p>
         <ul>
-          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span><strong style="color:#eee9e1">Your collection is untouched.</strong> Nothing has been written to it, and stopping will not change that.</span></li>
-          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#63b0a6" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg><span><strong style="color:#eee9e1">The 4,212 files already read are kept</strong> in the tag cache, so scanning again picks up from where this left off.</span></li>
-          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6v3.6l2.4 1.4"/></svg><span>Matches found so far are discarded — reviewing needs a complete scan.</span></li>
+          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span><strong style="color:#E8EBED">Your collection is untouched.</strong> Nothing has been written to it, and stopping will not change that.</span></li>
+          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg><span><strong style="color:#E8EBED">The 4,212 files already read are kept</strong> in the tag cache, so scanning again picks up from where this left off.</span></li>
+          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6v3.6l2.4 1.4"/></svg><span>Matches found so far are discarded — reviewing needs a complete scan.</span></li>
         </ul>
         <div class="dlg-a">
           <button class="btn focus">Keep scanning</button>
@@ -115,8 +115,8 @@ main{padding:0;min-height:0;display:grid;grid-template-rows:388px 1fr}
             <div>cache_flush=<b>ok</b> entries=4212</div>
           </div>
           <div class="note info">
-            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#63b0a6" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
-            <span>When fingerprinting <em>is</em> running, this step also stops the <span class="mono">fpcalc</span> process and reports it: <span class="mono" style="color:#c8c2b8">fingerprint_child=terminated</span>. Stopping never waits on a stuck file — it gives up on it.</span>
+            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
+            <span>When fingerprinting <em>is</em> running, this step also stops the <span class="mono">fpcalc</span> process and reports it: <span class="mono" style="color:#C2C9CE">fingerprint_child=terminated</span>. Stopping never waits on a stuck file — it gives up on it.</span>
           </div>
         </div>
       </div>
@@ -125,7 +125,7 @@ main{padding:0;min-height:0;display:grid;grid-template-rows:388px 1fr}
         <div class="step-h"><span class="step-n">THEN</span><span class="step-t">Stopped — a plain outcome, not an error</span></div>
         <div class="panel">
           <div class="note ok">
-            <svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
+            <svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>
             <span><strong>Scan stopped. Nothing was written to your collection.</strong><br>4,212 of 12,542 files were read. Those results are cached, so scanning again will be much faster.</span>
           </div>
           <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">Stopping is a normal outcome. It is reported the same way a finished scan is — with counts and a cache summary — and never as a failure.</p>
