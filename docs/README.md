@@ -5,6 +5,13 @@ informed the current implementation. The command reference and architecture
 for the maintained tool live in the [repository README](../README.md) and the
 [package guide](../traktor_nml/README.md).
 
+## Active Plans
+
+- [`nicegui-gui-analysis.md`](nicegui-gui-analysis.md) is the plan of record for
+  a NiceGUI front end: command tier classification, the shared-core refactor and
+  its CLI parity test strategy, rollout/rollback, and a blocking packaging spike.
+  Not yet implemented.
+
 ## Planning
 
 - [`traktor_nml_tool_plan.md`](traktor_nml_tool_plan.md) is the original
@@ -22,6 +29,7 @@ for the maintained tool live in the [repository README](../README.md) and the
   conversation used to shape the work.
 - [`chat_export_full.md`](chat_export_full.md) is the complete source export.
 
-These files are historical reference material. For current behavior, use the
+The Planning and Development Context files above are historical reference
+material. For current behavior, use the
 CLI help (`python traktor_nml_tool.py --help`), the repository README, and the
 tests.
