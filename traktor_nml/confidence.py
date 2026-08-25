@@ -3,9 +3,9 @@
 Disk-scan matching needs a filename-only tier the legacy boolean cannot
 express, and two overlapping knobs would let two flags fight over one
 cascade. MatchConfidence is a single ordered ladder instead: strict admits
-the tag-derived tiers down to file/size/time plus the deep path-suffix
-tiers, loose additionally admits artist/title/album/time, the legacy
-artist-title-only tier and the shallow one-folder path suffix, and filename
+the tag-derived tiers down to file/size/time plus the deep three-folder
+path suffix, loose additionally admits artist/title/album/time, the legacy
+artist-title-only tier and the two shallower path suffixes, and filename
 additionally admits the bare-filename tiers for disk candidates whose tags
 are unreadable. --allow-artist-title-only keeps parsing as loose so existing
 invocations are unaffected.
@@ -39,18 +39,28 @@ class MatchConfidence(enum.Enum):
 # every tier of the level below it plus its own additions, so widening the
 # confidence argument never removes a tier a stricter run already accepted.
 # strict reproduces the pre-extraction default cascade (every tier except the
-# legacy artist-title-only one) plus the deep path-suffix tiers; loose
+# legacy artist-title-only one) plus the deep three-folder path suffix; loose
 # additionally admits the legacy tier, matching --allow-artist-title-only bit
-# for bit, and the shallow one-folder suffix; filename adds the disk-scan-only
-# tiers that need no tags at all.
+# for bit, and the two shallower path suffixes; filename adds the
+# disk-scan-only tier that needs no tags at all.
 #
-# The path-suffix tiers sit at strict because they are highly discriminating
-# rather than merely permissive: measured over a real 6,386-entry collection,
-# a three-folder suffix is unique for 97.2% of entries. They also survive the
+# path_suffix_3 sits at strict because it is highly discriminating rather
+# than merely permissive: measured over a real 6,386-entry collection, a
+# three-folder suffix is unique for 97.2% of entries. It also survives the
 # case the tag tiers cannot - a wholesale move of a library, which changes
 # every absolute path but preserves each file's position within its own
-# folders. path_suffix_1 is the one shallow enough to collide across sibling
-# libraries ("Album/track01.mp3"), so it waits for loose.
+# folders.
+#
+# The shallower two wait for loose, and the reason is that 97.2% is a
+# measurement of DEPTH THREE only. Nothing was measured at depth two, and it
+# is not a small extrapolation: dropping a folder drops the album or release
+# level, so ("CD1", "01 - Intro.mp3") recurs across every multi-disc release
+# that uses that layout, and ("Album", "track01.mp3") across sibling
+# libraries. Colliding keys report ambiguity rather than a wrong match, so
+# the cost is the operator's time - but strict is the default and the level
+# a cautious operator reaches for, and it should not be where an unmeasured
+# tier makes them adjudicate. Measure depth two on a real collection and
+# path_suffix_2 can move up on evidence.
 _STRICT_TIERS: tuple[str, ...] = (
     "audio_id",
     "artist_title_size_time",
@@ -58,9 +68,8 @@ _STRICT_TIERS: tuple[str, ...] = (
     "file_size_time",
     "artist_title_album_time",
     "path_suffix_3",
-    "path_suffix_2",
 )
-_LOOSE_TIERS: tuple[str, ...] = _STRICT_TIERS + ("artist_title", "path_suffix_1")
+_LOOSE_TIERS: tuple[str, ...] = _STRICT_TIERS + ("artist_title", "path_suffix_2", "path_suffix_1")
 _FILENAME_TIERS: tuple[str, ...] = _LOOSE_TIERS + ("filename",)
 
 _ADMITTED_TIERS = {

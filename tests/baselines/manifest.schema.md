@@ -60,10 +60,9 @@ Recorded so an absence is not mistaken for a guarantee:
 - **The acoustic-fingerprint tier is unpinned.** `HAS_ACOUSTID` gates on
   importing the `acoustid` module, not on the `fpcalc` binary, so a stub
   binary on PATH leaves the tier dark. Pinning it would put a third-party
-  dependency behind the oracle, so no baseline through the current
-  `parity-baseline-v2` covers it. The commit that gives the scan its own
-  `fpcalc` subprocess must add a case under a reviewed `parity-baseline-v3`
-  re-tag.
+  dependency behind the oracle, so no baseline to date covers it. The
+  commit that gives the scan its own `fpcalc` subprocess must add a case
+  under a reviewed re-tag of its own.
 - **The lxml and stdlib write paths were verified equivalent for this
   corpus** (the manifest regenerates byte-identically either way), but that
   is verified on small synthetic fixtures, not proven for a real

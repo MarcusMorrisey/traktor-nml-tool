@@ -54,5 +54,5 @@ differently per host, and git would rewrite the blob on checkout.
 
 ## Current baseline
 
-`parity-baseline-v2`, superseding `v1`. Known gaps in what the manifest covers
+`parity-baseline-v3`, superseding `v2`. Known gaps in what the manifest covers
 are recorded in [manifest.schema.md](manifest.schema.md).

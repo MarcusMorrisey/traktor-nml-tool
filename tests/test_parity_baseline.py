@@ -37,17 +37,15 @@ import pytest
 
 MANIFEST_PATH = Path(__file__).parent / "baselines" / "manifest.json"
 
-# parity-baseline-v2. See "WHEN THE CONSTANT MAY MOVE" above.
+# parity-baseline-v3. See "WHEN THE CONSTANT MAY MOVE" above.
 #
-# Moved from v1 for the path-suffix cascade change. What v1 -> v2 records,
-# reviewed case by case before regenerating: every match/unmatched/ambiguous
-# count is unchanged, every written output file is byte-identical, and the
-# only stdout deltas are the new per-tier counters plus the reconnect cases
-# now attributing their match to the filename tier, filename_size having
-# been retired - it had only ever "matched" because the fixture wrote a
-# 16-byte stub beside FILESIZE="16", making kilobytes and bytes collide by
-# accident.
-PARITY_BASELINE_SHA256 = "400793a53398d97df4a342d971c2a3398b9ce078fe5157743128f94095adbfc7"
+# Moved from v2 for the code-review fixes to the refutation filter (DL-042,
+# DL-043). Reviewed case by case before regenerating: every
+# match/unmatched/ambiguous count is unchanged and every written output file
+# is byte-identical. The stdout deltas are the new `refuted` counter, and
+# `matched_path_suffix_2` leaving the strict-only cases because that tier
+# moved to loose.
+PARITY_BASELINE_SHA256 = "32651780ae486ac87c14368c447f48c69689a5b56dc9b2b31018b34e020eb89b"
 
 
 def _assert_manifest_matches(manifest_path: Path, expected_sha256: str) -> None:

@@ -80,12 +80,19 @@ every stricter tier unreachable (DL-032).
   bytes; `PLAYTIME_FLOAT` differs from what mutagen reports by up to 0.172s
   and, compared as strings, never matches at all. Exact equality across
   those two sides is impossible rather than merely unreliable, so
-  `matching.py` additionally compares them with tolerances set well above
-  the observed maxima and uses that result only to remove an implausible
-  candidate. The tolerance is loose on purpose: a too-tight bound would
-  report a present file as missing, which is worse than weaker
-  tie-breaking (DL-040).
-- The path-suffix tiers (`path_suffix_3` / `_2` at strict, `_1` at loose)
+  `matching.py` additionally compares them and uses that result only to
+  remove an implausible candidate. Cross-source it compares by wide FACTOR
+  bands, not by the measured maxima: those maxima are properties of one
+  library's files, not of the formats. Tag and artwork overhead is additive
+  and unbounded, so a 500 KB cover image on a 5,000 KB track is a 9% gap;
+  mutagen's duration is exact only with a Xing/VBRI header and otherwise
+  drifts by a percentage of track length. Bands wide enough to absorb both
+  still separate a 30-second preview from a six-minute track. The
+  `audio_id` tier is exempt outright - a content-derived identity outranks
+  an approximate size, so re-encoding a track to lossless does not lose it.
+  Same-source (collection vs collection) keeps the tight bounds, since both
+  sides are then Traktor's own number for the same quantity (DL-040).
+- The path-suffix tiers (`path_suffix_3` at strict, `_2` and `_1` at loose)
   key on a file's position within its own folders rather than its absolute
   path, so a library moved as a unit still reconnects. At three folders
   deep the key is unique for 97.2% of entries in the same measured

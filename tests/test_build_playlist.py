@@ -528,8 +528,8 @@ def test_matching_and_confidence_modules_are_byte_identical_to_pre_existing_cont
     import traktor_nml.matching as matching
 
     expected = {
-        "matching.py": "08a3e3f46630b5ad7d2ffc3e70c1c5daaed1bbb5f71e393e51c21a6cbc4e1374",
-        "confidence.py": "c261ae86c3ab5f85da11df0f777fea058b3506e90c160551d1172d8810bc38aa",
+        "matching.py": "a6e97f670426ec707197ab585355e8c884657e3cdf1dacd1f9e85eadab21d00c",
+        "confidence.py": "a9e5d6e3df16ae8787d3b05a8ce62ee6944683bcff66d2e33b9d4e988909890b",
     }
     for module, filename in ((matching, "matching.py"), (confidence, "confidence.py")):
         content = Path(module.__file__).read_bytes()

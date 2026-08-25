@@ -68,7 +68,7 @@
       "5"
     ],
     "exit_code": 0,
-    "stdout": "old_collection_entries=2\nnew_collection_entries=2\nmatched=2\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=2\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nunmatched=0\nambiguous=0\nprimarykey_updates_available=2\nsample_matches:\n- Burial - Archangel\n  matched_by=artist_title_file\n  before=/Music/v1/archangel_128.mp3\n  after=/Music/v1/archangel_128.mp3\n- Burial - Archangel\n  matched_by=artist_title_file\n  before=/Music/v2/archangel_320.mp3\n  after=/Music/v2/archangel_320.mp3\n",
+    "stdout": "old_collection_entries=2\nnew_collection_entries=2\nmatched=2\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=2\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nunmatched=0\nrefuted=0\nambiguous=0\nprimarykey_updates_available=2\nsample_matches:\n- Burial - Archangel\n  matched_by=artist_title_file\n  before=/Music/v1/archangel_128.mp3\n  after=/Music/v1/archangel_128.mp3\n- Burial - Archangel\n  matched_by=artist_title_file\n  before=/Music/v2/archangel_320.mp3\n  after=/Music/v2/archangel_320.mp3\n",
     "stderr": "",
     "normalise_run_root": false,
     "output_files": {}
@@ -118,7 +118,7 @@
       "--allow-artist-title-only"
     ],
     "exit_code": 0,
-    "stdout": "collection_locations_rewritten=0\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=1\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nunmatched=0\nambiguous=0\ndestination_collisions=0\nsample_matches:\n- Boards of Canada - Roygbiv\n  matched_by=artist_title_size_time\n  before=/Music/roygbiv_final.mp3\n  after=/Music/roygbiv_final.mp3\noutput_written=out/compare_out.nml\n",
+    "stdout": "collection_locations_rewritten=0\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=1\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nunmatched=0\nrefuted=0\nambiguous=0\ndestination_collisions=0\nsample_matches:\n- Boards of Canada - Roygbiv\n  matched_by=artist_title_size_time\n  before=/Music/roygbiv_final.mp3\n  after=/Music/roygbiv_final.mp3\noutput_written=out/compare_out.nml\n",
     "stderr": "",
     "normalise_run_root": false,
     "output_files": {
@@ -141,7 +141,7 @@
       "out/recon.tagcache.json"
     ],
     "exit_code": 0,
-    "stdout": "reconnectable=1\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nambiguous=1\ndestination_collisions=0\n",
+    "stdout": "reconnectable=1\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nrefuted=0\nambiguous=1\ndestination_collisions=0\n",
     "stderr": "",
     "normalise_run_root": false,
     "output_files": {}
@@ -164,7 +164,7 @@
       "--dry-run"
     ],
     "exit_code": 0,
-    "stdout": "collection_locations_rewritten=1\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nambiguous=1\ndestination_collisions=0\n",
+    "stdout": "collection_locations_rewritten=1\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nrefuted=0\nambiguous=1\ndestination_collisions=0\n",
     "stderr": "",
     "normalise_run_root": false,
     "output_files": {}
@@ -186,7 +186,7 @@
       "out/recon.tagcache.json"
     ],
     "exit_code": 0,
-    "stdout": "collection_locations_rewritten=1\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nambiguous=1\ndestination_collisions=0\noutput_written=out/recon_out.nml\n",
+    "stdout": "collection_locations_rewritten=1\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nrefuted=0\nambiguous=1\ndestination_collisions=0\noutput_written=out/recon_out.nml\n",
     "stderr": "",
     "normalise_run_root": true,
     "output_files": {
@@ -212,7 +212,7 @@
       "out/recon_ambiguity.csv"
     ],
     "exit_code": 0,
-    "stdout": "csv_written=out/recon_ambiguity.csv\ncollection_locations_rewritten=1\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nambiguous=1\ndestination_collisions=0\noutput_written=out/recon_csv.nml\n",
+    "stdout": "csv_written=out/recon_ambiguity.csv\ncollection_locations_rewritten=1\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=0\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nmatched_path_suffix_3=0\nmatched_path_suffix_2=0\nmatched_path_suffix_1=0\nmatched_filename=1\nunmatched=1\nrefuted=0\nambiguous=1\ndestination_collisions=0\noutput_written=out/recon_csv.nml\n",
     "stderr": "",
     "normalise_run_root": true,
     "output_files": {

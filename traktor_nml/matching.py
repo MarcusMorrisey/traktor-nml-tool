@@ -85,12 +85,45 @@ class KeyProvider:
 #   PLAYTIME_FLOAT vs mutagen  median 0.048s error, max 0.172s
 #
 # They are therefore used to REFUTE a candidate, never to identify one.
-# Tolerances sit well above the observed maxima on purpose: a too-tight
-# bound produces false negatives - a real file rejected, the user's track
-# left missing - whereas a loose one only slightly weakens tie-breaking,
-# and the tier keys are doing the identifying.
+#
+# CALIBRATION. Those figures come from ONE collection, and neither error is
+# a property of the formats - both are properties of that library's files:
+#
+#   - The size gap is tag and artwork overhead, which is additive and
+#     unbounded. A 500 KB cover image on a 5,000 KB track is a 9% gap, not
+#     0.41%. The measured maximum says that collection's art is small; it
+#     says nothing about anyone else's.
+#   - The duration gap is mutagen's estimate, which is exact only when the
+#     file carries a Xing/VBRI header. Without one it extrapolates from the
+#     first frame and can be 5-10% out on a VBR file - tens of seconds.
+#
+# So a bound fitted to those maxima rejects correct candidates on any
+# library that differs. Cross-source comparison instead uses wide FACTOR
+# bands, which is all the evidence actually supports: it still separates a
+# 30-second preview from a six-minute track (a factor of twelve) while
+# absorbing artwork and VBR estimation, and the module's own priority says
+# to err this way - a too-tight bound loses a file the user has, a loose
+# one only weakens tie-breaking the tier keys were doing anyway.
+#
+# Same-source comparison (collection vs collection) keeps the tight bounds:
+# there both sides are Traktor's own numbers for the same quantity, so a
+# real difference means a genuinely different file.
 _SIZE_REL_TOLERANCE = 0.02
 _DURATION_ABS_TOLERANCE = 1.0
+
+# Cross-source: a candidate is refuted only outside this factor band, or
+# outside the larger of the absolute and relative duration allowances.
+_CROSS_SIZE_MIN_FACTOR = 0.25
+_CROSS_SIZE_MAX_FACTOR = 4.0
+_CROSS_DURATION_REL_TOLERANCE = 0.15
+
+# Tiers whose key IS an identity claim rather than a similarity signal, and
+# which therefore outrank the approximate size/duration check entirely.
+# AUDIO_ID is Traktor's own content-derived identifier: when it agrees, a
+# size difference means the file was re-tagged or had art embedded, not that
+# it is a different recording. Letting a cover image veto it would discard
+# the strongest evidence the cascade has on the strength of the weakest.
+_IDENTITY_TIERS: frozenset[str] = frozenset({"audio_id"})
 
 
 def _size_kb(record: EntryRecord) -> Optional[float]:
@@ -117,24 +150,51 @@ def _duration_seconds(record: EntryRecord) -> Optional[float]:
         return None
 
 
+def _is_cross_source(old_record: EntryRecord, candidate: EntryRecord) -> bool:
+    """True when one side is a disk candidate and the other is not.
+
+    Only then do the two sides measure different quantities (payload
+    kilobytes vs bytes on disk; Traktor's decode vs mutagen's estimate) and
+    need the wide bands.
+    """
+    return (old_record.source_path is None) != (candidate.source_path is None)
+
+
 def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
     """True when size or duration positively contradict the candidate.
 
     Absent data never refutes: a candidate whose tags could not be read is
-    left for the tier keys to judge rather than silently discarded.
+    left for the tier keys to judge rather than silently discarded. Nor does
+    a difference the comparison cannot attribute - see the calibration note
+    above for why the cross-source bands are factor-wide.
     """
+    cross = _is_cross_source(old_record, candidate)
+
     # `is not None`, not truthiness: a zero is a claim (an empty file, a
     # zero-length entry), and one side claiming zero against the other's
     # real value is a contradiction, not missing data. Only the two-zero
     # case is skipped, which would otherwise divide by zero.
     old_kb, new_kb = _size_kb(old_record), _size_kb(candidate)
     if old_kb is not None and new_kb is not None and max(old_kb, new_kb) > 0:
-        if abs(old_kb - new_kb) / max(old_kb, new_kb) > _SIZE_REL_TOLERANCE:
+        if cross:
+            # Asymmetric in effect as well as wide: overhead only ever makes
+            # the file on disk BIGGER, so the upper bound is the loose one.
+            if old_kb <= 0 or not (
+                _CROSS_SIZE_MIN_FACTOR <= new_kb / old_kb <= _CROSS_SIZE_MAX_FACTOR
+            ):
+                return True
+        elif abs(old_kb - new_kb) / max(old_kb, new_kb) > _SIZE_REL_TOLERANCE:
             return True
 
     old_s, new_s = _duration_seconds(old_record), _duration_seconds(candidate)
-    if old_s is not None and new_s is not None and abs(old_s - new_s) > _DURATION_ABS_TOLERANCE:
-        return True
+    if old_s is not None and new_s is not None:
+        allowance = _DURATION_ABS_TOLERANCE
+        if cross:
+            # Relative, because mutagen's error on a headerless VBR file
+            # scales with track length rather than being a fixed offset.
+            allowance = max(allowance, _CROSS_DURATION_REL_TOLERANCE * max(old_s, new_s))
+        if abs(old_s - new_s) > allowance:
+            return True
 
     return False
 
@@ -274,13 +334,26 @@ def match_records(
     # cannot fire reads as "tried and found nothing", which is a lie.
     tier_names = [p.tier_name for p in key_providers] + list(_BASE_STAT_TIERS)
     tier_names += [name for name in _EXTRA_STAT_TIERS if confidence.admits(name)]
-    stats = {"matched": 0, **{f"matched_{name}": 0 for name in tier_names}, "unmatched": 0, "ambiguous": 0}
+    # `refuted` counts old records that ended unmatched WITH a candidate the
+    # size/duration check removed. Without it a refusal to commit is
+    # indistinguishable in the stats from a file that is genuinely gone, and
+    # the operator reads "the tool found nothing" when the truth is "the tool
+    # found something and declined it". This is the same distinction DL-016
+    # added `destination_collisions` for on the one-to-one post-pass.
+    stats = {
+        "matched": 0,
+        **{f"matched_{name}": 0 for name in tier_names},
+        "unmatched": 0,
+        "refuted": 0,
+        "ambiguous": 0,
+    }
     samples: list[tuple[str, str, str, str]] = []
 
     for old_record in old_records:
         matched_new: EntryRecord | None = None
         matched_by: str | None = None
         ambiguous_here = False
+        refuted_here = False
 
         for key_name, key_value in record_keys(old_record, confidence, key_providers):
             if key_value is AMBIGUOUS:
@@ -292,12 +365,23 @@ def match_records(
                 ambiguous_here = True
                 break
             candidates = indexes.get(key_name, {}).get(key_value, [])
-            # Refute before counting: a size or duration contradiction
-            # removes a candidate, so a tier with one plausible and one
-            # implausible hit resolves cleanly instead of reporting a
-            # false ambiguity the operator would have to adjudicate.
-            candidates = [c for c in candidates if not _refutes(old_record, c)]
+            # Prefer BEFORE refuting, not after. Refutation can remove the
+            # active Sync_ copy - which, being the one a migration is
+            # rewriting, is the copy most likely to have drifted in size -
+            # and that would leave the stale Sync_old copy alone in the list,
+            # where it matches cleanly and is reported as a success. Choosing
+            # the preferred copy first means a refuted current copy yields no
+            # match at all, which is the honest outcome.
             candidates = _prefer_current_sync_copy(candidates)
+            if key_name not in _IDENTITY_TIERS:
+                # Refute before counting: a size or duration contradiction
+                # removes a candidate, so a tier with one plausible and one
+                # implausible hit resolves cleanly instead of reporting a
+                # false ambiguity the operator would have to adjudicate.
+                kept = [c for c in candidates if not _refutes(old_record, c)]
+                if len(kept) != len(candidates):
+                    refuted_here = True
+                candidates = kept
             if len(candidates) == 1:
                 matched_new = candidates[0]
                 matched_by = key_name
@@ -322,5 +406,10 @@ def match_records(
             stats["ambiguous"] += 1
         else:
             stats["unmatched"] += 1
+            # A subset of unmatched, not a separate bucket: the record is
+            # still unmatched, but the operator can now tell that a candidate
+            # was found and declined rather than never found at all.
+            if refuted_here:
+                stats["refuted"] += 1
 
     return mapping, stats, samples

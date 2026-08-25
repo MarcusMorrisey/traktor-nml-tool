@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from traktor_nml.confidence import MatchConfidence
 from traktor_nml.fingerprint import HAS_ACOUSTID
 from tests.conftest import run_tool
 
@@ -332,20 +333,29 @@ def test_absent_size_never_refutes(tmp_path: Path) -> None:
 # directly rather than leaving the branch to a mutation nobody notices.
 
 
-def _record(*, filesize: str = "", playtime: str = "", from_disk: bool = False) -> "EntryRecord":
+def _record(
+    *,
+    filesize: str = "",
+    playtime: str = "",
+    from_disk: bool = False,
+    dir_value: str = "/:Music/:",
+    audio_id: str = "",
+    artist: str = "A",
+    title: str = "One",
+) -> "EntryRecord":
     from traktor_nml.model import EntryRecord, LocationParts
 
     return EntryRecord(
         entry=None,
-        artist="A",
-        title="One",
-        audio_id="",
+        artist=artist,
+        title=title,
+        audio_id=audio_id,
         filesize=filesize,
         playtime_float=playtime,
         bitrate="",
         album="",
         file_name="track.mp3",
-        location=LocationParts(volume="C:", volumeid="C:", dir_value="/:Music/:", file_name="track.mp3"),
+        location=LocationParts(volume="C:", volumeid="C:", dir_value=dir_value, file_name="track.mp3"),
         source_path=Path("C:/Music/track.mp3") if from_disk else None,
     )
 
@@ -391,3 +401,111 @@ def test_size_refutation_compares_kilobytes_against_bytes() -> None:
     # Raw-string equality would have called THIS one a match.
     numeric_lookalike = _record(filesize="5000", from_disk=True)
     assert _refutes(old, numeric_lookalike) is True
+
+
+# --- regressions from the code review of the refutation filter ------------
+#
+# Each of these reproduces a case where the first cut of _refutes rejected a
+# correct candidate, or accepted a wrong one, because its bounds were fitted
+# to a single collection's files rather than to the formats.
+
+
+def test_size_never_vetoes_an_audio_id_match() -> None:
+    """AUDIO_ID is Traktor's own content-derived identity, so it outranks
+    the approximate size check outright rather than merely surviving a
+    generous bound.
+
+    The case that needs this is re-encoding: the collection entry recorded a
+    5,000 KB MP3 and the user has since replaced it with the same recording
+    as a 40 MB lossless file. AUDIO_ID still agrees because the audio is the
+    same; the size is eight times over, past any band wide enough to be
+    useful. Letting the weakest signal veto the strongest would report the
+    track missing when it is sitting right there.
+    """
+    from traktor_nml.matching import match_records
+
+    old = _record(filesize="5000", audio_id="AUDIOID")
+    candidate = _record(filesize=str(40000 * 1024), from_disk=True, audio_id="AUDIOID")
+    _, stats, _ = match_records([old], [candidate], MatchConfidence.STRICT)
+    assert stats["matched"] == 1
+    assert stats["matched_audio_id"] == 1
+
+
+def test_embedded_artwork_does_not_veto_a_path_suffix_match() -> None:
+    """The same overhead on a tier that IS refutable: the band has to be
+    wide enough to absorb artwork, or a moved library with cover art
+    reconnects nothing."""
+    from traktor_nml.matching import match_records
+
+    old = _record(filesize="5000", dir_value="/:Techno/:Artist/:Album/:")
+    # Untagged on disk, so no tag tier can fire above the path suffix.
+    candidate = _record(
+        filesize=str(5500 * 1024),
+        from_disk=True,
+        dir_value="/:Techno/:Artist/:Album/:",
+        artist="",
+        title="",
+    )
+    _, stats, _ = match_records([old], [candidate], MatchConfidence.STRICT)
+    assert stats["matched_path_suffix_3"] == 1
+    assert stats["refuted"] == 0
+
+
+def test_vbr_duration_estimate_does_not_veto_a_match() -> None:
+    """mutagen extrapolates a headerless VBR file's duration from its first
+    frame, so its error scales with track length. A fixed sub-second bound
+    rejects the correct file; the allowance has to be relative."""
+    from traktor_nml.matching import match_records
+
+    old = _record(playtime="374.5")
+    candidate = _record(playtime="352.1", from_disk=True)
+    _, stats, _ = match_records([old], [candidate], MatchConfidence.LOOSE)
+    assert stats["matched"] == 1
+
+
+def test_a_thirty_second_preview_is_still_refuted() -> None:
+    """The widened bands must still separate a preview clip from the track
+    it previews - otherwise refutation has stopped doing anything."""
+    from traktor_nml.matching import _refutes
+
+    full = _record(filesize="6000", playtime="360.0")
+    preview = _record(filesize=str(500 * 1024), playtime="30.0", from_disk=True)
+    assert _refutes(full, preview) is True
+
+
+def test_same_source_comparison_keeps_the_tight_bound() -> None:
+    """Collection to collection, both sides are Traktor's own number for the
+    same quantity, so the wide cross-source band must not apply."""
+    from traktor_nml.matching import _refutes
+
+    assert _refutes(_record(filesize="5000"), _record(filesize="5400")) is True
+
+
+def test_a_refuted_current_copy_does_not_promote_the_stale_one(tmp_path: Path) -> None:
+    """Refutation must not hand the match to Sync_old.
+
+    The active Sync_ copy is the one a migration rewrites, so it is the copy
+    most likely to have drifted in size. If refuting it left Sync_old alone
+    in the candidate list, the run would rewrite onto the stale copy and
+    report a clean match.
+    """
+    from traktor_nml.matching import match_records
+
+    old = _record(filesize="5000", dir_value="/:Gone/:")
+    current = _record(filesize="5400", dir_value="/:Sync_/:Music/:")
+    stale = _record(filesize="5000", dir_value="/:Sync_old/:Music/:")
+
+    mapping, stats, _ = match_records([old], [current, stale], MatchConfidence.FILENAME)
+    assert mapping.get(old.primary_key) is None
+    assert stats["unmatched"] == 1
+    # and the operator can tell this from a file that is simply gone
+    assert stats["refuted"] == 1
+
+
+def test_path_suffix_2_waits_for_loose() -> None:
+    """Only depth three was measured (97.2% unique). Depth two drops the
+    album level, so it stays out of the default confidence until it has
+    evidence of its own."""
+    assert MatchConfidence.STRICT.admits("path_suffix_3") is True
+    assert MatchConfidence.STRICT.admits("path_suffix_2") is False
+    assert MatchConfidence.LOOSE.admits("path_suffix_2") is True
