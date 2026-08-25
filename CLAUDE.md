@@ -11,7 +11,8 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `TODO.md`                | Planned future work (replace-playlist, fuzzy matching, guided repair review) | Picking up or scoping a future feature          |
 | `LICENSE`                | GPL-2.0-only license text                                    | -                                                |
 | `pytest.ini`             | Pytest configuration                                          | Changing test discovery or markers              |
-| `.gitignore`             | Excludes caches, personal collection fixtures, tag cache      | Adding a new local-only artifact                |
+| `.gitignore`             | Excludes caches, the personal collection fixture and its snapshots, tag caches, `/testing/`, the generated design bundle | Adding a new local-only artifact                |
+| `.gitattributes`         | Pins `tests/baselines/manifest.json` to exact bytes (`-text`) | Changing how the parity manifest is stored      |
 
 ## Subdirectories
 
@@ -20,6 +21,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `traktor_nml/` | The package: parsing, matching, rewrite/reconnect/splice/split/build-playlist cores, and CLI subcommands | Implementing or modifying any tool behavior           |
 | `tests/`       | Pytest suite, fixtures, and baseline-parity corpus | Adding or changing tests                               |
 | `docs/`        | Retained planning material and development context | Looking up why a past design decision was made         |
+| `design/`      | Design briefs and canvas sources for the unimplemented GUI | Working on the GUI's visual or interaction design       |
 
 ## Build
 

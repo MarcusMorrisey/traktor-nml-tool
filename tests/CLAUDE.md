@@ -10,7 +10,9 @@
 | `test_cli_contract.py`   | Subcommand surface + `--allow-artist-title-only`/`--match-confidence` alias contract; splice/split malformed-input and atomic-write tests | Adding/renaming a subcommand, changing legacy-flag equivalence |
 | `test_compare.py`        | Compare-based rewrite input-protection and destination-collision tests | Changing `rewrite_from_collection_compare` or `compare_cmd.py`'s write path |
 | `test_diskscan.py`       | Disk-scan candidate discovery tests                            | Changing `diskscan.py`                                        |
-| `test_reconnect.py`      | Reconnection matching and one-to-one assignment tests          | Changing `reconnect.py` or `volumes.py`                       |
+| `test_discovery.py`      | Fuzzy discovery stays review-only and works on untagged files  | Changing `discovery.py` or either discover subcommand         |
+| `test_parity_baseline.py`| Tamper-evidence for the oracle itself: pins `manifest.json`'s own SHA-256 | Regenerating the baseline, or changing what the pin guarantees |
+| `test_reconnect.py`      | Reconnection matching, path-suffix tiers, size/duration refutation, one-to-one assignment | Changing `reconnect.py`, `volumes.py`, `matching.py`'s tiers, or a matching tolerance |
 | `test_fingerprint.py`    | Acoustic fingerprint comparison tests                          | Changing `fingerprint.py`                                     |
 | `test_spans.py`          | Byte-span scanner, `OutputBuilder`, count-attribute recalculation tests | Changing `spans.py`                                           |
 | `test_splice.py`         | Splice merge/conflict-resolution tests                         | Changing `splice.py` or `playlists.py`                        |
