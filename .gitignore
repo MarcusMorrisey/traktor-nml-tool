@@ -3,13 +3,21 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 
-# Personal Traktor library fixture used for real-corpus tests.
-# Real personal data (artist/track/folder names) - never commit this.
-# Tests that use it skip gracefully when it's absent.
-/collection_textual_patch_test.nml
+# Personal Traktor library fixture used for real-corpus tests, plus the
+# timestamped snapshots the tool writes beside it (e.g.
+# collection_textual_patch_test.pre_playlist_inspection_20260823_220234.nml).
+# Real personal data (artist/track/folder names) - never commit these.
+# Tests that use the fixture skip gracefully when it's absent.
+/collection_textual_patch_test*.nml
 
 # Local tag-read cache produced by scan-reconnect-candidates/rewrite-from-reconnect
 .traktor_nml_tagcache.json
 
 # Generated design-canvas bundle (~2.3 MB); rebuild from design/*/ sources.
 /design/*/reconnect-wizard.html
+
+# Local scratch tree for real-library runs: collections, tracklists, tag
+# caches and discovery CSVs, all derived from the personal fixture above
+# and carrying the same real personal data. Nothing here is an input to
+# the test suite - no code path references it.
+/testing/
