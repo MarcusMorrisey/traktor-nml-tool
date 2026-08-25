@@ -18,28 +18,69 @@ from typing import Callable, Iterable, Optional
 from .confidence import MatchConfidence
 from .model import EntryRecord, record_label
 
-_BASE_STAT_TIERS: tuple[str, ...] = (
-    # Fixed tier ordering used to initialise per-tier match-count stats
-    # keys before matching runs, so a zero-count tier still prints
-    # alongside tiers that matched; injected key providers (DL-006) add
-    # their own tier names to the printed stats without editing this tuple.
-    "audio_id",
-    "artist_title_size_time",
-    "artist_title_file",
-    "file_size_time",
-    "artist_title_album_time",
-    "artist_title",
+@dataclass(frozen=True)
+class _TierSpec:
+    """One built-in cascade tier and the properties other code asks about it.
+
+    Before this table the same ten tier names were listed in five separate
+    string tuples - the confidence ladder, the two stats tuples, the identity
+    exemption, and the emission order in record_keys - each hand-kept in step
+    with the others and none of them checked against the rest. The properties
+    belong to the tier, so they live on the tier; the ladder in confidence.py
+    is the one remaining separate listing, and a test asserts the two agree.
+    """
+
+    name: str
+    # True for the six tiers whose stats key predates the parity baseline and
+    # is therefore emitted whatever the confidence. The rest appear only when
+    # the run's confidence admits them - a counter for a tier that cannot fire
+    # reads as "tried and found nothing", which is a lie.
+    always_seed_stat: bool
+    # False for a tier whose key IS an identity claim rather than a similarity
+    # signal. AUDIO_ID is Traktor's own content-derived identifier: when it
+    # agrees, a size difference means the file was re-tagged or re-encoded, so
+    # letting the approximate size check veto it would discard the strongest
+    # evidence the cascade has on the strength of the weakest (DL-042).
+    refutable: bool = True
+    # True for a tier that keys only on path or filename, and so still works
+    # when no tags can be read. diskscan.py derives its mutagen-absent
+    # diagnostic from this rather than naming tiers in prose that goes stale.
+    tag_free: bool = False
+
+
+# Cascade order: record_keys emits in exactly this sequence, strongest first.
+_CASCADE: tuple[_TierSpec, ...] = (
+    _TierSpec("audio_id", always_seed_stat=True, refutable=False),
+    _TierSpec("artist_title_size_time", always_seed_stat=True),
+    _TierSpec("artist_title_file", always_seed_stat=True),
+    _TierSpec("file_size_time", always_seed_stat=True),
+    _TierSpec("artist_title_album_time", always_seed_stat=True),
+    _TierSpec("path_suffix_3", always_seed_stat=False, tag_free=True),
+    _TierSpec("path_suffix_2", always_seed_stat=False, tag_free=True),
+    _TierSpec("artist_title", always_seed_stat=True),
+    _TierSpec("path_suffix_1", always_seed_stat=False, tag_free=True),
+    _TierSpec("filename", always_seed_stat=False, tag_free=True),
 )
 
-_EXTRA_STAT_TIERS: tuple[str, ...] = (
-    # Tiers added after the stats dict was first pinned, in cascade order.
-    # Unlike _BASE_STAT_TIERS these are printed only when the run's
-    # confidence admits them (see match_records).
-    "path_suffix_3",
-    "path_suffix_2",
-    "path_suffix_1",
-    "filename",
-)
+_TIERS_BY_NAME: dict[str, _TierSpec] = {tier.name: tier for tier in _CASCADE}
+
+
+def _is_refutable(tier_name: str) -> bool:
+    """Injected provider tiers (DL-006) are not in the table and refute like
+    any similarity tier; only a declared identity tier is exempt."""
+    tier = _TIERS_BY_NAME.get(tier_name)
+    return tier is None or tier.refutable
+
+
+def tag_free_tiers(confidence: MatchConfidence) -> tuple[str, ...]:
+    """Tiers this confidence admits that need no readable tags.
+
+    Exported so a caller reporting degraded matching names what actually
+    remains rather than repeating a hardcoded list that rots when a tier
+    changes level.
+    """
+    return tuple(t.name for t in _CASCADE if t.tag_free and confidence.admits(t.name))
+
 
 AMBIGUOUS = object()
 """Sentinel a KeyProvider.provide() may return in place of a key tuple to
@@ -117,14 +158,6 @@ _CROSS_SIZE_MIN_FACTOR = 0.25
 _CROSS_SIZE_MAX_FACTOR = 4.0
 _CROSS_DURATION_REL_TOLERANCE = 0.15
 
-# Tiers whose key IS an identity claim rather than a similarity signal, and
-# which therefore outrank the approximate size/duration check entirely.
-# AUDIO_ID is Traktor's own content-derived identifier: when it agrees, a
-# size difference means the file was re-tagged or had art embedded, not that
-# it is a different recording. Letting a cover image veto it would discard
-# the strongest evidence the cascade has on the strength of the weakest.
-_IDENTITY_TIERS: frozenset[str] = frozenset({"audio_id"})
-
 
 def _size_kb(record: EntryRecord) -> Optional[float]:
     """Both sides' size in kilobytes, or None when unknown.
@@ -150,17 +183,25 @@ def _duration_seconds(record: EntryRecord) -> Optional[float]:
         return None
 
 
-def _is_cross_source(old_record: EntryRecord, candidate: EntryRecord) -> bool:
-    """True when one side is a disk candidate and the other is not.
+class _Claims:
+    """One record's size and duration, parsed once.
 
-    Only then do the two sides measure different quantities (payload
-    kilobytes vs bytes on disk; Traktor's decode vs mutagen's estimate) and
-    need the wide bands.
+    match_records refutes every candidate in every tier bucket against the
+    same old record, so parsing that record's two fields inside the check
+    re-did identical float() work once per candidate per tier - tens of
+    thousands of times over a full collection. The old side is parsed once
+    per record and carried; only the candidate side is parsed per call.
     """
-    return (old_record.source_path is None) != (candidate.source_path is None)
+
+    __slots__ = ("size_kb", "seconds", "from_disk")
+
+    def __init__(self, record: EntryRecord) -> None:
+        self.size_kb = _size_kb(record)
+        self.seconds = _duration_seconds(record)
+        self.from_disk = record.source_path is not None
 
 
-def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
+def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
     """True when size or duration positively contradict the candidate.
 
     Absent data never refutes: a candidate whose tags could not be read is
@@ -168,13 +209,16 @@ def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
     a difference the comparison cannot attribute - see the calibration note
     above for why the cross-source bands are factor-wide.
     """
-    cross = _is_cross_source(old_record, candidate)
+    new = _Claims(candidate)
+    # Only when one side is disk-derived and the other is not do the two
+    # sides measure different quantities and need the wide bands.
+    cross = old.from_disk != new.from_disk
 
     # `is not None`, not truthiness: a zero is a claim (an empty file, a
     # zero-length entry), and one side claiming zero against the other's
     # real value is a contradiction, not missing data. Only the two-zero
     # case is skipped, which would otherwise divide by zero.
-    old_kb, new_kb = _size_kb(old_record), _size_kb(candidate)
+    old_kb, new_kb = old.size_kb, new.size_kb
     if old_kb is not None and new_kb is not None and max(old_kb, new_kb) > 0:
         if cross:
             # Asymmetric in effect as well as wide: overhead only ever makes
@@ -186,7 +230,7 @@ def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
         elif abs(old_kb - new_kb) / max(old_kb, new_kb) > _SIZE_REL_TOLERANCE:
             return True
 
-    old_s, new_s = _duration_seconds(old_record), _duration_seconds(candidate)
+    old_s, new_s = old.seconds, new.seconds
     if old_s is not None and new_s is not None:
         allowance = _DURATION_ABS_TOLERANCE
         if cross:
@@ -199,7 +243,22 @@ def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
     return False
 
 
-def _path_suffix(record: EntryRecord, depth: int) -> Optional[tuple[str, ...]]:
+def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
+    """Single-pair form of _claims_refute, for callers outside the match loop."""
+    return _claims_refute(_Claims(old_record), candidate)
+
+
+def _folder_parts(record: EntryRecord) -> tuple[str, ...]:
+    """The record's folder names, anchor stripped.
+
+    Decoding a DIR allocates a fresh PurePosixPath, and the three path-suffix
+    depths all want the same list, so record_keys computes this once and
+    slices it rather than calling per depth.
+    """
+    return tuple(part for part in record.location.decoded_dir.parts if part not in ("/", ""))
+
+
+def _path_suffix_from(parts: tuple[str, ...], file_name: str, depth: int) -> Optional[tuple[str, ...]]:
     """The last `depth` folder names plus the filename, or None if the
     path is too shallow.
 
@@ -208,10 +267,14 @@ def _path_suffix(record: EntryRecord, depth: int) -> Optional[tuple[str, ...]]:
     Comparable from either side: a collection record decodes Traktor's DIR,
     a disk candidate carries its real parent path.
     """
-    parts = [part for part in record.location.decoded_dir.parts if part not in ("/", "")]
-    if len(parts) < depth or not record.file_name:
+    if len(parts) < depth or not file_name:
         return None
-    return tuple(parts[len(parts) - depth:]) + (record.file_name,)
+    return parts[len(parts) - depth:] + (file_name,)
+
+
+def _path_suffix(record: EntryRecord, depth: int) -> Optional[tuple[str, ...]]:
+    """Single-record form, for callers outside record_keys."""
+    return _path_suffix_from(_folder_parts(record), record.file_name, depth)
 
 
 def record_keys(
@@ -262,18 +325,28 @@ def record_keys(
                 (record.artist, record.title, record.album, record.playtime_float),
             )
         )
-    for depth in (3, 2):
+    # Decoded once and sliced three times: the depths are nested, and each
+    # _folder_parts call re-parses the same DIR into a new PurePosixPath.
+    folder_parts = _folder_parts(record)
+
+    def _suffix_key(depth: int) -> None:
         tier = f"path_suffix_{depth}"
-        if confidence.admits(tier):
-            suffix = _path_suffix(record, depth)
-            if suffix is not None:
-                keys.append((tier, suffix))
+        if not confidence.admits(tier):
+            return
+        suffix = _path_suffix_from(folder_parts, record.file_name, depth)
+        if suffix is not None:
+            keys.append((tier, suffix))
+
+    _suffix_key(3)
+    _suffix_key(2)
     if confidence.admits("artist_title") and record.artist and record.title:
         keys.append(("artist_title", (record.artist, record.title)))
-    if confidence.admits("path_suffix_1"):
-        suffix = _path_suffix(record, 1)
-        if suffix is not None:
-            keys.append(("path_suffix_1", suffix))
+    # Depth 1 is emitted BELOW artist_title, not with the other two, because
+    # a single folder plus filename is weaker evidence than agreeing artist
+    # and title. The cascade is ordered by strength, so the split is the
+    # point rather than an oversight - see _CASCADE for the authoritative
+    # sequence.
+    _suffix_key(1)
     if confidence.admits("filename") and record.file_name:
         keys.append(("filename", (record.file_name,)))
     # There is deliberately no filename_size tier. It keyed on the raw
@@ -332,8 +405,14 @@ def match_records(
     # preserve, so they only appear when actually reachable at this
     # confidence / with providers supplied - a counter for a tier that
     # cannot fire reads as "tried and found nothing", which is a lie.
-    tier_names = [p.tier_name for p in key_providers] + list(_BASE_STAT_TIERS)
-    tier_names += [name for name in _EXTRA_STAT_TIERS if confidence.admits(name)]
+    # Seed order is providers, then the always-seeded tiers, then the rest -
+    # not cascade order. That split is historical (the first six tiers'
+    # stats keys were pinned by the parity baseline before the others
+    # existed), which is why it is expressed as a filter over the one
+    # cascade table rather than as a second table listing the same names.
+    tier_names = [p.tier_name for p in key_providers]
+    tier_names += [t.name for t in _CASCADE if t.always_seed_stat]
+    tier_names += [t.name for t in _CASCADE if not t.always_seed_stat and confidence.admits(t.name)]
     # `refuted` counts old records that ended unmatched WITH a candidate the
     # size/duration check removed. Without it a refusal to commit is
     # indistinguishable in the stats from a file that is genuinely gone, and
@@ -350,6 +429,7 @@ def match_records(
     samples: list[tuple[str, str, str, str]] = []
 
     for old_record in old_records:
+        old_claims = _Claims(old_record)
         matched_new: EntryRecord | None = None
         matched_by: str | None = None
         ambiguous_here = False
@@ -373,12 +453,12 @@ def match_records(
             # the preferred copy first means a refuted current copy yields no
             # match at all, which is the honest outcome.
             candidates = _prefer_current_sync_copy(candidates)
-            if key_name not in _IDENTITY_TIERS:
+            if _is_refutable(key_name):
                 # Refute before counting: a size or duration contradiction
                 # removes a candidate, so a tier with one plausible and one
                 # implausible hit resolves cleanly instead of reporting a
                 # false ambiguity the operator would have to adjudicate.
-                kept = [c for c in candidates if not _refutes(old_record, c)]
+                kept = [c for c in candidates if not _claims_refute(old_claims, c)]
                 if len(kept) != len(candidates):
                     refuted_here = True
                 candidates = kept

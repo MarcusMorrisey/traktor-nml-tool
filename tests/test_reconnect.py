@@ -342,6 +342,7 @@ def _record(
     audio_id: str = "",
     artist: str = "A",
     title: str = "One",
+    album: str = "",
 ) -> "EntryRecord":
     from traktor_nml.model import EntryRecord, LocationParts
 
@@ -353,7 +354,7 @@ def _record(
         filesize=filesize,
         playtime_float=playtime,
         bitrate="",
-        album="",
+        album=album,
         file_name="track.mp3",
         location=LocationParts(volume="C:", volumeid="C:", dir_value=dir_value, file_name="track.mp3"),
         source_path=Path("C:/Music/track.mp3") if from_disk else None,
@@ -509,3 +510,46 @@ def test_path_suffix_2_waits_for_loose() -> None:
     assert MatchConfidence.STRICT.admits("path_suffix_3") is True
     assert MatchConfidence.STRICT.admits("path_suffix_2") is False
     assert MatchConfidence.LOOSE.admits("path_suffix_2") is True
+
+
+# --- the cascade table is the single declaration ------------------------
+
+
+def test_cascade_table_matches_what_record_keys_actually_emits() -> None:
+    """_CASCADE declares the tier order; record_keys is what runs.
+
+    Two listings of one sequence drift silently, so this asserts they agree
+    rather than trusting them to be kept in step by hand. A record with every
+    field populated and a deep enough path emits every built-in tier, in
+    cascade order, at the widest confidence.
+    """
+    from traktor_nml.matching import _CASCADE, record_keys
+
+    record = _record(
+        filesize="5000",
+        playtime="212.5",
+        audio_id="AID",
+        dir_value="/:Techno/:Artist/:Album/:",
+        album="Alb",
+    )
+    emitted = [name for name, _ in record_keys(record, MatchConfidence.FILENAME)]
+    assert emitted == [tier.name for tier in _CASCADE]
+
+
+def test_cascade_table_and_confidence_ladder_name_the_same_tiers() -> None:
+    """Every tier the ladder admits must exist in the table, and every tier
+    in the table must be admitted by some level - otherwise one of them is
+    naming a tier that no longer exists."""
+    from traktor_nml.matching import _CASCADE
+
+    table = {tier.name for tier in _CASCADE}
+    ladder = set(MatchConfidence.FILENAME.admitted_tiers())
+    assert ladder == table
+
+
+def test_the_only_non_refutable_tier_is_audio_id() -> None:
+    """Exempting a similarity tier from refutation would let a wrong
+    candidate through; this pins the exemption to the identity tier."""
+    from traktor_nml.matching import _CASCADE
+
+    assert {t.name for t in _CASCADE if not t.refutable} == {"audio_id"}

@@ -11,6 +11,7 @@ old flattened form.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Iterable, Optional
 
@@ -103,6 +104,13 @@ class ElemPatch:
     changes: list[tuple[str, str, str]] = field(default_factory=list)  # (attr, old, new)
 
 
+# Bounded rather than unbounded: a disk scan can index tens of thousands of
+# files, and an uncapped cache would hold an entry per distinct folder for the
+# life of the run. Tracks cluster heavily by folder, so a few thousand entries
+# already collapse most of the repetition - LocationParts.decoded_dir is a
+# plain property that re-decodes on every access, and the match cascade reads
+# it several times per record.
+@lru_cache(maxsize=4096)
 def decode_traktor_dir(dir_value: str) -> PurePosixPath:
     if not dir_value or dir_value == "/:":
         return PurePosixPath("/")

@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from typing import Iterable, Optional
 
+from .confidence import MatchConfidence
+from .matching import tag_free_tiers
 from .model import EntryRecord, LocationParts
 from .tagcache import TagCache
 
@@ -71,6 +73,23 @@ def _placeholder_location(path: Path) -> LocationParts:
     return LocationParts(volume="", volumeid="", dir_value=posix_dir, file_name=path.name)
 
 
+
+def _tag_free_summary() -> str:
+    """Which tiers survive with no readable tags, per confidence level.
+
+    Reads the cascade table rather than restating it, so a tier that changes
+    level changes this message with it.
+    """
+    seen: set[str] = set()
+    parts = []
+    for level in MatchConfidence:
+        added = [name for name in tag_free_tiers(level) if name not in seen]
+        seen.update(added)
+        if added:
+            parts.append(f"{level.value}={'+'.join(added)}")
+    return "; ".join(parts) if parts else "none"
+
+
 def index_scan_roots(
     scan_roots: Iterable[Path],
     cache: TagCache,
@@ -86,18 +105,15 @@ def index_scan_roots(
     audio file, not skipped.
     """
     if not HAS_MUTAGEN:
-        # Naming the tiers that actually remain, and the confidence level
-        # that admits them: without tags every tag-derived tier is dead, and
-        # at the default strict confidence only the path-suffix tiers can
-        # fire - so a run that scans a moved library still matches, while a
-        # run over renamed folders matches nothing until --match-confidence
-        # filename is passed. The old wording promised "filename/filesize"
-        # matching, a tier pair that cannot fire at the default confidence
-        # and, for filesize, could never fire at all (Traktor stores
-        # kilobytes of audio payload, the scan stores bytes on disk).
+        # Derived from the cascade table, not written out in prose. Without
+        # tags every tag-derived tier is dead, and which of the remainder can
+        # fire depends on the confidence level - so naming them by hand meant
+        # the message went stale the moment a tier changed level. It already
+        # had: it claimed plural "path-suffix tiers" at the default after
+        # path_suffix_2 moved to loose.
         print(
-            "tag_reading_unavailable=mutagen not installed; matching falls back to "
-            "path-suffix tiers, and to bare filename only at --match-confidence filename",
+            "tag_reading_unavailable=mutagen not installed; tiers still able to "
+            "match, by --match-confidence level: " + _tag_free_summary(),
             file=sys.stderr,
         )
 
