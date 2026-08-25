@@ -28,6 +28,11 @@ listed so the classification is unambiguous, not because they are committed.
   of `scan-reconnect-candidates`, `rewrite-from-reconnect`, `splice`, `split`,
   `build-playlist`, or the `discover-*` pair — i.e. none of the commands Phase 1
   touches. Closing that gap is task 0, before any core is modified.
+- `fingerprint.py:62` uses `acoustid.fingerprint_file`, which spawns `fpcalc` with
+  no timeout and no handle on the child. Nothing in the current design can
+  interrupt a blocked fingerprint (§2, §3.5).
+- `TagCache` carries no schema version and defaults to a CWD-relative path. Both
+  are latent upgrade defects that only bite once the tool is distributed (§6.1).
 
 ## 1. Command classification
 
@@ -45,11 +50,28 @@ progress, cancel, review table, GUI-driven write.
 | `build-playlist` | 3 (not committed) |
 | `discover-tracks`, `discover-collection-tracks` | 3 (not committed) |
 
-**Tier 2 — generated preview-only forms.** Auto-generated from the argparse
-subparser, stdout streamed to `ui.log`, no result object, no review table, no
-GUI-driven write. Eligibility is a mechanical, checkable rule: **a command is
-Tier 2 eligible if and only if its handler writes no `.nml` output.** A CSV or
-cache side file does not disqualify it.
+**Tier 2 — generated forms, no-side-effect by default.** Auto-generated from the
+argparse subparser, stdout streamed to `ui.log`, no result object, no review
+table, no GUI-driven `.nml` write. Eligibility is a mechanical, checkable rule:
+**a command is Tier 2 eligible if and only if its handler writes no `.nml`
+output.**
+
+"Preview-only" was ambiguous, because two of these commands do touch the disk:
+`inspect --csv` writes a report, and `scan-reconnect-candidates` writes the tag
+cache. Resolved as follows — **the generated form runs in no-side-effect mode by
+default**, and every departure from that is on a closed allowlist with the
+safeguards in §4.1:
+
+| Side effect | Default in a generated form | Allowed how |
+| --- | --- | --- |
+| `.nml` write | Impossible (tier rule) | — |
+| CSV report (`--csv`) | **Off.** The argument is not rendered; results display in `ui.aggrid` | Explicit "Export CSV…" action, operator-chosen path |
+| Tag cache (`--cache`) | **On**, unavoidable — the scan is worthless without it | Disclosed, path shown, never silent |
+| Any other file-producing argument | Not rendered | Requires adding a row to this table |
+
+The table is closed: the form generator renders a `Path`-typed argument only if it
+appears here or is an input. An argument that produces a file and is not listed
+fails the classification test in §1 rather than silently appearing as a text box.
 
 `inspect`, `encode-dir`, `preview-compare`, `scan-compare-candidates`.
 
@@ -100,6 +122,17 @@ Two prerequisites, both small:
 
 Both default to inert (`None`), so the CLI path is byte-identical unless it opts in.
 
+**Consequence for fingerprinting.** `fingerprint.py:62` calls
+`acoustid.fingerprint_file(str(path))`, which spawns `fpcalc` internally and
+exposes **neither a timeout nor a handle on the child process**. A cooperative
+token checked between files cannot interrupt a call already blocked inside that
+helper. Bounded cancellation therefore requires replacing that one call with a
+direct `subprocess.Popen` of `fpcalc` that the scan owns: same arguments, same
+parsed output, but with a per-file timeout and a terminable child. This is the
+only core change in Phase 1 that is not purely additive, so it carries its own
+parity case (§3.1) and its own cancellation test (§3.5). `_similarity` /
+`compare_fingerprints` continue to use `pyacoustid` unchanged.
+
 ## 3. Test strategy for the shared-core refactor
 
 The failure mode is breaking working CLI behavior while introducing result
@@ -112,12 +145,47 @@ objects, progress, and cancelation. Each item below is a merge gate.
    root, each in a `--dry-run` and a writing form, plus one run with an ambiguous
    match and one with a dangling match so the ambiguity/dangling reporting paths
    are pinned. Commit this **before** the refactor branch diverges.
+   Include one case that exercises the fingerprint tier against a fixture with a
+   stub `fpcalc` on PATH, so the §2 direct-`Popen` change is covered by the oracle
+   rather than only by unit tests.
 2. **`manifest.json` must not be regenerated for the duration of the refactor.**
    Non-regeneration *is* the parity check. If a refactor commit needs the manifest
    updated, that commit is by definition a behavior change: revert it or escalate
    it as a reviewed change, never regenerate to go green.
-3. CI gate: a job that asserts `git diff --exit-code tests/baselines/manifest.json`
-   is clean across the refactor branch.
+
+### 3.1a Pinning the oracle against a pre-refactor baseline
+
+A working-tree check (`git diff --exit-code tests/baselines/manifest.json`) is
+**not sufficient**: it passes on any commit that regenerated the baseline and
+committed it, which is precisely the failure it is meant to catch. The guard must
+compare against a designated pre-refactor baseline instead.
+
+1. The task-0 commit is tagged `parity-baseline-v1` (annotated, pushed, and a
+   protected tag so it cannot be moved).
+2. `tests/test_parity_baseline.py` records the baseline's content hash as a
+   literal module constant:
+
+   ```python
+   PARITY_BASELINE_SHA256 = "<hash of manifest.json at parity-baseline-v1>"
+   ```
+
+   The test hashes the current `tests/baselines/manifest.json` and asserts
+   equality. This runs under plain pytest with no git dependency, so it fails
+   identically in CI, in a shallow clone, and on a developer's machine.
+3. Because the constant lives in a file named for the purpose, changing the
+   baseline requires a visible one-line diff to a guard file — the escalation
+   path, not an accident. A CI job additionally asserts
+   `git diff --quiet parity-baseline-v1 -- tests/baselines/manifest.json`, so a
+   commit that edits *both* the manifest and the constant is still caught by the
+   tag comparison.
+4. **Meta-test (completion condition).** Mirroring the repo's existing
+   `test_deliberate_one_character_edit_fails_parity`, a test writes a
+   one-character mutation of the manifest to a temp copy and asserts the guard's
+   own comparison fails against it. A guard that cannot be shown to fail is not a
+   guard; this is the test that proves finding 1 is closed.
+5. Escape valve, for use **after** the refactor only: a standalone PR that touches
+   exactly `manifest.json` and `PARITY_BASELINE_SHA256`, with the behavior change
+   named in the message, and a new `parity-baseline-vN` tag.
 
 ### 3.2 Renderer equivalence
 
@@ -163,17 +231,57 @@ Driven by a fake scan root with a known file count:
 
 ### 3.5 Testable completion conditions — cancel
 
-- Cancel signalled **before** start: core returns a `CANCELLED` outcome, no output
-  `.nml` exists.
-- Cancel signalled **mid-scan**: the core returns within 100 further progress
-  callbacks; no output `.nml` is written; the tag cache on disk still loads cleanly
-  via `TagCache` (partial cache updates are permitted and documented, consistent
-  with the existing `--dry-run` cache exception).
-- Cancel signalled **after preview, before write**: no output `.nml` is written and
-  the preview result remains readable.
+Cancellation is defined in **wall-clock** terms, not callback counts. A
+callback-count bound is vacuous against a blocked `fpcalc` child: zero further
+callbacks fire while it hangs, so "returns within N callbacks" can never trip.
+
+**Bound.** From the moment cancel is signalled, the core returns a `CANCELLED`
+outcome within **`fpcalc_grace + 2 s`, and never more than 15 s**, regardless of
+scan size, file count, or whether a child process is mid-fingerprint.
+
+**Subprocess ownership and termination.** Per §2 the scan owns the `fpcalc`
+child directly:
+
+- Exactly one live `fpcalc` child per scan worker, published to a slot the
+  canceller can reach.
+- Every `fpcalc` invocation carries a per-file wall-clock timeout
+  (`--fpcalc-timeout`, default 30 s). On timeout the child is terminated, the file
+  is recorded as `fingerprint_timeout`, and the scan continues — a single
+  pathological file must not stall a 20-minute run. Timeouts are counted into the
+  existing `fingerprint_stats` dict and surfaced in the result.
+- On cancel: signal the token, then `terminate()` the live child, `wait(grace=5 s)`,
+  then `kill()`. On Windows `terminate()` is `TerminateProcess`, which needs no
+  signal-handling cooperation from `fpcalc`.
+- Termination is in a `finally` so an exception on the scan path cannot orphan a
+  child.
+
+**Tests.** Determinism comes from a stub `fpcalc` on PATH that blocks for a
+controlled duration, so no test depends on finding a genuinely slow audio file:
+
+- **Mid-fingerprint cancel (the finding-2 completion condition).** Start a scan
+  against a fixture whose fingerprint tier is enabled and whose stub `fpcalc`
+  blocks indefinitely. Signal cancel while the child is confirmed running. Assert:
+  outcome is `CANCELLED`; wall-clock from signal to return is within the bound
+  above; **no output `.nml` exists**; no `fpcalc` child remains alive (assert the
+  recorded child PID is gone, and that the scan's child slot is empty); the tag
+  cache on disk still loads cleanly via `TagCache`.
+- **Per-file timeout.** Stub blocks longer than `--fpcalc-timeout`; assert the scan
+  completes, the file is reported as `fingerprint_timeout`, and no child survives.
+- Cancel signalled **before** start: `CANCELLED`, no output `.nml`, no child ever
+  spawned.
+- Cancel signalled **mid-scan with fingerprinting off**: `CANCELLED` within the
+  same wall-clock bound, no output `.nml`, tag cache still loads.
+- Cancel signalled **after preview, before write**: no output `.nml`, preview
+  result remains readable.
 - Cancel is idempotent: signalling twice behaves as once.
 - Cancel never leaves a partially written output file — writes stay atomic via the
   existing `write_bytes_atomically`.
+
+Partial tag-cache updates remain permitted and documented on a cancelled run,
+consistent with the existing `--dry-run` cache exception. `TagCache.flush` is
+already atomic (temp file + `os.replace` with a Windows lock retry), so a cancel
+mid-flush cannot corrupt it; the test asserts reloadability rather than
+completeness.
 
 ## 4. UI design
 
@@ -184,6 +292,43 @@ action, so widgets come out mechanically: `type=Path` → file/folder picker,
 it tracks the parser automatically — the same property that makes DL-003's
 auto-discovery nice. The Tier 2 eligibility rule keeps this machinery away from
 anything that writes a collection.
+
+### 4.1 Safeguards for every permitted side effect
+
+Each allowed write from §1's table carries all four safeguards. These are
+GUI-layer rules; none of them changes CLI behavior.
+
+**CSV export.**
+
+- *Destination visibility* — the resolved **absolute** path is displayed before the
+  action runs, not a bare filename.
+- *Collision* — if the path exists, an explicit overwrite confirmation naming the
+  file with its size and mtime; the default button is Cancel. The CLI overwrites a
+  `--csv` target silently; the GUI must not inherit that.
+- *Confirmation* — export never happens as a side effect of running a command. It
+  is a separate click on a result already on screen.
+- *Failure* — a write failure (permission, disk full, path length) surfaces as both
+  a `ui.notify` error and an inline banner carrying the exception text. Never
+  swallowed, never reduced to a silent no-op.
+- The chosen path is checked against every input for collision, reusing the
+  existing `path_collides` rule rather than a second implementation.
+
+**Tag cache.**
+
+- *Destination visibility* — a persistent line in the scan panel states the
+  resolved cache path and that scanning updates it, shown **before** the scan
+  starts. This is the same documented exception the CLI already carries for
+  `--dry-run`, surfaced rather than buried in `--help`.
+- *Collision* — not applicable in the overwrite sense; the cache is an accumulating
+  side file. A `Refresh cache` control maps to `--refresh-cache`, and is the only
+  way the GUI discards prior cache content.
+- *Confirmation* — not required for the automatic update, because it is disclosed
+  up front and non-destructive to operator data. `Refresh cache` **does** require
+  confirmation, since it discards prior scan work.
+- *Failure* — a cache write failure must **not** fail the scan (the cache is a
+  speedup, not an output), but must appear as a visible warning banner stating that
+  the scan will be slow to repeat. A silently failing cache that quietly re-reads
+  every file on each run is exactly the outcome to avoid.
 
 **Tier 1 is hand-built and named in the user's language.** Nobody opens this
 thinking "I need `rewrite-from-reconnect --match-confidence loose`". They think
@@ -276,12 +421,44 @@ installed**:
 | 3 | Native file dialog | pywebview `create_file_dialog` returns a real path for both a file and a directory |
 | 4 | Cold start | `native=True` window is interactive within 10 s of launch |
 | 5 | Defender / SmartScreen | Unsigned build is not quarantined on a clean profile (record the outcome either way) |
+| 6 | Persistent-state location | Cache and settings resolve to a stable per-user path, not CWD and not `sys._MEIPASS` |
+| 7 | Upgrade over existing state | v2 installed over v1 starts, reads v1's cache without corruption or crash |
+| 8 | Uninstall | Removing the app leaves user data intact and documented; no orphaned `fpcalc` children |
 
-**Exit criteria.** All of 1–4 pass → keep the `nicegui-pack` recommendation and
+### 6.1 Persistent state, upgrade, and cache versioning
+
+A distributed install retains state, which the source-run case never exposed. Two
+concrete defects are already visible in the current code:
+
+- **`--cache` defaults to `Path(".traktor_nml_tagcache.json")` — CWD-relative.**
+  For a packaged app the working directory is whatever the shell or shortcut
+  happened to set, so the cache lands somewhere arbitrary and a second launch from
+  a different directory silently re-scans everything. Under `--onefile` a path
+  resolved against `sys._MEIPASS` would be *deleted on exit*. The packaged app must
+  resolve the default to a per-user application-data directory
+  (`%LOCALAPPDATA%\traktor-nml-tool\`), with `--cache` still honoured when passed
+  explicitly so CLI behavior is unchanged.
+- **`TagCache` has no schema version.** Its JSON is a flat map of
+  `path|size|mtime` strings to value dicts, and `__init__` falls back to `{}` only
+  for `JSONDecodeError`/`OSError` — not for a value shape it does not recognise. A
+  future release that changes the stored value would read a v1 cache as valid and
+  produce wrong fingerprints or crash downstream, rather than degrading. Add a
+  `schema_version` field and treat an unknown version as a cold cache (discard and
+  re-scan, with a visible notice), never as a silent partial read.
+
+Check 7 is the test of both: install v1, run a scan to populate the cache and any
+settings, install v2 over it, and assert v2 starts, reads or cleanly discards the
+v1 cache, and never crashes on it. A matching automated test at the unit level
+feeds `TagCache` a v1-shaped file and asserts the cold-cache path.
+
+**Exit criteria.** All of 1–4 and 6–7 pass → keep the `nicegui-pack` recommendation and
 record the working flag set in this document. Any of 1–4 fails → §7 downgrades to
 *pipx / pip-install only*, and the `.exe` path is dropped rather than debugged
-speculatively. Check 5 is informational and does not block, but a quarantine
-result argues for `--onedir` over `--onefile` regardless.
+speculatively. A failure in 6 or 7 does not drop the `.exe` path but **blocks any
+second release**: shipping v1 without a versioned cache and a stable state
+location creates an upgrade problem that only gets more expensive. Checks 5 and 8
+are informational and do not block, though a quarantine result argues for
+`--onedir` over `--onefile` regardless.
 
 ## 7. Hosting and self-deployment (provisional pending §6)
 
