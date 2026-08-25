@@ -9,6 +9,9 @@ from pathlib import Path
 
 from ..buildplaylist import UnresolvedRow, assemble_output
 from ..rewrite import path_collides, read_and_parse_source, write_bytes_atomically, write_row_report
+from ..spans import SpanIndex
+from ..split import build_output
+from ..xmlio import parse_xml_bytes
 
 
 def _write_unresolved_report(rows: list[UnresolvedRow], csv_path: Path | None) -> str | None:
@@ -95,9 +98,29 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
         print("build_playlist_aborted=true", file=sys.stderr)
         return 2
 
+    output = result.output
+    if not args.full_collection:
+        # The normal hand-off is an importable, self-contained playlist,
+        # not a copy of the caller's whole music library. Reuse split's
+        # reference validation and byte-span assembly after synthesis.
+        isolated_root = parse_xml_bytes(output.encode("utf-8"))
+        isolated = build_output(
+            output,
+            isolated_root,
+            [str(result.stats["playlist_name"])],
+            "fail",
+            SpanIndex(output, isolated_root),
+        )
+        if isolated.output is None:
+            for error in isolated.errors:
+                print(error, file=sys.stderr)
+            print("build_playlist_aborted=true", file=sys.stderr)
+            return 2
+        output = isolated.output
+
     if not args.dry_run:
         try:
-            write_bytes_atomically(args.output, result.output.encode("utf-8"))
+            write_bytes_atomically(args.output, output.encode("utf-8"))
         except OSError as exc:
             print(f"output_write_error={exc}", file=sys.stderr)
             return 2
@@ -119,6 +142,11 @@ def register(subparsers, handlers: dict) -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument("--name", required=True)
     parser.add_argument("--target-folder", default=None)
+    parser.add_argument(
+        "--full-collection",
+        action="store_true",
+        help="Keep the full source collection and playlist tree instead of the default single-playlist output.",
+    )
     parser.add_argument("--allow-unmatched", action="store_true")
     parser.add_argument("--unresolved-report", type=Path, default=None)
     parser.add_argument("--dry-run", action="store_true")

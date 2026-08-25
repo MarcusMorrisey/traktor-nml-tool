@@ -69,11 +69,36 @@ def test_three_line_tracklist_writes_three_entries_in_input_order(tmp_path: Path
     tracklist.write_text("A - One\nB - Two\nC - Three\n", encoding="utf-8")
     out = tmp_path / "out.nml"
 
-    result = run_tool(["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList"], cwd=tmp_path)
+    result = run_tool(
+        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--full-collection"],
+        cwd=tmp_path,
+    )
     assert result.exit_code == 0
     text = out.read_text(encoding="utf-8")
     assert text.index(_key("one.mp3")) < text.index(_key("two.mp3")) < text.index(_key("three.mp3"))
     assert 'NAME="MyList"' in text
+
+
+def test_default_output_is_a_single_playlist_with_only_its_collection_entries(tmp_path: Path) -> None:
+    base = tmp_path / "base.nml"
+    base.write_text(
+        _nml(_entry("A", "One", "one.mp3") + _entry("B", "Two", "two.mp3"), 2, _existing_playlist("Other", [_key("two.mp3")], "uuid-other")),
+        encoding="utf-8",
+        newline="",
+    )
+    tracklist = tmp_path / "tracks.txt"
+    tracklist.write_text("A - One\n", encoding="utf-8")
+    out = tmp_path / "out.nml"
+
+    result = run_tool(["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList"], cwd=tmp_path)
+
+    assert result.exit_code == 0
+    text = out.read_text(encoding="utf-8")
+    assert 'ENTRIES="1"' in text
+    assert 'NAME="MyList"' in text
+    assert 'NAME="Other"' not in text
+    assert _key("one.mp3") in text
+    assert _key("two.mp3") not in text
 
 
 def test_stats_report_lines_read_entries_written_and_playlist_name(tmp_path: Path) -> None:
@@ -98,7 +123,10 @@ def test_named_target_folder_receives_node_root_count_unchanged(tmp_path: Path) 
     out = tmp_path / "out.nml"
 
     result = run_tool(
-        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--target-folder", "MyFolder"],
+        [
+            "build-playlist", str(base), str(tracklist), str(out), "--name", "MyList",
+            "--target-folder", "MyFolder", "--full-collection",
+        ],
         cwd=tmp_path,
     )
     assert result.exit_code == 0
@@ -120,7 +148,9 @@ def test_name_collision_takes_numbered_suffix_original_untouched(tmp_path: Path)
     tracklist.write_text("A - One\n", encoding="utf-8")
     out = tmp_path / "out.nml"
 
-    result = run_tool(["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList"], cwd=tmp_path)
+    result = run_tool(
+        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--full-collection"], cwd=tmp_path
+    )
     assert result.exit_code == 0
     text = out.read_text(encoding="utf-8")
     assert 'NAME="MyList (2)"' in text
@@ -320,7 +350,9 @@ def test_malformed_base_reports_xml_parse_error(tmp_path: Path) -> None:
     tracklist.write_text("A - One\n", encoding="utf-8")
     out = tmp_path / "out.nml"
 
-    result = run_tool(["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList"], cwd=tmp_path)
+    result = run_tool(
+        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--full-collection"], cwd=tmp_path
+    )
     assert result.exit_code == 2
     assert "xml_parse_error" in result.stderr
 
@@ -407,7 +439,10 @@ def test_base_with_no_playlists_section_aborts_with_no_root_subnodes(tmp_path: P
     tracklist.write_text("A - One\n", encoding="utf-8")
     out = tmp_path / "out.nml"
 
-    result = run_tool(["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList"], cwd=tmp_path)
+    result = run_tool(
+        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--full-collection"],
+        cwd=tmp_path,
+    )
     assert result.exit_code == 2
     assert "no_root_subnodes" in result.stderr
     assert not out.exists()
@@ -470,7 +505,10 @@ def test_output_bytes_outside_receiving_subnodes_match_base_exactly(tmp_path: Pa
     tracklist.write_text("A - One\n", encoding="utf-8")
     out = tmp_path / "out.nml"
 
-    result = run_tool(["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList"], cwd=tmp_path)
+    result = run_tool(
+        ["build-playlist", str(base), str(tracklist), str(out), "--name", "MyList", "--full-collection"],
+        cwd=tmp_path,
+    )
     assert result.exit_code == 0
     out_text = out.read_text(encoding="utf-8")
 

@@ -13,7 +13,10 @@ recognised - see the plan's tradeoffs).
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import tempfile
+import time
 from typing import Optional
 
 
@@ -63,7 +66,23 @@ class TagCache:
         if self._dirty == 0 and self.cache_path.exists():
             return
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = self.cache_path.with_suffix(self.cache_path.suffix + ".tmp")
-        tmp_path.write_text(json.dumps(self._data), encoding="utf-8")
-        tmp_path.replace(self.cache_path)
-        self._dirty = 0
+        descriptor, tmp_name = tempfile.mkstemp(
+            prefix=f"{self.cache_path.name}.", suffix=".tmp", dir=self.cache_path.parent
+        )
+        os.close(descriptor)
+        tmp_path = Path(tmp_name)
+        try:
+            tmp_path.write_text(json.dumps(self._data), encoding="utf-8")
+            # Antivirus and indexers can briefly hold a just-written cache on
+            # Windows. Keep the atomic replace, but tolerate that short lock.
+            for attempt in range(5):
+                try:
+                    os.replace(tmp_path, self.cache_path)
+                    self._dirty = 0
+                    return
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.05 * (attempt + 1))
+        finally:
+            tmp_path.unlink(missing_ok=True)

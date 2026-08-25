@@ -103,3 +103,29 @@ def test_resumed_scan_matches_uninterrupted_scan(tmp_path: Path) -> None:
     assert resumed_stats["cache_hits"] == 2
     assert resumed_stats["cache_misses"] == 3
     assert {r.file_name for r in full_records} == {r.file_name for r in resumed_records}
+
+
+def test_cache_flush_retries_a_transient_windows_file_lock(tmp_path: Path, monkeypatch) -> None:
+    import traktor_nml.tagcache as tagcache
+
+    cache = TagCache(tmp_path / "cache.json")
+    path = tmp_path / "track.mp3"
+    path.write_bytes(b"x")
+    file_stat = path.stat()
+    cache.put(path, file_stat.st_size, file_stat.st_mtime, None)
+
+    original_replace = tagcache.os.replace
+    calls = 0
+
+    def replace_once_locked(source, destination):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise PermissionError("temporary lock")
+        return original_replace(source, destination)
+
+    monkeypatch.setattr(tagcache.os, "replace", replace_once_locked)
+    cache.flush()
+
+    assert calls == 2
+    assert (tmp_path / "cache.json").exists()

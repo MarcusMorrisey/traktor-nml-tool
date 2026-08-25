@@ -10,7 +10,9 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
   - against a newer collection covering the same tracks (`rewrite-from-collection-compare`), or
   - against the actual files on disk, scanning one or more directories and matching by audio tags and optionally acoustic fingerprints (`rewrite-from-reconnect`).
 - **Merge** additional `.nml` files into a base collection (`splice`), or **partition** one collection into several outputs by playlist (`split`).
-- **Build a playlist** from an external plain-text track list, matched against a base collection (`build-playlist`).
+- **Build a playlist** from an external plain-text track list, matched against a base collection (`build-playlist`). Outputs a self-contained single-playlist NML by default; use `--full-collection` to retain the source collection.
+- **Discover candidate files** for an external track list across one or more folders (`discover-tracks`); writes a review CSV and never modifies an NML.
+- **Discover collection candidates** for an external track list with the same relaxed scoring (`discover-collection-tracks`); writes a review CSV and never modifies an NML.
 
 Every command previews before writing, refuses to overwrite any of its own inputs, and reports ambiguous or dangling matches explicitly (via stats and CSV export) rather than silently guessing.
 
@@ -30,6 +32,8 @@ pip install lxml mutagen pyacoustid  # lxml required; mutagen/pyacoustid optiona
 python traktor_nml_tool.py --help
 python traktor_nml_tool.py inspect collection.nml
 python traktor_nml_tool.py rewrite-from-reconnect old.nml new.nml --scan-root D:/Music --dry-run
+python traktor_nml_tool.py discover-tracks tracks.txt review.csv --scan-root D:/Music
+python traktor_nml_tool.py discover-collection-tracks collection.nml tracks.txt review.csv
 ```
 
 See [the package architecture guide](traktor_nml/README.md) for design
