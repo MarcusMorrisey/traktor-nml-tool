@@ -1,0 +1,271 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:800px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+.app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd-l{display:flex;align-items:center;gap:12px}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.task{font-weight:600;font-size:14px}
+.rail{display:flex;gap:2px;align-items:center;flex:none}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#7b746b;white-space:nowrap}
+.st .num{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#aaa39a}
+.st.now{background:#2b2927;color:#eee9e1;box-shadow:inset 0 0 0 1px #4a463f;font-weight:600}
+.st.now .num{background:#e2a24c;border-color:#e2a24c;color:#1b1917}
+main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;min-height:0;overflow:hidden}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #38352f;background:#232120}
+.ft-note{margin:0;font-size:12.5px;color:#aaa39a;display:flex;align-items:center;gap:14px}
+.ft-act{display:flex;gap:10px;align-items:center;flex:none}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.dim{color:#aaa39a}.faint{color:#7b746b}
+.lbl{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
+.btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid #4a463f;background:#2b2927;color:#eee9e1;font:500 12.5px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.btn.sm{height:26px;padding:0 9px;font-size:11.5px;gap:5px}
+.btn-pri{background:#e2a24c;border-color:#e2a24c;color:#1b1917;font-weight:600;height:34px;padding:0 15px;font-size:13px}
+.btn-ok{border-color:#4d6b3d;background:#212a1b;color:#a8cd8a}
+.btn-no{border-color:#7a4136;background:#2e211d;color:#efa694}
+.focus{outline:2px solid #eee9e1;outline-offset:2px}
+.ico{flex:none}
+/* filters */
+.fbar{display:flex;align-items:center;gap:9px;flex-wrap:nowrap}
+.search{display:flex;align-items:center;gap:9px;background:#1b1917;border:1px solid #4a463f;border-radius:6px;height:32px;padding:0 11px;width:246px;flex:none}
+.search input{all:unset;font:400 12.5px 'IBM Plex Sans',system-ui,sans-serif;color:#eee9e1;width:100%}
+.chip{height:32px;padding:0 12px;border-radius:6px;border:1px solid #38352f;background:#201e1c;color:#aaa39a;font-size:12.5px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
+.chip .c{font:600 11px/1 'IBM Plex Mono',monospace;color:#7b746b}
+.chip.on{background:#2f2b25;border-color:#8a7345;color:#eee9e1;font-weight:600}
+.chip.on .c{color:#e2a24c}
+.seg{display:flex;border:1px solid #38352f;border-radius:6px;overflow:hidden;height:32px;flex:none}
+.seg span{padding:0 11px;display:flex;align-items:center;font-size:12px;color:#aaa39a;border-right:1px solid #38352f;background:#201e1c}
+.seg span:last-child{border-right:0}
+.seg span.on{background:#2f2b25;color:#eee9e1;font-weight:600}
+/* table */
+.tbl{border:1px solid #38352f;border-radius:8px;background:#232120;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.gr{display:grid;grid-template-columns:128px minmax(0,1fr) 116px 186px 186px 100px 150px;align-items:center;gap:0}
+.th{border-bottom:1px solid #4a463f;background:#26231f}
+.th>span{padding:9px 12px;font:600 10px/1.3 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.09em;text-transform:uppercase;color:#7b746b}
+.tr{border-bottom:1px solid #302d29}
+.tr>*{padding:9px 12px;min-width:0}
+.tr.sel{background:#2b2723;box-shadow:inset 3px 0 0 #e2a24c}
+.tr.foc{outline:2px solid #eee9e1;outline-offset:-2px}
+.stat{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;white-space:nowrap}
+.trk{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trk b{font-weight:600}
+.trk i{font-style:normal;color:#8f887f}
+.conf{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.pth{font:400 11px/1.35 'IBM Plex Mono',ui-monospace,monospace;color:#a29b91;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.why{font-size:11px;color:#8f887f;line-height:1.35}
+.dec{display:flex;gap:6px;justify-content:flex-end}
+.decd{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:11.5px;font-weight:600;white-space:nowrap}
+/* compare */
+.cmp{border:1px solid #4a463f;border-radius:8px;background:#26231f;display:grid;grid-template-columns:264px 316px minmax(0,1fr);height:266px;overflow:hidden}
+.cp{padding:13px 15px;border-right:1px solid #38352f;display:flex;flex-direction:column;gap:9px;min-width:0}
+.cp:last-child{border-right:0}
+.cp-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fl{display:flex;flex-direction:column;gap:5px}
+.f{display:grid;grid-template-columns:62px minmax(0,1fr);gap:9px;font-size:11.5px;align-items:baseline}
+.f .k{color:#7b746b;font:500 10px/1.5 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase}
+.f .v{color:#d8d2c8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cand{border:1px solid #38352f;border-radius:6px;background:#201e1c;padding:9px 10px;display:flex;gap:9px;align-items:flex-start;cursor:pointer}
+.cand.on{border-color:#8a7345;background:#2f2b25}
+.rad{width:14px;height:14px;border-radius:50%;border:1.5px solid #6d665c;flex:none;margin-top:2px;display:grid;place-items:center}
+.cand.on .rad{border-color:#e2a24c}
+.cand.on .rad::after{content:"";width:7px;height:7px;border-radius:50%;background:#e2a24c}
+.cand .b{min-width:0;display:flex;flex-direction:column;gap:3px}
+.cand .n{font:400 11px/1.35 'IBM Plex Mono',monospace;color:#d8d2c8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmpf{display:grid;grid-template-columns:58px 1fr 88px;gap:8px;font-size:11.5px;align-items:center;padding:4px 0;border-bottom:1px solid #2c2925}
+.cmpf:last-child{border-bottom:0}
+.cmpf .k{color:#7b746b;font:500 10px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase}
+.cmpf .v{color:#d8d2c8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vd{display:flex;align-items:center;gap:5px;font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;justify-content:flex-end}
+.keys{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.kb{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#8f887f}
+.kbd{font:500 10.5px/1 'IBM Plex Mono',ui-monospace,monospace;background:#2b2927;border:1px solid #4a463f;border-bottom-width:2px;border-radius:4px;padding:3px 5px;color:#d8d2c8}
+  </style>
+</helmet>
+<div class="app">
+
+  <header class="hd">
+    <div class="hd-l">
+      <span class="brand">traktor-nml-tool</span><span class="bar"></span>
+      <span class="task">My playlists are broken</span>
+    </div>
+    <nav class="rail" aria-label="Progress">
+      <span class="st done"><span class="num">1</span>Set up</span>
+      <span class="st done"><span class="num">2</span>Scan</span>
+      <span class="st now" aria-current="step"><span class="num">3</span>Review</span>
+      <span class="st"><span class="num">4</span>Write</span>
+    </nav>
+  </header>
+
+  <main>
+
+    <div class="fbar">
+      <span class="search">
+        <svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="7.2" cy="7.2" r="4.6"/><path d="M10.6 10.6L14 14"/></svg>
+        <input value="kerri" aria-label="Filter tracks by artist, title or path">
+        <span class="kbd">/</span>
+      </span>
+      <button class="chip on">Needs review <span class="c">1,204</span></button>
+      <button class="chip">Not found <span class="c">282</span></button>
+      <button class="chip">Accepted <span class="c">412</span></button>
+      <button class="chip">Rejected <span class="c">88</span></button>
+      <button class="chip">Found automatically <span class="c">10,932</span></button>
+      <span class="seg" role="group" aria-label="Filter by confidence">
+        <span class="on">Any</span><span>Strong</span><span>Weak</span><span>None</span>
+      </span>
+    </div>
+
+    <div class="tbl">
+      <div class="gr th" role="row">
+        <span>Status</span><span>Track</span><span>Confidence</span><span>Traktor looks here</span><span>Found instead at</span><span>Matched on</span><span style="text-align:right">Your decision</span>
+      </div>
+
+      <div class="gr tr">
+        <span class="stat" style="color:#a8cd8a"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>Accepted</span>
+        <span class="trk"><b>Rain (Original Mix)</b> <i>— Kerri Chandler</i></span>
+        <span class="conf" style="color:#a8cd8a"><svg width="26" height="8" viewBox="0 0 26 8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="3" fill="currentColor"/></svg>Strong</span>
+        <span class="pth">…\Music\House\Kerri Chandler - Rain.aiff</span>
+        <span class="pth">…\Archive\2019-2024\House\Kerri Chandler - Rain (Original Mix).aiff</span>
+        <span class="why">tags + length</span>
+        <span class="decd" style="color:#a8cd8a">Accepted <button class="btn sm">Undo</button></span>
+      </div>
+
+      <div class="gr tr sel foc" aria-selected="true">
+        <span class="stat" style="color:#e3c088"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
+        <span class="trk"><b>Bar A Thym</b> <i>— Kerri Chandler</i></span>
+        <span class="conf" style="color:#e3c088"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
+        <span class="pth">…\Music\House\04 Bar A Thym.mp3</span>
+        <span class="pth" style="color:#e3c088">3 possible files — pick one below</span>
+        <span class="why">title only</span>
+        <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
+      </div>
+
+      <div class="gr tr">
+        <span class="stat" style="color:#e3c088"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
+        <span class="trk"><b>Atmosphere</b> <i>— Kerri Chandler</i></span>
+        <span class="conf" style="color:#d8d2c8"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
+        <span class="pth">…\Music\House\Atmosphere.wav</span>
+        <span class="pth">…\Archive\2019-2024\House\Atmosphere (Kaoz Mix).wav</span>
+        <span class="why">tags, length differs</span>
+        <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
+      </div>
+
+      <div class="gr tr">
+        <span class="stat" style="color:#efa694"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>Rejected</span>
+        <span class="trk"><b>Hallelujah</b> <i>— Kerri Chandler</i></span>
+        <span class="conf" style="color:#e3c088"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
+        <span class="pth">…\Music\House\Hallelujah.mp3</span>
+        <span class="pth faint" style="text-decoration:line-through">…\Archive\Vocals\Hallelujah (edit).mp3</span>
+        <span class="why">title only</span>
+        <span class="decd" style="color:#efa694">Left missing <button class="btn sm">Undo</button></span>
+      </div>
+
+      <div class="gr tr">
+        <span class="stat" style="color:#8f887f"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2.6 8h10.8"/><circle cx="8" cy="8" r="6.4" stroke-dasharray="2.4 2.2"/></svg>Not found</span>
+        <span class="trk"><b>Track 07</b> <i>— unknown artist</i></span>
+        <span class="conf faint"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="2.4"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>None</span>
+        <span class="pth">…\Music\Rips\Track 07.mp3</span>
+        <span class="pth faint">Nothing similar in your folders</span>
+        <span class="why">—</span>
+        <span class="decd faint">Stays missing</span>
+      </div>
+    </div>
+
+    <div class="cmp" role="group" aria-label="Comparison for Bar A Thym">
+
+      <div class="cp">
+        <div class="cp-h"><span class="lbl">In your collection</span></div>
+        <div class="fl">
+          <span class="f"><span class="k">Artist</span><span class="v">Kerri Chandler</span></span>
+          <span class="f"><span class="k">Title</span><span class="v">Bar A Thym</span></span>
+          <span class="f"><span class="k">Album</span><span class="v faint">— none —</span></span>
+          <span class="f"><span class="k">Length</span><span class="v mono">7:12</span></span>
+          <span class="f"><span class="k">Added</span><span class="v mono">2019-04-02</span></span>
+          <span class="f"><span class="k">Path</span><span class="v mono" style="font-size:10.5px;white-space:normal">E:\Music\House\<br>04 Bar A Thym.mp3</span></span>
+        </div>
+      </div>
+
+      <div class="cp">
+        <div class="cp-h"><span class="lbl">3 possible files</span><span class="faint" style="font-size:11px">press <span class="kbd">1</span>–<span class="kbd">3</span></span></div>
+        <div class="cand on">
+          <span class="rad" role="img" aria-label="Selected"></span>
+          <span class="b">
+            <span class="n">…\House\Kerri Chandler - Bar A Thym.mp3</span>
+            <span class="conf" style="color:#e3c088;font-size:10.5px"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak · 7:12 · 320 kbps</span>
+          </span>
+        </div>
+        <div class="cand">
+          <span class="rad" role="img" aria-label="Not selected"></span>
+          <span class="b">
+            <span class="n">…\Vinyl Rips\B2 Bar A Thym.aiff</span>
+            <span class="conf faint" style="font-size:10.5px"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak · 7:44 · lossless</span>
+          </span>
+        </div>
+        <div class="cand">
+          <span class="rad" role="img" aria-label="Not selected"></span>
+          <span class="b">
+            <span class="n">…\Compilations\Madtech 05\09 Bar A Thym.mp3</span>
+            <span class="conf faint" style="font-size:10.5px"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak · 6:58 · 256 kbps</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="cp">
+        <div class="cp-h"><span class="lbl">How the chosen file compares</span></div>
+        <div>
+          <div class="cmpf"><span class="k">Artist</span><span class="v">Kerri Chandler</span><span class="vd" style="color:#a8cd8a"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME</span></div>
+          <div class="cmpf"><span class="k">Title</span><span class="v">Bar A Thym</span><span class="vd" style="color:#a8cd8a"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME</span></div>
+          <div class="cmpf"><span class="k">Album</span><span class="v">Madtech Records</span><span class="vd" style="color:#e3c088"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 5.6h10M3 10.4h10"/></svg>ADDED</span></div>
+          <div class="cmpf"><span class="k">Length</span><span class="v mono">7:12</span><span class="vd" style="color:#a8cd8a"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME</span></div>
+          <div class="cmpf"><span class="k">Bitrate</span><span class="v mono">320 kbps</span><span class="vd faint">NOT STORED</span></div>
+          <div class="cmpf"><span class="k">Size</span><span class="v mono">17.3 MB</span><span class="vd faint">NOT STORED</span></div>
+          <div class="cmpf"><span class="k">Modified</span><span class="v mono">2019-03-28</span><span class="vd faint">NOT STORED</span></div>
+        </div>
+        <p class="faint" style="margin:2px 0 0;font-size:11px;line-height:1.5">Weak because only the title and length agree — the file name in your collection had no artist in it.</p>
+      </div>
+
+    </div>
+
+    <div class="keys" style="padding:2px 0 8px">
+      <span class="kb"><span class="kbd">↑</span><span class="kbd">↓</span> move</span>
+      <span class="kb"><span class="kbd">1</span>–<span class="kbd">9</span> pick file</span>
+      <span class="kb"><span class="kbd">A</span> accept</span>
+      <span class="kb"><span class="kbd">R</span> reject</span>
+      <span class="kb"><span class="kbd">U</span> undo</span>
+      <span class="kb"><span class="kbd">Enter</span> accept &amp; next</span>
+      <span class="kb"><span class="kbd">/</span> search</span>
+      <span class="kb"><span class="kbd">Esc</span> clear search</span>
+      <span class="kb faint">every action is announced to screen readers</span>
+    </div>
+
+  </main>
+
+  <footer class="ft">
+    <p class="ft-note">
+      <span><b style="color:#a8cd8a">412</b> accepted</span>
+      <span><b style="color:#efa694">88</b> left missing</span>
+      <span><b style="color:#e3c088">704</b> still undecided</span>
+      <span class="faint">undecided tracks stay exactly as they are today</span>
+    </p>
+    <span class="ft-act">
+      <button class="btn">Back</button>
+      <button class="btn btn-pri">Continue — 412 changes</button>
+    </span>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

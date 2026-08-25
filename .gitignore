@@ -10,3 +10,6 @@ __pycache__/
 
 # Local tag-read cache produced by scan-reconnect-candidates/rewrite-from-reconnect
 .traktor_nml_tagcache.json
+
+# Generated design-canvas bundle (~2.3 MB); rebuild from design/*/ sources.
+/design/*/reconnect-wizard.html

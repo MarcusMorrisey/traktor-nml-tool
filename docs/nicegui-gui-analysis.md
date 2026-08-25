@@ -346,12 +346,29 @@ GUI-layer rules; none of them changes CLI behavior.
 
 **Tier 1 is hand-built and named in the user's language.** Nobody opens this
 thinking "I need `rewrite-from-reconnect --match-confidence loose`". They think
-*"Traktor shows exclamation marks on half my tracks."* Phase 1 ships one card:
+*"the set I built on Friday doesn't play any more."* Phase 1 ships one card:
 
-> **My tracks show as missing in Traktor** → pick old `.nml` → add scan roots →
+> **My playlists are broken** → pick old `.nml` → add scan roots →
 > fingerprinting toggle, *disabled with an explanation* when `HAS_ACOUSTID` is
 > false or `fpcalc` isn't on PATH → scan with progress and cancel → **review** →
 > write.
+
+The framing is playlist-first, not track-first, and that is a deliberate
+correction: a stale `LOCATION` is the mechanism, but a set that will not play is
+the reason anyone opens the tool. It also changes what the screens count —
+results and success lead with how many playlists play end to end, with track
+counts as the supporting line. Two boundaries the copy must hold:
+
+- **This repairs playlists that still exist**, by repointing the collection
+  entries they reference. Names, order and history are never touched.
+- **A deleted playlist is a different job.** `build-playlist` already rebuilds one
+  from a written tracklist, but it needs that list, has its own review model, and
+  is Tier 1 *Phase 3* — its own entry point, never a branch of this one. Phase 1
+  copy must not imply this wizard recovers a deleted playlist, and must not imply
+  the tool cannot.
+
+The design brief for these screens is published as a canvas; the working files
+are in [`design/reconnect-wizard/`](../design/reconnect-wizard/).
 
 One opinionated point: **`--dry-run` does not appear as a checkbox.** The existing
 invariant is preview-then-write; in a GUI that is a phase, not a flag. Every run

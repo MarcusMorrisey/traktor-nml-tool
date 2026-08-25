@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:800px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+.app{display:grid;grid-template-rows:56px 1fr;height:800px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd-l{display:flex;align-items:center;gap:12px}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.task{font-weight:600;font-size:14px}
+.hd-r{font-size:12.5px;color:#8f887f}
+main{padding:18px 24px 20px;display:grid;grid-template-rows:auto 1fr;gap:14px;min-height:0;overflow:hidden}
+.rule{display:flex;gap:0;border:1px solid #38352f;border-radius:8px;overflow:hidden;background:#232120}
+.rule div{flex:1;padding:11px 14px;border-right:1px solid #38352f;display:flex;flex-direction:column;gap:3px}
+.rule div:last-child{border-right:0}
+.rule .k{font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
+.rule .v{font-size:12.5px;color:#c8c2b8;line-height:1.4}
+.grid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:minmax(0,1fr);gap:14px;min-height:0}
+.err{border:1px solid #38352f;border-radius:8px;background:#232120;padding:14px 15px;display:flex;flex-direction:column;gap:9px;min-height:0}
+.err.stop{border-color:#6e3f34}
+.err.warn{border-color:#5e4b2d}
+.e-h{display:flex;align-items:flex-start;gap:10px}
+.e-t{font-size:13.5px;font-weight:600;line-height:1.35}
+.e-c{margin-left:auto;font:500 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;color:#7b746b;border:1px solid #3d3a34;border-radius:4px;padding:4px 6px;white-space:nowrap;flex:none}
+.e-p{margin:0;font-size:12.5px;color:#aaa39a;line-height:1.55}
+.e-p strong{color:#eee9e1;font-weight:600}
+.e-f{font:400 11px/1.6 'IBM Plex Mono',ui-monospace,monospace;color:#a29b91;background:#161513;border:1px solid #35322d;border-radius:5px;padding:8px 10px;display:flex;gap:8px;align-items:flex-start}
+.e-f b{color:#d8d2c8;font-weight:500}
+.e-a{display:flex;gap:8px;margin-top:auto;align-items:center;flex-wrap:wrap}
+.btn{height:31px;padding:0 13px;border-radius:6px;border:1px solid #4a463f;background:#2b2927;color:#eee9e1;font:500 12.5px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.btn-pri{background:#e2a24c;border-color:#e2a24c;color:#1b1917;font-weight:600}
+.btn.off{opacity:.4;cursor:not-allowed}
+.focus{outline:2px solid #eee9e1;outline-offset:2px}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.faint{color:#7b746b}.dim{color:#aaa39a}
+.ico{flex:none}
+.why{font-size:11.5px;color:#8f887f;display:flex;align-items:center;gap:7px;line-height:1.4}
+  </style>
+</helmet>
+<div class="app">
+
+  <header class="hd">
+    <div class="hd-l">
+      <span class="brand">traktor-nml-tool</span><span class="bar"></span>
+      <span class="task">Recoverable errors — the five you will actually hit</span>
+    </div>
+    <span class="hd-r">None of these lose work. None of them modify your collection.</span>
+  </header>
+
+  <main>
+
+    <div class="rule">
+      <div><span class="k">Every error says</span><span class="v"><strong style="color:#eee9e1">1.</strong> What happened, in your words — not the exception text.</span></div>
+      <div><span class="k">Then</span><span class="v"><strong style="color:#eee9e1">2.</strong> What it means for your files. Always explicit, always first-person-safe.</span></div>
+      <div><span class="k">Then</span><span class="v"><strong style="color:#eee9e1">3.</strong> The one action that gets you moving, as a button.</span></div>
+      <div><span class="k">Never</span><span class="v">Colour as the only signal. Every state carries an icon, a heading and a code.</span></div>
+    </div>
+
+    <div class="grid">
+
+      <section class="err stop">
+        <div class="e-h">
+          <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#dc7561" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
+          <span class="e-t">That would overwrite the collection you are repairing</span>
+          <span class="e-c">output_collides_with_input</span>
+        </div>
+        <p class="e-p">You have pointed the new file at <span class="mono" style="font-size:11.5px">collection.nml</span> — the same file this run is reading from. Writing there would destroy the only good copy of what you are fixing.</p>
+        <div class="e-f"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>collection_modified=<b>no</b> — writing is blocked before anything is opened</span></div>
+        <div class="e-a">
+          <button class="btn off" disabled>Write collection…</button>
+          <span class="why"><svg class="ico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#dc7561" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg>Blocked until the destination changes</span>
+          <button class="btn btn-pri focus" style="margin-left:auto">Choose another file…</button>
+        </div>
+      </section>
+
+      <section class="err stop">
+        <div class="e-h">
+          <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#dc7561" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="7" width="10.4" height="6.8" rx="1.6"/><path d="M5.4 7V5.2a2.6 2.6 0 015.2 0V7"/></svg>
+          <span class="e-t">Windows would not let me write there</span>
+          <span class="e-c">output_not_writable</span>
+        </div>
+        <p class="e-p"><span class="mono" style="font-size:11.5px">E:\Traktor\</span> refused the write — usually a read-only drive, or Traktor still holding the folder open.</p>
+        <div class="e-f"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>collection_modified=<b>no</b> · partial_file=<b>none</b> — the write is all-or-nothing</span></div>
+        <div class="e-a">
+          <button class="btn btn-pri">Try again</button>
+          <button class="btn">Choose another folder…</button>
+          <span class="why" style="margin-left:auto">Your review decisions are kept</span>
+        </div>
+      </section>
+
+      <section class="err warn">
+        <div class="e-h">
+          <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+          <span class="e-t">The tag cache could not be saved</span>
+          <span class="e-c">cache_write_failed</span>
+        </div>
+        <p class="e-p"><strong>This does not affect your results.</strong> The cache only makes a second scan faster. Every match found in this run is intact — but scanning again will re-read all 12,542 files from scratch.</p>
+        <div class="e-f"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>scan_results=<b>complete</b> · next_scan=<b>slow</b></span></div>
+        <div class="e-a">
+          <button class="btn btn-pri">Carry on</button>
+          <button class="btn">Put the cache somewhere else…</button>
+        </div>
+      </section>
+
+      <section class="err warn">
+        <div class="e-h">
+          <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+          <span class="e-t">Fingerprinting stopped part-way through</span>
+          <span class="e-c">fingerprint_tier_lost</span>
+        </div>
+        <p class="e-p">The <span class="mono" style="font-size:11.5px">fpcalc</span> helper stopped responding after 1,340 files. The scan carried on using tags alone, so <strong>results after that point are less certain</strong> — those tracks are marked for your review rather than matched automatically.</p>
+        <div class="e-f"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>scan=<b>completed</b> · fingerprinted=<b>1340</b> · child=<b>terminated</b></span></div>
+        <div class="e-a">
+          <button class="btn btn-pri">See the results</button>
+          <button class="btn">Scan those folders again</button>
+        </div>
+      </section>
+
+      <section class="err stop" style="grid-column:1 / -1">
+        <div class="e-h">
+          <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#dc7561" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M8 4.6v4.2"/><path d="M8 11.3h.01"/></svg>
+          <span class="e-t">Your collection changed while you were reviewing</span>
+          <span class="e-c">source_changed_since_scan</span>
+        </div>
+        <p class="e-p"><span class="mono" style="font-size:11.5px">collection.nml</span> was modified at <span class="mono" style="font-size:11.5px">14:09</span> — after this scan read it at <span class="mono" style="font-size:11.5px">13:52</span>. Traktor was probably open. Writing now would apply decisions made against a collection that no longer exists, so it is blocked.</p>
+        <div class="e-f"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>collection_modified=<b>no</b> · your_decisions=<b>412 accepted, 88 rejected — kept</b> · they are re-applied to anything that still matches after a fresh scan</span></div>
+        <div class="e-a">
+          <button class="btn off" disabled>Write collection…</button>
+          <span class="why"><svg class="ico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#dc7561" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/></svg>Blocked until the collection is read again</span>
+          <button class="btn btn-pri" style="margin-left:auto">Close Traktor and scan again</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+</div>
+</x-dc>
+</body>
+</html>

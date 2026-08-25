@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:800px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+.app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd-l{display:flex;align-items:center;gap:12px}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.task{font-weight:600;font-size:14px}
+.rail{display:flex;gap:2px;align-items:center;flex:none}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#7b746b;white-space:nowrap}
+.st .num{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#aaa39a}
+.st.ok{background:#1e2419;color:#a8cd8a;box-shadow:inset 0 0 0 1px #3f5a33;font-weight:600}
+.st.ok .num{background:#8db76b;border-color:#8db76b;color:#1b1917}
+main{padding:24px;display:grid;grid-template-columns:1fr 424px;gap:22px;min-height:0;overflow:hidden}
+.col{display:flex;flex-direction:column;gap:14px;min-height:0}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #38352f;background:#232120}
+.ft-note{margin:0;font-size:12.5px;color:#aaa39a;display:flex;align-items:center;gap:9px}
+.ft-act{display:flex;gap:10px;align-items:center;flex:none}
+.card{background:#232120;border:1px solid #38352f;border-radius:8px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #38352f}
+.card-t{font-weight:600;font-size:13px;margin:0}
+.card-b{padding:15px;display:flex;flex-direction:column;gap:12px}
+.lbl{font:600 10px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.dim{color:#aaa39a}.faint{color:#7b746b}
+.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #4a463f;background:#2b2927;color:#eee9e1;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn.sm{height:28px;padding:0 11px;font-size:12px}
+.btn-pri{background:#e2a24c;border-color:#e2a24c;color:#1b1917;font-weight:600}
+.focus{outline:2px solid #eee9e1;outline-offset:2px}
+.note{display:flex;gap:10px;padding:12px 13px;border-radius:6px;border:1px solid #38352f;background:#201e1c;font-size:12.5px;color:#aaa39a;line-height:1.55}
+.note strong{color:#eee9e1;font-weight:600}
+.note.warn{border-color:#5e4b2d;background:#26211a}
+.ico{flex:none}
+.hero{display:flex;gap:15px;align-items:flex-start;padding:18px 19px;border:1px solid #3f5a33;background:#1e2419;border-radius:9px}
+.hero h1{margin:0 0 5px;font-size:23px;font-weight:600;letter-spacing:-.01em;color:#eee9e1}
+.hero p{margin:0;font-size:13.5px;color:#b9c4ab;line-height:1.55}
+.fl{display:flex;flex-direction:column}
+.fr{display:grid;grid-template-columns:20px 1fr auto;gap:12px;align-items:center;padding:11px 2px;border-bottom:1px solid #302d29}
+.fr:last-child{border-bottom:0}
+.fr .n{font:500 12px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#d8d2c8;word-break:break-all}
+.fr .d{font-size:11.5px;color:#8f887f;margin-top:3px}
+.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px}
+.steps li{display:flex;gap:11px;font-size:12.5px;color:#aaa39a;line-height:1.55}
+.steps li b{color:#eee9e1;font-weight:600;display:block;font-size:13px;margin-bottom:2px}
+.steps .n{flex:none;width:20px;height:20px;border-radius:50%;border:1px solid #4a463f;color:#7b746b;font:600 10px/1 'IBM Plex Mono',monospace;display:grid;place-items:center;margin-top:1px}
+  </style>
+</helmet>
+<div class="app">
+
+  <header class="hd">
+    <div class="hd-l">
+      <span class="brand">traktor-nml-tool</span><span class="bar"></span>
+      <span class="task">My playlists are broken</span>
+    </div>
+    <nav class="rail" aria-label="Progress">
+      <span class="st done"><span class="num">1</span>Set up</span>
+      <span class="st done"><span class="num">2</span>Scan</span>
+      <span class="st done"><span class="num">3</span>Review</span>
+      <span class="st ok" aria-current="step"><span class="num">4</span>Written</span>
+    </nav>
+  </header>
+
+  <main>
+    <div class="col">
+
+      <div class="hero" role="status">
+        <svg class="ico" width="30" height="30" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.6"/><path d="M5.1 8.3l2 2 3.8-4.4"/></svg>
+        <span>
+          <h1>21 of your 26 playlists play end to end again</h1>
+          <p>11,344 tracks repointed across them. The original collection was not modified, and a dated copy of it is saved alongside.</p>
+        </span>
+      </div>
+
+      <section class="card">
+        <div class="card-h"><h2 class="card-t">Files written</h2><span class="lbl">3 files</span></div>
+        <div class="card-b" style="gap:0">
+          <div class="fl">
+            <div class="fr">
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#a8cd8a" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.8h5.2L13 6.1v8.1H3.5z"/><path d="M8.6 1.9v4.3h4.3"/></svg>
+              <span><span class="n">E:\Traktor\collection.reconnected.nml</span><span class="d">Your reconnected collection · 11.7 MB · open this one in Traktor</span></span>
+              <span style="display:flex;gap:6px"><button class="btn sm">Copy path</button><button class="btn sm">Show folder</button></span>
+            </div>
+            <div class="fr">
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.8h5.2L13 6.1v8.1H3.5z"/><path d="M8.6 1.9v4.3h4.3"/></svg>
+              <span><span class="n">E:\Traktor\collection.pre_reconnect_20260825_141207.nml</span><span class="d">Backup of your original, exactly as it was before this run</span></span>
+              <span><button class="btn sm">Copy path</button></span>
+            </div>
+            <div class="fr">
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#7b746b" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="2.4" y="2.4" width="11.2" height="11.2" rx="1.5"/><path d="M2.4 6.2h11.2M6.4 6.2v7.4"/></svg>
+              <span><span class="n">E:\Traktor\collection.reconnected.unresolved.csv</span><span class="d">The 1,074 tracks still missing, with the reason for each</span></span>
+              <span style="display:flex;gap:6px"><button class="btn sm">Copy path</button><button class="btn sm">Open</button></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="note warn">
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+        <span><strong>5 playlists still have gaps</strong> — 296 entries across them, from the 1,074 tracks left unmatched (88 you rejected, 704 you did not get to, 282 with no file found). Those playlists still open and still play; the gaps are the same entries that were broken before. Run this again any time and only those are shown.</span>
+      </div>
+
+    </div>
+
+    <div class="col">
+      <section class="card" style="flex:1">
+        <div class="card-h"><h2 class="card-t">To use it in Traktor</h2></div>
+        <div class="card-b">
+          <ol class="steps">
+            <li><span class="n">1</span><span><b>Quit Traktor if it is open</b>Traktor writes its own collection on exit, which would undo this.</span></li>
+            <li><span class="n">2</span><span><b>Rename the new file to collection.nml</b>Traktor only reads a file with that exact name. Your backup keeps the original safe.</span></li>
+            <li><span class="n">3</span><span><b>Start Traktor</b>Your playlists should load with their tracks in place. Anything still unplayable is on the list in the CSV.</span></li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><h2 class="card-t">If something looks wrong</h2></div>
+        <div class="card-b" style="gap:10px">
+          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">Nothing here is one-way. Put the backup back in place and you are exactly where you started.</p>
+          <button class="btn" style="align-self:flex-start">Show me how to restore the backup</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="ft">
+    <p class="ft-note">
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8db76b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>
+      Original collection untouched · backup saved
+    </p>
+    <span class="ft-act">
+      <button class="btn">Scan again</button>
+      <button class="btn btn-pri focus">Done</button>
+    </span>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

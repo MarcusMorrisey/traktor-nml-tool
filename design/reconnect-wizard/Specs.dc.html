@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:1100px;background:#1b1917;color:#eee9e1;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#e2a24c;text-decoration:none}a:hover{color:#f2bd77;text-decoration:underline}
+.app{display:grid;grid-template-rows:56px 1fr;height:1100px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #38352f;background:#232120}
+.hd-l{display:flex;align-items:center;gap:12px}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#7b746b;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#4a463f;flex:none}
+.task{font-weight:600;font-size:14px}
+.hd-r{font-size:12.5px;color:#8f887f}
+main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap:18px;min-height:0;overflow:hidden;align-content:start}
+.col{display:flex;flex-direction:column;gap:16px;min-height:0}
+.sec{border:1px solid #38352f;border-radius:8px;background:#232120;overflow:hidden}
+.sec-h{padding:10px 14px;border-bottom:1px solid #38352f;background:#26231f;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sec-t{margin:0;font-size:12.5px;font-weight:600}
+.sec-b{padding:13px 14px;display:flex;flex-direction:column;gap:11px}
+.lbl{font:600 9.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.dim{color:#aaa39a}.faint{color:#7b746b}
+.ico{flex:none}
+.kbd{font:500 10.5px/1 'IBM Plex Mono',ui-monospace,monospace;background:#2b2927;border:1px solid #4a463f;border-bottom-width:2px;border-radius:4px;padding:3px 5px;color:#d8d2c8;white-space:nowrap;display:inline-block}
+.kg{display:flex;flex-direction:column}
+.kg .g{font:600 9.5px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:#7b746b;padding:9px 0 6px}
+.kr{display:grid;grid-template-columns:104px 1fr;gap:11px;align-items:baseline;padding:5px 0;border-bottom:1px solid #2c2925;font-size:12px}
+.kr:last-child{border-bottom:0}
+.kr .k{display:flex;gap:4px;flex-wrap:wrap}
+.kr .d{color:#aaa39a;line-height:1.45}
+.tok{display:grid;grid-template-columns:96px 78px 1fr;gap:11px;align-items:center;padding:8px 0;border-bottom:1px solid #2c2925;font-size:12px}
+.tok:last-child{border-bottom:0}
+.tok .g{display:flex;align-items:center;gap:7px;font-weight:600;font-size:11.5px;white-space:nowrap}
+.tok .c{font:500 10px/1 'IBM Plex Mono',monospace;color:#7b746b}
+.tok .d{color:#aaa39a;line-height:1.45}
+.p{margin:0;font-size:12px;color:#aaa39a;line-height:1.55}
+.p strong{color:#eee9e1;font-weight:600}
+.ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.ul li{display:flex;gap:9px;font-size:12px;color:#aaa39a;line-height:1.5}
+.ul li b{color:#eee9e1;font-weight:600}
+.dot{width:5px;height:5px;border-radius:50%;background:#6d665c;flex:none;margin-top:6px}
+.sm{display:flex;flex-direction:column;gap:9px}
+.node{display:flex;align-items:center;gap:10px;font-size:12px}
+.pill{font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;padding:6px 9px;border-radius:5px;border:1px solid #4a463f;background:#201e1c;white-space:nowrap}
+.arrow{display:flex;align-items:center;gap:7px;padding-left:14px;font-size:11.5px;color:#8f887f}
+.filt{display:grid;grid-template-columns:126px 1fr;gap:11px;padding:8px 0;border-bottom:1px solid #2c2925;font-size:12px;align-items:baseline}
+.filt:last-child{border-bottom:0}
+.filt .n{font-weight:600;font-size:11.5px}
+.filt .d{color:#aaa39a;line-height:1.45}
+.warn{border:1px solid #5e4b2d;background:#26211a;border-radius:6px;padding:10px 12px;display:flex;gap:9px;font-size:12px;color:#aaa39a;line-height:1.55}
+.warn strong{color:#eee9e1;font-weight:600}
+  </style>
+</helmet>
+<div class="app">
+
+  <header class="hd">
+    <div class="hd-l">
+      <span class="brand">traktor-nml-tool</span><span class="bar"></span>
+      <span class="task">Interaction spec — tokens, keyboard, decision rules</span>
+    </div>
+    <span class="hd-r">Phase 1 only · reconnect wizard</span>
+  </header>
+
+  <main>
+
+    <div class="col">
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Keyboard</h2><span class="lbl">No mouse required</span></div>
+        <div class="sec-b" style="gap:0;padding-top:4px">
+          <div class="kg">
+            <span class="g">Anywhere</span>
+            <div class="kr"><span class="k"><span class="kbd">Tab</span><span class="kbd">⇧Tab</span></span><span class="d">Move through controls in reading order</span></div>
+            <div class="kr"><span class="k"><span class="kbd">F6</span></span><span class="d">Jump between regions: filters → table → comparison → footer</span></div>
+            <div class="kr"><span class="k"><span class="kbd">Ctrl</span><span class="kbd">↵</span></span><span class="d">Continue to the next step</span></div>
+            <div class="kr"><span class="k"><span class="kbd">Ctrl</span><span class="kbd">Z</span></span><span class="d">Undo the last decision, wherever focus is</span></div>
+            <div class="kr"><span class="k"><span class="kbd">Esc</span></span><span class="d">Close a dialog, or clear the search box</span></div>
+
+            <span class="g">Review table</span>
+            <div class="kr"><span class="k"><span class="kbd">↑</span><span class="kbd">↓</span></span><span class="d">Move between tracks</span></div>
+            <div class="kr"><span class="k"><span class="kbd">Home</span><span class="kbd">End</span></span><span class="d">First / last track in the current filter</span></div>
+            <div class="kr"><span class="k"><span class="kbd">Space</span></span><span class="d">Show or hide the comparison for this track</span></div>
+            <div class="kr"><span class="k"><span class="kbd">A</span></span><span class="d">Accept the highlighted file</span></div>
+            <div class="kr"><span class="k"><span class="kbd">R</span></span><span class="d">Reject — leave this track missing</span></div>
+            <div class="kr"><span class="k"><span class="kbd">U</span></span><span class="d">Undo the decision on this track</span></div>
+            <div class="kr"><span class="k"><span class="kbd">↵</span></span><span class="d">Accept, then jump to the next undecided track</span></div>
+            <div class="kr"><span class="k"><span class="kbd">1</span>–<span class="kbd">9</span></span><span class="d">Pick that candidate file. Picking is not accepting.</span></div>
+            <div class="kr"><span class="k"><span class="kbd">⇧</span><span class="kbd">↑</span><span class="kbd">↓</span></span><span class="d">Extend the selection for a bulk decision</span></div>
+            <div class="kr"><span class="k"><span class="kbd">/</span></span><span class="d">Jump to search</span></div>
+            <div class="kr"><span class="k"><span class="kbd">Alt</span><span class="kbd">1</span>–<span class="kbd">5</span></span><span class="d">Switch filter</span></div>
+
+            <span class="g">Dialogs</span>
+            <div class="kr"><span class="k"><span class="kbd">Esc</span></span><span class="d">Always the safe choice — keep scanning, cancel the write</span></div>
+            <div class="kr"><span class="k"><span class="kbd">↵</span></span><span class="d"><b style="color:#e3c088">Never writes.</b> Focus opens on the safe button; writing needs a deliberate move to it</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Confidence — four levels, three channels</h2></div>
+        <div class="sec-b" style="gap:0;padding-top:6px">
+          <div class="tok">
+            <span class="g" style="color:#a8cd8a"><svg width="26" height="8" viewBox="0 0 26 8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="3" fill="currentColor"/></svg>Strong</span>
+            <span class="c">strict</span>
+            <span class="d">Artist, title and length all agree. Applied without asking you.</span>
+          </div>
+          <div class="tok">
+            <span class="g" style="color:#d8d2c8"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
+            <span class="c">normal</span>
+            <span class="d">One field differs — often a remaster or a different edit. Shown to you.</span>
+          </div>
+          <div class="tok">
+            <span class="g" style="color:#e3c088"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
+            <span class="c">loose</span>
+            <span class="d">Only the title matches, or several files match equally well. Always shown.</span>
+          </div>
+          <div class="tok">
+            <span class="g faint"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="2.4"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>None</span>
+            <span class="c">no_match</span>
+            <span class="d">Nothing plausible found. Stays missing unless you scan more folders.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Never colour alone</h2></div>
+        <div class="sec-b">
+          <p class="p">Every state carries <strong>three independent signals</strong>, so removing any one still leaves it readable:</p>
+          <ul class="ul">
+            <li><span class="dot"></span><span><b>Shape</b> — filled versus outlined dots for confidence; a distinct icon silhouette per status (tick, ringed dot, cross, dashed ring).</span></li>
+            <li><span class="dot"></span><span><b>Word</b> — the status is written out in every row. No row relies on a swatch.</span></li>
+            <li><span class="dot"></span><span><b>Position</b> — status is always the first column, decision always the last.</span></li>
+          </ul>
+          <p class="p">The dot meter is <strong>counted, not measured</strong>: three discrete dots read correctly in greyscale, at 200% zoom, and to anyone who cannot separate the amber and green.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Filters</h2><span class="lbl">Counts always visible</span></div>
+        <div class="sec-b" style="gap:0;padding-top:6px">
+          <div class="filt"><span class="n">Needs review</span><span class="d">Good and Weak matches. <strong style="color:#eee9e1">The default</strong> — it is the only list that wants anything from you.</span></div>
+          <div class="filt"><span class="n">Not found</span><span class="d">No candidate at all. Read-only unless you add folders and scan again.</span></div>
+          <div class="filt"><span class="n">Accepted</span><span class="d">What you have said yes to. Reversible until the write.</span></div>
+          <div class="filt"><span class="n">Rejected</span><span class="d">What you have chosen to leave missing. Also reversible.</span></div>
+          <div class="filt"><span class="n">Found automatically</span><span class="d">Strong matches. Included so you can audit them — and reject one if it is wrong.</span></div>
+          <div class="filt"><span class="n">Confidence</span><span class="d">Narrows any of the above to one level. Combines with search, never replaces it.</span></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Accept and reject</h2><span class="lbl">Nothing is destructive</span></div>
+        <div class="sec-b">
+          <div class="sm">
+            <div class="node"><span class="pill" style="border-color:#5e4b2d;color:#e3c088">UNDECIDED</span><span class="faint">where every reviewable track starts</span></div>
+            <div class="arrow"><span class="kbd">A</span> accept → <span class="pill" style="border-color:#4d6b3d;color:#a8cd8a">ACCEPTED</span></div>
+            <div class="arrow"><span class="kbd">R</span> reject → <span class="pill" style="border-color:#7a4136;color:#efa694">LEFT MISSING</span></div>
+            <div class="arrow"><span class="kbd">U</span> from either → back to <span class="pill" style="border-color:#5e4b2d;color:#e3c088">UNDECIDED</span></div>
+          </div>
+          <ul class="ul" style="margin-top:2px">
+            <li><span class="dot"></span><span><b>Picking a candidate is not accepting.</b> <span class="kbd">1</span>–<span class="kbd">9</span> changes which file is proposed; the row stays undecided until you accept it.</span></li>
+            <li><span class="dot"></span><span><b>Automatic matches can be rejected too.</b> A wrong Strong match is demoted to left-missing like any other.</span></li>
+            <li><span class="dot"></span><span><b>Undecided is a valid ending.</b> It is not an error, it does not block the write, and it leaves the track exactly as it is today.</span></li>
+            <li><span class="dot"></span><span><b>Decisions survive re-filtering and searching</b>, and are only frozen when the collection is written.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Unresolved, spelled out</h2></div>
+        <div class="sec-b">
+          <p class="p">Three different things end up unresolved, and the wizard never blurs them together:</p>
+          <ul class="ul">
+            <li><span class="dot"></span><span><b>Rejected</b> — you looked and said no.</span></li>
+            <li><span class="dot"></span><span><b>Undecided</b> — you did not get to it.</span></li>
+            <li><span class="dot"></span><span><b>Not found</b> — there was nothing to decide.</span></li>
+          </ul>
+          <p class="p">All three are counted separately in the pre-write summary, written to the CSV with their reason, and described the same way: <strong>left exactly as it is today</strong>. None of them is presented as a failure.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Accessibility rules</h2></div>
+        <div class="sec-b">
+          <ul class="ul">
+            <li><span class="dot"></span><span><b>Focus ring</b> 2px solid on the light foreground, 2px offset, on every focusable control. Never removed, never colour-only — it changes the outline, not the fill.</span></li>
+            <li><span class="dot"></span><span><b>Announcements</b> use a polite live region: progress at most every 2 seconds ("4,212 of 12,542"), and each decision as it happens ("Bar A Thym accepted — 413 of 1,204 done").</span></li>
+            <li><span class="dot"></span><span><b>Errors and completion</b> are assertive, and name the file consequence in the first sentence.</span></li>
+            <li><span class="dot"></span><span><b>Dialogs</b> trap focus, open on the safe button, and return focus to whatever opened them.</span></li>
+            <li><span class="dot"></span><span><b>Controls are 32px tall</b> with 8px between them; the whole row is the click target, not just the buttons.</span></li>
+            <li><span class="dot"></span><span><b>Reduced motion</b> is respected: the spinner becomes a static mark, the progress bar stops animating, counts still update.</span></li>
+            <li><span class="dot"></span><span><b>Text reflows</b> at 200% zoom down to 1024px wide — the comparison stacks rather than clipping.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="warn">
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#d9b174" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+        <span><strong>Scope fence.</strong> Everything here serves one sentence: <em>my playlists are broken</em> — they still exist, but their tracks will not load, because the files moved. Repair works by repointing the collection entries those playlists reference; names, order and history are never touched.<br><br><strong>A deleted playlist is a different job.</strong> Rebuilding one from a written tracklist is something the tool already does — <span class="mono" style="font-size:10.5px">build-playlist</span> — but it needs a list to work from, has its own review model, and is <strong>not in Phase 1</strong>. When it arrives it is its own entry point, not a branch of this one. Merging collections, splitting them and comparing two collections are absent for the same reason.</span>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+</x-dc>
+</body>
+</html>
