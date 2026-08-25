@@ -65,7 +65,7 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
         # OSError, not just FileNotFoundError: a directory or a
         # permission-denied path must report the same clean diagnostic
         # rather than an unhandled traceback.
-        print(f"input_not_found={args.tracklist}", file=sys.stderr)
+        print(f"input_not_found={args.tracklist.as_posix()}", file=sys.stderr)
         return 2
 
     try:
@@ -73,7 +73,7 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
         # letting it silently corrupt the first parsed line's artist name.
         tracklist_text = tracklist_bytes.decode("utf-8-sig")
     except UnicodeDecodeError:
-        print(f"tracklist_decode_error={args.tracklist}", file=sys.stderr)
+        print(f"tracklist_decode_error={args.tracklist.as_posix()}", file=sys.stderr)
         return 2
 
     result = assemble_output(
@@ -124,7 +124,7 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
         except OSError as exc:
             print(f"output_write_error={exc}", file=sys.stderr)
             return 2
-        print(f"output_written={args.output}")
+        print(f"output_written={args.output.as_posix()}")
     return 0
 
 

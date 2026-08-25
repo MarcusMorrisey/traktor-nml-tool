@@ -58,10 +58,10 @@ def _handle_discover_tracks(args: argparse.Namespace) -> int:
     try:
         tracklist_text = args.tracklist.read_bytes().decode("utf-8-sig")
     except OSError:
-        print(f"input_not_found={args.tracklist}", file=sys.stderr)
+        print(f"input_not_found={args.tracklist.as_posix()}", file=sys.stderr)
         return 2
     except UnicodeDecodeError:
-        print(f"tracklist_decode_error={args.tracklist}", file=sys.stderr)
+        print(f"tracklist_decode_error={args.tracklist.as_posix()}", file=sys.stderr)
         return 2
 
     lines, unparseable = parse_tracklist(tracklist_text)
@@ -82,7 +82,7 @@ def _handle_discover_tracks(args: argparse.Namespace) -> int:
     except OSError as exc:
         print(f"output_write_error={exc}", file=sys.stderr)
         return 2
-    print(f"report_written={args.output}")
+    print(f"report_written={args.output.as_posix()}")
     return 0
 
 

@@ -108,5 +108,10 @@ if __name__ == "__main__":
 
     with tempfile.TemporaryDirectory() as tmp:
         manifest = regenerate(Path(tmp))
-    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+    # Written as explicit UTF-8 bytes with LF endings, not write_text: the
+    # manifest is pinned by SHA-256, and text mode would emit CRLF on
+    # Windows and LF elsewhere, so the same reviewed regeneration would
+    # produce a different digest per host. Paired with the .gitattributes
+    # -text rule that stops git rewriting the blob on checkout.
+    MANIFEST_PATH.write_bytes((json.dumps(manifest, indent=2) + "\n").encode("utf-8"))
     print(f"wrote {MANIFEST_PATH}")

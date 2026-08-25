@@ -81,7 +81,7 @@ def _handle_splice(args: argparse.Namespace) -> int:
         except OSError as exc:
             print(f"output_write_error={exc}", file=sys.stderr)
             return 2
-        print(f"output_written={args.output}")
+        print(f"output_written={args.output.as_posix()}")
     return 0
 
 

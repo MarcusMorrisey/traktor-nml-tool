@@ -61,7 +61,7 @@ def test_splice_malformed_base_reports_xml_parse_error(tmp_path: Path) -> None:
         ["splice", str(base_path), str(out_path), "--input", str(other_path)], cwd=tmp_path
     )
     assert result.exit_code == 2
-    assert f"xml_parse_error={base_path}" in result.stderr
+    assert f"xml_parse_error={base_path.as_posix()}" in result.stderr
     assert not out_path.exists()
 
 
@@ -79,7 +79,7 @@ def test_splice_malformed_contribution_reports_xml_parse_error(tmp_path: Path) -
         cwd=tmp_path,
     )
     assert result.exit_code == 2
-    assert f"xml_parse_error={bad_path}" in result.stderr
+    assert f"xml_parse_error={bad_path.as_posix()}" in result.stderr
     assert not out_path.exists()
 
 
@@ -90,7 +90,7 @@ def test_split_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:
 
     result = run_tool(["split", str(src_path), "--group", str(out_path), "Keep"], cwd=tmp_path)
     assert result.exit_code == 2
-    assert f"xml_parse_error={src_path}" in result.stderr
+    assert f"xml_parse_error={src_path.as_posix()}" in result.stderr
     assert not out_path.exists()
 
 
@@ -100,7 +100,7 @@ def test_inspect_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None
 
     result = run_tool(["inspect", str(src_path)], cwd=tmp_path)
     assert result.exit_code == 2
-    assert f"xml_parse_error={src_path}" in result.stderr
+    assert f"xml_parse_error={src_path.as_posix()}" in result.stderr
 
 
 def test_preview_diff_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:
@@ -111,7 +111,7 @@ def test_preview_diff_malformed_input_reports_xml_parse_error(tmp_path: Path) ->
         ["preview-diff", str(src_path), "--rule", "OldVol", "/old/", "NewVol", "/new/"], cwd=tmp_path
     )
     assert result.exit_code == 2
-    assert f"xml_parse_error={src_path}" in result.stderr
+    assert f"xml_parse_error={src_path.as_posix()}" in result.stderr
 
 
 def test_scan_reconnect_candidates_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:
@@ -124,7 +124,7 @@ def test_scan_reconnect_candidates_malformed_input_reports_xml_parse_error(tmp_p
         ["scan-reconnect-candidates", str(src_path), "--scan-root", str(scan_dir)], cwd=tmp_path
     )
     assert result.exit_code == 2
-    assert f"xml_parse_error={src_path}" in result.stderr
+    assert f"xml_parse_error={src_path.as_posix()}" in result.stderr
 
 
 def test_interrupted_commit_leaves_destination_and_no_temp_file(tmp_path: Path, monkeypatch) -> None:

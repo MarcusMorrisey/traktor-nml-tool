@@ -298,11 +298,11 @@ def read_and_parse_source(path: Path) -> ReadParseResult:
     try:
         source_bytes = path.read_bytes()
     except FileNotFoundError:
-        return ReadParseResult(None, None, f"input_not_found={path}")
+        return ReadParseResult(None, None, f"input_not_found={path.as_posix()}")
     try:
         root = parse_xml_bytes(source_bytes)
     except XML_PARSE_ERROR as exc:
-        return ReadParseResult(None, None, f"xml_parse_error={path}: {exc}")
+        return ReadParseResult(None, None, f"xml_parse_error={path.as_posix()}: {exc}")
     return ReadParseResult(source_bytes, root, None)
 
 
@@ -377,7 +377,7 @@ def write_row_report(
             error = f"{label}_report_write_error={exc}"
             print(error, file=sys.stderr)
             return error
-        print(f"{label}_report_written={csv_path}")
+        print(f"{label}_report_written={csv_path.as_posix()}")
     return None
 
 
@@ -444,21 +444,21 @@ def write_nml_safely(
             except (UnicodeDecodeError, ValueError) as exc:
                 print(f"text_patch_error={exc}", file=sys.stderr)
                 return 2
-            print(f"output_written={output_path}")
+            print(f"output_written={output_path.as_posix()}")
         return 0
 
     try:
         tree = parse_xml(input_path)
     except FileNotFoundError:
-        print(f"input_not_found={input_path}", file=sys.stderr)
+        print(f"input_not_found={input_path.as_posix()}", file=sys.stderr)
         return 2
     except XML_PARSE_ERROR as exc:
-        print(f"xml_parse_error={input_path}: {exc}", file=sys.stderr)
+        print(f"xml_parse_error={input_path.as_posix()}: {exc}", file=sys.stderr)
         return 2
     root = tree.getroot()
     stats, samples = mutate_tree(root, dry_run)
     print_stats_and_samples(stats, samples)
     if not dry_run:
         write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)
-        print(f"output_written={output_path}")
+        print(f"output_written={output_path.as_posix()}")
     return 0

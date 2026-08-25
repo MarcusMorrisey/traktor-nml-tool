@@ -82,7 +82,7 @@ def _write_ambiguity_csv(rows: list[dict[str, str]], csv_path: Path) -> None:
         if rows:
             writer.writeheader()
             writer.writerows(rows)
-    print(f"csv_written={csv_path}")
+    print(f"csv_written={csv_path.as_posix()}")
 
 
 def _run_reconnection(
@@ -183,10 +183,10 @@ def _handle_scan_reconnect_candidates(args: argparse.Namespace) -> int:
     try:
         old_tree = parse_xml(args.old_input)
     except FileNotFoundError:
-        print(f"input_not_found={args.old_input}", file=sys.stderr)
+        print(f"input_not_found={args.old_input.as_posix()}", file=sys.stderr)
         return 2
     except XML_PARSE_ERROR as exc:
-        print(f"xml_parse_error={args.old_input}: {exc}", file=sys.stderr)
+        print(f"xml_parse_error={args.old_input.as_posix()}: {exc}", file=sys.stderr)
         return 2
     try:
         mapping, stats, ambiguity_rows, _old_records = _run_reconnection(args, old_tree.getroot())

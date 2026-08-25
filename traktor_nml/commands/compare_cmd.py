@@ -86,10 +86,10 @@ def scan_compare_candidates(
     try:
         target_root = parse_xml(target_path).getroot()
     except FileNotFoundError:
-        print(f"input_not_found={target_path}", file=sys.stderr)
+        print(f"input_not_found={target_path.as_posix()}", file=sys.stderr)
         return 2
     except XML_PARSE_ERROR as exc:
-        print(f"xml_parse_error={target_path}: {exc}", file=sys.stderr)
+        print(f"xml_parse_error={target_path.as_posix()}: {exc}", file=sys.stderr)
         return 2
 
     candidates = sorted(candidates_dir.glob("**/*.nml"))
@@ -129,12 +129,12 @@ def scan_compare_candidates(
 
     rows.sort(key=lambda row: (row["matched"], row["ratio"], -row["ambiguous"]), reverse=True)
 
-    print(f"target={target_path}")
+    print(f"target={target_path.as_posix()}")
     print(f"candidates_scanned={len(rows)}")
     print("top_candidates:")
     for row in rows[:limit]:
         print(
-            f"- path={row['path']}"
+            f"- path={row['path'].as_posix()}"
             f" matched={row['matched']}"
             f" ratio={row['ratio']:.4f}"
             f" ambiguous={row['ambiguous']}"
@@ -158,10 +158,10 @@ def _parse_input_or_none(path: Path) -> tuple[object, int | None]:
     try:
         return parse_xml(path), None
     except FileNotFoundError:
-        print(f"input_not_found={path}", file=sys.stderr)
+        print(f"input_not_found={path.as_posix()}", file=sys.stderr)
         return None, 2
     except XML_PARSE_ERROR as exc:
-        print(f"xml_parse_error={path}: {exc}", file=sys.stderr)
+        print(f"xml_parse_error={path.as_posix()}: {exc}", file=sys.stderr)
         return None, 2
 
 

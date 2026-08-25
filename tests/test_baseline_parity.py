@@ -62,3 +62,32 @@ def test_deliberate_one_character_edit_fails_parity(fixture_corpus: Path, tmp_pa
         for rel_path, expected_b64 in corrupted_case["output_files"].items():
             written = (tmp_path / rel_path).read_bytes()
             assert written == base64.b64decode(expected_b64), f"output mismatch for {rel_path}"
+
+
+def test_no_stored_stream_carries_a_host_path_separator() -> None:
+    """Portability guard: no captured stdout or stderr may contain a
+    backslash.
+
+    The tool prints paths via Path.as_posix(), so every path it emits is
+    forward-slash regardless of host. A backslash in a stored stream means
+    some print site interpolates a Path directly again, which silently
+    pins the manifest to the OS that captured it: the same invocation then
+    fails everywhere else with no diagnostic distinguishing "wrong host"
+    from "tool regression", and the obvious fix - regenerating - destroys
+    the recorded contract this oracle exists to hold (DL-002/DL-011).
+
+    Checked here rather than by running the suite once on another OS,
+    because a one-off run proves today while this fails on the commit that
+    reintroduces the problem.
+    """
+    offenders = [
+        (case["argv"], stream_name, line)
+        for case in _load_manifest()
+        for stream_name in ("stdout", "stderr")
+        for line in case[stream_name].splitlines()
+        if "\\" in line
+    ]
+    assert not offenders, (
+        "host path separator in stored stream(s); print the path with "
+        f"Path.as_posix() and regenerate: {offenders}"
+    )

@@ -1,0 +1,3 @@
+# The parity oracle is pinned by SHA-256 over these exact bytes; git must
+# not rewrite its line endings on checkout or commit.
+tests/baselines/manifest.json -text

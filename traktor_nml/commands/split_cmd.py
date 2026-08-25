@@ -49,7 +49,7 @@ def _handle_split(args: argparse.Namespace) -> int:
     for output_path, names in groups:
         outcome = build_output(source_text, root, names, args.dangling_policy, span_index)
         outcomes.append((output_path, outcome))
-        print(f"group_output={output_path}")
+        print(f"group_output={output_path.as_posix()}")
         for key, value in outcome.stats.items():
             print(f"  {key}={value}")
         for error in outcome.errors:
@@ -74,7 +74,7 @@ def _handle_split(args: argparse.Namespace) -> int:
             except OSError as exc:
                 print(f"output_write_error={exc}", file=sys.stderr)
                 return 2
-            print(f"output_written={output_path}")
+            print(f"output_written={output_path.as_posix()}")
     return 0
 
 

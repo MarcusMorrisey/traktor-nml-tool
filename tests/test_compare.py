@@ -150,7 +150,7 @@ def test_stdlib_branch_malformed_input_reports_xml_parse_error(tmp_path: Path, m
         ["rewrite-from-collection-compare", str(old_path), str(new_path), str(out_path)], cwd=tmp_path
     )
     assert result.exit_code == 2
-    assert f"xml_parse_error={old_path}" in result.stderr
+    assert f"xml_parse_error={old_path.as_posix()}" in result.stderr
     assert not out_path.exists()
 
 

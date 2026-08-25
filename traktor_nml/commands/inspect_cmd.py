@@ -54,7 +54,7 @@ def inspect_nml(root, limit: int, csv_path: Path | None) -> int:
             if all_rows:
                 writer.writeheader()
                 writer.writerows(all_rows)
-        print(f"csv_written={csv_path}")
+        print(f"csv_written={csv_path.as_posix()}")
 
     return 0
 
@@ -63,10 +63,10 @@ def _handle_inspect(args: argparse.Namespace) -> int:
     try:
         tree = parse_xml(args.input)
     except FileNotFoundError:
-        print(f"input_not_found={args.input}", file=sys.stderr)
+        print(f"input_not_found={args.input.as_posix()}", file=sys.stderr)
         return 2
     except XML_PARSE_ERROR as exc:
-        print(f"xml_parse_error={args.input}: {exc}", file=sys.stderr)
+        print(f"xml_parse_error={args.input.as_posix()}: {exc}", file=sys.stderr)
         return 2
     return inspect_nml(tree.getroot(), limit=args.limit, csv_path=args.csv)
 

@@ -178,10 +178,10 @@ def _handle_preview_diff(args: argparse.Namespace) -> int:
     try:
         tree = parse_xml(args.input)
     except FileNotFoundError:
-        print(f"input_not_found={args.input}", file=sys.stderr)
+        print(f"input_not_found={args.input.as_posix()}", file=sys.stderr)
         return 2
     except XML_PARSE_ERROR as exc:
-        print(f"xml_parse_error={args.input}: {exc}", file=sys.stderr)
+        print(f"xml_parse_error={args.input.as_posix()}: {exc}", file=sys.stderr)
         return 2
     try:
         rules = build_rules(args)
