@@ -160,8 +160,19 @@ A working-tree check (`git diff --exit-code tests/baselines/manifest.json`) is
 committed it, which is precisely the failure it is meant to catch. The guard must
 compare against a designated pre-refactor baseline instead.
 
-1. The task-0 commit is tagged `parity-baseline-v1` (annotated, pushed, and a
-   protected tag so it cannot be moved).
+1. The task-0 commit is tagged `parity-baseline-v1` (annotated and pushed).
+
+   **Server-side protection is unavailable on this repository.** GitHub rulesets
+   return `403 — Upgrade to GitHub Pro or make this repository public`, and the
+   legacy `/tags/protection` API has been removed (`404`). The compensating
+   control is a `pre-push` hook in `.git/hooks/` that refuses to move or delete
+   any `parity-baseline-*` tag, bypassable only with an explicit `--no-verify`.
+   It is local to one clone, so it is a speed bump against accident, not a
+   control against a determined push. That is acceptable because the tag is the
+   *secondary* guard: the authoritative pin is `PARITY_BASELINE_SHA256` below,
+   which is asserted by pytest and does not depend on the tag at all. If the repo
+   ever goes public or onto a paid plan, replace the hook with a ruleset targeting
+   `parity-baseline-*`.
 2. `tests/test_parity_baseline.py` records the baseline's content hash as a
    literal module constant:
 
@@ -177,7 +188,10 @@ compare against a designated pre-refactor baseline instead.
    path, not an accident. A CI job additionally asserts
    `git diff --quiet parity-baseline-v1 -- tests/baselines/manifest.json`, so a
    commit that edits *both* the manifest and the constant is still caught by the
-   tag comparison.
+   tag comparison. Given that the tag is only hook-protected (step 1), this CI job
+   must also verify the tag still resolves to the expected commit SHA, recorded
+   alongside the hash constant — otherwise a moved tag would move the comparison
+   with it.
 4. **Meta-test (completion condition).** Mirroring the repo's existing
    `test_deliberate_one_character_edit_fails_parity`, a test writes a
    one-character mutation of the manifest to a temp copy and asserts the guard's
