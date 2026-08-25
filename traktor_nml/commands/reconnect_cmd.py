@@ -257,8 +257,9 @@ def register(subparsers, handlers: dict) -> None:
         "--dry-run",
         action="store_true",
         help="Print stats without writing the output NML. Note: the --cache tag cache "
-        "is still written/updated during the disk scan, since it is a scan-speedup "
-        "cache and not the command's declared output.",
+        "and the --csv ambiguity report are still written, since neither is the "
+        "command's declared output - the cache is a scan speed-up and the report "
+        "is a record of what the run saw.",
     )
     add_reconnect_args(rewrite_parser)
     handlers["rewrite-from-reconnect"] = _handle_rewrite_from_reconnect

@@ -16,7 +16,14 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 
 Every command previews before writing, refuses to overwrite any of its own inputs, and reports ambiguous or dangling matches explicitly (via stats and CSV export) rather than silently guessing.
 
-`--dry-run` only suppresses writes to the command's declared output file. One exception: `rewrite-from-reconnect` (and `scan-reconnect-candidates`) still write/update their `--cache` tag-cache file (default `.traktor_nml_tagcache.json`) during the disk scan, since that cache is a scan-speedup side file, not the command's output.
+`--dry-run` suppresses the write to the command's declared **NML output file only**. Side files are still written, because each is a record of what the run saw rather than the artifact the run produces:
+
+- `rewrite-from-reconnect` and `scan-reconnect-candidates` write/update their `--cache` tag-cache file (default `.traktor_nml_tagcache.json`) during the disk scan.
+- `build-playlist` writes its `--unresolved-report` CSV.
+- `splice` writes its `--conflict-report` CSV.
+- `rewrite-from-reconnect` writes its `--csv` ambiguity report.
+
+So `--dry-run` with a report path is the supported way to review what a run *would* do without touching the collection. If you want no files written at all, omit the report and cache paths.
 
 ## Install
 

@@ -93,5 +93,5 @@ def register(subparsers, handlers: dict) -> None:
     parser.add_argument("--on-conflict", choices=["keep-first", "keep-last"], default=None)
     parser.add_argument("--match-confidence", choices=[level.value for level in MatchConfidence], default=None)
     parser.add_argument("--conflict-report", type=Path)
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--dry-run", action="store_true", help="Skip the write to the NML output file. Any report or CSV side file this command writes is still written.")
     handlers["splice"] = _handle_splice

@@ -91,5 +91,5 @@ def register(subparsers, handlers: dict) -> None:
     parser.add_argument(
         "--dangling-policy", choices=["exclude", "pull-in", "fail"], default="exclude",
     )
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--dry-run", action="store_true", help="Skip the write to the NML output file. Any report or CSV side file this command writes is still written.")
     handlers["split"] = _handle_split

@@ -250,6 +250,6 @@ def register(subparsers, handlers: dict) -> None:
     compare_rewrite_parser.add_argument("old_input", type=Path)
     compare_rewrite_parser.add_argument("new_input", type=Path)
     compare_rewrite_parser.add_argument("output", type=Path)
-    compare_rewrite_parser.add_argument("--dry-run", action="store_true")
+    compare_rewrite_parser.add_argument("--dry-run", action="store_true", help="Skip the write to the NML output file. Any report or CSV side file this command writes is still written.")
     add_confidence_args(compare_rewrite_parser)
     handlers["rewrite-from-collection-compare"] = _handle_rewrite_from_collection_compare

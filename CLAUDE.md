@@ -8,7 +8,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | ------------------------ | ------------------------------------------------------------ | ------------------------------------------------ |
 | `traktor_nml_tool.py`   | Thin argv-forwarding shim into the `traktor_nml` package    | Changing the CLI entry point itself             |
 | `README.md`             | User-facing overview, install, usage                         | Onboarding, understanding what the tool does    |
-| `TODO.md`                | Planned future work (replace-playlist, fuzzy matching, guided repair review) | Picking up or scoping a future feature          |
+| `TODO.md`                | Remaining work: replace-playlist, guided repair review, and the parts of refined fuzzy matching `discovery.py` does not already cover | Picking up or scoping a future feature          |
 | `LICENSE`                | GPL-2.0-only license text                                    | -                                                |
 | `pytest.ini`             | Pytest configuration                                          | Changing test discovery or markers              |
 | `.gitignore`             | Excludes caches, the personal collection fixture and its snapshots, tag caches, `/testing/`, the generated design bundle | Adding a new local-only artifact                |

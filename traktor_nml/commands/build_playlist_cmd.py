@@ -149,5 +149,5 @@ def register(subparsers, handlers: dict) -> None:
     )
     parser.add_argument("--allow-unmatched", action="store_true")
     parser.add_argument("--unresolved-report", type=Path, default=None)
-    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--dry-run", action="store_true", help="Skip the write to the NML output file. Any report or CSV side file this command writes is still written.")
     handlers["build-playlist"] = _handle_build_playlist

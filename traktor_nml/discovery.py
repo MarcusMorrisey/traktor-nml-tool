@@ -17,6 +17,18 @@ from .tracklist import ParsedLine
 
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 _PREFIX_RE = re.compile(r"^(?:\d{1,2}[a-z]|\d{1,3})[ _-]+", re.IGNORECASE)
+# Terms that appear in so many track names that sharing one is no evidence of
+# a match. Two groups: English function words ("a", "and", "the"), and the
+# release-vocabulary that decorates a title without identifying it ("edit",
+# "feat", "featuring", "mix", "original", "remix", "vs") plus the container
+# word "mp3" that leaks in from filenames. Left in deliberately are words that
+# LOOK generic but do identify: no genre, label or year terms, because a
+# request naming one usually means it.
+#
+# The list is conservative on purpose. Removing a term the user actually typed
+# discards signal, and this is a review workflow - a weak candidate the
+# operator rejects costs a glance, whereas a dropped term can push the right
+# file below --min-score and out of the report entirely.
 _STOP_WORDS = frozenset({"a", "and", "edit", "feat", "featuring", "mix", "mp3", "original", "remix", "the", "vs"})
 
 
@@ -80,6 +92,19 @@ def _score_candidate(line: ParsedLine, artist: str, title: str, fallback_label: 
     title_score = max(_sequence_score(line.title, title_basis), title_coverage)
     full_basis = f"{artist_basis} {title_basis}" if artist or title else fallback_label
     full_score = _sequence_score(f"{line.artist} {line.title}", full_basis)
+    # Title carries the most weight because it is the most discriminating field
+    # in a DJ library: one artist has many tracks, so a title agreement narrows
+    # far harder than an artist agreement. Artist is weighted about half as
+    # much - real value, but a whole catalogue can share it. The combined
+    # artist+title comparison gets the remainder as a tie-breaker: it is the
+    # only term that sees word ORDER across the two fields, which catches a
+    # candidate whose artist and title are transposed, but it double-counts
+    # evidence the first two terms already scored, so it stays small.
+    #
+    # These weights are hand-set for review ranking, not fitted to a labelled
+    # set. They decide the ORDER of candidates shown to an operator and, via
+    # --min-score, which fall off the report - so they change what a human
+    # sees, never what gets written. Nothing in this module writes an NML.
     return 0.30 * artist_score + 0.55 * title_score + 0.15 * full_score, artist_score, title_score
 
 

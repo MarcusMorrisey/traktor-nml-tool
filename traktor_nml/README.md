@@ -67,17 +67,24 @@ every stricter tier unreachable (DL-032).
   than a second boolean flag, because disk-scan matching's filename-only
   tier and tag-based matching's artist-title-only tier are really one
   cascade, not two independent knobs (DL-010).
-- `FILESIZE` and `PLAYTIME_FLOAT` refute a candidate; they never identify
-  one. Measured over a real 6,386-entry collection and its files, Traktor's
-  `FILESIZE` is the audio payload in KILOBYTES and sits 0.17% (median) to
-  0.41% (max) below `bytes / 1024`, because tag and artwork overhead is
-  excluded; `PLAYTIME_FLOAT` differs from what mutagen reports by up to
-  0.172s and, compared as strings, never matches at all. Exact equality
-  between the two sides is therefore impossible rather than merely
-  unreliable, so `matching.py` compares them with tolerances set well above
-  the observed maxima and uses the result only to remove an implausible
-  candidate. A too-tight bound would report a present file as missing,
-  which is worse than weaker tie-breaking (DL-040).
+- `FILESIZE` and `PLAYTIME_FLOAT` identify a candidate only when both sides
+  are Traktor-recorded, and refute one otherwise. Collection-to-collection
+  (`preview-compare`, `rewrite-from-collection-compare`) both sides carry
+  Traktor's own strings, so `artist_title_size_time` and `file_size_time`
+  remain sound identifying keys and do match - the parity baseline records
+  `matched_artist_title_size_time=1` on that path. Against a disk scan they
+  cannot: measured over a real 6,386-entry collection and its files,
+  Traktor's `FILESIZE` is the audio payload in KILOBYTES and sits 0.17%
+  (median) to 0.41% (max) below `bytes / 1024`, because tag and artwork
+  overhead is excluded, while a scanned candidate reports `st_size` in
+  bytes; `PLAYTIME_FLOAT` differs from what mutagen reports by up to 0.172s
+  and, compared as strings, never matches at all. Exact equality across
+  those two sides is impossible rather than merely unreliable, so
+  `matching.py` additionally compares them with tolerances set well above
+  the observed maxima and uses that result only to remove an implausible
+  candidate. The tolerance is loose on purpose: a too-tight bound would
+  report a present file as missing, which is worse than weaker
+  tie-breaking (DL-040).
 - The path-suffix tiers (`path_suffix_3` / `_2` at strict, `_1` at loose)
   key on a file's position within its own folders rather than its absolute
   path, so a library moved as a unit still reconnects. At three folders

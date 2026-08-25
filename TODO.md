@@ -10,10 +10,19 @@ cannot be resolved.
 
 ## Refined Fuzzy Matching
 
-Add reviewable, opt-in fuzzy matching for tracks whose tags, filenames, or
-audio identifiers have changed. Candidate matches must include an explanation
-and confidence, require explicit confirmation before writing, and never
-silently replace strict matching.
+Mostly delivered. `discovery.py`, behind `discover-tracks` and
+`discover-collection-tracks`, already provides opt-in fuzzy matching for tracks
+whose tags or filenames have changed: it is a separate subcommand so it never
+displaces strict matching, it ranks candidates by a weighted artist/title score
+with `--min-score` and `--max-candidates` controlling what is surfaced, and it
+writes a review CSV carrying the score for each candidate. It never writes an
+NML at all.
+
+What remains: the score is a ranking number, not an *explanation* - a reviewer
+sees 0.62 without seeing which terms agreed. And because discovery cannot write,
+"explicit confirmation before writing" has no counterpart yet; acting on a
+reviewed CSV is still manual. Both belong with Guided Repair Review below,
+which is where a confirmation step would live.
 
 ## Guided Repair Review
 

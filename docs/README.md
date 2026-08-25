@@ -25,6 +25,13 @@ and `2026-08-25-matching-tolerance-decisions.md` carry the decision logs
 The code has moved on from the plans' code listings, but the reasoning chains
 are the record of why the current shape was chosen.
 
+**Reconstructed, authoritative for its Decision column only.**
+`decision-log-014-023-reconstructed.md` defines DL-014..023, which were cited
+about thirty times across the package README, the CLAUDE.md indexes and the
+source but defined by no table. The Decision column states what the code
+demonstrably does; the Reasoning column is inferred from the citations and is
+not recovered deliberation.
+
 **Historical.** `traktor_nml_tool_plan.md` and
 `traktor_nml_tool_execution_plan.md` record the original Phase 1/2 design, and
 `chat_export.md` / `chat_export_full.md` export the development conversation.

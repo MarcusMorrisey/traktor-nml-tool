@@ -94,6 +94,6 @@ def register(subparsers, handlers: dict) -> None:
     parser.add_argument("collection", type=Path)
     parser.add_argument("tracklist", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--max-candidates", type=int, default=3)
-    parser.add_argument("--min-score", type=float, default=0.50)
+    parser.add_argument("--max-candidates", type=int, default=3, help="Keep at most this many candidates per track list line (default 3). Ranked best-first; raise when several plausible rips are expected.")
+    parser.add_argument("--min-score", type=float, default=0.50, help="Drop candidates scoring below this (0.0-1.0, default 0.50). The score is the weighted artist/title similarity in discovery.py, not a probability. Lower to surface more for review; raise to shorten the report.")
     handlers["discover-collection-tracks"] = _handle_discover_collection_tracks

@@ -222,5 +222,5 @@ def register(subparsers, handlers: dict) -> None:
     rewrite_parser.add_argument("output", type=Path)
     add_rule_args(rewrite_parser)
     add_multi_rule_args(rewrite_parser)
-    rewrite_parser.add_argument("--dry-run", action="store_true")
+    rewrite_parser.add_argument("--dry-run", action="store_true", help="Skip the write to the NML output file. Any report or CSV side file this command writes is still written.")
     handlers["rewrite"] = _handle_rewrite

@@ -96,6 +96,6 @@ def register(subparsers, handlers: dict) -> None:
     parser.add_argument("--scan-root", type=Path, action="append", dest="scan_roots", required=True)
     parser.add_argument("--cache", type=Path, default=Path(".traktor_nml_tagcache.json"))
     parser.add_argument("--refresh-cache", action="store_true")
-    parser.add_argument("--max-candidates", type=int, default=3)
-    parser.add_argument("--min-score", type=float, default=0.50)
+    parser.add_argument("--max-candidates", type=int, default=3, help="Keep at most this many candidates per track list line (default 3). Ranked best-first; raise when several plausible rips are expected.")
+    parser.add_argument("--min-score", type=float, default=0.50, help="Drop candidates scoring below this (0.0-1.0, default 0.50). The score is the weighted artist/title similarity in discovery.py, not a probability. Lower to surface more for review; raise to shorten the report.")
     handlers["discover-tracks"] = _handle_discover_tracks
