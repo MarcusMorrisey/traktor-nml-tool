@@ -35,10 +35,17 @@ try:
     # when fingerprint.py, pyacoustid and fpcalc are absent - --fingerprint
     # simply becomes unavailable until M-005 lands, rather than the whole
     # CLI failing to import.
-    from ..fingerprint import fingerprint_key_provider, fingerprint_unavailable_reason
+    from ..fingerprint import (
+        FPCALC_TIMEOUT_SECONDS,
+        FpcalcSession,
+        fingerprint_key_provider,
+        fingerprint_unavailable_reason,
+    )
 except ImportError:  # pragma: no cover - fingerprint tier lands in M-005
     fingerprint_key_provider = None
     fingerprint_unavailable_reason = None
+    FpcalcSession = None
+    FPCALC_TIMEOUT_SECONDS = 30.0
 
 
 class _FingerprintUnavailable(RuntimeError):
@@ -47,6 +54,15 @@ class _FingerprintUnavailable(RuntimeError):
 
 def add_reconnect_args(parser: argparse.ArgumentParser) -> None:
     add_no_refute_argument(parser)
+    parser.add_argument(
+        "--fpcalc-timeout",
+        type=float,
+        default=FPCALC_TIMEOUT_SECONDS,
+        help=f"Seconds to allow one file's fingerprint before giving up on it "
+        f"(default {FPCALC_TIMEOUT_SECONDS:g}). The file is counted as "
+        f"fingerprint_timeout and the scan continues, so one pathological "
+        f"file cannot stall a long run.",
+    )
     parser.add_argument(
         "--scan-root",
         type=Path,
@@ -143,7 +159,16 @@ def _run_reconnection(
                 "--fingerprint tier will find no matches",
                 file=sys.stderr,
             )
-        key_providers.append(fingerprint_key_provider(cache, candidates, fingerprint_stats, known_mounts))
+        # The session owns the fpcalc child, so a per-file timeout is
+        # enforceable and a caller can terminate one mid-fingerprint.
+        fpcalc_session = FpcalcSession(
+            timeout=getattr(args, "fpcalc_timeout", FPCALC_TIMEOUT_SECONDS)
+        )
+        key_providers.append(
+            fingerprint_key_provider(
+                cache, candidates, fingerprint_stats, known_mounts, fpcalc_session
+            )
+        )
 
     warn_refutation_disabled(args)
     mapping, stats, ambiguity_rows = resolve_reconnection(

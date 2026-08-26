@@ -38,7 +38,10 @@ first-found winner silently keeping the rest a secret.
 
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -96,14 +99,169 @@ NEAR_MATCH_THRESHOLD = 0.80
 TIER_NAME = "fingerprint"
 
 
-def _compute_fingerprint(path: Path) -> Optional[tuple[float, str]]:
-    if not HAS_ACOUSTID:
+# fpcalc invocation, replicating pyacoustid's own fpcalc backend exactly:
+# `fpcalc -length 120 <abspath>`, stdout piped, stderr discarded, output parsed
+# as DURATION=<float> and FINGERPRINT=<ascii> lines. The FPCALC environment
+# variable overrides the binary, as pyacoustid allows.
+#
+# Why own the child instead of calling acoustid.fingerprint_file: that helper
+# exposes neither a timeout nor a handle on the process it spawns, so a
+# cooperative cancel token checked between files cannot interrupt a call
+# already blocked inside it, and one pathological file can stall a 20-minute
+# scan indefinitely. Section 2 of the GUI plan names this as the only core
+# change in phase 1 that is not purely additive.
+#
+# One behavioural difference is deliberate and worth stating: pyacoustid
+# prefers an audioread + chromaprint-library path when both are present and
+# only falls back to fpcalc otherwise, so on such a machine this now always
+# uses fpcalc. Same algorithm, different decoder. _similarity continues to
+# call pyacoustid's compare_fingerprints unchanged.
+FPCALC_MAX_AUDIO_LENGTH = 120  # seconds; pyacoustid's MAX_AUDIO_LENGTH
+FPCALC_TIMEOUT_SECONDS = 30.0
+FPCALC_TERMINATE_GRACE_SECONDS = 5.0
+
+
+def _parse_fpcalc_output(output: bytes) -> Optional[tuple[float, str]]:
+    """DURATION and FINGERPRINT out of fpcalc's stdout, or None if either is
+    missing or malformed. Absence is not an error here: the caller counts it
+    and moves on, because one unreadable file must not stop a scan."""
+    duration: Optional[float] = None
+    fingerprint: Optional[str] = None
+    for line in output.splitlines():
+        key, separator, value = line.partition(b"=")
+        if not separator:
+            continue
+        if key == b"DURATION":
+            try:
+                duration = float(value)
+            except ValueError:
+                return None
+        elif key == b"FINGERPRINT":
+            fingerprint = value.decode("ascii", errors="replace")
+    if duration is None or fingerprint is None:
         return None
-    try:
-        duration, fp = acoustid.fingerprint_file(str(path))
-    except Exception:
-        return None
-    return float(duration), fp if isinstance(fp, str) else fp.decode("ascii")
+    return duration, fingerprint
+
+
+class FpcalcSession:
+    """Owns the fpcalc child process for one scan.
+
+    At most one child is live at a time and it is published to a slot the
+    canceller can reach, so cancelling a scan can terminate a fingerprint
+    already in progress rather than waiting for it. Section 3.5 states the
+    bound in wall-clock terms precisely because a blocked child emits no
+    callbacks: a bound counted in callbacks could never trip.
+
+    Terminating is idempotent, and once terminated the session refuses to
+    spawn anything further - otherwise a cancel racing the next file would
+    start a child nobody is left to reap.
+    """
+
+    def __init__(
+        self,
+        timeout: float = FPCALC_TIMEOUT_SECONDS,
+        grace: float = FPCALC_TERMINATE_GRACE_SECONDS,
+    ) -> None:
+        self.timeout = timeout
+        self.grace = grace
+        self._lock = threading.Lock()
+        self._child: Optional[subprocess.Popen] = None
+        self._closed = False
+
+    @property
+    def child_pid(self) -> Optional[int]:
+        """PID of the live child, or None. For tests asserting no survivor."""
+        with self._lock:
+            return self._child.pid if self._child is not None else None
+
+    def fingerprint(self, path: Path, stats: dict[str, int]) -> Optional[tuple[float, str]]:
+        stats.setdefault("fingerprint_timeout", 0)
+        stats.setdefault("fingerprint_errors", 0)
+
+        binary = os.environ.get("FPCALC", "fpcalc")
+        command = [
+            binary,
+            "-length",
+            str(FPCALC_MAX_AUDIO_LENGTH),
+            os.path.abspath(os.path.expanduser(str(path))),
+        ]
+
+        with self._lock:
+            if self._closed:
+                return None
+            try:
+                child = subprocess.Popen(
+                    command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+                )
+            except OSError:
+                stats["fingerprint_errors"] += 1
+                return None
+            self._child = child
+
+        try:
+            output, _ = child.communicate(timeout=self.timeout)
+        except subprocess.TimeoutExpired:
+            # A single pathological file must not stall the run: kill it,
+            # count it, and let the scan continue to the next one.
+            self._end(child)
+            stats["fingerprint_timeout"] += 1
+            return None
+        finally:
+            # In a finally so an exception on this path cannot orphan a child.
+            with self._lock:
+                if self._child is child:
+                    self._child = None
+
+        if child.returncode:
+            # Includes the cancel case: terminate() makes communicate() return
+            # with a non-zero status, which is not a fingerprint.
+            stats["fingerprint_errors"] += 1
+            return None
+        return _parse_fpcalc_output(output)
+
+    def terminate(self) -> None:
+        """Stop the live child, if any, and refuse to start more.
+
+        terminate() on Windows is TerminateProcess, which needs no
+        cooperation from fpcalc - it has no signal handling to rely on.
+        """
+        with self._lock:
+            self._closed = True
+            child = self._child
+        if child is not None:
+            self._end(child)
+
+    def _end(self, child: subprocess.Popen) -> None:
+        """terminate, wait out the grace period, then kill."""
+        try:
+            child.terminate()
+        except OSError:  # pragma: no cover - already gone
+            pass
+        try:
+            child.wait(timeout=self.grace)
+            return
+        except subprocess.TimeoutExpired:
+            pass
+        try:
+            child.kill()
+            child.wait(timeout=self.grace)
+        except (OSError, subprocess.TimeoutExpired):  # pragma: no cover - unkillable
+            pass
+
+
+def _compute_fingerprint(
+    path: Path,
+    session: Optional[FpcalcSession] = None,
+    stats: Optional[dict[str, int]] = None,
+) -> Optional[tuple[float, str]]:
+    """Fingerprint one file through an owned fpcalc child.
+
+    A session is created per call when none is supplied, which keeps every
+    existing caller working; a scan that wants to cancel mid-fingerprint
+    passes its own so there is a child to reach.
+    """
+    owned = session if session is not None else FpcalcSession()
+    return owned.fingerprint(path, stats if stats is not None else {})
 
 
 def _similarity(a: str, b: str, stats: dict[str, int]) -> Optional[float]:
@@ -123,7 +281,12 @@ def _similarity(a: str, b: str, stats: dict[str, int]) -> Optional[float]:
         return None
 
 
-def _cached_fingerprint(path: Path, cache: TagCache) -> Optional[tuple[float, str]]:
+def _cached_fingerprint(
+    path: Path,
+    cache: TagCache,
+    session: Optional[FpcalcSession] = None,
+    stats: Optional[dict[str, int]] = None,
+) -> Optional[tuple[float, str]]:
     try:
         file_stat = path.stat()
     except OSError:
@@ -131,7 +294,7 @@ def _cached_fingerprint(path: Path, cache: TagCache) -> Optional[tuple[float, st
     existing = cache.get(path, file_stat.st_size, file_stat.st_mtime) or {}
     if existing.get("fingerprint"):
         return float(existing["duration"]), existing["fingerprint"]
-    result = _compute_fingerprint(path)
+    result = _compute_fingerprint(path, session, stats)
     if result is not None:
         cache.put(path, file_stat.st_size, file_stat.st_mtime, {**existing, "duration": result[0], "fingerprint": result[1]})
     return result
@@ -142,6 +305,7 @@ def old_side_fingerprint(
     cache: TagCache,
     stats: dict[str, int],
     known_mounts: dict[tuple[str, str], list[Path]],
+    session: Optional[FpcalcSession] = None,
 ) -> Optional[tuple[float, str]]:
     """Fingerprint a collection record only when its recorded location
     resolves, through volume reattachment, to a readable file at scan
@@ -157,7 +321,7 @@ def old_side_fingerprint(
     if path is None:
         stats["fingerprint_unavailable_old_side"] += 1
         return None
-    result = _cached_fingerprint(path, cache)
+    result = _cached_fingerprint(path, cache, session, stats)
     if result is None:
         stats["fingerprint_unavailable_old_side"] += 1
     return result
@@ -207,6 +371,7 @@ def fingerprint_key_provider(
     candidates: list[EntryRecord],
     stats: dict[str, int],
     known_mounts: dict[tuple[str, str], list[Path]],
+    session: Optional[FpcalcSession] = None,
 ) -> KeyProvider:
     """Supply a top-tier match key for an old record when a fingerprint
     exists for both it and at least one candidate, their durations agree
@@ -222,7 +387,7 @@ def fingerprint_key_provider(
         for candidate in candidates:
             if candidate.source_path is None:
                 continue
-            fp = _cached_fingerprint(candidate.source_path, cache)
+            fp = _cached_fingerprint(candidate.source_path, cache, session, stats)
             if fp is not None:
                 candidate_fps[id(candidate)] = fp
 
@@ -242,7 +407,7 @@ def fingerprint_key_provider(
             # every candidate acoustically indistinguishable from the winner.
             return (cluster_key[id(record)],) if id(record) in cluster_key else None
 
-        old_fp = old_side_fingerprint(record, cache, stats, known_mounts)
+        old_fp = old_side_fingerprint(record, cache, stats, known_mounts, session)
         if old_fp is None:
             return None
         old_duration, old_value = old_fp

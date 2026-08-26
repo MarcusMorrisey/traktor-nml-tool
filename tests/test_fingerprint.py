@@ -321,7 +321,7 @@ def test_old_side_location_resolves_to_the_file_it_was_encoded_from(
     """
     import traktor_nml.fingerprint as fingerprint_module
 
-    def _stub_cached_fingerprint(path, cache):
+    def _stub_cached_fingerprint(path, cache, session=None, stats=None):
         return (1.0, "stub-fingerprint") if path == real_dir / "song.mp3" else None
 
     monkeypatch.setattr(fingerprint_module, "_cached_fingerprint", _stub_cached_fingerprint)
