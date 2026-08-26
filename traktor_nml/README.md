@@ -94,9 +94,15 @@ every stricter tier unreachable (DL-032).
   sides are then Traktor's own number for the same quantity (DL-040).
 - The path-suffix tiers (`path_suffix_3` at strict, `_2` and `_1` at loose)
   key on a file's position within its own folders rather than its absolute
-  path, so a library moved as a unit still reconnects. At three folders
-  deep the key is unique for 97.2% of entries in the same measured
-  collection. Without these, a disk scan against untagged files had no
+  path, so a library moved as a unit still reconnects. Depth is what sets
+  the level, measured on the same collection: three folders deep the key is
+  unique for 97.2% of entries, two folders 91.7%, one folder 87.8%. Depth
+  two is only consulted where depth three failed, and of the 235 entries
+  depth three cannot resolve it resolves 21 while colliding on 178 - one
+  automatic match per eight new adjudications, which is why it waits for
+  loose rather than sitting at the default. Its collisions are ambiguity,
+  never a wrong rewrite: every depth-two bucket holds exactly two entries
+  and a bucket above one reports rather than picks. Without these, a disk scan against untagged files had no
   reachable tier at the default confidence at all: the documented
   "degrade to filename/filesize matching" fallback was inert, because the
   `filename_size` tier it named needed `--match-confidence filename` AND a
@@ -104,6 +110,38 @@ every stricter tier unreachable (DL-032).
   rather than kept as a dead entry: sitting last in the cascade, its only
   possible effect was to break a `filename` ambiguity on a numeric
   coincidence (DL-041).
+- The built-in cascade tiers are declared once, in `matching.py`'s
+  `_CASCADE`, with each tier carrying the properties other code asks about
+  it: whether its stats key is always seeded, whether the size/duration
+  check may refute it, and whether it works without readable tags. Those
+  properties used to live in five hand-synchronised string tuples that
+  nothing checked against each other. The confidence ladder in
+  `confidence.py` stays separate because it is that module's subject, but
+  tests assert the two name the same tiers and that `record_keys` emits in
+  the table's order - so reordering the cascade without updating the table
+  fails rather than drifting.
+- Refutation can be switched off per run with `--no-refute`, on every
+  command that runs the cascade. The tolerances are calibrated against one
+  real library, so a library that breaks an assumption behind them would
+  otherwise lose correct candidates with no recourse short of editing
+  source. It is one switch and not five: exposing the individual tolerances
+  would be a configuration surface nobody can calibrate correctly, while the
+  constants at least carry the reasoning for their values. A run using it
+  warns on stderr, because ignoring the collection's own numbers can commit
+  a rewrite onto a file those numbers say is the wrong one (DL-042).
+- A candidate the check withdraws is counted as `refuted` alongside
+  `unmatched` rather than folded into it, so "found it and declined" never
+  reads as "the file is gone" - the same distinction DL-016 drew for
+  `destination_collisions` (DL-043).
+- The fingerprint tier needs three independent things - the `pyacoustid`
+  module, the `fpcalc` binary to fingerprint with, and the chromaprint
+  shared library to compare with - and any one of them missing degrades it
+  to matching nothing. `HAS_ACOUSTID` only reports the import, so
+  `fingerprint_unavailable_reason()` probes each in turn and the CLI names
+  the one that is absent. This matters more than it looks: upstream ships
+  no prebuilt shared library for any platform, so a machine with the module
+  and the binary but no library is the ordinary case rather than an edge
+  one.
 - `spans.py` builds one `SpanIndex` per source document in a single pass -
   one pre-order walk for per-tag ordinals, one token scan for opening-tag
   offsets - and it is the only mechanism that maps a parsed element to its
