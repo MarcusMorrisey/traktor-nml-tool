@@ -13,15 +13,19 @@ from ..reconnect import location_from_disk_path, resolve_reconnection
 from ..rewrite import (
     CompareEntryResolver,
     _collect_compare_patches,
-    add_no_refute_argument,
     process_non_collection_entries,
-    warn_if_refutation_disabled,
     write_nml_safely,
 )
 from ..tagcache import TagCache
 from ..volumes import VolumeIdentityError, parse_volume_map, resolve_volume_identity
 from ..xmlio import XML_PARSE_ERROR, parse_xml
-from .compare_cmd import add_confidence_args, resolve_confidence
+from ._shared_args import (
+    add_confidence_args,
+    add_no_refute_argument,
+    resolve_confidence,
+    should_refute,
+    warn_refutation_disabled,
+)
 
 try:
     # fingerprint.py is the M-005 acoustic-fingerprint key provider; it may
@@ -141,9 +145,10 @@ def _run_reconnection(
             )
         key_providers.append(fingerprint_key_provider(cache, candidates, fingerprint_stats, known_mounts))
 
+    warn_refutation_disabled(args)
     mapping, stats, ambiguity_rows = resolve_reconnection(
         old_records, candidates, confidence, key_providers,
-        refute=warn_if_refutation_disabled(args),
+        refute=should_refute(args),
     )
     stats = {**fingerprint_stats, **stats}
 

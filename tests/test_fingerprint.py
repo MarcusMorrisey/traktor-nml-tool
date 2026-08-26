@@ -77,18 +77,25 @@ requires_ffmpeg = pytest.mark.skipif(
 # spectral structure to key on - near-silence or a single steady tone
 # produces a degenerate fingerprint that would make the test meaningless.
 
-_RATE = 44100
+# 22,050 Hz is plenty: chromaprint downsamples to 11,025 Hz internally, so a
+# higher rate costs generation and encode time and buys nothing. Clips are the
+# shortest that still fingerprint stably - the suite runs on every commit and
+# this module was doubling its wall time at 44.1 kHz and 20-second clips.
+_RATE = 22050
+_CLIP_SECONDS = 8.0
 
 
-def _write_wav(path: Path, seconds: float) -> Path:
-    frames = array.array("h")
-    for n in range(int(_RATE * seconds)):
+def _write_wav(path: Path, seconds: float = _CLIP_SECONDS) -> Path:
+    count = int(_RATE * seconds)
+    frames = array.array("h", bytes(2 * count))
+    two_pi = 2 * math.pi
+    for n in range(count):
         t = n / _RATE
         rising = 200 + 3800 * (t / seconds)
-        value = 0.45 * math.sin(2 * math.pi * rising * t)
-        value += 0.25 * math.sin(2 * math.pi * (110 + 40 * math.sin(2 * math.pi * 0.25 * t)) * t)
-        value *= 0.6 + 0.4 * math.sin(2 * math.pi * 0.5 * t)
-        frames.append(int(max(-1.0, min(1.0, value)) * 30000))
+        value = 0.45 * math.sin(two_pi * rising * t)
+        value += 0.25 * math.sin(two_pi * (110 + 40 * math.sin(two_pi * 0.25 * t)) * t)
+        value *= 0.6 + 0.4 * math.sin(two_pi * 0.5 * t)
+        frames[n] = int(max(-1.0, min(1.0, value)) * 30000)
     with wave.open(str(path), "wb") as handle:
         handle.setnchannels(1)
         handle.setsampwidth(2)
@@ -168,7 +175,7 @@ def test_two_bitrate_encodings_match_by_fingerprint(tmp_path: Path) -> None:
     fingerprint tier silently stopped matching, every other test would
     still pass.
     """
-    source = _write_wav(tmp_path / "source.wav", seconds=20)
+    source = _write_wav(tmp_path / "source.wav")
     old_file = _encode(source, tmp_path / "old" / "rip_128.mp3", "128k")
     new_file = _encode(source, tmp_path / "new" / "different_name_320.mp3", "320k")
 
@@ -205,8 +212,8 @@ def test_pair_outside_duration_tolerance_never_compared(tmp_path: Path) -> None:
     """
     import traktor_nml.fingerprint as fingerprint_module
 
-    short_file = _encode(_write_wav(tmp_path / "short.wav", seconds=8), tmp_path / "old" / "a.mp3", "128k")
-    long_file = _encode(_write_wav(tmp_path / "long.wav", seconds=20), tmp_path / "new" / "b.mp3", "128k")
+    short_file = _encode(_write_wav(tmp_path / "short.wav", seconds=3), tmp_path / "old" / "a.mp3", "128k")
+    long_file = _encode(_write_wav(tmp_path / "long.wav", seconds=12), tmp_path / "new" / "b.mp3", "128k")
 
     calls: list[tuple[str, str]] = []
 
@@ -250,7 +257,7 @@ def test_comparison_unavailable_degrades_to_no_match(tmp_path: Path) -> None:
     """
     import traktor_nml.fingerprint as fingerprint_module
 
-    source = _write_wav(tmp_path / "source.wav", seconds=20)
+    source = _write_wav(tmp_path / "source.wav")
     old_file = _encode(source, tmp_path / "old" / "rip_128.mp3", "128k")
     new_file = _encode(source, tmp_path / "new" / "rip_320.mp3", "320k")
 

@@ -12,37 +12,18 @@ from ..model import collection_records
 from ..reconnect import enforce_one_to_one
 from ..rewrite import (
     _collect_compare_patches,
-    add_no_refute_argument,
     read_and_parse_source,
     rewrite_from_collection_compare,
-    warn_if_refutation_disabled,
     write_nml_safely,
 )
+from ._shared_args import (
+    add_confidence_args,
+    add_no_refute_argument,
+    resolve_confidence,
+    should_refute,
+    warn_refutation_disabled,
+)
 from ..xmlio import XML_PARSE_ERROR, parse_xml
-
-
-def add_confidence_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--match-confidence",
-        choices=[level.value for level in MatchConfidence],
-        default=None,
-        help="Match cascade confidence ladder (default: strict, or loose if "
-        "--allow-artist-title-only is given).",
-    )
-    parser.add_argument(
-        "--allow-artist-title-only",
-        action="store_true",
-        help="Deprecated alias for --match-confidence loose.",
-    )
-
-
-def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
-    """Resolve the effective MatchConfidence: an explicit
-    --match-confidence always wins; otherwise --allow-artist-title-only
-    selects loose and its absence selects strict (DL-010)."""
-    if getattr(args, "match_confidence", None):
-        return parse_match_confidence(args.match_confidence)
-    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
 
 
 def preview_compare_nml(
@@ -177,29 +158,29 @@ def _handle_preview_compare(args: argparse.Namespace) -> int:
     new_tree, error_code = _parse_input_or_none(args.new_input)
     if error_code is not None:
         return error_code
+    warn_refutation_disabled(args)
     return preview_compare_nml(
         old_tree.getroot(), new_tree.getroot(), limit=args.limit,
         confidence=resolve_confidence(args),
-        refute=warn_if_refutation_disabled(args),
+        refute=should_refute(args),
     )
 
 
 def _handle_scan_compare_candidates(args: argparse.Namespace) -> int:
+    warn_refutation_disabled(args)
     return scan_compare_candidates(
         target_path=args.target_input,
         candidates_dir=args.candidates_dir,
         limit=args.limit,
         confidence=resolve_confidence(args),
-        refute=warn_if_refutation_disabled(args),
+        refute=should_refute(args),
     )
 
 
 def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:
     confidence = resolve_confidence(args)
-    # Read once here, not inside the closures below: this command runs
-    # _collect_patches and mutate_tree over the same invocation, and the
-    # warning must print once for the run rather than once per pass.
-    refute = warn_if_refutation_disabled(args)
+    warn_refutation_disabled(args)
+    refute = should_refute(args)
 
     # Parsed once, upfront, with the same xml_parse_error/input_not_found
     # handling old_input gets inside write_nml_safely - previously each
