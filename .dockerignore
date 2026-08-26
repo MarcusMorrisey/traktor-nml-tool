@@ -1,0 +1,15 @@
+.git
+.gitignore
+.gitattributes
+.pytest_cache
+**/__pycache__
+*.pyc
+tests/
+docs/
+design/
+testing/
+# Personal collection fixture and its snapshots - real library data, never
+# copy these into an image (see .gitignore for the same rule).
+collection_textual_patch_test*.nml
+*.tagcache.json
+.traktor_nml_tagcache.json

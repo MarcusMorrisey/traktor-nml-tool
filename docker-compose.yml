@@ -1,0 +1,37 @@
+# Nothing here is a long-running service: the tool is a CLI that does one job
+# and exits, so there are no ports and no `up`. Run a subcommand with:
+#
+#   docker compose run --rm nml inspect /work/collection.nml
+#
+# THE MOUNT PATH IS LOAD-BEARING. When rewrite-from-reconnect matches a file
+# it writes that file's path back into the collection, stripping only the
+# path's anchor ("/" here, a drive letter on Windows). So the path INSIDE the
+# container must equal the path Traktor records below its own VOLUME, or the
+# rewritten collection will point at container paths that Traktor cannot open.
+#
+#   Traktor has   VOLUME="D:"  DIR="/:Music/:Techno/:"  FILE="x.mp3"
+#   volume-relative path is    Music/Techno/x.mp3
+#   so the container must see  /Music/Techno/x.mp3
+#   therefore mount the library root at /Music, not at /music or /media/music
+#
+# Preview with --dry-run and read the sample_matches lines before writing.
+
+services:
+  nml:
+    build:
+      context: .
+      args:
+        # Match the account that owns the collection file on the host, or the
+        # rewritten file comes back owned by the wrong user.
+        PUID: "${PUID:-1000}"
+        PGID: "${PGID:-1000}"
+    image: traktor-nml-tool
+    volumes:
+      # The library. Read-only: this tool never writes audio, only the .nml.
+      # Left side = where it lives on mediaserver. Right side = the
+      # volume-relative path above, and it is not free to choose.
+      - "${MUSIC_DIR:-/srv/media/Music}:/Music:ro"
+      # Working directory: the collection to repair, and any CSV reports.
+      - "${WORK_DIR:-/srv/traktor}:/work"
+    working_dir: /work
+    # No ports. No restart policy. Nothing to keep alive.

@@ -51,6 +51,36 @@ See [the package architecture guide](traktor_nml/README.md) for design
 decisions and invariants. See [the documentation index](docs/README.md) for
 project planning material and retained development context.
 
+## Running on a server (Docker)
+
+There is no web interface and nothing listens on a port — this is a CLI, so
+the container runs one subcommand and exits:
+
+```bash
+docker compose run --rm nml inspect /work/collection.nml
+```
+
+The image is worth having for one specific reason: the fingerprint tier needs
+`fpcalc` **and** the chromaprint shared library, and upstream ships no
+prebuilt shared library for any platform. Debian packages both, so the tier
+works in the container even where it is dark on the desktop.
+
+**The mount path is load-bearing.** `rewrite-from-reconnect` writes each
+matched file's path back into the collection, stripping only the path's anchor
+(`/` on Linux, a drive letter on Windows). So the path *inside* the container
+must equal the path Traktor records below its own `VOLUME`:
+
+| Traktor records | volume-relative path | container must see | so mount library root at |
+| --- | --- | --- | --- |
+| `VOLUME="D:" DIR="/:Music/:Techno/:"` | `Music/Techno/…` | `/Music/Techno/…` | `/Music` |
+
+Mounting the library at `/music` or `/media/music` instead will write those
+paths into your collection, and Traktor will not find a single track. Preview
+with `--dry-run` and read the `sample_matches` lines before writing anything.
+
+Copy `.env.example` to `.env` for host paths and `PUID`/`PGID` — the collection
+is bind-mounted and rewritten in place, so the container must own it.
+
 ## Tests
 
 ```bash

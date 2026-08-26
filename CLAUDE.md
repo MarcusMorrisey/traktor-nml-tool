@@ -13,6 +13,10 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `pytest.ini`             | Pytest configuration                                          | Changing test discovery or markers              |
 | `.gitignore`             | Excludes caches, the personal collection fixture and its snapshots, tag caches, `/testing/`, the generated design bundle | Adding a new local-only artifact                |
 | `.gitattributes`         | Pins `tests/baselines/manifest.json` to exact bytes (`-text`) | Changing how the parity manifest is stored      |
+| `Dockerfile`             | Container image for running the CLI on a machine that holds the library; installs fpcalc AND libchromaprint1 so the fingerprint tier works | Running the tool on a server, or getting the fingerprint tier working |
+| `docker-compose.yml`     | One-shot `docker compose run` wiring, with the mount-path rule the rewrite depends on | Setting up the container, choosing where to mount the library |
+| `.env.example`           | Host paths and PUID/PGID for the compose file                 | Configuring the container for a specific host   |
+| `.dockerignore`          | Keeps tests, docs and the personal collection fixture out of the image | Changing what the image contains                 |
 
 ## Subdirectories
 
