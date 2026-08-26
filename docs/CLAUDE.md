@@ -5,6 +5,7 @@
 | File                                    | What                                                              | When to read                                          |
 | ---------------------------------------- | -------------------------------------------------------------------| -------------------------------------------------------- |
 | `README.md`                              | Index and purpose of this directory's files                        | Orienting within this directory                        |
+| `handoff-reconnect-wizard.md`            | Session handoff: repo state, the pending three-reviewable-outcomes canvas change, design constraints and the real test corpus | Picking the reconnect wizard back up in a fresh session |
 | `nicegui-gui-analysis.md`                | Plan of record for a NiceGUI front end: command tiers, shared-core refactor, CLI parity tests, rollout/rollback, packaging spike | Picking up or scoping GUI work; unimplemented |
 | `2026-08-24-build-playlist-plan.md`      | Full implementation plan for the `build-playlist` feature (design, code diffs, docs) | Understanding why build-playlist is shaped the way it is |
 | `decision-log-014-023-reconstructed.md` | DL-014..023, reconstructed from their surviving citations because no original table defined them: SpanIndex, one-to-one enforcement, volume-side split, atomic writes, split isolation, multi-input refusal | Following a DL-014..023 citation, or changing SpanIndex, enforce_one_to_one, atomic writes or the input-collision rule |
