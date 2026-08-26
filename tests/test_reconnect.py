@@ -300,10 +300,21 @@ def test_size_gap_of_traktor_tag_overhead_still_matches(tmp_path: Path) -> None:
     assert _stat(result.stdout, "matched_path_suffix_3") == "1"
 
 
-def test_size_contradiction_refutes_a_same_path_candidate(tmp_path: Path) -> None:
-    """A file sitting at the right path but an order of magnitude off in
-    size is a different recording, not the entry's file. Refuting it is
-    better than reconnecting the entry to the wrong audio."""
+def test_a_size_difference_alone_does_not_refute_across_sources(tmp_path: Path) -> None:
+    """Size must never disqualify a cross-source candidate.
+
+    A DJ legitimately holds one track at wildly different sizes over time -
+    upgraded to STEMS, re-encoded to WAV for a performance, downgraded to
+    reclaim drive space. Measured over 91 same-name/different-format pairs
+    in a real collection, disk/collection size spanned 0.23x to 49.22x, so
+    any band tight enough to catch a wrong file also rejects the cases a DJ
+    creates on purpose. Duration is the format-invariant and does the
+    refuting; size only ever corroborates.
+
+    This test previously asserted the opposite - that an order-of-magnitude
+    size gap refutes - and is inverted deliberately, not relaxed to go
+    green.
+    """
     music = tmp_path / "music"
     _stub(music / "Techno" / "Artist" / "Album" / "track.mp3", kb=1)
 
@@ -319,8 +330,8 @@ def test_size_contradiction_refutes_a_same_path_candidate(tmp_path: Path) -> Non
         cwd=tmp_path,
     )
     assert result.exit_code == 0
-    assert _stat(result.stdout, "matched") == "0"
-    assert _stat(result.stdout, "unmatched") == "1"
+    assert _stat(result.stdout, "matched") == "1"
+    assert _stat(result.stdout, "refuted") == "0"
 
 
 def test_refuting_one_of_two_candidates_resolves_the_ambiguity(tmp_path: Path) -> None:
@@ -452,28 +463,26 @@ def test_a_scanned_file_carries_kilobytes_not_bytes(tmp_path: Path) -> None:
     assert records[0].filesize == "5000", "scanned size must be kilobytes"
 
 
-def test_size_refutation_agrees_across_the_two_sources(tmp_path: Path) -> None:
-    """End-to-end: a collection entry and the real file behind it must not
-    refute each other, and a file 1024x the size must."""
+def test_size_is_compared_in_one_unit_across_the_two_sources(tmp_path: Path) -> None:
+    """The unit contract, now expressed through corroboration.
+
+    Size no longer refutes across sources, so the guard for the original
+    kilobytes-versus-bytes bug moved to _size_agrees: the collection entry
+    and the real file behind it must be recognised as the same size, and a
+    figure 1024x off must not be.
+    """
     from traktor_nml.diskscan import index_scan_roots
-    from traktor_nml.matching import _refutes
+    from traktor_nml.matching import _Claims, _size_agrees
     from traktor_nml.tagcache import TagCache
 
     audio = tmp_path / "audio"
     audio.mkdir()
-    (audio / "track.mp3").write_bytes(b"\x00" * (5000 * 1024))
+    (audio / "track.mp3").write_bytes(bytes(5000 * 1024))
     scanned = index_scan_roots([audio], TagCache(tmp_path / "cache.json"))[0]
 
-    assert _refutes(_record(filesize="5000"), scanned) is False
+    assert _size_agrees(_Claims(_record(filesize="5000")), scanned) is True
     # The pre-fix bug read the same file as 5,120,000 KB.
-    assert _refutes(_record(filesize=str(5000 * 1024)), scanned) is True
-
-
-# --- regressions from the code review of the refutation filter ------------
-#
-# Each of these reproduces a case where the first cut of _refutes rejected a
-# correct candidate, or accepted a wrong one, because its bounds were fitted
-# to a single collection's files rather than to the formats.
+    assert _size_agrees(_Claims(_record(filesize=str(5000 * 1024))), scanned) is False
 
 
 def test_size_never_vetoes_an_audio_id_match() -> None:

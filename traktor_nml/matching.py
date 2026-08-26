@@ -204,12 +204,12 @@ class _Claims:
 
 
 def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
-    """True when size or duration positively contradict the candidate.
+    """True when duration positively contradicts the candidate.
 
     Absent data never refutes: a candidate whose tags could not be read is
-    left for the tier keys to judge rather than silently discarded. Nor does
-    a difference the comparison cannot attribute - see the calibration note
-    above for why the cross-source bands are factor-wide.
+    left for the tier keys to judge rather than silently discarded. Size
+    refutes only when both sides come from the same source; across sources
+    it is corroboration only, for the reasons set out below.
     """
     new = _Claims(candidate)
     # Only when one side is disk-derived and the other is not do the two
@@ -221,21 +221,29 @@ def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
     # real value is a contradiction, not missing data. Only the two-zero
     # case is skipped, which would otherwise divide by zero.
     old_kb, new_kb = old.size_kb, new.size_kb
-    if old_kb is not None and new_kb is not None and max(old_kb, new_kb) > 0:
-        if cross:
-            # Symmetric, and deliberately so. An earlier note here claimed
-            # the band was asymmetric because overhead "only ever makes the
-            # file on disk BIGGER" - the constants were never asymmetric,
-            # and the premise does not hold either: measured over 150 files
-            # of one collection, disk_kb/FILESIZE spans 0.9988 to 1.0041,
-            # i.e. under 0.5% in BOTH directions. Artwork can be stripped
-            # after import as easily as added, so neither side is the safe
-            # one to tighten, and the band stays wide in both.
-            if old_kb <= 0 or not (
-                _CROSS_SIZE_MIN_FACTOR <= new_kb / old_kb <= _CROSS_SIZE_MAX_FACTOR
-            ):
-                return True
-        elif abs(old_kb - new_kb) / max(old_kb, new_kb) > _SIZE_REL_TOLERANCE:
+    if not cross and old_kb is not None and new_kb is not None and max(old_kb, new_kb) > 0:
+        # SAME-SOURCE ONLY. Both sides are then Traktor's own figure for the
+        # same quantity, so a real difference means a genuinely different
+        # file.
+        #
+        # Cross-source, size deliberately does NOT refute at all. A DJ's
+        # library legitimately holds the same track at many sizes over time:
+        # upgraded to STEMS, re-encoded to WAV for a performance, downgraded
+        # to reclaim drive space. Measured over 91 same-name/different-format
+        # pairs in a real collection, disk/collection size spans 0.23x to
+        # 49.22x - a 0.23x downgrade and a 4.44x WAV upgrade both sat outside
+        # the factor band this check used to apply, so it silently rejected
+        # exactly the cases a DJ creates on purpose. Size disagreement
+        # carries almost no negative information.
+        #
+        # Duration is the format-invariant: a transcode preserves length and
+        # changes bytes. Over those same 91 pairs it differs by a median of
+        # 0.110s (p95 0.171s), while a genuinely different recording stood
+        # out at 3,087s. So duration refutes and size does not.
+        #
+        # Size still earns its keep as POSITIVE evidence - see
+        # _size_agrees, which breaks ambiguity rather than creating it.
+        if abs(old_kb - new_kb) / max(old_kb, new_kb) > _SIZE_REL_TOLERANCE:
             return True
 
     old_s, new_s = old.seconds, new.seconds
@@ -249,6 +257,22 @@ def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
             return True
 
     return False
+
+
+def _size_agrees(old: _Claims, candidate: EntryRecord) -> bool:
+    """True when both sides report effectively the same size.
+
+    The positive half of the rule above. Size cannot refute across sources,
+    but agreement to within a fraction of a percent is strong evidence that
+    two files are the same bytes rather than the same track in a different
+    encoding - so it is used to settle an ambiguity a tier could not settle
+    alone, never to discard a candidate.
+    """
+    new = _Claims(candidate)
+    old_kb, new_kb = old.size_kb, new.size_kb
+    if old_kb is None or new_kb is None or max(old_kb, new_kb) <= 0:
+        return False
+    return abs(old_kb - new_kb) / max(old_kb, new_kb) <= _SIZE_REL_TOLERANCE
 
 
 def _refutes(old_record: EntryRecord, candidate: EntryRecord) -> bool:
@@ -509,6 +533,17 @@ def match_records(
                 if len(kept) != len(candidates):
                     refuted_here = True
                 candidates = kept
+            if len(candidates) > 1:
+                # Size as POSITIVE evidence, the only role it has across
+                # sources: when a tier cannot separate its candidates on its
+                # own, one whose size agrees to within a fraction of a
+                # percent is very likely the same bytes, while the others
+                # are at best the same track re-encoded. Applied only when
+                # exactly one agrees - two agreeing, or none, leaves the
+                # ambiguity for the operator rather than inventing a winner.
+                agreeing = [c for c in candidates if _size_agrees(old_claims, c)]
+                if len(agreeing) == 1:
+                    candidates = agreeing
             if len(candidates) == 1:
                 matched_new = candidates[0]
                 matched_by = key_name
