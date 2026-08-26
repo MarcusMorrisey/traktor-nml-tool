@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -685,3 +686,46 @@ def test_every_matching_command_accepts_no_refute(tmp_path: Path, argv: list[str
     # exit 2 would mean argparse rejected the flag outright.
     assert result.exit_code == 0, result.stderr
     assert "refutation_disabled=" in result.stderr
+
+
+def test_capitalisation_alone_does_not_lose_a_match() -> None:
+    """A name differing only in case denotes the same file on Windows and
+    macOS, so the cascade must not manufacture a difference the filesystem
+    does not have.
+
+    The pairs below are real: measured against a 6,412-entry collection and
+    its 46,295 files, these were among eight otherwise-perfect matches lost
+    to capitalisation alone before the keys were folded.
+    """
+    from traktor_nml.matching import match_records
+
+    real_pairs = (
+        ("4B_136_We Like to Party! (The Vengabus)_Vengaboys.mp3",
+         "4B_136_We like to Party! (The Vengabus)_Vengaboys.mp3"),
+        ("9A_125_Into The Future (Feat. Hang Massive)_Future Frequency.mp3",
+         "9A_125_Into The Future (feat. Hang Massive)_Future Frequency.mp3"),
+        ("4A_134_Madness in the Method_Medjula.mp3",
+         "4A_134_Madness in the Method_MeDJula.mp3"),
+    )
+    for collection_name, disk_name in real_pairs:
+        old = _record(dir_value="/:Techno/:Sets/:2025/:")
+        old = replace(old, file_name=collection_name,
+                      location=replace(old.location, file_name=collection_name))
+        disk = _record(dir_value="/:Techno/:Sets/:2025/:", from_disk=True)
+        disk = replace(disk, file_name=disk_name,
+                       location=replace(disk.location, file_name=disk_name))
+
+        _, stats, _ = match_records([old], [disk], MatchConfidence.STRICT)
+        assert stats["matched"] == 1, f"case difference lost the match: {collection_name!r}"
+
+
+def test_audio_id_is_not_case_folded() -> None:
+    """AUDIO_ID is base64, where case is significant: folding it would merge
+    genuinely distinct identities into one bucket."""
+    from traktor_nml.matching import record_keys
+
+    upper = _record(audio_id="AbCdEf")
+    lower = _record(audio_id="abcdef")
+    keys_upper = dict(record_keys(upper, MatchConfidence.STRICT))
+    keys_lower = dict(record_keys(lower, MatchConfidence.STRICT))
+    assert keys_upper["audio_id"] != keys_lower["audio_id"]

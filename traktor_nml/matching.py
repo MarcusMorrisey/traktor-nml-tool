@@ -277,12 +277,43 @@ def _path_suffix_from(parts: tuple[str, ...], file_name: str, depth: int) -> Opt
     """
     if len(parts) < depth or not file_name:
         return None
-    return parts[len(parts) - depth:] + (file_name,)
+    # Folded like every other key component: a folder renamed only in
+    # capitalisation is the same folder to the filesystem (see _fold).
+    return tuple(_fold(part) for part in parts[len(parts) - depth:]) + (_fold(file_name),)
 
 
 def _path_suffix(record: EntryRecord, depth: int) -> Optional[tuple[str, ...]]:
     """Single-record form, for callers outside record_keys."""
     return _path_suffix_from(_folder_parts(record), record.file_name, depth)
+
+
+def _fold(value: str) -> str:
+    """Casefold one key component for comparison.
+
+    Every tier below keys on text drawn from two independent sources - a
+    collection's ARTIST/TITLE attributes and a file's tags or path - and
+    the same track routinely differs between them only in capitalisation:
+    measured on a real 6,412-entry collection, eight otherwise-perfect
+    matches were lost to exactly that (Medjula/MeDJula,
+    "We Like to Party"/"We like to Party", McNAiR/MCNAiR). Windows and
+    macOS filesystems are case-insensitive, so those name pairs denote the
+    SAME file; comparing them byte-for-byte manufactures a difference the
+    filesystem does not have.
+
+    casefold rather than lower, because it implements full Unicode case
+    folding and so matches the case-insensitivity macOS actually applies.
+
+    Folding is safe here because record_keys' output is only ever compared
+    against other record_keys output - nothing downstream reads a key back
+    as a display value. AUDIO_ID is deliberately NOT folded: it is
+    base64, where case is significant, and folding it would merge
+    genuinely distinct identities.
+
+    The failure this can introduce is the safe one: two different tracks
+    differing only in case now collide into an ambiguity the operator
+    adjudicates, rather than one silently winning.
+    """
+    return value.casefold()
 
 
 def record_keys(
@@ -308,18 +339,18 @@ def record_keys(
         keys.append(
             (
                 "artist_title_size_time",
-                (record.artist, record.title, record.filesize, record.playtime_float),
+                (_fold(record.artist), _fold(record.title), record.filesize, record.playtime_float),
             )
         )
     if confidence.admits("artist_title_file") and record.artist and record.title and record.file_name:
-        keys.append(("artist_title_file", (record.artist, record.title, record.file_name)))
+        keys.append(("artist_title_file", (_fold(record.artist), _fold(record.title), _fold(record.file_name))))
     if (
         confidence.admits("file_size_time")
         and record.file_name
         and record.filesize
         and record.playtime_float
     ):
-        keys.append(("file_size_time", (record.file_name, record.filesize, record.playtime_float)))
+        keys.append(("file_size_time", (_fold(record.file_name), record.filesize, record.playtime_float)))
     if (
         confidence.admits("artist_title_album_time")
         and record.artist
@@ -330,7 +361,7 @@ def record_keys(
         keys.append(
             (
                 "artist_title_album_time",
-                (record.artist, record.title, record.album, record.playtime_float),
+                (_fold(record.artist), _fold(record.title), _fold(record.album), record.playtime_float),
             )
         )
     # Decoded once and sliced three times: the depths are nested, and each
@@ -348,7 +379,7 @@ def record_keys(
     _suffix_key(3)
     _suffix_key(2)
     if confidence.admits("artist_title") and record.artist and record.title:
-        keys.append(("artist_title", (record.artist, record.title)))
+        keys.append(("artist_title", (_fold(record.artist), _fold(record.title))))
     # Depth 1 is emitted BELOW artist_title, not with the other two, because
     # a single folder plus filename is weaker evidence than agreeing artist
     # and title. The cascade is ordered by strength, so the split is the
@@ -356,7 +387,7 @@ def record_keys(
     # sequence.
     _suffix_key(1)
     if confidence.admits("filename") and record.file_name:
-        keys.append(("filename", (record.file_name,)))
+        keys.append(("filename", (_fold(record.file_name),)))
     # There is deliberately no filename_size tier. It keyed on the raw
     # FILESIZE string from both sides, which measure different quantities in
     # different units (Traktor: kilobytes of audio payload; a disk scan:
