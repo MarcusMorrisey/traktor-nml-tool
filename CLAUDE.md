@@ -26,6 +26,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `tests/`       | Pytest suite, fixtures, and baseline-parity corpus | Adding or changing tests                               |
 | `docs/`        | Retained planning material and development context | Looking up why a past design decision was made         |
 | `design/`      | Design briefs and canvas sources for the unimplemented GUI | Working on the GUI's visual or interaction design       |
+| `spike/`       | Time-boxed experiments and what they found; not part of the build | Deciding whether a packaging or deployment approach was already tried |
 
 ## Build
 

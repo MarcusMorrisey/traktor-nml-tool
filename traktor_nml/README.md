@@ -83,18 +83,40 @@ every stricter tier unreachable (DL-032).
   is part of why DL-042 stopped fitting bounds to them); `PLAYTIME_FLOAT` differs from what mutagen reports by up to 0.172s
   and, compared as strings, never matches at all. Exact equality across
   those two sides is impossible rather than merely unreliable, so
-  `matching.py` additionally compares them and uses that result only to
-  remove an implausible candidate. Cross-source it compares by wide FACTOR
-  bands, not by the measured maxima: those maxima are properties of one
-  library's files, not of the formats. Tag and artwork overhead is additive
-  and unbounded, so a 500 KB cover image on a 5,000 KB track is a 9% gap;
-  mutagen's duration is exact only with a Xing/VBRI header and otherwise
-  drifts by a percentage of track length. Bands wide enough to absorb both
-  still separate a 30-second preview from a six-minute track. The
-  `audio_id` tier is exempt outright - a content-derived identity outranks
-  an approximate size, so re-encoding a track to lossless does not lose it.
-  Same-source (collection vs collection) keeps the tight bounds, since both
-  sides are then Traktor's own number for the same quantity (DL-040).
+  `matching.py` additionally compares them, and what it does with the
+  result differs by quantity, because the two behave differently under a
+  change of encoding.
+
+  DURATION is the format-invariant: a transcode preserves length and
+  changes bytes. It therefore refutes - a candidate whose length
+  contradicts the collection's is removed. Cross-source the allowance is
+  relative rather than a fixed offset, because mutagen's figure is exact
+  only with a Xing/VBRI header and otherwise drifts by a percentage of
+  track length.
+
+  SIZE does not refute across sources at all, and that is deliberate. A
+  DJ's library holds one track in several encodings across its life, on
+  purpose: upgraded to STEMS, re-encoded to WAV for a performance,
+  downgraded to reclaim drive space. Measured over 91
+  same-name/different-format pairs in the 6,412-entry fixture and its
+  files, disk-to-collection size spans 0.23x to 49.22x - a 0.23x
+  space-saving downgrade and a 4.44x WAV upgrade both sat outside the
+  factor band an earlier cut applied, so that band was rejecting exactly
+  the cases a DJ creates deliberately. Size disagreement carries almost no
+  negative information.
+
+  Size keeps the POSITIVE half of the role. When a tier yields several
+  candidates and cannot separate them, one whose size agrees to within a
+  fraction of a percent is very likely the same bytes while the others are
+  the same track re-encoded, so it wins the tie. Applied only when exactly
+  one agrees: two agreeing, or none, leaves the ambiguity for the operator
+  rather than inventing a winner.
+
+  The `audio_id` tier is exempt from refutation outright - a
+  content-derived identity outranks an approximate duration. Same-source
+  (collection vs collection) keeps size refutation and its tight bound,
+  since both sides are then Traktor's own number for the same quantity
+  (DL-040).
 - The path-suffix tiers (`path_suffix_3` at strict, `_2` and `_1` at loose)
   key on a file's position within its own folders rather than its absolute
   path, so a library moved as a unit still reconnects. Depth is what sets
@@ -126,14 +148,51 @@ every stricter tier unreachable (DL-032).
   the table's order - so reordering the cascade without updating the table
   fails rather than drifting.
 - Refutation can be switched off per run with `--no-refute`, on every
-  command that runs the cascade. The tolerances are calibrated against one
-  real library, so a library that breaks an assumption behind them would
-  otherwise lose correct candidates with no recourse short of editing
-  source. It is one switch and not five: exposing the individual tolerances
+  command that runs the cascade. The duration allowance is calibrated
+  against one real library, so a library that breaks an assumption behind
+  it would otherwise lose correct candidates with no recourse short of
+  editing source. It is one switch and not five: exposing the individual tolerances
   would be a configuration surface nobody can calibrate correctly, while the
   constants at least carry the reasoning for their values. A run using it
   warns on stderr, because ignoring the collection's own numbers can commit
   a rewrite onto a file those numbers say is the wrong one (DL-042).
+- Every text key component is casefolded before comparison: artist, title,
+  album, file name, and path-suffix folder names. Windows and macOS
+  filesystems are case-insensitive, so two names differing only in
+  capitalisation denote the SAME file, and comparing them byte-for-byte
+  manufactures a difference the filesystem does not have - measured on the
+  6,412-entry fixture and its files, eight otherwise-perfect matches were
+  lost to exactly that (Medjula/MeDJula, "We Like to Party"/"We like to
+  Party", McNAiR/MCNAiR). `casefold` rather than `lower`, because it
+  applies full Unicode case folding and so matches what macOS actually
+  implements. `AUDIO_ID` is deliberately NOT folded: it is base64, where
+  case is significant, and folding it would merge distinct identities into
+  one bucket. Folding is safe because `record_keys`' output is only ever
+  compared against other `record_keys` output; nothing downstream reads a
+  key back as a display value. The failure it can introduce is the safe
+  one - two different tracks differing only in case collide into an
+  ambiguity the operator adjudicates, rather than one silently winning
+  (DL-044).
+- `bare_name_in_folder` (loose) and `bare_name` (filename) key on the file
+  name with its container format stripped, the `.stem` infix included -
+  Traktor names stem files `track.stem.m4a`, and without stripping that an
+  upgrade reduces to `track.stem` and still misses. They exist because a
+  re-encode REPLACES the file rather than moving it, so every tier keying
+  on the name as written - `filename`, and the path suffixes, which end in
+  it - stops matching and the entry reads as though the track were gone.
+  Measured on the 6,412-entry fixture's real counterpart, 61 stem upgrades
+  whose replacement sat on the same drive matched at NO confidence level
+  at all: not refuted, never found. Levels follow the same evidence
+  standard as the path suffixes rather than the desired outcome -
+  `bare_name_in_folder` is strictly weaker than `path_suffix_2`, which sits
+  at loose after its own uniqueness measurement, so it goes to loose too;
+  promoting it to strict so that stem upgrades match by default would have
+  contradicted that precedent. `bare_name` drops the folder as well and
+  reaches filename level only: one real library holds 208 files named
+  `vocals` and 176 named `drums` from stem-extraction folders. These tiers
+  are only reachable because DL-040 stopped size refuting across sources -
+  a re-encode runs 0.23x to 49x the original, so the earlier band would
+  have found these candidates and then discarded them (DL-045).
 - A candidate the check withdraws is counted as `refuted` alongside
   `unmatched` rather than folded into it, so "found it and declined" never
   reads as "the file is gone" - the same distinction DL-016 drew for
