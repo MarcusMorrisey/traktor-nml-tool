@@ -25,6 +25,16 @@ first-found winner silently keeping the rest a secret.
 # HAS_ACOUSTID gates every entry point in this module, including ones
 # that do not mention it by name below, so importing this module never
 # requires the fpcalc binary to be installed.
+#
+# It is an IMPORT check, not a capability check. The tier needs three
+# things - this module, the fpcalc binary to fingerprint with, and the
+# chromaprint shared library to compare with - and HAS_ACOUSTID only sees
+# the first. With fpcalc absent, _compute_fingerprint returns None and the
+# tier is silently dark; with the shared library absent (the standalone
+# fpcalc build does not ship it), fingerprinting works but every compare
+# raises, which _similarity converts to "cannot compare" and counts in
+# fingerprint_compare_errors. Both degrade to matching nothing rather than
+# matching wrongly, but neither is visible in HAS_ACOUSTID.
 
 from __future__ import annotations
 

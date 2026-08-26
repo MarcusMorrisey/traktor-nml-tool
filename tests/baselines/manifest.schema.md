@@ -58,8 +58,13 @@ failure would be invisible in `git diff`.
 Recorded so an absence is not mistaken for a guarantee:
 
 - **The acoustic-fingerprint tier is unpinned.** `HAS_ACOUSTID` gates on
-  importing the `acoustid` module, not on the `fpcalc` binary, so a stub
-  binary on PATH leaves the tier dark. Pinning it would put a third-party
+  importing the `acoustid` module alone, but the tier needs THREE things:
+  the module, the `fpcalc` binary (to fingerprint), and the chromaprint
+  shared library (to compare - the standalone fpcalc build does not ship
+  it). With the module present and either of the other two missing,
+  `HAS_ACOUSTID` still reports True and the tier matches nothing;
+  `tests/test_fingerprint.py` probes each dependency separately rather
+  than trusting the flag. Pinning it would put a third-party
   dependency behind the oracle, so no baseline to date covers it. The
   commit that gives the scan its own `fpcalc` subprocess must add a case
   under a reviewed re-tag of its own.
