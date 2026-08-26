@@ -13,13 +13,6 @@ statement in it is still true.
 
 ## Standing of each document
 
-**Current, and perishable.** `handoff-reconnect-wizard.md` carries what a fresh
-session needs that the repo does not record: the pending canvas change, the
-location of the real test corpus, and the last full scan's numbers. Unlike every
-other document here it describes a moment rather than a decision, so treat its
-repo-state facts as stale on sight and re-check them; its pointers into the
-decision logs stay good.
-
 **Plan of record, not yet implemented.** `nicegui-gui-analysis.md` describes a
 NiceGUI front end: command tier classification, the shared-core refactor and its
 CLI parity test strategy, rollout/rollback, and a blocking packaging spike. It

@@ -10,6 +10,13 @@ because the files moved.
 Not implemented. This is the design the GUI is built against, not a record of
 what exists.
 
+The canvas is published at
+<https://claude.ai/code/artifact/39e2990e-499e-4614-b04b-91fac131f8c6>.
+Edit the sources here and re-seed - the regenerate command is in
+[CLAUDE.md](CLAUDE.md) - then republish to that same url with
+`contract: "0.1.31"` and no `capabilities`. The generated bundle is
+gitignored; only the sources are committed.
+
 ## Architecture
 
 Each `.dc.html` is one screen and `canvas.json` lays them out; the file index is
