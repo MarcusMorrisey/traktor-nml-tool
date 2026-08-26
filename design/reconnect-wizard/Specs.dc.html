@@ -10,9 +10,9 @@
   <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 *{box-sizing:border-box}
-body{margin:0;width:1280px;height:1100px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+body{margin:0;width:1280px;height:1880px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:underline}
-.app{display:grid;grid-template-rows:56px 1fr;height:1100px}
+.app{display:grid;grid-template-rows:56px 1fr;height:1880px}
 .hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
 .hd-l{display:flex;align-items:center;gap:12px}
 .brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em}
@@ -94,12 +94,57 @@ main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap
             <div class="kr"><span class="k"><span class="kbd">1</span>–<span class="kbd">9</span></span><span class="d">Pick that candidate file. Picking is not accepting.</span></div>
             <div class="kr"><span class="k"><span class="kbd">⇧</span><span class="kbd">↑</span><span class="kbd">↓</span></span><span class="d">Extend the selection for a bulk decision</span></div>
             <div class="kr"><span class="k"><span class="kbd">/</span></span><span class="d">Jump to search</span></div>
-            <div class="kr"><span class="k"><span class="kbd">Alt</span><span class="kbd">1</span>–<span class="kbd">5</span></span><span class="d">Switch filter</span></div>
+            <div class="kr"><span class="k"><span class="kbd">Alt</span><span class="kbd">1</span>–<span class="kbd">7</span></span><span class="d">Switch filter</span></div>
 
             <span class="g">Dialogs</span>
             <div class="kr"><span class="k"><span class="kbd">Esc</span></span><span class="d">Always the safe choice — keep scanning, cancel the write</span></div>
             <div class="kr"><span class="k"><span class="kbd">↵</span></span><span class="d"><b style="color:#F5D96B">Never writes.</b> Focus opens on the safe button; writing needs a deliberate move to it</span></div>
           </div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Status &mdash; what the row wants from you</h2><span class="lbl">Six, not four</span></div>
+        <div class="sec-b" style="gap:0;padding-top:6px">
+          <div class="tok" style="grid-template-columns:112px 74px 1fr">
+            <span class="g" style="color:#4FD3BA"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>Found</span>
+            <span class="c">matched</span>
+            <span class="d">Strong match, applied without asking. Auditable, and rejectable.</span>
+          </div>
+          <div class="tok" style="grid-template-columns:112px 74px 1fr">
+            <span class="g" style="color:#F5D96B"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
+            <span class="c">ambiguous</span>
+            <span class="d">More than one candidate, or one that is not close enough to trust.</span>
+          </div>
+          <div class="tok" style="grid-template-columns:112px 74px 1fr">
+            <span class="g" style="color:#F5D96B"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M4.4 11.6L11.6 4.4"/></svg>Refuted</span>
+            <span class="c">refuted</span>
+            <span class="d">A candidate was found and then withdrawn, because the duration contradicts. <strong style="color:#E8EBED">In the queue by default.</strong></span>
+          </div>
+          <div class="tok" style="grid-template-columns:112px 74px 1fr">
+            <span class="g" style="color:#F5D96B"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>Re-encoded</span>
+            <span class="c">format</span>
+            <span class="d">Same track, different container. The file was replaced rather than moved.</span>
+          </div>
+          <div class="tok" style="grid-template-columns:112px 74px 1fr">
+            <span class="g" style="color:#E8956E"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>Left missing</span>
+            <span class="c">rejected</span>
+            <span class="d">You looked and said no. Reversible until the write.</span>
+          </div>
+          <div class="tok" style="grid-template-columns:112px 74px 1fr">
+            <span class="g faint"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2.6 8h10.8"/><circle cx="8" cy="8" r="6.4" stroke-dasharray="2.4 2.2"/></svg>Not found</span>
+            <span class="c">no_match</span>
+            <span class="d">Nothing plausible was found. Read-only unless you scan more folders.</span>
+          </div>
+          <p class="p" style="margin-top:11px"><strong>Colour says what the row wants; icon and word say which question it is asking.</strong> The three review statuses share one hue on purpose &mdash; yellow means a decision is outstanding &mdash; and are told apart by a distinct icon silhouette and the written word, both carried in the first column. <strong>Refuted and re-encoded therefore add no colour</strong>, so the measured palette opposite stands unchanged rather than needing to be simulated again.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Re-encodes are found, not asked for</h2></div>
+        <div class="sec-b">
+          <p class="p">A re-encode <strong>replaces</strong> the file rather than moving it, so every tier keying on the name as written stops matching and the track reads as gone. The two tiers that strip the container sit at <span class="mono" style="font-size:11px">loose</span> and <span class="mono" style="font-size:11px">filename</span>, levelled on the evidence they carry rather than on the outcome anyone wants: one is strictly weaker than a two-folder path suffix, which sits at loose on its own measurement.</p>
+          <p class="p"><strong>The wizard runs those tiers and surfaces the result as review.</strong> It does not require the operator to know that a <span class="mono" style="font-size:11px">--match-confidence</span> flag exists, and it does not promote the tiers to strict to dodge the question. Duration still refutes at loose, which is what keeps them safe; size does not, because the same track legitimately runs 0.23&times; to 49&times; across formats.</p>
         </div>
       </section>
     </div>
@@ -165,7 +210,9 @@ main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap
       <section class="sec">
         <div class="sec-h"><h2 class="sec-t">Filters</h2><span class="lbl">Counts always visible</span></div>
         <div class="sec-b" style="gap:0;padding-top:6px">
-          <div class="filt"><span class="n">Needs review</span><span class="d">Good and Weak matches. <strong style="color:#E8EBED">The default</strong> — it is the only list that wants anything from you.</span></div>
+          <div class="filt"><span class="n">Needs review</span><span class="d">Good and Weak matches with nothing contradicting. Shown by default, alongside Refuted and Re-encoded.</span></div>
+          <div class="filt"><span class="n">Refuted</span><span class="d">Found, then withdrawn on a contradicting duration. <strong style="color:#E8EBED">In the default view</strong> &mdash; a withdrawn candidate is not a missing file.</span></div>
+          <div class="filt"><span class="n">Re-encoded</span><span class="d">Matched with the container stripped. The decision is whether to change the track&rsquo;s format.</span></div>
           <div class="filt"><span class="n">Not found</span><span class="d">No candidate at all. Read-only unless you add folders and scan again.</span></div>
           <div class="filt"><span class="n">Accepted</span><span class="d">What you have said yes to. Reversible until the write.</span></div>
           <div class="filt"><span class="n">Rejected</span><span class="d">What you have chosen to leave missing. Also reversible.</span></div>
@@ -187,6 +234,7 @@ main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap
           </div>
           <ul class="ul" style="margin-top:2px">
             <li><span class="dot"></span><span><b>Picking a candidate is not accepting.</b> <span class="kbd">1</span>–<span class="kbd">9</span> changes which file is proposed; the row stays undecided until you accept it.</span></li>
+            <li><span class="dot"></span><span><b>A refuted candidate accepts like any other.</b> No confirmation on top, no second dialog: the detail panel already names the contradicting field and quantifies it, and a click the operator learns to dismiss teaches nothing.</span></li>
             <li><span class="dot"></span><span><b>Automatic matches can be rejected too.</b> A wrong Strong match is demoted to left-missing like any other.</span></li>
             <li><span class="dot"></span><span><b>Undecided is a valid ending.</b> It is not an error, it does not block the write, and it leaves the track exactly as it is today.</span></li>
             <li><span class="dot"></span><span><b>Decisions survive re-filtering and searching</b>, and are only frozen when the collection is written.</span></li>
@@ -203,6 +251,7 @@ main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap
             <li><span class="dot"></span><span><b>Undecided</b> — you did not get to it.</span></li>
             <li><span class="dot"></span><span><b>Not found</b> — there was nothing to decide.</span></li>
           </ul>
+          <p class="p">Two <strong>resolutions</strong> are counted apart from an ordinary accept for the same reason, because they are not the same decision: accepting a <strong>refuted</strong> candidate overrides a positive contradiction, and accepting a <strong>re-encode</strong> changes the track&rsquo;s format in Traktor. Each gets its own line before the write.</p>
           <p class="p">All three are counted separately in the pre-write summary, written to the CSV with their reason, and described the same way: <strong>left exactly as it is today</strong>. None of them is presented as a failure.</p>
         </div>
       </section>
@@ -212,7 +261,7 @@ main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap
         <div class="sec-b">
           <ul class="ul">
             <li><span class="dot"></span><span><b>Focus ring</b> 2px solid on the light foreground, 2px offset, on every focusable control. Never removed, never colour-only — it changes the outline, not the fill.</span></li>
-            <li><span class="dot"></span><span><b>Announcements</b> use a polite live region: progress at most every 2 seconds ("4,212 of 12,542"), and each decision as it happens ("Bar A Thym accepted — 413 of 1,204 done").</span></li>
+            <li><span class="dot"></span><span><b>Announcements</b> use a polite live region: progress at most every 2 seconds ("4,212 of 12,542"), and each decision as it happens ("Bar A Thym accepted — 458 of 1,238 done").</span></li>
             <li><span class="dot"></span><span><b>Errors and completion</b> are assertive, and name the file consequence in the first sentence.</span></li>
             <li><span class="dot"></span><span><b>Dialogs</b> trap focus, open on the safe button, and return focus to whatever opened them.</span></li>
             <li><span class="dot"></span><span><b>Controls are 32px tall</b> with 8px between them — every button on every screen, including the small ones in table rows. The whole row is the click target, not just its buttons.</span></li>

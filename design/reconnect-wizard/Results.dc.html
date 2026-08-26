@@ -50,10 +50,10 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
 .dist span{display:flex;align-items:center;justify-content:center;font:600 11px/1 'IBM Plex Mono',monospace;color:#0F1113;border-right:1px solid #0F1113}
 .dist span:last-child{border-right:0}
 .key{display:flex;flex-direction:column;gap:0}
-.kr{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid #23272B}
+.kr{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:11px;padding:8px 2px;border-bottom:1px solid #23272B}
 .kr:last-child{border-bottom:0}
 .kr .t{font-size:13px;font-weight:600}
-.kr .d{font-size:12px;color:#97A0A7;margin-top:2px}
+.kr .d{font-size:11.5px;color:#97A0A7;margin-top:2px;line-height:1.4}
 .kr .v{font:600 17px/1 'IBM Plex Mono',monospace;text-align:right}
 .kr .p{font:400 12px/1 'IBM Plex Mono',monospace;color:#8E979E;width:46px;text-align:right}
 .sub{margin:0;padding:0 0 0 33px;list-style:none;display:flex;flex-direction:column;gap:6px}
@@ -88,10 +88,10 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
           </div>
           <p class="dim" style="margin:-4px 0 0;font-size:12.5px;line-height:1.55">The other <strong style="color:#E8EBED">8</strong> are waiting on tracks that need a decision from you. Underneath, that is 10,932 of your 12,418 tracks found straight away:</p>
 
-          <div class="dist" role="img" aria-label="10,932 found, 1,204 need review, 282 not found">
+          <div class="dist" role="img" aria-label="10,932 found, 1,238 need a decision, 248 not found">
             <span style="background:#22C4A8;width:88%">88%</span>
-            <span style="background:#F5D96B;width:9.7%">10%</span>
-            <span style="background:#E07A4C;width:2.3%">2%</span>
+            <span style="background:#F5D96B;width:10%">10%</span>
+            <span style="background:#E07A4C;width:2%">2%</span>
           </div>
 
           <div class="key">
@@ -103,19 +103,29 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
             <div class="kr">
               <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="#F5D96B" stroke="none"/></svg>
               <span><span class="t">Needs your review</span><span class="d">Either more than one file could be the track, or the match is not close enough to trust.</span></span>
-              <span class="v" style="color:#F5D96B">1,204</span><span class="p">9.7%</span>
+              <span class="v" style="color:#F5D96B">1,108</span><span class="p">8.9%</span>
             </div>
             <ul class="sub">
               <li><span>More than one candidate file</span><span class="mono">738</span></li>
-              <li><span>Single candidate, but tags or duration differ</span><span class="mono">466</span></li>
+              <li><span>Single candidate, but tags or duration differ</span><span class="mono">370</span></li>
             </ul>
+            <div class="kr">
+              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M4.4 11.6L11.6 4.4"/></svg>
+              <span><span class="t">Refuted</span><span class="d">A file was found, but its length contradicts what your collection records. It comes into review, not into the missing list.</span></span>
+              <span class="v" style="color:#F5D96B">34</span><span class="p">0.3%</span>
+            </div>
+            <div class="kr">
+              <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>
+              <span><span class="t">Re-encoded</span><span class="d">Same track, different file format &mdash; the file was replaced rather than moved.</span></span>
+              <span class="v" style="color:#F5D96B">96</span><span class="p">0.8%</span>
+            </div>
             <div class="kr">
               <svg class="ico" width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="#E07A4C" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
               <span><span class="t">Not found</span><span class="d">No file in the folders you added looks like this track.</span></span>
-              <span class="v" style="color:#E8956E">282</span><span class="p">2.3%</span>
+              <span class="v" style="color:#E8956E">248</span><span class="p">2.0%</span>
             </div>
             <ul class="sub">
-              <li><span>Nothing similar in the scanned folders</span><span class="mono">214</span></li>
+              <li><span>Nothing similar in the scanned folders</span><span class="mono">180</span></li>
               <li><span>File found but could not be read</span><span class="mono">68</span></li>
             </ul>
           </div>
@@ -133,7 +143,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
       <section class="card">
         <div class="card-h"><h2 class="card-t">What to do now</h2></div>
         <div class="card-b" style="gap:11px">
-          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">The <strong style="color:#E8EBED">1,204</strong> tracks that need review are the only ones asking anything of you — and they are what stands between 18 working playlists and 26.</p>
+          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">The <strong style="color:#E8EBED">1,238</strong> tracks in the review queue are the only ones asking anything of you — and they are what stands between 18 working playlists and 26.</p>
           <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">You do not have to decide all of them. A playlist with an undecided track still works, just with that entry unplayable — exactly as it is today. You can come back and scan again later.</p>
         </div>
       </section>
@@ -141,7 +151,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
       <section class="card">
         <div class="card-h"><h2 class="card-t">Take it away with you</h2></div>
         <div class="card-b" style="gap:11px">
-          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">Export everything found — including the 282 not found — as a spreadsheet you can open elsewhere.</p>
+          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">Export everything found — including the 248 not found — as a spreadsheet you can open elsewhere.</p>
           <button class="btn" style="align-self:flex-start">Export report as CSV…</button>
           <p class="faint" style="margin:0;font-size:11.5px;line-height:1.5">You choose where it goes, and you are asked before anything is overwritten.</p>
         </div>
@@ -149,7 +159,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
 
       <div class="note">
         <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
-        <span>Fingerprinting was unavailable for this scan, so some of the 282 not-found tracks may simply have had their tags rewritten.</span>
+        <span>Fingerprinting was unavailable for this scan, so some of the 248 not-found tracks may simply have had their tags rewritten.</span>
       </div>
     </div>
   </main>
@@ -161,7 +171,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 384px;gap:20px
     </p>
     <span class="ft-act">
       <button class="btn">Back to setup</button>
-      <button class="btn btn-pri focus">Review 1,204 tracks</button>
+      <button class="btn btn-pri focus">Review 1,238 tracks</button>
     </span>
   </footer>
 

@@ -34,7 +34,36 @@ edit that breaks one is a behaviour change:
 
 ## Numbers
 
-All counts are illustrative, not measured - but they reconcile across screens
-(12,418 tracks; 10,932 found, 1,204 to review, 282 not found; 26 playlists, 21
-complete after the write). Keep them consistent when editing, so a reader
-comparing two screens does not read the difference as a design decision.
+All counts are illustrative, not measured - but they reconcile across screens.
+Keep them consistent when editing, so a reader comparing two screens does not
+read the difference as a design decision.
+
+Of 12,418 tracks the scan ends with **10,932 found**, **1,108 needing review**,
+**34 refuted**, **96 re-encoded** and **248 not found**. The first four of those
+are what the review table shows by default, so the queue is **1,238**.
+
+Mid-review, the state the Review, Outcomes and Confirm screens all depict:
+**457 accepted** (412 ordinary, 14 refuted, 31 re-encoded), **88 left missing**,
+**693 still undecided**. That writes **11,389 repointed** and leaves **1,029**
+exactly as they are. 26 playlists, 21 complete after the write.
+
+## Statuses
+
+Six, and the wizard never blurs them together, because three of them ask
+different questions:
+
+| Status | What the operator is deciding |
+| --- | --- |
+| Needs review | Is this the right file? |
+| Refuted | Found it, but the length contradicts - accept anyway? |
+| Re-encoded | Same track, different format - take it? |
+
+`Refuted` and `Re-encoded` each carry their own filter chip and count, and both
+sit in the default view. A refuted candidate is not a missing file, and a count
+you cannot filter to is a count you cannot work through.
+
+**Neither adds a status colour.** Yellow says a row wants a decision; the icon
+silhouette and the written word say which decision, both in the first column.
+That is deliberate: adding a hue would mean re-running the protanopia /
+deuteranopia / tritanopia simulation behind the palette, and nothing here needs
+one.

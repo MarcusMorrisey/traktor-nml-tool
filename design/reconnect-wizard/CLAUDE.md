@@ -13,6 +13,7 @@ Phase 1 visual and interaction design for the reconnect workflow; not implemente
 | `Cancelling.dc.html`  | 2b - Stopping: confirm, bounded termination, stopped outcome   | Changing cancellation behaviour                        |
 | `Results.dc.html`     | 3 - Scan results: playlist-first summary, breakdown, CSV export | Changing how results are summarised                    |
 | `Review.dc.html`      | 3b - Guided review: table, filters, candidate comparison       | Changing the review table or candidate comparison      |
+| `Outcomes.dc.html`    | 3c - Refuted and re-encoded: both detail rails, and why each is its own status | Changing how a contradicted or a format-changed candidate is presented |
 | `Confirm.dc.html`     | 4 - Before the write: pre-write summary and final confirmation | Changing the pre-write confirmation                    |
 | `Success.dc.html`     | 4b - Written: files written, what to do in Traktor             | Changing the post-write screen                         |
 | `Errors.dc.html`      | Five recoverable errors, including the two that disable writing | Adding an error state or changing recovery copy       |
@@ -22,7 +23,7 @@ Phase 1 visual and interaction design for the reconnect workflow; not implemente
 ## Regenerate the canvas bundle
 
 ```bash
-node <skill>/seed-canvas.mjs --template <skill>/payload.template.html   --out reconnect-wizard.html --title "Reconnect Wizard"   --artboard Main.dc.html --artboard Scanning.dc.html   --artboard Cancelling.dc.html --artboard Results.dc.html   --artboard Review.dc.html --artboard Confirm.dc.html   --artboard Success.dc.html --artboard Errors.dc.html   --artboard Specs.dc.html --canvas canvas.json
+node <skill>/seed-canvas.mjs --template <skill>/payload.template.html   --out reconnect-wizard.html --title "Reconnect Wizard"   --artboard Main.dc.html --artboard Scanning.dc.html   --artboard Cancelling.dc.html --artboard Results.dc.html   --artboard Review.dc.html --artboard Outcomes.dc.html --artboard Confirm.dc.html   --artboard Success.dc.html --artboard Errors.dc.html   --artboard Specs.dc.html --canvas canvas.json
 ```
 
 `<skill>` is the `design` skill's directory. Edit the `.dc.html` sources, never

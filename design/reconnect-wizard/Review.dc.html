@@ -38,7 +38,8 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;
 .btn-no{border-color:#6A3F2C;background:#21160F;color:#E8956E}
 .focus{outline:2px solid #E8EBED;outline-offset:2px}
 .ico{flex:none}
-.fbar{display:flex;align-items:center;gap:9px;flex-wrap:nowrap}
+.fbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;row-gap:9px}
+.fbar .brk{flex-basis:100%;height:0}
 .search{display:flex;align-items:center;gap:9px;background:#0F1113;border:1px solid #3C4248;border-radius:6px;height:32px;padding:0 11px;width:224px;flex:none}
 .search input{all:unset;font:400 12.5px 'IBM Plex Sans',system-ui,sans-serif;color:#E8EBED;width:100%}
 .chip{height:32px;padding:0 12px;border-radius:6px;border:1px solid #2A2E32;background:#14171A;color:#A5ADB4;font-size:12.5px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
@@ -115,137 +116,126 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;
     <div class="fbar">
       <span class="search">
         <svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="7.2" cy="7.2" r="4.6"/><path d="M10.6 10.6L14 14"/></svg>
-        <input value="" aria-label="Filter tracks by artist, title or path" placeholder="Search 1,204 tracks">
+        <input value="" aria-label="Filter tracks by artist, title or path" placeholder="Search 1,238 tracks">
         <span class="kbd">/</span>
       </span>
-      <button class="chip on">Needs review <span class="c">1,204</span></button>
-      <button class="chip">Not found <span class="c">282</span></button>
-      <button class="chip">Accepted <span class="c">412</span></button>
+      <button class="chip on">Needs review <span class="c">1,108</span></button>
+      <button class="chip">Refuted <span class="c">34</span></button>
+      <button class="chip">Re-encoded <span class="c">96</span></button>
+      <button class="chip">Not found <span class="c">248</span></button>
+      <span class="brk"></span>
+      <button class="chip">Accepted <span class="c">457</span></button>
       <button class="chip">Left missing <span class="c">88</span></button>
       <button class="chip">Found automatically <span class="c">10,932</span></button>
       <span class="seg" role="group" aria-label="Filter by confidence">
         <span class="on">Any</span><span>Good</span><span>Weak</span>
       </span>
+      <span class="faint" style="font-size:11.5px">the first four are the queue &mdash; 1,238 tracks</span>
     </div>
 
     <div class="split">
 
       <div class="tbl">
         <div class="gr th" role="row">
-          <span>Status</span><span>Track</span><span>Confidence</span><span>Where it moved to</span><span style="text-align:right">Decision</span>
+          <span>Status</span><span>Track</span><span>Confidence</span><span>What changed</span><span style="text-align:right">Decision</span>
         </div>
 
         <div class="gr tr">
           <span class="stat" style="color:#4FD3BA"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>Accepted</span>
-          <span class="trk"><b>Rain</b> <i>— Kerri Chandler</i></span>
+          <span class="trk"><b>Rain</b> <i>&mdash; Kerri Chandler</i></span>
           <span class="conf" style="color:#4FD3BA"><svg width="26" height="8" viewBox="0 0 26 8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="3" fill="currentColor"/></svg>Strong</span>
-          <span class="mv">Music\House\ <em>→</em> Archive\…\House\</span>
+          <span class="mv">Music\House\ <em>&rarr;</em> Archive\&hellip;\House\</span>
           <span class="decd"><button class="btn sm">Undo</button></span>
         </div>
 
         <div class="gr tr sel focus" aria-selected="true">
           <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Bar A Thym</b> <i>— Kerri Chandler</i></span>
+          <span class="trk"><b>Bar A Thym</b> <i>&mdash; Kerri Chandler</i></span>
           <span class="conf" style="color:#F5D96B"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
-          <span class="mv" style="color:#F5D96B">3 possible files →</span>
+          <span class="mv" style="color:#F5D96B">3 possible files &rarr;</span>
+          <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M4.4 11.6L11.6 4.4"/></svg>Refuted</span>
+          <span class="trk"><b>The Long Walk</b> <i>&mdash; Larry Heard</i></span>
+          <span class="conf" style="color:#D2D8DC"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
+          <span class="mv" style="color:#F5D96B">Length +87s longer</span>
           <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
         </div>
 
         <div class="gr tr">
           <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Atmosphere</b> <i>— Kerri Chandler</i></span>
+          <span class="trk"><b>Atmosphere</b> <i>&mdash; Kerri Chandler</i></span>
           <span class="conf" style="color:#D2D8DC"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
-          <span class="mv">Music\House\ <em>→</em> Archive\…\House\</span>
+          <span class="mv">Music\House\ <em>&rarr;</em> Archive\&hellip;\House\</span>
           <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
         </div>
 
         <div class="gr tr">
           <span class="stat" style="color:#E8956E"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>Left missing</span>
-          <span class="trk"><b>Hallelujah</b> <i>— Kerri Chandler</i></span>
+          <span class="trk"><b>Hallelujah</b> <i>&mdash; Kerri Chandler</i></span>
           <span class="conf" style="color:#F5D96B"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
           <span class="mv faint" style="text-decoration:line-through">Archive\Vocals\</span>
           <span class="decd"><button class="btn sm">Undo</button></span>
         </div>
 
         <div class="gr tr">
-          <span class="stat faint"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2.6 8h10.8"/><circle cx="8" cy="8" r="6.4" stroke-dasharray="2.4 2.2"/></svg>Not found</span>
-          <span class="trk"><b>Track 07</b> <i>— unknown artist</i></span>
-          <span class="conf faint"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="2.4"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>None</span>
-          <span class="mv faint">— nothing found —</span>
-          <span class="decd faint">Stays missing</span>
-        </div>
-
-        <div class="gr tr">
-          <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Time Passages</b> <i>— Marcellus Pittman</i></span>
-          <span class="conf" style="color:#D2D8DC"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
-          <span class="mv">Music\Detroit\ <em>→</em> Archive\…\Detroit\</span>
-          <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
-        </div>
-
-        <div class="gr tr">
-          <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Untitled B1</b> <i>— Theo Parrish</i></span>
+          <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>Re-encoded</span>
+          <span class="trk"><b>Nightmoves</b> <i>&mdash; Move D</i></span>
           <span class="conf" style="color:#F5D96B"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
-          <span class="mv" style="color:#F5D96B">2 possible files →</span>
+          <span class="mv" style="color:#F5D96B">.mp3 <em>&rarr;</em> .stem.m4a</span>
           <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
         </div>
 
         <div class="gr tr">
-          <span class="stat" style="color:#4FD3BA"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>Accepted</span>
-          <span class="trk"><b>Free Your Mind</b> <i>— DJ Deep</i></span>
-          <span class="conf" style="color:#D2D8DC"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
-          <span class="mv">Music\House\ <em>→</em> Archive\…\House\</span>
+          <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>Re-encoded</span>
+          <span class="trk"><b>Sunrise</b> <i>&mdash; Fred P</i></span>
+          <span class="conf" style="color:#F5D96B"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
+          <span class="mv" style="color:#F5D96B">.aiff <em>&rarr;</em> .mp3</span>
           <span class="decd"><button class="btn sm">Undo</button></span>
         </div>
 
         <div class="gr tr">
-          <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Sunrise</b> <i>— Fred P</i></span>
-          <span class="conf" style="color:#F5D96B"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
-          <span class="mv">Music\Deep\ <em>→</em> Archive\…\Deep\</span>
-          <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
-        </div>
-
-        <div class="gr tr">
           <span class="stat faint"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2.6 8h10.8"/><circle cx="8" cy="8" r="6.4" stroke-dasharray="2.4 2.2"/></svg>Not found</span>
-          <span class="trk"><b>A2</b> <i>— unknown artist</i></span>
+          <span class="trk"><b>Track 07</b> <i>&mdash; unknown artist</i></span>
           <span class="conf faint"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="2.4"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>None</span>
-          <span class="mv faint">— nothing found —</span>
+          <span class="mv faint">&mdash; nothing found &mdash;</span>
           <span class="decd faint">Stays missing</span>
         </div>
 
         <div class="gr tr">
           <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Nightmoves</b> <i>— Move D</i></span>
+          <span class="trk"><b>Time Passages</b> <i>&mdash; Marcellus Pittman</i></span>
           <span class="conf" style="color:#D2D8DC"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
-          <span class="mv">Music\Deep\ <em>→</em> Archive\…\Deep\</span>
+          <span class="mv">Music\Detroit\ <em>&rarr;</em> Archive\&hellip;\Detroit\</span>
           <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
         </div>
 
         <div class="gr tr">
           <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Windows</b> <i>— Baby Ford</i></span>
+          <span class="trk"><b>Untitled B1</b> <i>&mdash; Theo Parrish</i></span>
           <span class="conf" style="color:#F5D96B"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="2.4"/><circle cx="22" cy="4" r="2.4"/></svg>Weak</span>
-          <span class="mv">Music\Rips\ <em>→</em> Archive\…\Vinyl\</span>
+          <span class="mv" style="color:#F5D96B">2 possible files &rarr;</span>
           <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
         </div>
 
         <div class="gr tr">
           <span class="stat" style="color:#4FD3BA"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.2 8.3l2 2 3.6-4.2"/></svg>Accepted</span>
-          <span class="trk"><b>Deep Burnt</b> <i>— Pépé Bradock</i></span>
-          <span class="conf" style="color:#4FD3BA"><svg width="26" height="8" viewBox="0 0 26 8" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="3" fill="currentColor"/></svg>Strong</span>
-          <span class="mv">Music\House\ <em>→</em> Archive\…\House\</span>
+          <span class="trk"><b>Free Your Mind</b> <i>&mdash; DJ Deep</i></span>
+          <span class="conf" style="color:#D2D8DC"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
+          <span class="mv">Music\House\ <em>&rarr;</em> Archive\&hellip;\House\</span>
           <span class="decd"><button class="btn sm">Undo</button></span>
         </div>
 
         <div class="gr tr" style="border-bottom:0">
           <span class="stat" style="color:#F5D96B"><svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span>
-          <span class="trk"><b>Plastic Dreams</b> <i>— Jaydee</i></span>
+          <span class="trk"><b>Plastic Dreams</b> <i>&mdash; Jaydee</i></span>
           <span class="conf" style="color:#D2D8DC"><svg width="26" height="8" viewBox="0 0 26 8" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4" cy="4" r="3" fill="currentColor"/><circle cx="13" cy="4" r="3" fill="currentColor"/><circle cx="22" cy="4" r="2.4"/></svg>Good</span>
-          <span class="mv">Music\Classics\ <em>→</em> Archive\…\Classics\</span>
+          <span class="mv">Music\Classics\ <em>&rarr;</em> Archive\&hellip;\Classics\</span>
           <span class="dec"><button class="btn sm btn-ok">Accept</button><button class="btn sm btn-no">Reject</button></span>
         </div>
+
       </div>
 
       <aside class="det" aria-label="Details for Bar A Thym">
@@ -326,14 +316,14 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;
 
   <footer class="ft">
     <p class="ft-note">
-      <span><b style="color:#4FD3BA">412</b> accepted</span>
+      <span><b style="color:#4FD3BA">457</b> accepted</span>
       <span><b style="color:#E8956E">88</b> left missing</span>
-      <span><b style="color:#F5D96B">704</b> still undecided</span>
+      <span><b style="color:#F5D96B">693</b> still undecided</span>
       <span class="faint">undecided tracks stay exactly as they are today</span>
     </p>
     <span class="ft-act">
       <button class="btn">Back</button>
-      <button class="btn btn-pri">Continue — 412 changes</button>
+      <button class="btn btn-pri">Continue — 457 changes</button>
     </span>
   </footer>
 

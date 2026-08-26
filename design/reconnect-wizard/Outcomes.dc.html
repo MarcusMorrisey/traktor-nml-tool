@@ -1,0 +1,245 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:800px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+.app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
+.hd-l{display:flex;align-items:center;gap:12px}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#3C4248;flex:none}
+.task{font-weight:600;font-size:14px}
+.rail{display:flex;gap:2px;align-items:center;flex:none}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;white-space:nowrap}
+.st .num{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#A5ADB4}
+.st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
+main{padding:16px 24px 0;display:grid;grid-template-columns:396px 396px 1fr;gap:22px;min-height:0;overflow:hidden}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #2A2E32;background:#17191C}
+.ft-note{margin:0;font-size:12.5px;color:#A5ADB4;display:flex;align-items:center;gap:9px}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.dim{color:#A5ADB4}.faint{color:#8E979E}
+.ico{flex:none}
+.lbl{font:600 11.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8E979E}
+.kbd{font:500 11px/1 'IBM Plex Mono',ui-monospace,monospace;background:#22262A;border:1px solid #3C4248;border-bottom-width:2px;border-radius:4px;padding:3px 5px;color:#D2D8DC;white-space:nowrap;display:inline-block}
+.btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid #3C4248;background:#22262A;color:#E8EBED;font:500 12.5px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.btn-ok{border-color:#2C5449;background:#12211D;color:#4FD3BA}
+.btn-no{border-color:#6A3F2C;background:#21160F;color:#E8956E}
+.cap{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#8E979E;display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.cap .tag{display:flex;align-items:center;gap:6px;color:#F5D96B;letter-spacing:.04em}
+.cap::after{content:"";flex:1;height:1px;background:#2A2E32}
+.det{border:1px solid #2F5A72;border-radius:8px;background:#141C21;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.det-h{padding:11px 14px;border-bottom:1px solid #253038;display:flex;flex-direction:column;gap:4px}
+.det-h .t{font-size:14.5px;font-weight:600;line-height:1.3}
+.det-h .a{font-size:12px;color:#A5ADB4}
+.det-b{padding:11px 14px;display:flex;flex-direction:column;gap:12px;flex:1;min-height:0}
+.grp{display:flex;flex-direction:column;gap:7px}
+.cand{border:1px solid #2F5A72;background:#12222B;border-radius:6px;padding:8px 10px;display:flex;gap:9px;align-items:center}
+.rad{width:15px;height:15px;border-radius:50%;border:1.5px solid #56B4E9;flex:none;display:grid;place-items:center}
+.rad::after{content:"";width:8px;height:8px;border-radius:50%;background:#56B4E9}
+.cand .b{min-width:0;display:flex;flex-direction:column;gap:3px;flex:1}
+.cand .n{font:400 11.5px/1.35 'IBM Plex Mono',monospace;color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cand .m{font-size:11px;color:#8E979E}
+.num{font:600 11px/1 'IBM Plex Mono',monospace;color:#8E979E;border:1px solid #3C4248;border-radius:4px;padding:3px 5px;flex:none}
+.cmpf{display:grid;grid-template-columns:52px 1fr 104px;gap:8px;font-size:12px;align-items:center;padding:5px 0;border-bottom:1px solid #22292E}
+.cmpf:last-child{border-bottom:0}
+.cmpf .k{color:#8E979E;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;text-transform:uppercase}
+.cmpf .v{color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmpf.hit{background:#1E1B12;box-shadow:inset 3px 0 0 #F5D96B;margin:0 -14px;padding-left:11px;padding-right:14px}
+.vd{display:flex;align-items:center;gap:5px;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;justify-content:flex-end;white-space:nowrap}
+.why{border-radius:6px;padding:9px 11px;font-size:11.5px;line-height:1.55;color:#A5ADB4;border:1px solid #5A4E2A;background:#1F1D14}
+.why strong{color:#E8EBED;font-weight:600}
+.why.pos{border-color:#2C5449;background:#12211D}
+.det-f{padding:10px 14px;border-top:1px solid #253038;display:flex;flex-direction:column;gap:9px}
+.det-a{display:flex;gap:8px}
+.det-a .btn{flex:1;justify-content:center}
+.sec{border:1px solid #2A2E32;border-radius:8px;background:#17191C;overflow:hidden}
+.sec-h{padding:10px 14px;border-bottom:1px solid #2A2E32;background:#1F2225}
+.sec-t{margin:0;font-size:12.5px;font-weight:600}
+.sec-b{padding:10px 14px;display:flex;flex-direction:column;gap:9px}
+.q{display:grid;grid-template-columns:104px 1fr;gap:11px;padding:5px 0;border-bottom:1px solid #23272B;font-size:12px;align-items:baseline}
+.q:last-child{border-bottom:0}
+.q .n{display:flex;align-items:center;gap:6px;font-weight:600;font-size:11.5px;white-space:nowrap}
+.q .d{color:#A5ADB4;line-height:1.45}
+.ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+.ul li{display:flex;gap:9px;font-size:11.5px;color:#A5ADB4;line-height:1.5}
+.ul li b{color:#E8EBED;font-weight:600}
+.dot{width:5px;height:5px;border-radius:50%;background:#5A6167;flex:none;margin-top:5px}
+.col{display:flex;flex-direction:column;min-height:0}
+.stack{display:flex;flex-direction:column;gap:10px;min-height:0}
+  </style>
+</helmet>
+<div class="app">
+
+  <header class="hd">
+    <div class="hd-l">
+      <span class="brand">traktor-nml-tool</span><span class="bar"></span>
+      <span class="task">My playlists are broken</span>
+    </div>
+    <nav class="rail" aria-label="Progress">
+      <span class="st done"><span class="num">1</span>Set up</span>
+      <span class="st done"><span class="num">2</span>Scan</span>
+      <span class="st now" aria-current="step"><span class="num">3</span>Review</span>
+      <span class="st"><span class="num">4</span>Write</span>
+    </nav>
+  </header>
+
+  <main>
+
+    <div class="col">
+      <span class="cap"><span class="tag"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M4.4 11.6L11.6 4.4"/></svg>Refuted</span></span>
+      <aside class="det" aria-label="Details for The Long Walk">
+        <div class="det-h">
+          <span class="t">The Long Walk</span>
+          <span class="a">Larry Heard &middot; 7:23 &middot; added 11 Jun 2017</span>
+        </div>
+        <div class="det-b">
+          <div class="grp">
+            <span class="lbl">Traktor looks here</span>
+            <span class="mono" style="font-size:11.5px;color:#C2C9CE;line-height:1.5;word-break:break-all">E:\Music\Deep\05 The Long Walk.mp3</span>
+          </div>
+
+          <div class="grp">
+            <span class="lbl">1 possible file</span>
+            <div class="cand">
+              <span class="num">1</span>
+              <span class="rad" role="img" aria-label="Chosen"></span>
+              <span class="b">
+                <span class="n">&hellip;\Deep\05 The Long Walk.mp3</span>
+                <span class="m">8:50 &middot; 320 kbps &middot; 21.2 MB</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="grp">
+            <span class="lbl">File 1 against your entry</span>
+            <div>
+              <div class="cmpf"><span class="k">Artist</span><span class="v">Larry Heard</span><span class="vd" style="color:#4FD3BA"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME</span></div>
+              <div class="cmpf"><span class="k">Title</span><span class="v">The Long Walk</span><span class="vd" style="color:#4FD3BA"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME</span></div>
+              <div class="cmpf hit"><span class="k">Length</span><span class="v mono">7:23 &rarr; 8:50</span><span class="vd" style="color:#F5D96B"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4.4 4.4l7.2 7.2M11.6 4.4l-7.2 7.2"/></svg>DIFFERS &nbsp;+87s</span></div>
+              <div class="cmpf"><span class="k">Size</span><span class="v mono">17.7 MB &rarr; 21.2 MB</span><span class="vd faint">1.2&times; &nbsp;NO VOTE</span></div>
+            </div>
+          </div>
+
+          <div class="why">
+            <strong>Refuted because the length contradicts.</strong> 87s longer than your entry, against an allowance of 79s &mdash; 15% of the longer of the two, wide enough to absorb a VBR estimate. Size disagreement never refutes: the same track legitimately runs 0.23&times; to 49&times; across formats.
+          </div>
+        </div>
+
+        <div class="det-f">
+          <p class="faint" style="margin:0;font-size:11.5px;line-height:1.5">Accepting overrides that contradiction. Everything contradicting is on this panel, quantified &mdash; there is no second confirmation.</p>
+          <div class="det-a">
+            <button class="btn btn-ok"><span class="kbd" style="background:#12211D;border-color:#2C5449;color:#4FD3BA">A</span> Accept anyway</button>
+            <button class="btn btn-no"><span class="kbd" style="background:#21160F;border-color:#6A3F2C;color:#E8956E">R</span> Leave missing</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="col">
+      <span class="cap"><span class="tag"><svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>Re-encoded</span></span>
+      <aside class="det" aria-label="Details for Nightmoves">
+        <div class="det-h">
+          <span class="t">Nightmoves</span>
+          <span class="a">Move D &middot; 6:41 &middot; added 14 Sep 2020</span>
+        </div>
+        <div class="det-b">
+          <div class="grp">
+            <span class="lbl">Traktor looks here</span>
+            <span class="mono" style="font-size:11.5px;color:#C2C9CE;line-height:1.5;word-break:break-all">E:\Music\Deep\03 Nightmoves.mp3</span>
+          </div>
+
+          <div class="grp">
+            <span class="lbl">1 possible file</span>
+            <div class="cand">
+              <span class="num">1</span>
+              <span class="rad" role="img" aria-label="Chosen"></span>
+              <span class="b">
+                <span class="n">&hellip;\Deep\03 Nightmoves.stem.m4a</span>
+                <span class="m">6:41 &middot; 4 stems &middot; 60.1 MB</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="grp">
+            <span class="lbl">File 1 against your entry</span>
+            <div>
+              <div class="cmpf"><span class="k">Name</span><span class="v mono">03 Nightmoves</span><span class="vd" style="color:#4FD3BA"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME</span></div>
+              <div class="cmpf"><span class="k">Folder</span><span class="v mono">\Deep\</span><span class="vd" style="color:#4FD3BA"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME</span></div>
+              <div class="cmpf"><span class="k">Length</span><span class="v mono">6:41 &rarr; 6:41</span><span class="vd" style="color:#4FD3BA"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg>SAME &nbsp;+0.2s</span></div>
+              <div class="cmpf hit"><span class="k">Format</span><span class="v mono">.mp3 &rarr; .stem.m4a</span><span class="vd" style="color:#F5D96B"><svg class="ico" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>CHANGES</span></div>
+              <div class="cmpf"><span class="k">Size</span><span class="v mono">15.4 MB &rarr; 60.1 MB</span><span class="vd faint">3.9&times; &nbsp;NO VOTE</span></div>
+            </div>
+          </div>
+
+          <div class="why pos">
+            <strong>The evidence is for it, not against it.</strong> The name matches once the container is stripped, the folder matches, and the length matches to 0.2s &mdash; a transcode preserves length and changes bytes. 3.9&times; the size is what four stems weigh.
+          </div>
+        </div>
+
+        <div class="det-f">
+          <p class="faint" style="margin:0;font-size:11.5px;line-height:1.5">Accepting changes this track&rsquo;s format in your collection: Traktor loads the .stem.m4a, and the stem decks become available.</p>
+          <div class="det-a">
+            <button class="btn btn-ok"><span class="kbd" style="background:#12211D;border-color:#2C5449;color:#4FD3BA">A</span> Take the re-encode</button>
+            <button class="btn btn-no"><span class="kbd" style="background:#21160F;border-color:#6A3F2C;color:#E8956E">R</span> Leave missing</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="col stack">
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Three questions, not one queue</h2></div>
+        <div class="sec-b" style="gap:0;padding-top:5px;padding-bottom:9px">
+          <div class="q"><span class="n" style="color:#F5D96B"><svg class="ico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="currentColor" stroke="none"/></svg>Needs review</span><span class="d">Is this the right file?</span></div>
+          <div class="q"><span class="n" style="color:#F5D96B"><svg class="ico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M4.4 11.6L11.6 4.4"/></svg>Refuted</span><span class="d">Found it, but the length contradicts &mdash; accept anyway?</span></div>
+          <div class="q"><span class="n" style="color:#F5D96B"><svg class="ico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>Re-encoded</span><span class="d">Same track, different format &mdash; take it?</span></div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Why each is its own status</h2></div>
+        <div class="sec-b">
+          <ul class="ul">
+            <li><span class="dot"></span><span><b>You cannot filter to what you cannot see.</b> Refuted was a sub-count of unmatched: right for the statistics, wrong for the workflow. A withdrawn candidate is not a missing file, and reporting it as one says &ldquo;gone&rdquo; about a track the scan found.</span></li>
+            <li><span class="dot"></span><span><b>Refuted starts in the queue</b>, not behind a filter. Nothing that wants a decision is hidden by default.</span></li>
+            <li><span class="dot"></span><span><b>No extra friction to accept.</b> The panel already names the contradicting field and quantifies it; a confirmation on top adds a click the operator learns to dismiss.</span></li>
+            <li><span class="dot"></span><span><b>Neither adds a colour.</b> Yellow says a row wants a decision; the icon and the word say which. The measured palette therefore stands unchanged.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Where a re-encode comes from</h2></div>
+        <div class="sec-b">
+          <p class="dim" style="margin:0;font-size:11.5px;line-height:1.55">A re-encode <strong style="color:#E8EBED">replaces</strong> the file rather than moving it, so every tier keying on the name as written stops matching and the track reads as gone. The two tiers that strip the container sit at <span class="mono" style="font-size:11px">loose</span> and <span class="mono" style="font-size:11px">filename</span>, levelled on the evidence they carry.</p>
+          <p class="dim" style="margin:0;font-size:11.5px;line-height:1.55"><strong style="color:#E8EBED">The wizard runs them and surfaces the result as review</strong> &mdash; without asking the operator to know a <span class="mono" style="font-size:11px">--match-confidence</span> flag exists.</p>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <footer class="ft">
+    <p class="ft-note">
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
+      Both panels are the same rail as any other row &mdash; same keys, same buttons, same undo. Nothing written yet.
+    </p>
+    <p class="ft-note faint" style="font-size:11.5px">34 refuted &middot; 96 re-encoded &middot; of 1,238 in the queue</p>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

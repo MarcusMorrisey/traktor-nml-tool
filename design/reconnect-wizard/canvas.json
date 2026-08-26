@@ -9,10 +9,11 @@
     { "file": "Cancelling.dc.html", "page": "page-1", "x": 2800, "y": 0,    "w": 1280, "h": 800,  "title": "2b · Stopping a scan" },
     { "file": "Results.dc.html",    "page": "page-1", "x": 0,    "y": 960,  "w": 1280, "h": 800,  "title": "3 · Scan results" },
     { "file": "Review.dc.html",     "page": "page-1", "x": 1400, "y": 960,  "w": 1280, "h": 800,  "title": "3b · Guided review" },
-    { "file": "Confirm.dc.html",    "page": "page-1", "x": 2800, "y": 960,  "w": 1280, "h": 800,  "title": "4 · Before the write" },
-    { "file": "Success.dc.html",    "page": "page-1", "x": 0,    "y": 1920, "w": 1280, "h": 800,  "title": "4b · Written" },
-    { "file": "Errors.dc.html",     "page": "page-1", "x": 1400, "y": 1920, "w": 1280, "h": 800,  "title": "Recoverable errors" },
-    { "file": "Specs.dc.html",      "page": "page-2", "x": 0,    "y": 0,    "w": 1280, "h": 1100, "title": "Tokens, keyboard, decision rules" }
+    { "file": "Outcomes.dc.html",   "page": "page-1", "x": 2800, "y": 960,  "w": 1280, "h": 800,  "title": "3c · Refuted and re-encoded" },
+    { "file": "Confirm.dc.html",    "page": "page-1", "x": 0,    "y": 1920, "w": 1280, "h": 800,  "title": "4 · Before the write" },
+    { "file": "Success.dc.html",    "page": "page-1", "x": 1400, "y": 1920, "w": 1280, "h": 800,  "title": "4b · Written" },
+    { "file": "Errors.dc.html",     "page": "page-1", "x": 2800, "y": 1920, "w": 1280, "h": 800,  "title": "Recoverable errors" },
+    { "file": "Specs.dc.html",      "page": "page-2", "x": 0,    "y": 0,    "w": 1280, "h": 1880, "title": "Tokens, keyboard, decision rules" }
   ],
   "annotations": [
     {
@@ -29,7 +30,15 @@
       "x": 1400,
       "y": -250,
       "w": 560,
-      "text": "Read left to right, top to bottom.\n\n2b and 3b are branches off the main path, not extra steps: stopping a scan, and the review table opened up.\n\nThe Interaction spec page carries the keyboard map, the confidence tokens and the accept/reject rules that these screens draw from."
+      "text": "Read left to right, top to bottom.\n\n2b, 3b and 3c are branches off the main path, not extra steps: stopping a scan, the review table opened up, and the two review outcomes that ask a different question from \"is this the right file?\".\n\nThe Interaction spec page carries the keyboard map, the status and confidence tokens, and the accept/reject rules that these screens draw from."
+    },
+    {
+      "id": "outcomes",
+      "page": "page-1",
+      "x": 2800,
+      "y": -250,
+      "w": 560,
+      "text": "3c is one screen only in this canvas — in the running wizard it is the same detail rail as 3b, filled with a refuted and a re-encoded candidate.\n\nIt is drawn separately because the two rails carry the whole argument: a refuted candidate must show WHAT contradicts and by how much, and a re-encode must show the evidence FOR it, since its tier is a weak one.\n\nNeither adds a status colour."
     },
     {
       "id": "spec-note",

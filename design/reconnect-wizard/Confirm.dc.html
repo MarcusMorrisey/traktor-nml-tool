@@ -48,10 +48,10 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
 .dest .p{font:500 13px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#E8EBED;word-break:break-all}
 .badge{display:inline-flex;align-items:center;gap:6px;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;padding:5px 7px;border-radius:4px;border:1px solid #2C5449;color:#4FD3BA;background:#12211D}
 .chg{display:flex;flex-direction:column}
-.cr{display:grid;grid-template-columns:20px 1fr auto;gap:11px;align-items:center;padding:9px 2px;border-bottom:1px solid #23272B;font-size:13px}
+.cr{display:grid;grid-template-columns:20px 1fr auto;gap:11px;align-items:center;padding:7px 2px;border-bottom:1px solid #23272B;font-size:12.5px}
 .cr:last-child{border-bottom:0}
 .cr .n{font:600 15px/1 'IBM Plex Mono',monospace;text-align:right}
-.cr .d{font-size:11.5px;color:#97A0A7;margin-top:2px}
+.cr .d{font-size:11px;color:#97A0A7;margin-top:2px;line-height:1.4}
 .tot{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px 12px;border-radius:6px;background:#1F2225;border:1px solid #3C4248;font-size:13px;font-weight:600;align-items:center}
 .dlg{border:1px solid #454C52;border-radius:10px;background:#1F2225;box-shadow:0 14px 36px rgba(0,0,0,.5);padding:18px 19px 16px;display:flex;flex-direction:column;gap:12px}
 .dlg h2{margin:0;font-size:16px;font-weight:600}
@@ -101,24 +101,34 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
               <span class="n" style="color:#4FD3BA">412</span>
             </div>
             <div class="cr">
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M4.4 11.6L11.6 4.4"/></svg>
+              <span>You accepted a refuted candidate<span class="d">Repointed anyway. Its length contradicted your entry by more than the allowance, and you overrode that.</span></span>
+              <span class="n" style="color:#F5D96B">14</span>
+            </div>
+            <div class="cr">
+              <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg>
+              <span>You accepted a re-encode<span class="d">Repointed to the same track in a different format. <strong style="color:#D2D8DC;font-weight:600">This changes the track&rsquo;s format in Traktor.</strong></span></span>
+              <span class="n" style="color:#F5D96B">31</span>
+            </div>
+            <div class="cr">
               <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#E8956E" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8"/></svg>
-              <span>You rejected<span class="d">Left exactly as it is — still missing in Traktor.</span></span>
+              <span>You rejected<span class="d">Left exactly as it is &mdash; still missing in Traktor.</span></span>
               <span class="n" style="color:#E8956E">88</span>
             </div>
             <div class="cr">
               <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" aria-hidden="true"><circle cx="8" cy="8" r="6.4"/><circle cx="8" cy="8" r="1.8" fill="#F5D96B" stroke="none"/></svg>
               <span>You did not decide<span class="d">Left exactly as it is. Scan again later to pick these up.</span></span>
-              <span class="n" style="color:#F5D96B">704</span>
+              <span class="n" style="color:#F5D96B">693</span>
             </div>
             <div class="cr">
               <svg class="ico" width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="#97A0A7" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M2.6 8h10.8"/><circle cx="8" cy="8" r="6.4" stroke-dasharray="2.4 2.2"/></svg>
               <span>Not found<span class="d">Left exactly as it is.</span></span>
-              <span class="n faint">282</span>
+              <span class="n faint">248</span>
             </div>
           </div>
 
           <div class="tot">
-            <span>11,344 tracks repointed · 1,074 left as they are</span>
+            <span>11,389 tracks repointed · 1,029 left as they are</span>
             <span class="mono faint" style="font-weight:400;font-size:12px">12,418 total</span>
           </div>
 
@@ -128,7 +138,7 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
 
       <div class="note info">
         <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
-        <span><strong>A list of the 1,074 tracks left missing</strong> is saved beside the collection as <span class="mono" style="font-size:11.5px;color:#C2C9CE">collection.reconnected.unresolved.csv</span> so you can work through them later.</span>
+        <span><strong>A list of the 1,029 tracks left missing</strong> is saved beside the collection as <span class="mono" style="font-size:11.5px;color:#C2C9CE">collection.reconnected.unresolved.csv</span> so you can work through them later.</span>
       </div>
 
     </div>
@@ -137,11 +147,12 @@ main{padding:20px 24px 6px;display:grid;grid-template-columns:1fr 404px;gap:20px
       <span class="cap">Final confirmation</span>
 
       <div class="dlg" role="alertdialog" aria-labelledby="w-t">
-        <h2 id="w-t">Write 11,344 changes?</h2>
+        <h2 id="w-t">Write 11,389 changes?</h2>
         <p class="mono" style="margin:0;font-size:12px;color:#D2D8DC;word-break:break-all">E:\Traktor\collection.reconnected.nml</p>
         <ul>
           <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span><strong style="color:#E8EBED">Your original collection is not modified.</strong> This writes a brand new file beside it.</span></li>
           <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#22C4A8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4l3.3 3.3L13 5"/></svg><span>A dated copy of the original is saved first, as <span class="mono" style="font-size:11px">collection.pre_reconnect_20260825_141207.nml</span></span></li>
+          <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.4 5.6h9.4L9.2 3"/><path d="M13.6 10.4H4.2l2.6 2.6"/></svg><span><strong style="color:#E8EBED">31 of these change a track&rsquo;s file format.</strong> Traktor will load the new file &mdash; the old one is no longer referenced.</span></li>
           <li><svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg><span><strong style="color:#E8EBED">Close Traktor first.</strong> If it is running it will overwrite this file when it quits.</span></li>
         </ul>
         <div class="dlg-a">
