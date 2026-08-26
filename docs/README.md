@@ -13,6 +13,13 @@ statement in it is still true.
 
 ## Standing of each document
 
+**Plan of record, not yet implemented.** `2026-08-26-renderer-split-plan.md`
+implements section 5 step 2 of the GUI plan: the reconnect core/renderer split and
+the printless write shell it requires. Its contract is that
+`tests/baselines/manifest.json` is not regenerated and `PARITY_BASELINE_SHA256`
+does not move - the unchanged manifest is what proves the split behaviour-preserving.
+Nothing in the codebase implements it.
+
 **Plan of record, not yet implemented.** `nicegui-gui-analysis.md` describes a
 NiceGUI front end: command tier classification, the shared-core refactor and its
 CLI parity test strategy, rollout/rollback, and a blocking packaging spike. It
