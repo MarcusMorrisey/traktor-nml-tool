@@ -13,7 +13,12 @@ from pathlib import Path
 import pytest
 
 from traktor_nml.confidence import MatchConfidence
-from traktor_nml.fingerprint import HAS_ACOUSTID, fingerprint_key_provider, old_side_fingerprint
+from traktor_nml.fingerprint import (
+    HAS_ACOUSTID,
+    fingerprint_key_provider,
+    fingerprint_unavailable_reason,
+    old_side_fingerprint,
+)
 
 if HAS_ACOUSTID:  # pragma: no cover - import guard mirrors the module under test
     import acoustid
@@ -28,44 +33,35 @@ requires_acoustid = pytest.mark.skipif(
 )
 
 
-def _fingerprinting_works() -> bool:
-    """Can fpcalc actually produce a fingerprint?
+def _fingerprinting_unavailable() -> str | None:
+    """Why a test cannot fingerprint, or None when it can.
 
-    HAS_ACOUSTID only reports that `import acoustid` succeeded. The module
-    imports fine with no fpcalc binary anywhere, so it is not on its own
-    enough to run a test that fingerprints a file.
+    Stops one step short of the production probe: a test that only computes
+    fingerprints needs the module and the binary, not the shared library
+    that comparing needs.
     """
     if not HAS_ACOUSTID:
-        return False
-    return shutil.which("fpcalc") is not None
+        return "pyacoustid is not installed"
+    if shutil.which("fpcalc") is None:
+        return "the fpcalc binary is not on PATH"
+    return None
 
 
-def _comparison_works() -> bool:
-    """Can fingerprints actually be COMPARED?
-
-    A third dependency the availability flag does not cover: fingerprinting
-    shells out to the fpcalc binary, but comparing calls into the
-    chromaprint shared library through pyacoustid's C bindings. A machine
-    can have the module and the binary and still be unable to compare - the
-    library is not shipped with the standalone fpcalc build. When that is
-    the case `_similarity` catches the failure and returns None, so the tier
-    degrades to matching nothing rather than matching wrongly (which
-    test_comparison_unavailable_degrades_to_no_match pins).
-    """
-    if not _fingerprinting_works():
-        return False
-    try:
-        acoustid.compare_fingerprints((0, "AQAAAA"), (0, "AQAAAA"))
-    except Exception:
-        return False
-    return True
-
+# The reasons are computed, not written out, because the three dependencies
+# fail independently and a fixed string is wrong for two cases out of three.
+# A skip that misreports its own cause sends the reader after the wrong
+# dependency - which is the same defect these tests exist to pin in the
+# tool, so it would be a poor look to ship it in the tests themselves.
+_FINGERPRINTING_UNAVAILABLE = _fingerprinting_unavailable()
+_COMPARISON_UNAVAILABLE = fingerprint_unavailable_reason()
 
 requires_fingerprinting = pytest.mark.skipif(
-    not _fingerprinting_works(), reason="fpcalc binary not available"
+    _FINGERPRINTING_UNAVAILABLE is not None,
+    reason=f"cannot fingerprint: {_FINGERPRINTING_UNAVAILABLE}",
 )
 requires_comparison = pytest.mark.skipif(
-    not _comparison_works(), reason="chromaprint shared library not available (fpcalc alone cannot compare)"
+    _COMPARISON_UNAVAILABLE is not None,
+    reason=f"cannot compare fingerprints: {_COMPARISON_UNAVAILABLE}",
 )
 requires_ffmpeg = pytest.mark.skipif(
     shutil.which("ffmpeg") is None, reason="ffmpeg needed to encode the audio fixtures"
