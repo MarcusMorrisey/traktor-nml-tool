@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import csv
-import hashlib
+import re
 from pathlib import Path
 
 from tests.conftest import run_tool
@@ -523,18 +523,74 @@ def test_output_bytes_outside_receiving_subnodes_match_base_exactly(tmp_path: Pa
     assert out_suffix == base_suffix
 
 
-def test_matching_and_confidence_modules_are_byte_identical_to_pre_existing_contents() -> None:
-    import traktor_nml.confidence as confidence
-    import traktor_nml.matching as matching
+def test_resolution_delegates_to_the_shared_cascade(monkeypatch) -> None:
+    """build-playlist must RESOLVE through matching.match_records rather than
+    carry matching logic of its own.
 
-    expected = {
-        "matching.py": "ba242a09325edd7ddb3e420756ef7cef03a83ba36fb7cfe34a1aba9f0f01dc01",
-        "confidence.py": "7c2fba61401b1d315db696970eee19da8fe52310fa0fb2c4ee84f095ada28786",
-    }
-    for module, filename in ((matching, "matching.py"), (confidence, "confidence.py")):
-        content = Path(module.__file__).read_bytes()
-        digest = hashlib.sha256(content).hexdigest()
-        assert digest == expected[filename], f"{filename} changed - this feature must call the cascade, never edit it"
+    Asserted by observing the call, not by pinning the cascade's bytes. The
+    hash pin this replaces fired on any edit to matching.py or confidence.py
+    by anyone for any reason - it was bumped seven times, including for a
+    documentation-only commit and a pure comment change - so it reported
+    "the cascade moved", never "this feature stopped using it". And routinely
+    pasting a fresh digest to go green is the same gesture
+    PARITY_BASELINE_SHA256 relies on nobody making casually.
+
+    Behavioural change to the cascade is already covered, with evidence, by
+    the parity oracle. What needed guarding here was the coupling.
+    """
+    from traktor_nml import matching, tracklist
+    from traktor_nml.model import EntryRecord, LocationParts
+
+    calls = []
+    original = matching.match_records
+
+    def _spy(*args, **kwargs):
+        calls.append(args)
+        return original(*args, **kwargs)
+
+    # Patched where tracklist looked the name up, not only on the defining
+    # module, so a from-import in tracklist is still intercepted.
+    monkeypatch.setattr(tracklist, "match_records", _spy)
+
+    collection = [
+        EntryRecord(
+            entry=None, artist="A", title="One", audio_id="", filesize="",
+            playtime_float="", bitrate="", album="", file_name="one.mp3",
+            location=LocationParts(
+                volume="C:", volumeid="C:", dir_value="/:M/:", file_name="one.mp3"
+            ),
+        )
+    ]
+    parsed, _unparseable = tracklist.parse_tracklist("A - One")
+    tracklist.resolve_tracklist(parsed, collection)
+
+    assert calls, "resolve_tracklist never called match_records - matching was reimplemented"
+
+
+def test_build_playlist_uses_only_the_cascades_public_surface() -> None:
+    """No build-playlist module may reach into cascade internals.
+
+    Depending on a private helper couples this feature to the cascade's
+    implementation - the coupling the previous guard was reaching for, and
+    what makes the cascade painful to refactor. Unlike a file hash, this
+    permits any amount of legitimate change inside matching.py and
+    confidence.py.
+    """
+    private_attr = re.compile(r"\b(?:matching|confidence)\._[A-Za-z]")
+    private_import = re.compile(r"from \.(?:matching|confidence) import .*\b_[A-Za-z]")
+
+    offenders = []
+    for module in (
+        Path("traktor_nml/tracklist.py"),
+        Path("traktor_nml/buildplaylist.py"),
+        Path("traktor_nml/commands/build_playlist_cmd.py"),
+    ):
+        for number, line in enumerate(module.read_text(encoding="utf-8").splitlines(), 1):
+            code = line.split("#", 1)[0]
+            if private_attr.search(code) or private_import.search(code):
+                offenders.append(f"{module}:{number}: {line.strip()}")
+
+    assert not offenders, "build-playlist reached into cascade internals:\n" + "\n".join(offenders)
 
 
 def test_commit_path_uses_write_bytes_atomically(tmp_path: Path, monkeypatch) -> None:
