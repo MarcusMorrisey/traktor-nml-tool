@@ -77,7 +77,10 @@ every stricter tier unreachable (DL-032).
   Traktor's `FILESIZE` is the audio payload in KILOBYTES and sits 0.17%
   (median) to 0.41% (max) below `bytes / 1024`, because tag and artwork
   overhead is excluded, while a scanned candidate reports `st_size` in
-  bytes; `PLAYTIME_FLOAT` differs from what mutagen reports by up to 0.172s
+  bytes (these error figures come from a 6,386-entry sample whose basis is
+  no longer reconstructible from this repo - unlike the path-suffix
+  measurement above, they cannot be re-derived from a named fixture, which
+  is part of why DL-042 stopped fitting bounds to them); `PLAYTIME_FLOAT` differs from what mutagen reports by up to 0.172s
   and, compared as strings, never matches at all. Exact equality across
   those two sides is impossible rather than merely unreliable, so
   `matching.py` additionally compares them and uses that result only to
@@ -95,12 +98,14 @@ every stricter tier unreachable (DL-032).
 - The path-suffix tiers (`path_suffix_3` at strict, `_2` and `_1` at loose)
   key on a file's position within its own folders rather than its absolute
   path, so a library moved as a unit still reconnects. Depth is what sets
-  the level, measured on the same collection: three folders deep the key is
-  unique for 97.2% of entries, two folders 91.7%, one folder 87.8%. Depth
-  two is only consulted where depth three failed, and of the 235 entries
-  depth three cannot resolve it resolves 21 while colliding on 178 - one
-  automatic match per eight new adjudications, which is why it waits for
-  loose rather than sitting at the default. Its collisions are ambiguity,
+  the level, measured over the 6,412-entry `collection_textual_patch_test.nml`
+  fixture: three folders deep the key is unique for 97.2% of entries, two
+  folders 91.7%, one folder 87.8%. Depth two is only consulted where depth
+  three failed, and of the 235 entries depth three cannot resolve, depth two
+  resolves 21, collides on 178, and cannot key the remaining 36 at all
+  because their paths are too shallow - one automatic match per eight new
+  adjudications, which is why it waits for loose rather than sitting at the
+  default. Its collisions are ambiguity,
   never a wrong rewrite: every depth-two bucket holds exactly two entries
   and a bucket above one reports rather than picks. Without these, a disk scan against untagged files had no
   reachable tier at the default confidence at all: the documented

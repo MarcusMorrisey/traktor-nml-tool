@@ -16,7 +16,9 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 
 Every command previews before writing, refuses to overwrite any of its own inputs, and reports ambiguous or dangling matches explicitly (via stats and CSV export) rather than silently guessing.
 
-Matching also **refutes** a candidate whose `FILESIZE` or `PLAYTIME_FLOAT` contradicts the collection entry, and reports how many it withdrew as `refuted=N` — distinct from `unmatched`, so "found it and declined" never looks like "file is gone". Those tolerances are calibrated against one real library; if they reject files you know are correct, `--no-refute` turns the check off on any matching command. The run then warns on stderr, because a candidate the collection's own numbers contradict can win a match.
+Matching also **refutes** a candidate whose `FILESIZE` or `PLAYTIME_FLOAT` contradicts the collection entry, and reports how many it withdrew as `refuted=N` — distinct from `unmatched`, so "found it and declined" never looks like "file is gone". Those tolerances are calibrated against one real library; if they reject files you know are correct, `--no-refute` turns the check off. Both the counter and the flag appear on the five commands that compare records carrying a size and a duration: `preview-compare`, `scan-compare-candidates`, `rewrite-from-collection-compare`, `scan-reconnect-candidates` and `rewrite-from-reconnect`. A run using the flag warns on stderr, because a candidate the collection's own numbers contradict can then win a match.
+
+`build-playlist` is deliberately not in that list even though it runs the same cascade: a plain-text track list carries no size or duration, so there is nothing for the check to contradict and it can never fire. A flag there would do nothing.
 
 `--dry-run` suppresses the write to the command's declared **NML output file only**. Side files are still written, because each is a record of what the run saw rather than the artifact the run produces:
 

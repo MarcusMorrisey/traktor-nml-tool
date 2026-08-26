@@ -51,8 +51,10 @@ class MatchConfidence(enum.Enum):
 # every absolute path but preserves each file's position within its own
 # folders.
 #
-# The shallower two stay at loose, and depth two has now been measured on
-# the same 6,412-entry collection rather than assumed:
+# The shallower two stay at loose, and depth two has now been measured
+# rather than assumed, over the 6,412-entry collection_textual_patch_test.nml
+# fixture (re-derivable; the tolerance figures in matching.py come from a
+# different, no-longer-reconstructible sample):
 #
 #   depth 4  99.03% unique   30 colliding keys
 #   depth 3  97.20% unique   89 colliding keys   <- strict
@@ -61,11 +63,12 @@ class MatchConfidence(enum.Enum):
 #
 # Uniqueness alone understates the case, because depth two is only ever
 # consulted where depth three failed. Of the 235 entries depth three does
-# not resolve, depth two resolves 21 uniquely and collides on 178. So
-# promoting it to strict would buy 21 automatic matches at the price of 178
-# fresh adjudications - roughly one resolution per eight new decisions,
-# at the level that is both the default and the one a cautious operator
-# reaches for.
+# not resolve, depth two resolves 21 uniquely, collides on 178, and cannot
+# key the remaining 36 at all - their paths hold fewer than two folder
+# parts (29 hold none, 7 hold one). So promoting it to strict would buy 21
+# automatic matches at the price of 178 fresh adjudications - roughly one
+# resolution per eight new decisions, at the level that is both the default
+# and the one a cautious operator reaches for.
 #
 # The collisions are not dangerous: every depth-two bucket on this
 # collection holds exactly two entries, and a bucket above one reports
