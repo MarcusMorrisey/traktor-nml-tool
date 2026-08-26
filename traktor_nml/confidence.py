@@ -83,8 +83,24 @@ _STRICT_TIERS: tuple[str, ...] = (
     "artist_title_album_time",
     "path_suffix_3",
 )
-_LOOSE_TIERS: tuple[str, ...] = _STRICT_TIERS + ("artist_title", "path_suffix_2", "path_suffix_1")
-_FILENAME_TIERS: tuple[str, ...] = _LOOSE_TIERS + ("filename",)
+# bare_name_in_folder keys on one folder plus the name with its container
+# format stripped, so it is strictly weaker evidence than path_suffix_2 -
+# which sits here rather than in strict after its own uniqueness
+# measurement - and belongs no higher. Measured over 111 format-change
+# candidates in a real collection it was ambiguous zero times, but that
+# measures those candidates, not the library at large, so it is placed on
+# the evidence it actually has.
+_LOOSE_TIERS: tuple[str, ...] = _STRICT_TIERS + (
+    "artist_title",
+    "path_suffix_2",
+    "path_suffix_1",
+    "bare_name_in_folder",
+)
+# bare_name drops the folder too, so a track re-encoded AND moved still
+# matches - at the cost of colliding with stem component files, of which one
+# real library held 208 named "vocals". Filename level, alongside the other
+# tier that trusts a name alone.
+_FILENAME_TIERS: tuple[str, ...] = _LOOSE_TIERS + ("filename", "bare_name")
 
 _ADMITTED_TIERS = {
     MatchConfidence.STRICT: _STRICT_TIERS,

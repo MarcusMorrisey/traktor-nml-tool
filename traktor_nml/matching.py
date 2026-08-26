@@ -11,6 +11,7 @@ providers are supplied.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Callable, Iterable, Optional
@@ -59,7 +60,9 @@ _CASCADE: tuple[_TierSpec, ...] = (
     _TierSpec("path_suffix_2", always_seed_stat=False, tag_free=True),
     _TierSpec("artist_title", always_seed_stat=True),
     _TierSpec("path_suffix_1", always_seed_stat=False, tag_free=True),
+    _TierSpec("bare_name_in_folder", always_seed_stat=False, tag_free=True),
     _TierSpec("filename", always_seed_stat=False, tag_free=True),
+    _TierSpec("bare_name", always_seed_stat=False, tag_free=True),
 )
 
 _TIERS_BY_NAME: dict[str, _TierSpec] = {tier.name: tier for tier in _CASCADE}
@@ -311,6 +314,33 @@ def _path_suffix(record: EntryRecord, depth: int) -> Optional[tuple[str, ...]]:
     return _path_suffix_from(_folder_parts(record), record.file_name, depth)
 
 
+_FORMAT_SUFFIX = re.compile(r"(\.stem)?\.[A-Za-z0-9]{1,5}$")
+
+
+def _bare_name(file_name: str) -> Optional[str]:
+    """A file name with its container format stripped, folded for comparison.
+
+    "track.mp3", "track.wav" and "track.stem.m4a" all reduce to "track".
+
+    A DJ's library holds one track in several encodings across its life,
+    deliberately: upgraded to STEMS, re-encoded to WAV for a performance,
+    downgraded to reclaim drive space. Each of those REPLACES the file
+    rather than moving it, so every tier keying on the name as written -
+    filename, and the path suffixes, which end in it - stops matching, and
+    the entry is reported as though the track were gone. Measured on a real
+    collection, 61 stem upgrades whose replacement sat on the same drive
+    matched at no confidence level at all.
+
+    The ".stem" infix is stripped as well as the extension because Traktor
+    stem files are named "track.stem.m4a"; without it a stem upgrade would
+    reduce to "track.stem" and still miss.
+    """
+    if not file_name:
+        return None
+    bare = _FORMAT_SUFFIX.sub("", file_name)
+    return _fold(bare) if bare else None
+
+
 def _fold(value: str) -> str:
     """Casefold one key component for comparison.
 
@@ -410,8 +440,17 @@ def record_keys(
     # point rather than an oversight - see _CASCADE for the authoritative
     # sequence.
     _suffix_key(1)
+    # Format-change tiers. Placed below the tiers that key on the name as
+    # written, so an exact name match always wins first; these only fire
+    # when the file was re-encoded. Duration still refutes, which is what
+    # keeps them safe - size deliberately does not (see _claims_refute).
+    bare = _bare_name(record.file_name)
+    if confidence.admits("bare_name_in_folder") and bare and folder_parts:
+        keys.append(("bare_name_in_folder", (_fold(folder_parts[-1]), bare)))
     if confidence.admits("filename") and record.file_name:
         keys.append(("filename", (_fold(record.file_name),)))
+    if confidence.admits("bare_name") and bare:
+        keys.append(("bare_name", (bare,)))
     # There is deliberately no filename_size tier. It keyed on the raw
     # FILESIZE string from both sides, which measure different quantities in
     # different units (Traktor: kilobytes of audio payload; a disk scan:
