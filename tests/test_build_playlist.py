@@ -529,7 +529,7 @@ def test_matching_and_confidence_modules_are_byte_identical_to_pre_existing_cont
 
     expected = {
         "matching.py": "b491a94d5d12c6ed82f1f02e3ac55e9badc932bdd1756474d7b9e2214fae0664",
-        "confidence.py": "a9e5d6e3df16ae8787d3b05a8ce62ee6944683bcff66d2e33b9d4e988909890b",
+        "confidence.py": "0417afdffcf7122ba6b18bcc3b49476bfef77bafd8f17bd39d0ea2b447ec5cc9",
     }
     for module, filename in ((matching, "matching.py"), (confidence, "confidence.py")):
         content = Path(module.__file__).read_bytes()

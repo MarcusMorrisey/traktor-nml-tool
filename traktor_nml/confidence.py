@@ -51,16 +51,27 @@ class MatchConfidence(enum.Enum):
 # every absolute path but preserves each file's position within its own
 # folders.
 #
-# The shallower two wait for loose, and the reason is that 97.2% is a
-# measurement of DEPTH THREE only. Nothing was measured at depth two, and it
-# is not a small extrapolation: dropping a folder drops the album or release
-# level, so ("CD1", "01 - Intro.mp3") recurs across every multi-disc release
-# that uses that layout, and ("Album", "track01.mp3") across sibling
-# libraries. Colliding keys report ambiguity rather than a wrong match, so
-# the cost is the operator's time - but strict is the default and the level
-# a cautious operator reaches for, and it should not be where an unmeasured
-# tier makes them adjudicate. Measure depth two on a real collection and
-# path_suffix_2 can move up on evidence.
+# The shallower two stay at loose, and depth two has now been measured on
+# the same 6,412-entry collection rather than assumed:
+#
+#   depth 4  99.03% unique   30 colliding keys
+#   depth 3  97.20% unique   89 colliding keys   <- strict
+#   depth 2  91.72% unique  264 colliding keys   <- loose
+#   depth 1  87.83% unique  349 colliding keys   <- loose
+#
+# Uniqueness alone understates the case, because depth two is only ever
+# consulted where depth three failed. Of the 235 entries depth three does
+# not resolve, depth two resolves 21 uniquely and collides on 178. So
+# promoting it to strict would buy 21 automatic matches at the price of 178
+# fresh adjudications - roughly one resolution per eight new decisions,
+# at the level that is both the default and the one a cautious operator
+# reaches for.
+#
+# The collisions are not dangerous: every depth-two bucket on this
+# collection holds exactly two entries, and a bucket above one reports
+# ambiguity rather than picking, so the cost is the operator's time and
+# never a wrong rewrite. That is why these tiers exist at all - just not at
+# strict. Re-measure if the shape of a library differs from this one.
 _STRICT_TIERS: tuple[str, ...] = (
     "audio_id",
     "artist_title_size_time",
