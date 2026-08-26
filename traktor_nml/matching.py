@@ -160,18 +160,20 @@ _CROSS_DURATION_REL_TOLERANCE = 0.15
 
 
 def _size_kb(record: EntryRecord) -> Optional[float]:
-    """Both sides' size in kilobytes, or None when unknown.
+    """The record's size in kilobytes, or None when unknown.
 
-    A disk-derived candidate (source_path set) carries the real byte count
-    from stat(); a collection record carries Traktor's own KB figure.
+    Both sides already carry kilobytes: a collection record holds Traktor's
+    own FILESIZE, and diskscan converts stat()'s byte count at construction.
+    Deliberately no provenance branch here - inferring the unit from another
+    field would fail silently by a factor of 1024 on any record that did not
+    happen to set it.
     """
     if not record.filesize:
         return None
     try:
-        value = float(record.filesize)
+        return float(record.filesize)
     except ValueError:
         return None
-    return value / 1024.0 if record.source_path is not None else value
 
 
 def _duration_seconds(record: EntryRecord) -> Optional[float]:
@@ -221,8 +223,14 @@ def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
     old_kb, new_kb = old.size_kb, new.size_kb
     if old_kb is not None and new_kb is not None and max(old_kb, new_kb) > 0:
         if cross:
-            # Asymmetric in effect as well as wide: overhead only ever makes
-            # the file on disk BIGGER, so the upper bound is the loose one.
+            # Symmetric, and deliberately so. An earlier note here claimed
+            # the band was asymmetric because overhead "only ever makes the
+            # file on disk BIGGER" - the constants were never asymmetric,
+            # and the premise does not hold either: measured over 150 files
+            # of one collection, disk_kb/FILESIZE spans 0.9988 to 1.0041,
+            # i.e. under 0.5% in BOTH directions. Artwork can be stripped
+            # after import as easily as added, so neither side is the safe
+            # one to tighten, and the band stays wide in both.
             if old_kb <= 0 or not (
                 _CROSS_SIZE_MIN_FACTOR <= new_kb / old_kb <= _CROSS_SIZE_MAX_FACTOR
             ):

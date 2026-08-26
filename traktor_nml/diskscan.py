@@ -235,7 +235,15 @@ def index_scan_roots(
                     artist=tags.get("artist", ""),
                     title=tags.get("title", ""),
                     audio_id="",
-                    filesize=str(file_stat.st_size),
+                    # KILOBYTES, matching the unit Traktor writes into
+                    # FILESIZE, so EntryRecord.filesize means one thing
+                    # regardless of which side produced the record. The
+                    # alternative - storing bytes and converting at
+                    # comparison time - has to infer provenance from
+                    # another field, and infers it silently: a candidate
+                    # built without that field is out by 1024x with no
+                    # error, only wrong answers.
+                    filesize=str(round(file_stat.st_size / 1024)),
                     playtime_float=tags.get("playtime_float", ""),
                     bitrate=tags.get("bitrate", ""),
                     album=tags.get("album", ""),

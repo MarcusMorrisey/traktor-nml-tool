@@ -429,22 +429,43 @@ def test_duration_refutation_tolerates_the_measured_disagreement(
     assert _refutes(old, candidate) is refuted
 
 
-def test_size_refutation_compares_kilobytes_against_bytes() -> None:
-    """The two sides are in different units, and the comparison must
-    convert rather than compare the raw strings: the collection records
-    kilobytes of audio payload, a scanned candidate records bytes on disk.
-    Comparing them directly is the bug this whole change exists to fix.
+def test_a_scanned_file_carries_kilobytes_not_bytes(tmp_path: Path) -> None:
+    """The unit is settled where the record is built, not where it is read.
+
+    This is the guard for the original bug - a collection's kilobytes
+    compared against stat()'s bytes - and it deliberately goes through
+    index_scan_roots against a real file rather than asserting on a
+    hand-built record. Converting at comparison time instead would have to
+    infer which side is which from another field, and would be wrong by a
+    factor of 1024, silently, on any record that did not set it.
     """
+    from traktor_nml.diskscan import index_scan_roots
+    from traktor_nml.tagcache import TagCache
+
+    audio = tmp_path / "audio"
+    audio.mkdir()
+    (audio / "track.mp3").write_bytes(b"\x00" * (5000 * 1024))
+
+    records = index_scan_roots([audio], TagCache(tmp_path / "cache.json"))
+    assert len(records) == 1
+    assert records[0].filesize == "5000", "scanned size must be kilobytes"
+
+
+def test_size_refutation_agrees_across_the_two_sources(tmp_path: Path) -> None:
+    """End-to-end: a collection entry and the real file behind it must not
+    refute each other, and a file 1024x the size must."""
+    from traktor_nml.diskscan import index_scan_roots
     from traktor_nml.matching import _refutes
+    from traktor_nml.tagcache import TagCache
 
-    # 5,000 KB of payload against a 5,120,000-byte file: the same track.
-    old = _record(filesize="5000")
-    same_track = _record(filesize=str(5000 * 1024), from_disk=True)
-    assert _refutes(old, same_track) is False
+    audio = tmp_path / "audio"
+    audio.mkdir()
+    (audio / "track.mp3").write_bytes(b"\x00" * (5000 * 1024))
+    scanned = index_scan_roots([audio], TagCache(tmp_path / "cache.json"))[0]
 
-    # Raw-string equality would have called THIS one a match.
-    numeric_lookalike = _record(filesize="5000", from_disk=True)
-    assert _refutes(old, numeric_lookalike) is True
+    assert _refutes(_record(filesize="5000"), scanned) is False
+    # The pre-fix bug read the same file as 5,120,000 KB.
+    assert _refutes(_record(filesize=str(5000 * 1024)), scanned) is True
 
 
 # --- regressions from the code review of the refutation filter ------------
@@ -484,7 +505,7 @@ def test_embedded_artwork_does_not_veto_a_path_suffix_match() -> None:
     old = _record(filesize="5000", dir_value="/:Techno/:Artist/:Album/:")
     # Untagged on disk, so no tag tier can fire above the path suffix.
     candidate = _record(
-        filesize=str(5500 * 1024),
+        filesize="5500",
         from_disk=True,
         dir_value="/:Techno/:Artist/:Album/:",
         artist="",
