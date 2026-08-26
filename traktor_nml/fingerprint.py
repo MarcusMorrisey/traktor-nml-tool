@@ -38,6 +38,7 @@ first-found winner silently keeping the rest a secret.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -57,6 +58,36 @@ try:
     HAS_ACOUSTID = True
 except (ImportError, OSError):  # pragma: no cover - fpcalc binary or module absent
     HAS_ACOUSTID = False
+
+def fingerprint_unavailable_reason() -> Optional[str]:
+    """Why the tier cannot match, or None when it genuinely can.
+
+    HAS_ACOUSTID answers "did the import succeed", which is not the same
+    question: the tier needs the module, the fpcalc binary to fingerprint
+    with, and the chromaprint shared library to compare with, and a machine
+    can have any subset. Each missing piece degrades to matching nothing, so
+    without this probe --fingerprint looks like it ran and simply found no
+    candidates.
+
+    Probed on demand rather than at import: the compare call is cheap but
+    every CLI invocation would pay for it, including the ones that never
+    fingerprint anything.
+    """
+    if not HAS_ACOUSTID:
+        return "pyacoustid is not installed"
+    if shutil.which("fpcalc") is None:
+        return "the fpcalc binary is not on PATH"
+    try:
+        # Two trivially valid fingerprints: this exercises the C bindings,
+        # not the comparison's result, which is discarded.
+        acoustid.compare_fingerprints((0, "AQAAAA"), (0, "AQAAAA"))
+    except Exception:
+        return (
+            "the chromaprint shared library is not available "
+            "(the standalone fpcalc build does not ship it)"
+        )
+    return None
+
 
 DURATION_TOLERANCE_SECONDS = 1.0
 MATCH_THRESHOLD = 0.95

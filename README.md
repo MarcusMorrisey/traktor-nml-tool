@@ -31,7 +31,7 @@ So `--dry-run` with a report path is the supported way to review what a run *wou
 pip install lxml mutagen pyacoustid  # lxml required; mutagen/pyacoustid optional (tag reading / fingerprinting)
 ```
 
-`pyacoustid` also needs the `fpcalc` binary (from [Chromaprint](https://acoustid.org/chromaprint)) on `PATH` for acoustic fingerprinting. Everything else degrades gracefully if these are absent.
+`pyacoustid` also needs the `fpcalc` binary (from [Chromaprint](https://acoustid.org/chromaprint)) on `PATH` to compute fingerprints, **and** the chromaprint shared library to compare them - the standalone `fpcalc` download ships the binary only. With any of the three missing, `--fingerprint` names which one and matches nothing rather than failing. Everything else degrades gracefully if these are absent.
 
 ## Usage
 

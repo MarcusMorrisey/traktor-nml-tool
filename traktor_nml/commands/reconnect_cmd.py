@@ -29,10 +29,10 @@ try:
     # when fingerprint.py, pyacoustid and fpcalc are absent - --fingerprint
     # simply becomes unavailable until M-005 lands, rather than the whole
     # CLI failing to import.
-    from ..fingerprint import HAS_ACOUSTID, fingerprint_key_provider
+    from ..fingerprint import fingerprint_key_provider, fingerprint_unavailable_reason
 except ImportError:  # pragma: no cover - fingerprint tier lands in M-005
     fingerprint_key_provider = None
-    HAS_ACOUSTID = False
+    fingerprint_unavailable_reason = None
 
 
 class _FingerprintUnavailable(RuntimeError):
@@ -69,7 +69,7 @@ def add_reconnect_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--fingerprint",
         action="store_true",
-        help="Enable the acoustic-fingerprint match tier (requires pyacoustid/fpcalc); "
+        help="Enable the acoustic-fingerprint match tier (requires pyacoustid, the fpcalc binary, and the chromaprint shared library); "
         "opt-in and off by default since these are optional dependencies.",
     )
     add_confidence_args(parser)
@@ -122,14 +122,17 @@ def _run_reconnection(
             raise _FingerprintUnavailable(
                 "fingerprint_key_provider unavailable (traktor_nml.fingerprint not installed)"
             )
-        if not HAS_ACOUSTID:
-            # The module imported fine but its own dependency probe failed
-            # (pyacoustid and/or the fpcalc binary are absent) - the fingerprint
-            # tier is then a silent no-op (see fingerprint.py's own gate), so
-            # that must be surfaced here rather than left undiagnosed, matching
-            # the xmlio.HAS_LXML fallback's own diagnostic style.
+        unavailable = fingerprint_unavailable_reason()
+        if unavailable is not None:
+            # Every way this tier can be unusable degrades to matching
+            # nothing, so an undiagnosed run looks exactly like one that
+            # searched and found no candidates. The reason is named rather
+            # than the dependency set listed, because the three pieces fail
+            # independently and "pyacoustid/fpcalc not available" is wrong
+            # advice when the missing piece is the chromaprint library and
+            # both of those are installed.
             print(
-                "fingerprint_dependency_missing=pyacoustid/fpcalc not available; "
+                f"fingerprint_dependency_missing={unavailable}; "
                 "--fingerprint tier will find no matches",
                 file=sys.stderr,
             )

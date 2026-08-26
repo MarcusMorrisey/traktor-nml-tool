@@ -129,6 +129,49 @@ def test_dry_run_and_write_agree_on_counts(tmp_path: Path) -> None:
     assert dry.stdout.split("output_written")[0] == real.stdout.split("output_written")[0]
 
 
+def test_fingerprint_flag_names_the_dependency_that_is_actually_missing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The tier needs three separate things and each can be missing alone.
+
+    A run whose fingerprinting works but whose comparison cannot load the
+    chromaprint shared library used to print nothing at all: HAS_ACOUSTID
+    was True, so the old diagnostic never fired, and the tier matched
+    nothing while looking like a clean run. Whatever is missing, the run
+    must say which - "pyacoustid/fpcalc not available" is actively wrong
+    advice when both are installed and the library is the gap.
+    """
+    import traktor_nml.fingerprint as fingerprint_module
+
+    monkeypatch.setattr(
+        fingerprint_module,
+        "fingerprint_unavailable_reason",
+        lambda: "the chromaprint shared library is not available",
+    )
+    monkeypatch.setattr(
+        "traktor_nml.commands.reconnect_cmd.fingerprint_unavailable_reason",
+        lambda: "the chromaprint shared library is not available",
+    )
+
+    music = tmp_path / "music"
+    _stub(music / "xtal.mp3")
+    old_nml = tmp_path / "old.nml"
+    _write_nml(old_nml, _entry("Aphex Twin", "Xtal", "Z:", "/:gone/:", "xtal.mp3"))
+
+    result = run_tool(
+        [
+            "scan-reconnect-candidates", str(old_nml),
+            "--scan-root", str(music),
+            "--volume-map", str(music), "C:", "C:",
+            "--match-confidence", "filename",
+            "--fingerprint",
+        ],
+        cwd=tmp_path,
+    )
+    assert result.exit_code == 0
+    assert "fingerprint_dependency_missing=the chromaprint shared library" in result.stderr
+
+
 @pytest.mark.skipif(HAS_ACOUSTID, reason="exercises the missing-dependency path only")
 def test_fingerprint_flag_without_dependency_warns_rather_than_silently_no_ops(tmp_path: Path) -> None:
     """--fingerprint with pyacoustid/fpcalc absent must not silently do
