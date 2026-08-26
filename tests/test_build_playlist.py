@@ -528,7 +528,7 @@ def test_matching_and_confidence_modules_are_byte_identical_to_pre_existing_cont
     import traktor_nml.matching as matching
 
     expected = {
-        "matching.py": "b491a94d5d12c6ed82f1f02e3ac55e9badc932bdd1756474d7b9e2214fae0664",
+        "matching.py": "c16c5b4659872279ff7b1655486f2b6faeee4835161a2d7c287d7c772f41f12c",
         "confidence.py": "0417afdffcf7122ba6b18bcc3b49476bfef77bafd8f17bd39d0ea2b447ec5cc9",
     }
     for module, filename in ((matching, "matching.py"), (confidence, "confidence.py")):

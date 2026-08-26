@@ -16,6 +16,8 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 
 Every command previews before writing, refuses to overwrite any of its own inputs, and reports ambiguous or dangling matches explicitly (via stats and CSV export) rather than silently guessing.
 
+Matching also **refutes** a candidate whose `FILESIZE` or `PLAYTIME_FLOAT` contradicts the collection entry, and reports how many it withdrew as `refuted=N` — distinct from `unmatched`, so "found it and declined" never looks like "file is gone". Those tolerances are calibrated against one real library; if they reject files you know are correct, `--no-refute` turns the check off on any matching command. The run then warns on stderr, because a candidate the collection's own numbers contradict can win a match.
+
 `--dry-run` suppresses the write to the command's declared **NML output file only**. Side files are still written, because each is a record of what the run saw rather than the artifact the run produces:
 
 - `rewrite-from-reconnect` and `scan-reconnect-candidates` write/update their `--cache` tag-cache file (default `.traktor_nml_tagcache.json`) during the disk scan.

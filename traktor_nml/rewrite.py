@@ -202,9 +202,37 @@ def rewrite_nml(root: ET.Element, rules: list, dry_run: bool) -> dict[str, int]:
     return stats
 
 
+def warn_if_refutation_disabled(args) -> bool:
+    """Read --no-refute, announcing it when set.
+
+    A run that silently ignores size and duration contradictions can commit
+    a rewrite onto a file the collection's own numbers say is the wrong
+    one, so the switch says so on every run rather than only in --help.
+    Returns whether to refute, for passing straight into the cascade.
+    """
+    if not getattr(args, "no_refute", False):
+        return True
+    print(
+        "refutation_disabled=size and duration contradictions will be ignored; "
+        "a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match",
+        file=sys.stderr,
+    )
+    return False
+
+
+def add_no_refute_argument(parser) -> None:
+    parser.add_argument(
+        "--no-refute",
+        action="store_true",
+        help="Do not drop candidates whose size or duration contradicts the collection entry. "
+        "The tolerances are calibrated against one real library; use this if they are rejecting "
+        "files you know are correct (a run reports how many it withdrew as refuted=N).",
+    )
+
 def rewrite_from_collection_compare(
     old_root: ET.Element, new_root: ET.Element, dry_run: bool, confidence: MatchConfidence,
     key_providers: list[KeyProvider] = (),
+    refute: bool = True,
 ) -> tuple[dict[str, int], list[tuple[str, str, str, str]]]:
     """Apply compare-based rewriting: match old collection records
     against a newer collection's records via the tiered cascade, rewrite
@@ -214,7 +242,9 @@ def rewrite_from_collection_compare(
     old_records = collection_records(old_root)
     new_records = collection_records(new_root)
     indexes = build_new_indexes(new_records, confidence, key_providers)
-    mapping, match_stats, samples = match_records(old_records, new_records, confidence, key_providers, indexes=indexes)
+    mapping, match_stats, samples = match_records(
+        old_records, new_records, confidence, key_providers, indexes=indexes, refute=refute
+    )
     mapping, match_stats, _collided = enforce_one_to_one(
         mapping, match_stats, old_records, indexes, confidence, key_providers
     )

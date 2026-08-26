@@ -12,8 +12,10 @@ from ..model import collection_records
 from ..reconnect import enforce_one_to_one
 from ..rewrite import (
     _collect_compare_patches,
+    add_no_refute_argument,
     read_and_parse_source,
     rewrite_from_collection_compare,
+    warn_if_refutation_disabled,
     write_nml_safely,
 )
 from ..xmlio import XML_PARSE_ERROR, parse_xml
@@ -43,10 +45,12 @@ def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
     return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
 
 
-def preview_compare_nml(old_root, new_root, limit: int, confidence: MatchConfidence) -> int:
+def preview_compare_nml(
+    old_root, new_root, limit: int, confidence: MatchConfidence, refute: bool = True
+) -> int:
     old_records = collection_records(old_root)
     new_records = collection_records(new_root)
-    mapping, stats, samples = match_records(old_records, new_records, confidence)
+    mapping, stats, samples = match_records(old_records, new_records, confidence, refute=refute)
 
     print(f"old_collection_entries={len(old_records)}")
     print(f"new_collection_entries={len(new_records)}")
@@ -66,11 +70,11 @@ def preview_compare_nml(old_root, new_root, limit: int, confidence: MatchConfide
 
 
 def compare_stats_dict(
-    old_root, new_root, confidence: MatchConfidence
+    old_root, new_root, confidence: MatchConfidence, refute: bool = True
 ) -> tuple[dict[str, int], list[tuple[str, str, str, str]]]:
     old_records = collection_records(old_root)
     new_records = collection_records(new_root)
-    mapping, stats, samples = match_records(old_records, new_records, confidence)
+    mapping, stats, samples = match_records(old_records, new_records, confidence, refute=refute)
     stats = {
         "old_collection_entries": len(old_records),
         "new_collection_entries": len(new_records),
@@ -81,7 +85,8 @@ def compare_stats_dict(
 
 
 def scan_compare_candidates(
-    target_path: Path, candidates_dir: Path, limit: int, confidence: MatchConfidence
+    target_path: Path, candidates_dir: Path, limit: int, confidence: MatchConfidence,
+    refute: bool = True,
 ) -> int:
     try:
         target_root = parse_xml(target_path).getroot()
@@ -104,7 +109,7 @@ def scan_compare_candidates(
         except (XML_PARSE_ERROR, FileNotFoundError):
             continue
 
-        stats, _samples = compare_stats_dict(candidate_root, target_root, confidence)
+        stats, _samples = compare_stats_dict(candidate_root, target_root, confidence, refute=refute)
         old_entries = int(stats["old_collection_entries"])
         matched = int(stats["matched"])
         ambiguous = int(stats["ambiguous"])
@@ -173,7 +178,9 @@ def _handle_preview_compare(args: argparse.Namespace) -> int:
     if error_code is not None:
         return error_code
     return preview_compare_nml(
-        old_tree.getroot(), new_tree.getroot(), limit=args.limit, confidence=resolve_confidence(args)
+        old_tree.getroot(), new_tree.getroot(), limit=args.limit,
+        confidence=resolve_confidence(args),
+        refute=warn_if_refutation_disabled(args),
     )
 
 
@@ -183,11 +190,16 @@ def _handle_scan_compare_candidates(args: argparse.Namespace) -> int:
         candidates_dir=args.candidates_dir,
         limit=args.limit,
         confidence=resolve_confidence(args),
+        refute=warn_if_refutation_disabled(args),
     )
 
 
 def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:
     confidence = resolve_confidence(args)
+    # Read once here, not inside the closures below: this command runs
+    # _collect_patches and mutate_tree over the same invocation, and the
+    # warning must print once for the run rather than once per pass.
+    refute = warn_if_refutation_disabled(args)
 
     # Parsed once, upfront, with the same xml_parse_error/input_not_found
     # handling old_input gets inside write_nml_safely - previously each
@@ -204,7 +216,9 @@ def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:
         old_records = collection_records(old_root)
         new_records = collection_records(new_root)
         indexes = build_new_indexes(new_records, confidence)
-        mapping, match_stats, samples = match_records(old_records, new_records, confidence, indexes=indexes)
+        mapping, match_stats, samples = match_records(
+            old_records, new_records, confidence, indexes=indexes, refute=refute
+        )
         mapping, match_stats, _collided = enforce_one_to_one(
             mapping, match_stats, old_records, indexes, confidence
         )
@@ -213,7 +227,7 @@ def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:
 
     def mutate_tree(old_root, dry_run):
         stats, samples = rewrite_from_collection_compare(
-            old_root, new_root, dry_run=dry_run, confidence=confidence
+            old_root, new_root, dry_run=dry_run, confidence=confidence, refute=refute
         )
         return stats, samples
 
@@ -230,6 +244,7 @@ def register(subparsers, handlers: dict) -> None:
     compare_preview_parser.add_argument("old_input", type=Path)
     compare_preview_parser.add_argument("new_input", type=Path)
     compare_preview_parser.add_argument("--limit", type=int, default=10)
+    add_no_refute_argument(compare_preview_parser)
     add_confidence_args(compare_preview_parser)
     handlers["preview-compare"] = _handle_preview_compare
 
@@ -240,6 +255,7 @@ def register(subparsers, handlers: dict) -> None:
     scan_parser.add_argument("target_input", type=Path)
     scan_parser.add_argument("candidates_dir", type=Path)
     scan_parser.add_argument("--limit", type=int, default=10)
+    add_no_refute_argument(scan_parser)
     add_confidence_args(scan_parser)
     handlers["scan-compare-candidates"] = _handle_scan_compare_candidates
 
@@ -251,5 +267,6 @@ def register(subparsers, handlers: dict) -> None:
     compare_rewrite_parser.add_argument("new_input", type=Path)
     compare_rewrite_parser.add_argument("output", type=Path)
     compare_rewrite_parser.add_argument("--dry-run", action="store_true", help="Skip the write to the NML output file. Any report or CSV side file this command writes is still written.")
+    add_no_refute_argument(compare_rewrite_parser)
     add_confidence_args(compare_rewrite_parser)
     handlers["rewrite-from-collection-compare"] = _handle_rewrite_from_collection_compare

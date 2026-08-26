@@ -13,7 +13,9 @@ from ..reconnect import location_from_disk_path, resolve_reconnection
 from ..rewrite import (
     CompareEntryResolver,
     _collect_compare_patches,
+    add_no_refute_argument,
     process_non_collection_entries,
+    warn_if_refutation_disabled,
     write_nml_safely,
 )
 from ..tagcache import TagCache
@@ -40,6 +42,7 @@ class _FingerprintUnavailable(RuntimeError):
 
 
 def add_reconnect_args(parser: argparse.ArgumentParser) -> None:
+    add_no_refute_argument(parser)
     parser.add_argument(
         "--scan-root",
         type=Path,
@@ -139,7 +142,8 @@ def _run_reconnection(
         key_providers.append(fingerprint_key_provider(cache, candidates, fingerprint_stats, known_mounts))
 
     mapping, stats, ambiguity_rows = resolve_reconnection(
-        old_records, candidates, confidence, key_providers
+        old_records, candidates, confidence, key_providers,
+        refute=warn_if_refutation_disabled(args),
     )
     stats = {**fingerprint_stats, **stats}
 

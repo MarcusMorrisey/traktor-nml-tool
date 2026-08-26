@@ -596,3 +596,71 @@ def test_the_only_non_refutable_tier_is_audio_id() -> None:
     from traktor_nml.matching import _CASCADE
 
     assert {t.name for t in _CASCADE if not t.refutable} == {"audio_id"}
+
+
+# --- --no-refute ---------------------------------------------------------
+
+
+def _sized_nml(path: Path, dirv: str, filename: str, size: str) -> None:
+    _write_nml(path, _entry("A", "One", "C:", dirv, filename, size=size, time="200.0"))
+
+
+def test_no_refute_admits_a_candidate_the_size_check_withdraws(tmp_path: Path) -> None:
+    """The switch exists because the tolerances are calibrated against one
+    library, so a library that breaks an assumption behind them loses
+    correct candidates with no way to overrule it.
+
+    Two collections describing the same file at the same path, disagreeing
+    on FILESIZE far beyond tolerance: refuted by default, matched with the
+    switch.
+    """
+    _sized_nml(tmp_path / "old.nml", "/:M/:A/:Alb/:", "t.mp3", "5000")
+    _sized_nml(tmp_path / "new.nml", "/:M/:A/:Alb/:", "t.mp3", "9000")
+
+    default = run_tool(["preview-compare", "old.nml", "new.nml"], cwd=tmp_path)
+    assert _stat(default.stdout, "matched") == "0"
+    assert _stat(default.stdout, "refuted") == "1"
+
+    overridden = run_tool(["preview-compare", "old.nml", "new.nml", "--no-refute"], cwd=tmp_path)
+    assert _stat(overridden.stdout, "matched") == "1"
+    assert _stat(overridden.stdout, "refuted") == "0"
+
+
+def test_no_refute_announces_itself_on_every_run(tmp_path: Path) -> None:
+    """Ignoring the collection's own numbers can commit a rewrite onto the
+    wrong file, so the run says so rather than leaving it in --help."""
+    _sized_nml(tmp_path / "old.nml", "/:M/:A/:Alb/:", "t.mp3", "5000")
+    _sized_nml(tmp_path / "new.nml", "/:M/:A/:Alb/:", "t.mp3", "9000")
+
+    quiet = run_tool(["preview-compare", "old.nml", "new.nml"], cwd=tmp_path)
+    assert "refutation_disabled" not in quiet.stderr
+
+    loud = run_tool(["preview-compare", "old.nml", "new.nml", "--no-refute"], cwd=tmp_path)
+    assert "refutation_disabled=" in loud.stderr
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["preview-compare", "old.nml", "new.nml"],
+        ["scan-compare-candidates", "old.nml", "."],
+        ["rewrite-from-collection-compare", "old.nml", "new.nml", "out.nml", "--dry-run"],
+        ["scan-reconnect-candidates", "old.nml", "--scan-root", "music",
+         "--volume-map", "music", "C:", "C:"],
+        ["rewrite-from-reconnect", "old.nml", "out.nml", "--scan-root", "music",
+         "--volume-map", "music", "C:", "C:", "--dry-run"],
+    ],
+    ids=["preview-compare", "scan-compare", "rewrite-compare", "scan-reconnect", "rewrite-reconnect"],
+)
+def test_every_matching_command_accepts_no_refute(tmp_path: Path, argv: list[str]) -> None:
+    """The flag is only useful where the cascade runs, and it has to be on
+    ALL of those - a run that rejects the flag sends the operator looking
+    for a different command."""
+    _sized_nml(tmp_path / "old.nml", "/:M/:A/:Alb/:", "t.mp3", "5000")
+    _sized_nml(tmp_path / "new.nml", "/:M/:A/:Alb/:", "t.mp3", "9000")
+    _stub(tmp_path / "music" / "t.mp3")
+
+    result = run_tool(argv + ["--no-refute"], cwd=tmp_path)
+    # exit 2 would mean argparse rejected the flag outright.
+    assert result.exit_code == 0, result.stderr
+    assert "refutation_disabled=" in result.stderr

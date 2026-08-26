@@ -103,6 +103,7 @@ def resolve_reconnection(
     candidates: list[EntryRecord],
     confidence: MatchConfidence,
     key_providers: list[KeyProvider] = (),
+    refute: bool = True,
 ) -> tuple[dict[str, EntryRecord], dict[str, int], list[dict[str, str]]]:
     """Match old_records against candidates via the shared cascade, then
     invert the resulting mapping to find and drop destination collisions
@@ -117,7 +118,7 @@ def resolve_reconnection(
     # fingerprint provider is injected).
     indexes = build_new_indexes(candidates, confidence, key_providers)
     mapping, match_stats, _samples = match_records(
-        old_records, candidates, confidence, key_providers, indexes=indexes
+        old_records, candidates, confidence, key_providers, indexes=indexes, refute=refute
     )
 
     final_mapping, stats, collided_keys = enforce_one_to_one(

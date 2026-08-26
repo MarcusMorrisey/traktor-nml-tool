@@ -390,7 +390,15 @@ def match_records(
     confidence: MatchConfidence,
     key_providers: Iterable[KeyProvider] = (),
     indexes: dict[str, dict[tuple[str, ...], list[EntryRecord]]] | None = None,
+    refute: bool = True,
 ) -> tuple[dict[str, EntryRecord], dict[str, int], list[tuple[str, str, str, str]]]:
+    """refute=False disables the size/duration contradiction filter.
+
+    The filter's tolerances are calibrated against one real collection, so a
+    library that breaks an assumption behind them loses correct candidates
+    with no way to overrule it from outside this module. That is what the
+    switch is for; it is not a general-purpose knob, and the default stays
+    on because a contradiction is usually real."""
     # A caller that already built the candidate index for its own purposes
     # (e.g. reconnection's post-match ambiguity check) can pass it in so the
     # O(candidates) index build never runs twice for one match_records call.
@@ -453,7 +461,7 @@ def match_records(
             # the preferred copy first means a refuted current copy yields no
             # match at all, which is the honest outcome.
             candidates = _prefer_current_sync_copy(candidates)
-            if _is_refutable(key_name):
+            if refute and _is_refutable(key_name):
                 # Refute before counting: a size or duration contradiction
                 # removes a candidate, so a tier with one plausible and one
                 # implausible hit resolves cleanly instead of reporting a
