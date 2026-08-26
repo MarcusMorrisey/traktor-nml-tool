@@ -21,3 +21,10 @@ __pycache__/
 # and carrying the same real personal data. Nothing here is an input to
 # the test suite - no code path references it.
 /testing/
+
+# Packaging-spike build output (section 6). The spike app itself is tracked so
+# the checks can be re-run on a clean machine; its build artifacts are not.
+/build/
+/dist/
+/*.spec
+/.venv/
