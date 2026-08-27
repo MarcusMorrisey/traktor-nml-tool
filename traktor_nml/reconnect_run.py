@@ -253,7 +253,7 @@ def run_reconnection(
     _FingerprintUnavailable raise still exist in the caller's scope after
     the raise propagates and no ReconnectResult is ever constructed. When
     omitted a fresh list is created, and ReconnectResult.diagnostics is
-    populated from it exactly as before.
+    populated from whichever list was used, supplied or created.
     """
     # Volume identities are resolved once here and reused by both the
     # fingerprint tier (_build_fingerprint_tier's known_mounts) and the

@@ -3462,6 +3462,36 @@ same commit.
 ```
 
 
+**CC-FIX-004** (traktor_nml/reconnect_run.py) - implements a documentation-accuracy fix to run_reconnection's docstring (no Code Intent)
+
+**Provenance**: this documentation-accuracy pass, not a milestone or CC-FIX-003's
+commit e076b1a. The clause it corrects was committed as part of e076b1a itself:
+"populated from it exactly as before" compared the caller-owned-list behavior
+this function gained in e076b1a against a "before" state - run_reconnection's
+shape prior to that commit - that no longer exists in this file and that a
+reader coming to it later has never seen. The clause is corrected in place to
+state the fact directly; the caller-owned-list explanation and the reason it
+matters, both introduced by e076b1a, are unchanged. Recorded here, after
+CC-FIX-003 in document order, so this document keeps reconstructing
+traktor_nml/reconnect_run.py in full.
+
+**Code:**
+
+```diff
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -253,7 +253,7 @@ def run_reconnection(
+     _FingerprintUnavailable raise still exist in the caller's scope after
+     the raise propagates and no ReconnectResult is ever constructed. When
+     omitted a fresh list is created, and ReconnectResult.diagnostics is
+-    populated from it exactly as before.
++    populated from whichever list was used, supplied or created.
+     """
+     # Volume identities are resolved once here and reused by both the
+     # fingerprint tier (_build_fingerprint_tier's known_mounts) and the
+```
+
+
 ### Milestone 3: Anti-drift guard and decision log
 
 **Files**: tests/test_command_layer_printless.py, traktor_nml/README.md, traktor_nml/CLAUDE.md, tests/CLAUDE.md, tests/test_baseline_parity.py
