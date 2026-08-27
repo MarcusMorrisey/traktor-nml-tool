@@ -392,18 +392,56 @@ def apply_and_write(source_bytes: bytes, patches: list[ElemPatch], output: Path)
     write_bytes_atomically(output, patched.encode("utf-8"))
 
 
+@dataclass(frozen=True)
+class WriteOutcome:
+    """One attempt at the read/parse/patch/write sequence, returned
+    rather than printed so a caller other than the CLI - the reconnect
+    renderer, a future GUI - can read it as data.
+
+    stats is None rather than empty when the attempt ended before any
+    stats existed - the signal that separates an output collision, which
+    has no stats block at all, from a run that collected stats and then
+    failed to write.
+    """
+
+    stats: Optional[dict[str, int]]
+    samples: Optional[list[tuple[str, str, str, str]]]
+    # error and written_path are never both non-None: a run either fails
+    # (error set) or writes (written_path set), and a dry run and a
+    # collision both leave both fields None.
+    error: Optional[str]
+    written_path: Optional[Path]
+    # 0 on success, 2 on any of the four typed failures: input_not_found,
+    # xml_parse_error, output_must_differ_from_input, or text_patch_error.
+    exit_code: int
+
+
+def format_stats_and_samples(
+    stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
+) -> list[str]:
+    """The stats and sample_matches block as lines rather than prints, so
+    print_stats_and_samples and reconnect_render.render_rewrite_from_reconnect
+    compose the same block into their own output instead of each
+    restating its format."""
+    lines = [f"{key}={value}" for key, value in stats.items()]
+    if samples:
+        lines.append("sample_matches:")
+        # limit applies only to sample_matches, never to the stats block
+        # above it: both callers of format_stats_and_samples print the
+        # full stats block and only ever truncate sample_matches.
+        for label, before, after, matched_by in samples[:limit]:
+            lines.append(f"- {label}")
+            lines.append(f"  matched_by={matched_by}")
+            lines.append(f"  before={before}")
+            lines.append(f"  after={after}")
+    return lines
+
+
 def print_stats_and_samples(
     stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
 ) -> None:
-    for key, value in stats.items():
-        print(f"{key}={value}")
-    if samples:
-        print("sample_matches:")
-        for label, before, after, matched_by in samples[:limit]:
-            print(f"- {label}")
-            print(f"  matched_by={matched_by}")
-            print(f"  before={before}")
-            print(f"  after={after}")
+    for line in format_stats_and_samples(stats, samples, limit):
+        print(line)
 
 
 # Callables a caller of write_nml_safely supplies:
@@ -411,6 +449,59 @@ def print_stats_and_samples(
 #   mutate_tree(root, dry_run) -> (stats, samples)               [stdlib path]
 CollectPatchesFn = Callable[[ET.Element], tuple[list[ElemPatch], dict[str, int], list]]
 MutateTreeFn = Callable[[ET.Element, bool], tuple[dict[str, int], list]]
+
+
+def plan_and_write_nml(
+    input_path: Path,
+    output_path: Path,
+    dry_run: bool,
+    collect_patches: CollectPatchesFn,
+    mutate_tree: MutateTreeFn,
+    extra_inputs: tuple[Path, ...] = (),
+) -> WriteOutcome:
+    """Read, parse, patch, and write once, returning a WriteOutcome
+    rather than printing. Resolves output_path against
+    input_path and extra_inputs before touching the filesystem or either
+    callback, so the output-collision refusal precedes both parsing and
+    the caller's own collect_patches/mutate_tree. Raises nothing
+    collect_patches or mutate_tree themselves raise; only
+    FileNotFoundError, the XML parse error, and the two write-time
+    exceptions apply_and_write can raise are caught and folded into the
+    outcome.
+    """
+    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
+        # Checked before parsing and before either callback runs: the
+        # reconnect callback owns a long disk scan, and running it ahead
+        # of this refusal would make a refused write cost the whole scan
+        # instead of returning immediately.
+        return WriteOutcome(None, None, "output_must_differ_from_input", None, 2)
+
+    if HAS_LXML:
+        read_result = read_and_parse_source(input_path)
+        if read_result.error is not None:
+            return WriteOutcome(None, None, read_result.error, None, 2)
+        source_bytes, root = read_result.source_bytes, read_result.root
+        patches, stats, samples = collect_patches(root)
+        if not dry_run:
+            try:
+                apply_and_write(source_bytes, patches, output_path)
+            except (UnicodeDecodeError, ValueError) as exc:
+                return WriteOutcome(stats, samples, f"text_patch_error={exc}", None, 2)
+            return WriteOutcome(stats, samples, None, output_path, 0)
+        return WriteOutcome(stats, samples, None, None, 0)
+
+    try:
+        tree = parse_xml(input_path)
+    except FileNotFoundError:
+        return WriteOutcome(None, None, f"input_not_found={input_path.as_posix()}", None, 2)
+    except XML_PARSE_ERROR as exc:
+        return WriteOutcome(None, None, f"xml_parse_error={input_path.as_posix()}: {exc}", None, 2)
+    root = tree.getroot()
+    stats, samples = mutate_tree(root, dry_run)
+    if not dry_run:
+        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)
+        return WriteOutcome(stats, samples, None, output_path, 0)
+    return WriteOutcome(stats, samples, None, None, 0)
 
 
 def write_nml_safely(
@@ -427,41 +518,21 @@ def write_nml_safely(
     extra_inputs (existing tool convention). Both existing write commands
     (rewrite, rewrite-from-collection-compare) are expressed as callers of
     this helper, one supplying collect_patches for the lxml path and
-    mutate_tree for the stdlib fallback.
+    mutate_tree for the stdlib fallback. Delegates to plan_and_write_nml
+    and turns the returned WriteOutcome into the same stream writes this
+    function made when it owned the sequence directly.
     """
-    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
-        print("output_must_differ_from_input", file=sys.stderr)
-        return 2
-
-    if HAS_LXML:
-        read_result = read_and_parse_source(input_path)
-        if read_result.error is not None:
-            print(read_result.error, file=sys.stderr)
-            return 2
-        source_bytes, root = read_result.source_bytes, read_result.root
-        patches, stats, samples = collect_patches(root)
-        print_stats_and_samples(stats, samples)
-        if not dry_run:
-            try:
-                apply_and_write(source_bytes, patches, output_path)
-            except (UnicodeDecodeError, ValueError) as exc:
-                print(f"text_patch_error={exc}", file=sys.stderr)
-                return 2
-            print(f"output_written={output_path.as_posix()}")
-        return 0
-
-    try:
-        tree = parse_xml(input_path)
-    except FileNotFoundError:
-        print(f"input_not_found={input_path.as_posix()}", file=sys.stderr)
-        return 2
-    except XML_PARSE_ERROR as exc:
-        print(f"xml_parse_error={input_path.as_posix()}: {exc}", file=sys.stderr)
-        return 2
-    root = tree.getroot()
-    stats, samples = mutate_tree(root, dry_run)
-    print_stats_and_samples(stats, samples)
-    if not dry_run:
-        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)
-        print(f"output_written={output_path.as_posix()}")
-    return 0
+    outcome = plan_and_write_nml(
+        input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs
+    )
+    # Prints in one fixed order: the stats/samples block when stats was
+    # collected, then the error line when present, then output_written=
+    # when a write happened. tests/baselines/manifest.json's recorded
+    # reconnect cases are the oracle that pins this order byte-for-byte.
+    if outcome.stats is not None:
+        print_stats_and_samples(outcome.stats, outcome.samples)
+    if outcome.error is not None:
+        print(outcome.error, file=sys.stderr)
+    if outcome.written_path is not None:
+        print(f"output_written={outcome.written_path.as_posix()}")
+    return outcome.exit_code
