@@ -1,0 +1,70 @@
+"""Guards the printless-command-layer boundary: reconnect_cmd.py holds no
+print call and writes to neither stream, all reconnect output living in
+reconnect_render.emit instead.
+"""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+RECONNECT_CMD = Path(__file__).parent.parent / "traktor_nml" / "commands" / "reconnect_cmd.py"
+
+
+def _violations(source: str) -> list[str]:
+    """Walk source's AST for a call to print(...) or sys.stdout/stderr
+    .write(...). An AST walk rather than a text grep, because a grep for
+    "print(" would also match the word inside a docstring or comment
+    explaining why the module holds none. Verified to report a
+    violation when run against reconnect_cmd.py with a print call
+    spliced onto its source - see
+    test_reconnect_cmd_with_reintroduced_print_is_caught below - and to
+    report none against the real, unmutated module."""
+    tree = ast.parse(source)
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id == "print":
+            found.append(f"print call at line {node.lineno}")
+        elif isinstance(func, ast.Attribute) and func.attr == "write":
+            value = func.value
+            if (
+                isinstance(value, ast.Attribute)
+                and isinstance(value.value, ast.Name)
+                and value.value.id == "sys"
+                and value.attr in ("stdout", "stderr")
+            ):
+                found.append(f"sys.{value.attr}.write at line {node.lineno}")
+    return found
+
+
+def test_reconnect_cmd_holds_no_print_call() -> None:
+    """The real module, unmutated, reports no violations - the baseline
+    the negative control below is checked against."""
+    source = RECONNECT_CMD.read_text(encoding="utf-8")
+    assert _violations(source) == []
+
+
+def test_reconnect_cmd_with_reintroduced_print_is_caught() -> None:
+    """Negative control for test_reconnect_cmd_holds_no_print_call: proves
+    the guard actually fails on its own invariant breaking, not merely on
+    an unrelated synthetic snippet, by splicing a print of a computed
+    value onto the end of the real reconnect_cmd.py source and running
+    _violations() over the mutated text. Observed to fail (violations ==
+    []) if _violations() were checking something other than this
+    module's own calls."""
+    source = RECONNECT_CMD.read_text(encoding="utf-8")
+    mutated = source + "\n\nprint(f'leaked={len(source)}')\n"
+
+    assert _violations(mutated) != []
+    assert _violations(source) == []
+
+
+def test_checker_detects_a_reintroduced_print() -> None:
+    """The checker also catches a print call in an unrelated synthetic
+    module, so _violations is exercised against more than one source
+    shape rather than only the real file."""
+    synthetic = "def handler(args):\n    print('leaked')\n    return 0\n"
+    assert _violations(synthetic) != []

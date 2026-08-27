@@ -27,6 +27,20 @@ Two write mechanisms coexist and never mix within one command:
 iterating the package rather than listing them, so adding a subcommand
 never requires editing `cli.py` (DL-003).
 
+`reconnect_run.py` (the printless reconnection core) and
+`reconnect_render.py` (the buffered stdout/stderr renderer for it) sit
+beside the other top-level modules, not inside `commands/`:
+`commands/reconnect_cmd.py` imports downward into them rather than the
+reverse, so a caller other than the CLI - a GUI review table - can reach
+the same core and renderer without going through argparse wiring
+(DL-052). `shared_args.py` holds `resolve_confidence`/`should_refute`/
+`refutation_disabled_line` below `commands/`, on the same side of that
+boundary as the reconnect core and renderer, since a core module
+importing from `commands/` would create the reverse of the import
+direction DL-052 establishes; `commands/_shared_args.py` re-exports the
+same three names so `compare_cmd.py` and `reconnect_cmd.py` keep one
+import site each.
+
 `build-playlist` synthesizes its playlist node from an external track list
 with no source span to transplant, so it always takes the serialization
 path this split already sanctions for genuinely new content (DL-028), and
@@ -212,6 +226,12 @@ every stricter tier unreachable (DL-032).
   source byte span. `playlists.py`'s UUID-marker locator is gone, so a
   playlist whose `PLAYLIST` child carries no UUID is still located and no
   locator rescans the document per element (DL-014, DL-021).
+- Every element is located in source by tree identity through `spans.py`'s
+  shared `SpanIndex`, never by searching for an attribute value and never
+  through a second, independent locator: a `PLAYLIST` element whose child
+  carries no UUID is located by this same route, and one locator handles
+  every case rather than two locators that could disagree about where an
+  element sits (DL-021).
 - The one-to-one destination-collision post-pass is a named function in
   `reconnect.py` (`enforce_one_to_one`) that both `resolve_reconnection`
   and compare-based rewriting call, so the pre-existing DL-004 guarantee
@@ -342,6 +362,111 @@ every stricter tier unreachable (DL-032).
   shorthand, absence of extra whitespace), with no attempt to match the
   base document's own formatting conventions, the same as `playlists.py`'s
   existing renamed/redirected fragments already do (DL-039).
+- The two reconnect subcommands run behind a printless core that returns
+  one typed result per command, with a renderer turning that result into
+  stdout lines, stderr lines and an exit code; the argparse handler is
+  `emit(render(core(args)))`. A GUI review table needs the mapping, stats
+  and ambiguity rows mid-run and as objects, and a transcript parsed after
+  the fact arrives too late for that, so the flattening lives behind a
+  render boundary the CLI and a future GUI both sit above (DL-046).
+- `plan_and_write_nml` is a printless read/parse/patch/write sequence
+  returning a `WriteOutcome`; `write_nml_safely` is a thin printing
+  wrapper over it. `rewrite-from-reconnect`'s stdout is produced inside
+  `write_nml_safely`, not in the handler, so a printing core would leave
+  the reconnect core itself writing to stdout; a reconnect-local write
+  path would instead duplicate the read/parse/patch/write skeleton
+  DL-019 exists to prevent. The separation is proved rather than merely
+  asserted, by the unregenerated manifest cases for `rewrite` and
+  `rewrite-from-collection-compare` (DL-047).
+- `WriteOutcome` carries `stats` as `None` when the run failed before
+  stats were collected, and carries both `stats` and `error` when it
+  failed after. On the lxml path stats print before `apply_and_write`, so
+  a `text_patch_error` emits the full stats block on stdout and then the
+  error on stderr; a single error flag cannot reproduce that ordering, so
+  the presence of stats is itself the signal (DL-048).
+- The output-equals-input refusal stays the first thing
+  `plan_and_write_nml` does, ahead of parsing and ahead of the
+  `collect_patches`/`mutate_tree` callback: the reconnect callback owns a
+  disk scan that can run tens of minutes and writes the tag cache, so
+  running it before the collision check would make a refused write cost
+  the whole scan. A collision therefore produces no `ReconnectResult` at
+  all (DL-049).
+- `warn_refutation_disabled` lives in the renderer, not the reconnect
+  core, and the fingerprint-dependency warning is a field on the result:
+  the refutation warning is a pure function of argv and the fingerprint
+  warning is derived from probing the run, so only the second is
+  knowledge the core discovers. Argv-derived text belongs above the
+  core boundary and run-derived text belongs on the result, and the
+  renderer emits the fingerprint line before the refutation line to
+  preserve stderr order (DL-050).
+- The renderer returns buffered stdout and stderr line lists plus an exit
+  code, and a single `emit` helper in the render module performs every
+  print: the renderer must be a value-returning function to compare
+  against recorded stdout, and the manifest captures stdout and stderr as
+  separate streams, so buffering cannot reorder anything it observes.
+  `commands/reconnect_cmd.py` then holds no print call at all (DL-051).
+- The reconnect core and renderer live in `reconnect_run.py` and
+  `reconnect_render.py`, not under `commands/`: `commands/__init__.py`
+  imports every command module at CLI startup, so a GUI importing the
+  core through `commands/` would drag every subparser with it. The pair
+  sits beside `reconnect.py` in the package root, and `commands/` imports
+  downward into it (DL-052).
+- `ScanCancelled`, `VolumeIdentityError` and the fingerprint-unavailable
+  error propagate out of `plan_and_write_nml` unchanged; the reconnect
+  core converts the latter two into typed errors on its result and lets
+  `ScanCancelled` escape. A cancelled scan must never return partial
+  results, because a short candidate list reads as a mostly-missing
+  collection - catching it at the write shell would turn a refusal into a
+  plausible wrong answer. Only the two errors that already map to a
+  printed `key=value` line and exit code 2 become data (DL-053).
+- `run_reconnection` and both reconnect cores accept `on_progress` and
+  `cancel` keyword arguments and forward them verbatim to
+  `index_scan_roots`; both default to `None` and the argparse handlers
+  pass neither. `index_scan_roots` already accepts both, and a core
+  boundary that dropped them would force a GUI to bypass the core and
+  re-implement the pipeline just to get live progress or a cancel token -
+  exactly what DL-046 exists to prevent (DL-054).
+- The refutation-disabled message has one definition:
+  `shared_args.refutation_disabled_line()` returns the text,
+  `warn_refutation_disabled` prints what it returns, and
+  `reconnect_render` appends what it returns. No manifest case sets
+  `--no-refute` for either reconnect command, so a second copy of the
+  literal in the renderer would drift from the one in `shared_args`
+  without any oracle noticing; routing both callers through one
+  text-producing helper makes drift impossible rather than merely
+  detectable (DL-055).
+- `index_scan_roots` emits `tag_reading_unavailable` once at entry when
+  mutagen is absent and `disk_scan_progress` every `progress_every` files
+  inside the walk directly to stderr, so a core that calls it writes to
+  stderr no matter how carefully the rest of the core is written, and
+  DL-046's printless-core property is false in exactly the case that
+  matters, a real scan on a machine without mutagen. `index_scan_roots`
+  accepts an `on_diagnostic` keyword argument that receives each fully
+  formatted diagnostic line; it defaults to `None`, in which case the
+  function prints to stderr. `reconnect_run` passes a collector, an
+  ordered list appended to at the point each line would have been
+  printed, so the core writes to no stream and emission order is
+  preserved; the renderer emits the collected diagnostics before the
+  fingerprint and refutation warnings, the order the pipeline produces
+  them in. The transport is default-inert rather than a signature
+  change, because `index_scan_roots` has a second production caller,
+  `discover_tracks_cmd.py`, with no manifest case and therefore unpinned
+  - a default-`None` parameter leaves it byte-identical by construction
+  rather than by test. The callback receives the formatted line rather
+  than structured fields, so the message text keeps exactly one
+  definition, the same argument DL-055 makes for the refutation line
+  (DL-056).
+- Buffered renderer equality is not accepted as evidence that the
+  reconnect core is printless; the CLI-level stderr assertion is.
+  `render(core(args))` compares the lines a renderer returns, so a stray
+  print inside the core never enters the comparison and the equality test
+  passes while the process still writes to the stream. The only place a
+  leak is observable is a real invocation, where stdout and stderr are
+  captured from the process, so `tests/test_baseline_parity.py` asserts
+  stderr alongside stdout and exit code - free, because the manifest
+  already records a stderr field per case. All twelve recorded stderr
+  values are empty, which makes that assertion precisely a no-leak
+  detector for every pinned path (DL-057).
 
 ## Invariants
 

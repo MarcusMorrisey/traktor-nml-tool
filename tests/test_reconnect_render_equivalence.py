@@ -397,8 +397,9 @@ def _no_refute_args() -> argparse.Namespace:
 def test_scan_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutation(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """The full three-part stderr ordering CI-M-002-017 requires - diagnostics,
-    then fingerprint warning, then the refutation-disabled line - asserted at the
+    """The full three-part stderr ordering the renderer must produce -
+    diagnostics, then fingerprint warning, then the refutation-disabled line -
+    asserted at the
     emit() level rather than only on the returned RenderedOutput, because M-001
     demonstrated that an ordering assertion on the returned object alone can pass
     even when the printing layer emits the parts in a different order. No manifest
@@ -430,7 +431,7 @@ def test_scan_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutatio
 def test_scan_reconnect_typed_error_after_scan_emits_diagnostics_before_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """CI-M-002-017: a typed error raised after a scan that already emitted
+    """A typed error raised after a scan that already emitted
     diagnostics must still surface those diagnostics, ahead of the error line,
     on stderr - reproducing the pre-raise portion of run_reconnection's output
     even though no ReconnectResult was ever constructed. Asserted at the
@@ -463,7 +464,7 @@ def test_scan_reconnect_typed_error_after_scan_emits_diagnostics_before_error(
 def test_rewrite_from_reconnect_typed_error_after_scan_emits_diagnostics_before_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Same CI-M-002-017 requirement as
+    """Same diagnostics-before-error requirement as
     test_scan_reconnect_typed_error_after_scan_emits_diagnostics_before_error,
     for render_rewrite_from_reconnect. reconnect is None here because
     run_reconnection raised before returning a ReconnectResult, so the

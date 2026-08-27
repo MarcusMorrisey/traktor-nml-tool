@@ -32,8 +32,22 @@ def _load_manifest() -> list[dict]:
 @pytest.mark.parametrize("case", _load_manifest(), ids=lambda c: " ".join(c["argv"]))
 def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Path, tmp_path: Path) -> None:
     """Re-runs one recorded invocation against the fixture corpus and
-    compares exit code, stdout and every written file's bytes against the
-    manifest's stored values."""
+    compares exit code, stdout, stderr and every written file's bytes
+    against the manifest's stored values.
+
+    The stderr assertion is a no-leak detector, not merely a parity check:
+    all twelve recorded stderr values are empty, so any stream write that
+    escapes the renderer - from the reconnect core, the write shell, or
+    index_scan_roots - turns a passing case red. Renderer-equality tests
+    (test_reconnect_render_equivalence.py) cannot see this: they compare
+    lines a function returns, and a stray print inside the core never
+    enters that comparison. Only a real invocation, captured here, sees a
+    leaked stream write. Demonstrated failing: with one extra line
+    ('leak', file=sys.stderr) spliced into reconnect_run.scan_reconnect_candidates
+    (a printless function that borrowed sys/print for the mutation only),
+    the scan-reconnect-candidates case failed with
+    AssertionError: assert 'leak\\n' == '' - the exact shape a leak takes.
+    """
     (tmp_path / "out").mkdir(exist_ok=True)
     result = run_tool(case["argv"], cwd=tmp_path)
 
@@ -42,9 +56,11 @@ def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Pa
     # about what was substituted (see tests/baselines/run_root.py).
     relax = case.get("normalise_run_root", False)
     stdout = normalise_run_root(result.stdout, tmp_path) if relax else result.stdout
+    stderr = normalise_run_root(result.stderr, tmp_path) if relax else result.stderr
 
     assert result.exit_code == case["exit_code"]
     assert stdout == case["stdout"]
+    assert stderr == case["stderr"]
 
     for rel_path, expected_b64 in case["output_files"].items():
         written = (tmp_path / rel_path).read_bytes()
