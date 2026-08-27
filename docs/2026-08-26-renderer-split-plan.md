@@ -88,8 +88,8 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 - stdout order for rewrite-from-reconnect is csv_written, then the stats and sample_matches block, then output_written. stderr order is the fingerprint dependency warning, then the refutation-disabled warning, then any error.
 - commands/reconnect_cmd.py contains no print call and no stream write at all; that is the form the anti-drift guard checks.
 - Argv-derived text (the refutation-disabled warning) is emitted by the renderer; run-derived text (the fingerprint dependency reason) travels on the result as data.
-- The full-suite baseline is 191 passed and 3 skipped, the 3 skips being the fingerprint tier (pyacoustid and fpcalc absent). Every acceptance criterion that says 'pytest passes' means that count: a test that silently disappears or newly skips fails the criterion as surely as a red test, so the counts are read off the pytest summary line, not just the exit code.
-- This plan's decisions are numbered in the package sequence, not a second one. traktor_nml/README.md's decision log runs DL-046..DL-045 at planning time, so this plan's twelve decisions are DL-046..DL-057 and M-003 appends all twelve to that log. A DL number therefore means the same thing in this plan, in the package log, and in any repo file that cites it, which is what makes a citation copied out of an intent into repo code resolve to the entry it means. Precedent: docs/2026-08-24-build-playlist-plan.md numbered its own DL-024..DL-039 continuing the package sequence from its then high-water mark of DL-023, had its M-003 append all sixteen, and made 'the two namespaces never sharing a number' an acceptance criterion. Pre-existing package entries this plan cites - DL-016, DL-019, DL-028, DL-040, DL-045 - are unchanged; DL-019 in particular is the rule that commands read, parse and write through rewrite.py's shared helpers. The block is re-read against HEAD at commit time and shifted whole if another session has taken numbers.
+- The full-suite baseline is 221 passed and 3 skipped, the 3 skips being the fingerprint tier (pyacoustid and fpcalc absent). Every acceptance criterion that says 'pytest passes' means that count: a test that silently disappears or newly skips fails the criterion as surely as a red test, so the counts are read off the pytest summary line, not just the exit code.
+- This plan's decisions are numbered in the package sequence, not a second one. traktor_nml/README.md's decision log runs DL-001..DL-045 at planning time, so this plan's twelve decisions are DL-046..DL-057 and M-003 appends all twelve to that log. A DL number therefore means the same thing in this plan, in the package log, and in any repo file that cites it, which is what makes a citation copied out of an intent into repo code resolve to the entry it means. Precedent: docs/2026-08-24-build-playlist-plan.md numbered its own DL-024..DL-039 continuing the package sequence from its then high-water mark of DL-023, had its M-003 append all sixteen, and made 'the two namespaces never sharing a number' an acceptance criterion. Pre-existing package entries this plan cites - DL-016, DL-019, DL-028, DL-040, DL-045 - are unchanged; DL-019 in particular is the rule that commands read, parse and write through rewrite.py's shared helpers. The block is re-read against HEAD at commit time and shifted whole if another session has taken numbers.
 
 ### Tradeoffs
 
@@ -111,7 +111,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 **Acceptance Criteria**:
 
 - pytest passes with tests/baselines/manifest.json unmodified and PARITY_BASELINE_SHA256 unchanged
-- and the run reports at least the baseline 191 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier)
+- and the run reports at least the baseline 221 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier)
 - so a test that silently disappears or newly skips fails this criterion as surely as a red test;the rewrite and rewrite-from-collection-compare manifest cases pass unaltered and are the proof of byte-identical stdout;a WriteOutcome from a text_patch_error carries populated stats and a non-empty error so the stats block precedes the error line;a WriteOutcome from an output collision carries stats of None;grep finds no print call inside plan_and_write_nml;the guard test fails when write_nml_safely emits the stats block after the error line;the stats and sample_matches block has one definition that both the printing wrapper and the reconnect renderer call
 
 **Tests**:
@@ -656,7 +656,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 **Acceptance Criteria**:
 
 - pytest passes with tests/baselines/manifest.json unmodified and PARITY_BASELINE_SHA256 unchanged
-- and the run reports at least the baseline 191 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier)
+- and the run reports at least the baseline 221 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier)
 - so a newly skipped or silently lost test fails this criterion;all four reconnect manifest cases pass unaltered;render applied to core produces stdout identical to each recorded reconnect case using the fixture_corpus inputs;stdout order for rewrite-from-reconnect is csv_written then the stats block then output_written;stderr order is the fingerprint dependency line then the refutation-disabled line;the typed failures input_not_found xml_parse_error volume_identity_error and fingerprint_unavailable each render to stderr and exit code 2;run_reconnection passes an on_progress callback through to index_scan_roots and a test asserts the callback fires
 - and a set cancel token raises ScanCancelled out of the core;grep finds the refutation-disabled message literal in exactly one file, traktor_nml/shared_args.py
 - traktor_nml/reconnect_run.py and traktor_nml/reconnect_render.py import nothing from traktor_nml/gui/ or traktor_nml/commands/, and import nicegui nowhere;the equivalence test fails when a stats key is dropped from the renderer;the whole of tests/test_reconnect.py passes and its fingerprint-diagnostic test patches a name the running code actually reads
@@ -2449,6 +2449,573 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 ```
 
 
+**CC-M-002-015** (traktor_nml/diskscan.py) - implements CI-M-002-015
+
+**Code:**
+
+```diff
+--- a/traktor_nml/diskscan.py
++++ b/traktor_nml/diskscan.py
+@@ -145,6 +145,17 @@ def _report_progress(on_progress, done, total, path, every):
+         on_progress(done, total, path)
+
+
++def _emit_diagnostic(on_diagnostic, line: str) -> None:
++    """Hand a fully formatted diagnostic line to on_diagnostic when a
++    caller supplied one, or print it to stderr when it is unset. The
++    branch lives in one place so index_scan_roots' two emission sites
++    cannot diverge (DL-056)."""
++    if on_diagnostic is not None:
++        on_diagnostic(line)
++    else:
++        print(line, file=sys.stderr)
++
++
+ def index_scan_roots(
+     scan_roots: Iterable[Path],
+     cache: TagCache,
+@@ -155,6 +166,7 @@ def index_scan_roots(
+     on_progress: Optional[Callable[[int, int, Path], None]] = None,
+     cancel: Optional[threading.Event] = None,
+     callback_every: int = 25,
++    on_diagnostic: Optional[Callable[[str], None]] = None,
+ ) -> list[EntryRecord]:
+     """Walk each scan root, deduplicate by resolved path, and yield candidates.
+
+@@ -180,10 +199,10 @@ def index_scan_roots(
+         # the message went stale the moment a tier changed level. It already
+         # had: it claimed plural "path-suffix tiers" at the default after
+         # path_suffix_2 moved to loose.
+-        print(
++        _emit_diagnostic(
++            on_diagnostic,
+             "tag_reading_unavailable=mutagen not installed; tiers still able to "
+             "match, by --match-confidence level: " + _tag_free_summary(),
+-            file=sys.stderr,
+         )
+
+     if stats is None:
+@@ -208,7 +227,9 @@ def index_scan_roots(
+
+             stats["files_seen"] += 1
+             if stats["files_seen"] % progress_every == 0:
+-                print(f"disk_scan_progress={stats['files_seen']}", file=sys.stderr)
++                _emit_diagnostic(
++                    on_diagnostic, f"disk_scan_progress={stats['files_seen']}"
++                )
+
+             try:
+                 file_stat = resolved.stat()
+```
+
+**Documentation:**
+
+```diff
+--- a/traktor_nml/diskscan.py
++++ b/traktor_nml/diskscan.py
+@@ -182,8 +182,15 @@ def index_scan_roots(
+     the scan learned before that point is still flushed to the tag cache, so
+     a cancelled run does not throw away reading it already paid for.
+
+-    Both default to None, and the scan then behaves exactly as it did before
+-    they existed: same records, same stats, same stderr, same cache.
++    on_diagnostic(line), when supplied, receives the tag_reading_unavailable
++    and disk_scan_progress lines instead of them being printed to stderr.
++
++    All three default to None, and with all three unset the scan produces
++    the same records, the same stats, the same stderr, and the same cache
++    as a call that never mentions them. discover_tracks_cmd, the only other
++    production caller, passes none of the three and has no parity-manifest
++    case of its own; this default-inertness is what keeps it unchanged, by
++    construction rather than by test coverage.
+     """
+     if not HAS_MUTAGEN:
+```
+
+**CC-M-002-016** (traktor_nml/reconnect_run.py) - implements CI-M-002-016
+
+**Code:**
+
+```diff
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -77,5 +77,6 @@ class ReconnectResult:
+     mapping: dict[str, EntryRecord]
+     stats: dict[str, int]
+     ambiguity_rows: list[dict[str, str]]
+     old_records: list[EntryRecord]
+     warnings: list[str] = field(default_factory=list)
++    diagnostics: tuple[str, ...] = ()
+```
+
+```diff
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -238,8 +239,10 @@ def run_reconnection(
+     old_records = collection_records(old_root)
+     cache = TagCache(args.cache)
++    diagnostics: list[str] = []
+     candidates = index_scan_roots(
+         args.scan_roots, cache, refresh_cache=args.refresh_cache,
+         on_progress=on_progress, cancel=cancel,
++        on_diagnostic=diagnostics.append,
+     )
+     confidence = resolve_confidence(args)
+@@ -270,4 +273,4 @@ def run_reconnection(
+
+     cache.flush()
+-    return ReconnectResult(mapping, stats, ambiguity_rows, old_records, warnings)
++    return ReconnectResult(mapping, stats, ambiguity_rows, old_records, warnings, tuple(diagnostics))
+```
+
+**Documentation:**
+
+```diff
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -78,5 +78,10 @@ class ReconnectResult:
+     stats: dict[str, int]
+     ambiguity_rows: list[dict[str, str]]
+     old_records: list[EntryRecord]
+     warnings: list[str] = field(default_factory=list)
++    # Every diagnostic index_scan_roots would have printed to stderr,
++    # captured in emission order via the on_diagnostic callback instead
++    # (DL-056). A sequence, not a set or mapping, because
++    # tag_reading_unavailable must precede the first disk_scan_progress
++    # line and the progress lines are ordered by file.
+     diagnostics: tuple[str, ...] = ()
+```
+
+**CC-M-002-017** (traktor_nml/reconnect_render.py) - implements CI-M-002-017
+
+**Code:**
+
+```diff
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -62,5 +62,5 @@ def render_scan_reconnect_candidates(
+     if result.csv_path is not None:
+         stdout_lines.append(f"csv_written={result.csv_path.as_posix()}")
+
+-    stderr_lines = list(reconnect.warnings)
++    stderr_lines = list(reconnect.diagnostics) + list(reconnect.warnings)
+     refutation_line = refutation_disabled_line(args)
+     if refutation_line is not None:
+@@ -104,4 +104,5 @@ def render_rewrite_from_reconnect(
+         # reproduces that: an output collision or a volume_identity_error/
+         # fingerprint_unavailable failure prints neither warning.
++        stderr_lines.extend(result.reconnect.diagnostics)
+         stderr_lines.extend(result.reconnect.warnings)
+         refutation_line = refutation_disabled_line(args)
+         if refutation_line is not None:
+```
+
+```diff
+--- a/tests/test_reconnect_render_equivalence.py
++++ b/tests/test_reconnect_render_equivalence.py
+@@ -15,10 +15,20 @@
+ import pytest
+
++import argparse
++
+ from traktor_nml import reconnect_run
+ from traktor_nml.cli import build_parser
+ from traktor_nml.diskscan import ScanCancelled
+ from traktor_nml.reconnect_render import (
++    emit,
+     render_rewrite_from_reconnect,
+     render_scan_reconnect_candidates,
+ )
++from traktor_nml.reconnect_run import (
++    ReconnectResult,
++    RewriteReconnectResult,
++    ScanReconnectResult,
++)
++from traktor_nml.rewrite import WriteOutcome
+ from traktor_nml.xmlio import parse_xml
+@@ -388,0 +399,72 @@
++
++
++def _no_refute_args() -> argparse.Namespace:
++    """A minimal args namespace with refutation disabled, sufficient for
++    refutation_disabled_line (only reads no_refute)."""
++    return argparse.Namespace(no_refute=True)
++
++
++def test_scan_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutation(
++    capsys: pytest.CaptureFixture[str],
++) -> None:
++    """The full three-part stderr ordering CI-M-002-017 requires - diagnostics,
++    then fingerprint warning, then the refutation-disabled line - asserted at the
++    emit() level rather than only on the returned RenderedOutput, because M-001
++    demonstrated that an ordering assertion on the returned object alone can pass
++    even when the printing layer emits the parts in a different order. No manifest
++    case produces more than one of the three, so this is the only place the full
++    order is checked."""
++    reconnect = ReconnectResult(
++        mapping={},
++        stats={},
++        ambiguity_rows=[],
++        old_records=[],
++        warnings=["fingerprint_dependency_missing=pyacoustid not installed"],
++        diagnostics=("tag_reading_unavailable=mutagen not installed",),
++    )
++    result = ScanReconnectResult(result=reconnect, error=None, csv_path=None)
++    rendered = render_scan_reconnect_candidates(result, _no_refute_args())
++
++    emit(rendered)
++    captured = capsys.readouterr()
++    stderr_lines = captured.err.splitlines()
++
++    assert stderr_lines == [
++        "tag_reading_unavailable=mutagen not installed",
++        "fingerprint_dependency_missing=pyacoustid not installed",
++        "refutation_disabled=size and duration contradictions will be ignored; "
++        "a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match",
++    ]
++
++
++def test_rewrite_from_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutation(
++    capsys: pytest.CaptureFixture[str],
++) -> None:
++    """Same three-part stderr ordering as
++    test_scan_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutation,
++    for render_rewrite_from_reconnect's emit() output rather than
++    render_scan_reconnect_candidates'."""
++    reconnect = ReconnectResult(
++        mapping={},
++        stats={},
++        ambiguity_rows=[],
++        old_records=[],
++        warnings=["fingerprint_dependency_missing=pyacoustid not installed"],
++        diagnostics=("tag_reading_unavailable=mutagen not installed",),
++    )
++    outcome = WriteOutcome(stats={}, samples=[], error=None, written_path=None, exit_code=0)
++    result = RewriteReconnectResult(
++        outcome=outcome, reconnect=reconnect, csv_path=None, error=None
++    )
++    rendered = render_rewrite_from_reconnect(result, _no_refute_args())
++
++    emit(rendered)
++    captured = capsys.readouterr()
++    stderr_lines = captured.err.splitlines()
++
++    assert stderr_lines == [
++        "tag_reading_unavailable=mutagen not installed",
++        "fingerprint_dependency_missing=pyacoustid not installed",
++        "refutation_disabled=size and duration contradictions will be ignored; "
++        "a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match",
++    ]
+```
+
+**Documentation:**
+
+```diff
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -43,10 +43,11 @@ def render_scan_reconnect_candidates(
+     """Produces stdout as reconnectable=<count> followed by the stats
+     block in mapping order, then csv_written=<path> only when a CSV was
+-    written; stderr as the run's own warnings followed by the
+-    refutation-disabled line when refutation is off. tests/baselines/
+-    manifest.json's recorded scan-reconnect-candidates cases are the
+-    oracle for this exact ordering. An error on the result short-
+-    circuits to a single stderr line and exit code 2, since no
+-    ReconnectResult exists yet.
++    written; stderr as the run's own diagnostics, then its warnings,
++    then the refutation-disabled line when refutation is off.
++    tests/baselines/manifest.json's recorded scan-reconnect-candidates
++    cases are the oracle for this exact ordering. An error on the result
++    short-circuits to a single stderr line and exit code 2, since no
++    ReconnectResult exists yet.
+     """
+     if result.error is not None:
+         return RenderedOutput([], [result.error], 2)
+@@ -60,6 +61,10 @@ def render_scan_reconnect_candidates(
+     if result.csv_path is not None:
+         stdout_lines.append(f"csv_written={result.csv_path.as_posix()}")
+
++    # Diagnostics precede the fingerprint and refutation warnings: that
++    # reproduces the legacy sequence, in which index_scan_roots runs
++    # before the fingerprint tier is built and before
++    # warn_refutation_disabled is called (DL-056).
+     stderr_lines = list(reconnect.diagnostics) + list(reconnect.warnings)
+     refutation_line = refutation_disabled_line(args)
+     if refutation_line is not None:
+@@ -86,7 +91,7 @@ def render_rewrite_from_reconnect(
+     sourced from the WriteOutcome, in the same order write_nml_safely
+     prints them. The CSV line comes first because the CSV is written
+     inside the reconnection callback, before plan_and_write_nml's write
+-    step runs. Warnings and the refutation line are gated on
++    step runs. Diagnostics, warnings and the refutation line are gated on
+     result.reconnect being populated, so a run that fails before
+     reconnection completes (an output collision, or a volume-identity/
+-    fingerprint error) prints neither.
++    fingerprint error) prints none of them.
+     """
+```
+
+**CC-M-002-018** (tests/test_scan_diagnostics.py) - implements CI-M-002-018
+
+**Code:**
+
+```diff
+--- /dev/null
++++ b/tests/test_scan_diagnostics.py
+@@ -0,0 +1,179 @@
++"""Direct-core capture tests for the two scan diagnostics the parity
++oracle cannot reach: no manifest case runs without mutagen, and no
++fixture crosses the 500-file progress threshold. Each half of DL-056 -
++default-print-to-stderr, and additive-collector-instead - is exercised for
++both diagnostics, plus a leak-detector at run_reconnection level.
++"""
++
++from __future__ import annotations
++
++import argparse
++from pathlib import Path
++
++import pytest
++
++from traktor_nml import diskscan, reconnect_run
++from traktor_nml.diskscan import _tag_free_summary, index_scan_roots
++from traktor_nml.tagcache import TagCache
++
++
++def _make_files(root: Path, count: int) -> None:
++    root.mkdir(parents=True, exist_ok=True)
++    for i in range(count):
++        (root / f"track_{i:04d}.mp3").write_bytes(b"")
++
++
++def test_missing_mutagen_prints_to_stderr_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
++    """With no on_diagnostic, the exact tag_reading_unavailable line
++    reaches stderr and nothing reaches stdout - reproducing today's
++    default behaviour."""
++    monkeypatch.setattr(diskscan, "HAS_MUTAGEN", False)
++    root = tmp_path / "audio"
++    _make_files(root, 1)
++    cache = TagCache(tmp_path / "cache.json")
++
++    index_scan_roots([root], cache)
++
++    captured = capsys.readouterr()
++    expected = (
++        "tag_reading_unavailable=mutagen not installed; tiers still able to match, "
++        "by --match-confidence level: " + _tag_free_summary()
++    )
++    assert captured.out == ""
++    assert captured.err.strip() == expected
++
++
++def test_missing_mutagen_with_collector_writes_no_stream(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
++    """With a collector supplied, capsys sees nothing on either stream
++    and the collector holds the same line that would otherwise have
++    printed - proving the transport is additive rather than replacing
++    the default."""
++    monkeypatch.setattr(diskscan, "HAS_MUTAGEN", False)
++    root = tmp_path / "audio"
++    _make_files(root, 1)
++    cache = TagCache(tmp_path / "cache.json")
++    collected: list[str] = []
++
++    index_scan_roots([root], cache, on_diagnostic=collected.append)
++
++    captured = capsys.readouterr()
++    expected = (
++        "tag_reading_unavailable=mutagen not installed; tiers still able to match, "
++        "by --match-confidence level: " + _tag_free_summary()
++    )
++    assert captured.out == ""
++    assert captured.err == ""
++    assert collected == [expected]
++
++
++def test_progress_lines_print_to_stderr_in_order_by_default(tmp_path: Path, capsys) -> None:
++    """With no on_diagnostic, disk_scan_progress lines appear on stderr
++    in ascending order as the walk crosses progress_every repeatedly."""
++    root = tmp_path / "audio"
++    _make_files(root, 11)
++    cache = TagCache(tmp_path / "cache.json")
++
++    index_scan_roots([root], cache, progress_every=3)
++
++    captured = capsys.readouterr()
++    assert captured.out == ""
++    lines = [line for line in captured.err.splitlines() if line.startswith("disk_scan_progress=")]
++    counts = [int(line.split("=", 1)[1]) for line in lines]
++    assert counts == sorted(counts)
++    assert counts == [3, 6, 9]
++
++
++def test_progress_lines_with_collector_are_ordered_and_stream_is_empty(tmp_path: Path, capsys) -> None:
++    """With a collector, the same ordered progress lines land in the
++    collector instead, and stderr is empty."""
++    root = tmp_path / "audio"
++    _make_files(root, 11)
++    cache = TagCache(tmp_path / "cache.json")
++    collected: list[str] = []
++
++    index_scan_roots([root], cache, progress_every=3, on_diagnostic=collected.append)
++
++    captured = capsys.readouterr()
++    assert captured.out == ""
++    assert captured.err == ""
++    counts = [int(line.split("=", 1)[1]) for line in collected if line.startswith("disk_scan_progress=")]
++    assert counts == [3, 6, 9]
++
++
++def test_tag_reading_unavailable_precedes_every_progress_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
++    """Both conditions together: tag_reading_unavailable is always first,
++    ahead of every disk_scan_progress line, because the mutagen check is
++    the first statement in index_scan_roots and the progress check lives
++    inside the walk."""
++    monkeypatch.setattr(diskscan, "HAS_MUTAGEN", False)
++    root = tmp_path / "audio"
++    _make_files(root, 11)
++    cache = TagCache(tmp_path / "cache.json")
++    collected: list[str] = []
++
++    index_scan_roots([root], cache, progress_every=3, on_diagnostic=collected.append)
++
++    assert collected[0].startswith("tag_reading_unavailable=")
++    progress_indices = [i for i, line in enumerate(collected) if line.startswith("disk_scan_progress=")]
++    assert progress_indices and all(i > 0 for i in progress_indices)
++
++
++def _reconnect_args(scan_root: Path, cache_path: Path) -> argparse.Namespace:
++    return argparse.Namespace(
++        scan_roots=[scan_root],
++        refresh_cache=False,
++        cache=cache_path,
++        volume_map=[[str(scan_root), "D:", "D:"]],
++        match_confidence="filename",
++        allow_artist_title_only=False,
++        no_refute=False,
++        fingerprint=False,
++    )
++
++
++def test_run_reconnection_writes_no_stream_without_mutagen(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
++    """Leak detector at core level: run_reconnection with mutagen absent
++    writes nothing to either stream, because its scan diagnostics are
++    collected via on_diagnostic rather than printed. This is the test
++    that fails first if a future change reintroduces a print into the
++    pipeline."""
++    monkeypatch.setattr(diskscan, "HAS_MUTAGEN", False)
++    root = tmp_path / "audio"
++    _make_files(root, 1)
++    args = _reconnect_args(root, tmp_path / "cache.json")
++    old_root = _empty_collection_root()
++
++    result = reconnect_run.run_reconnection(args, old_root)
++
++    captured = capsys.readouterr()
++    assert captured.out == ""
++    assert captured.err == ""
++    assert any(line.startswith("tag_reading_unavailable=") for line in result.diagnostics)
++
++
++def test_run_reconnection_writes_no_stream_across_progress_threshold(tmp_path: Path, capsys) -> None:
++    """Leak detector at core level, second condition: a scan large enough
++    to cross the default 500-file progress threshold still writes
++    nothing to either stream from inside run_reconnection."""
++    root = tmp_path / "audio"
++    _make_files(root, 501)
++    args = _reconnect_args(root, tmp_path / "cache.json")
++    old_root = _empty_collection_root()
++
++    result = reconnect_run.run_reconnection(args, old_root)
++
++    captured = capsys.readouterr()
++    assert captured.out == ""
++    assert captured.err == ""
++    assert any(line.startswith("disk_scan_progress=") for line in result.diagnostics)
++
++
++def _empty_collection_root():
++    """A minimal COLLECTION root with no entries, sufficient for
++    collection_records() to return an empty list."""
++    from traktor_nml.xmlio import ET
++
++    root = ET.Element("NML")
++    collection = ET.SubElement(root, "COLLECTION")
++    collection.set("ENTRIES_COUNT", "0")
++    return root
+```
+
+**Documentation:**
+
+```diff
+--- a/tests/test_scan_diagnostics.py
++++ b/tests/test_scan_diagnostics.py
+@@ -47,7 +47,10 @@
+     """With a collector supplied, capsys sees nothing on either stream
+     and the collector holds the same line that would otherwise have
+     printed - proving the transport is additive rather than replacing
+-    the default."""
++    the default. Observed to fail when _emit_diagnostic's body is
++    replaced with an unconditional print(line, file=sys.stderr),
++    removing the `if on_diagnostic is not None` check: captured.err
++    then holds the tag_reading_unavailable line instead of ""."""
+     monkeypatch.setattr(diskscan, "HAS_MUTAGEN", False)
+     root = tmp_path / "audio"
+     _make_files(root, 1)
+@@ -85,7 +88,12 @@
+ 
+ def test_progress_lines_with_collector_are_ordered_and_stream_is_empty(tmp_path: Path, capsys) -> None:
+     """With a collector, the same ordered progress lines land in the
+-    collector instead, and stderr is empty."""
++    collector instead, and stderr is empty. Observed to fail when
++    _emit_diagnostic's body is replaced with an unconditional
++    print(line, file=sys.stderr), removing the `if on_diagnostic is
++    not None` check: captured.err then holds all three progress lines,
++    "disk_scan_progress=3\ndisk_scan_progress=6\ndisk_scan_progress=9\n",
++    instead of ""."""
+     root = tmp_path / "audio"
+     _make_files(root, 11)
+     cache = TagCache(tmp_path / "cache.json")
+@@ -104,7 +112,11 @@
+     """Both conditions together: tag_reading_unavailable is always first,
+     ahead of every disk_scan_progress line, because the mutagen check is
+     the first statement in index_scan_roots and the progress check lives
+-    inside the walk."""
++    inside the walk. Observed to fail when _emit_diagnostic's body is
++    replaced with an unconditional print(line, file=sys.stderr),
++    removing the `if on_diagnostic is not None` check: on_diagnostic is
++    then never called, so collected stays empty and collected[0] raises
++    IndexError."""
+     monkeypatch.setattr(diskscan, "HAS_MUTAGEN", False)
+     root = tmp_path / "audio"
+     _make_files(root, 11)
+@@ -136,7 +148,10 @@
+     writes nothing to either stream, because its scan diagnostics are
+     collected via on_diagnostic rather than printed. This is the test
+     that fails first if a future change reintroduces a print into the
+-    pipeline."""
++    pipeline. Observed to fail when _emit_diagnostic's body is replaced
++    with an unconditional print(line, file=sys.stderr), removing the
++    `if on_diagnostic is not None` check: captured.err then holds the
++    tag_reading_unavailable line instead of ""."""
+     monkeypatch.setattr(diskscan, "HAS_MUTAGEN", False)
+     root = tmp_path / "audio"
+     _make_files(root, 1)
+@@ -154,7 +169,11 @@
+ def test_run_reconnection_writes_no_stream_across_progress_threshold(tmp_path: Path, capsys) -> None:
+     """Leak detector at core level, second condition: a scan large enough
+     to cross the default 500-file progress threshold still writes
+-    nothing to either stream from inside run_reconnection."""
++    nothing to either stream from inside run_reconnection. Observed to
++    fail when _emit_diagnostic's body is replaced with an unconditional
++    print(line, file=sys.stderr), removing the `if on_diagnostic is not
++    None` check: captured.err then holds "disk_scan_progress=500\n"
++    instead of ""."""
+     root = tmp_path / "audio"
+     _make_files(root, 501)
+     args = _reconnect_args(root, tmp_path / "cache.json")
+```
+
+
 ### Milestone 3: Anti-drift guard and decision log
 
 **Files**: tests/test_command_layer_printless.py, traktor_nml/README.md, traktor_nml/CLAUDE.md, tests/CLAUDE.md, tests/test_baseline_parity.py
@@ -2462,7 +3029,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 **Acceptance Criteria**:
 
 - pytest passes with tests/baselines/manifest.json unmodified and PARITY_BASELINE_SHA256 unchanged
-- and the run reports at least the baseline 191 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier);the guard test fails when a print call is reintroduced into commands/reconnect_cmd.py and the test says so in its own docstring;git fetch is run and traktor_nml/README.md at HEAD is re-read immediately before writing the entry
+- and the run reports at least the baseline 221 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier);the guard test fails when a print call is reintroduced into commands/reconnect_cmd.py and the test says so in its own docstring;git fetch is run and traktor_nml/README.md at HEAD is re-read immediately before writing the entry
 - and the twelve entries occupy consecutive numbers from the next free one there (DL-046..DL-057 at planning time
 - shifted whole if another session has taken numbers);traktor_nml/README.md carries one entry per plan decision, so every reasoning chain here reaches the package log instead of surviving only in this artifact;traktor_nml/CLAUDE.md and tests/CLAUDE.md list every file the plan creates with a when-to-read trigger
 - every DL number cited in any file under traktor_nml/ or tests/ resolves to a bullet that exists in traktor_nml/README.md's Design Decisions log, verified by reading them back at HEAD before the commit
