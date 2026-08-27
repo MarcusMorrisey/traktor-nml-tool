@@ -50,6 +50,13 @@ every stricter tier unreachable (DL-032).
 
 ## Design Decisions
 
+A `DL-nnn` tag marks the decision a statement traces to; the statement lives in
+whichever section actually describes it - Overview, Architecture, Invariants
+or Tradeoffs - and lands here only when no other section fits. Each decision
+is stated once, so a citation resolves against that single statement wherever
+it sits, never against a bullet in this section specifically; a second
+statement of the same decision would only give it two copies to drift apart.
+
 - `matching.py`'s cascade accepts injected key providers; `fingerprint.py`
   supplies one behind an availability guard, so the core matching path
   never becomes import-guard-laden for a native chromaprint dependency
