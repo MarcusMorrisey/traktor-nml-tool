@@ -23,6 +23,7 @@ from .shared_args import resolve_confidence, should_refute
 from .diskscan import index_scan_roots
 from .model import EntryRecord, collection_records, loc_attr_changes, write_location_element
 from .reconnect import location_from_disk_path, resolve_reconnection
+from .review import RecordReview
 from .rewrite import (
     CompareEntryResolver,
     WriteOutcome,
@@ -85,6 +86,11 @@ class ReconnectResult:
     # tag_reading_unavailable must precede the first disk_scan_progress
     # line and the progress lines are ordered by file.
     diagnostics: tuple[str, ...] = ()
+    # One RecordReview per old record, in cascade order - the order the
+    # review table reads rows in. Populated only when run_reconnection is
+    # called with a reviews list; empty for every CLI run, since the CLI
+    # supplies no such list and installs no collector (DL-061).
+    reviews: tuple[RecordReview, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -231,6 +237,7 @@ def run_reconnection(
     on_progress: Optional[Callable[[int, int, Path], None]] = None,
     cancel=None,
     diagnostics: Optional[list[str]] = None,
+    reviews: Optional[list[RecordReview]] = None,
 ) -> ReconnectResult:
     """Run the whole reconnection pipeline and return a ReconnectResult.
 
@@ -254,6 +261,14 @@ def run_reconnection(
     the raise propagates and no ReconnectResult is ever constructed. When
     omitted a fresh list is created, and ReconnectResult.diagnostics is
     populated from whichever list was used, supplied or created.
+
+    reviews, in the same caller-owned-list shape as diagnostics, is the
+    channel a review surface reads RecordReview objects from: when
+    supplied, reviews.append is passed to resolve_reconnection as
+    on_review and ReconnectResult.reviews is built from the supplied
+    list; when omitted (the CLI path) no on_review is passed at all, so
+    resolve_reconnection's cascade constructs no review object and
+    ReconnectResult.reviews is the empty tuple (DL-058, DL-061).
     """
     # Volume identities are resolved once here and reused by both the
     # fingerprint tier (_build_fingerprint_tier's known_mounts) and the
@@ -284,6 +299,7 @@ def run_reconnection(
         mapping, stats, ambiguity_rows = resolve_reconnection(
             old_records, candidates, confidence, key_providers,
             refute=should_refute(args),
+            on_review=None if reviews is None else reviews.append,
         )
     finally:
         if fpcalc_session is not None:
@@ -293,7 +309,10 @@ def run_reconnection(
     _reencode_winning_locations(mapping, volume_identities)
 
     cache.flush()
-    return ReconnectResult(mapping, stats, ambiguity_rows, old_records, warnings, tuple(diagnostics))
+    return ReconnectResult(
+        mapping, stats, ambiguity_rows, old_records, warnings, tuple(diagnostics),
+        tuple(reviews) if reviews is not None else (),
+    )
 
 
 def _write_ambiguity_csv(rows: list[dict[str, str]], csv_path: Path) -> None:
@@ -310,13 +329,17 @@ def scan_reconnect_candidates(
     *,
     on_progress: Optional[Callable[[int, int, Path], None]] = None,
     cancel=None,
+    reviews: Optional[list[RecordReview]] = None,
 ) -> ScanReconnectResult:
     """Run one scan-reconnect-candidates pass, printless.
 
-    on_progress and cancel pass straight through to run_reconnection.
-    Writes the ambiguity CSV when args.csv is set, after
-    run_reconnection has returned, and records the written path on the
-    result rather than printing it. Writes to neither stream.
+    on_progress, cancel and reviews pass straight through to
+    run_reconnection - reviews in the same caller-owned-list shape, so a
+    wizard reaches the review data through the same core the CLI runs
+    rather than through a pipeline of its own (DL-058, DL-061). Writes
+    the ambiguity CSV when args.csv is set, after run_reconnection has
+    returned, and records the written path on the result rather than
+    printing it. Writes to neither stream.
     """
     # Both typed failures below are returned as an
     # error=<key>=<value> string; the renderer, not this function,
@@ -332,6 +355,7 @@ def scan_reconnect_candidates(
     try:
         result = run_reconnection(
             args, old_tree.getroot(), on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
+            reviews=reviews,
         )
     except VolumeIdentityError as exc:
         return ScanReconnectResult(None, f"volume_identity_error={exc}", None, tuple(diagnostics))
@@ -372,37 +396,64 @@ def _apply_mapping_stdlib(
     )
 
 
-def rewrite_from_reconnect(
+def write_reconnect_result(
     args: argparse.Namespace,
+    provide_result: Callable[[object], ReconnectResult],
     *,
     on_progress: Optional[Callable[[int, int, Path], None]] = None,
     cancel=None,
+    diagnostics: Optional[list[str]] = None,
 ) -> RewriteReconnectResult:
-    """Run one rewrite-from-reconnect pass, printless.
+    """The whole reconnect write path, shared by rewrite_from_reconnect and
+    a wizard's Write control: the lxml patch-collection branch, the
+    stdlib mutate-tree branch, the ambiguity CSV write, the holder that
+    carries reconnect and csv_path, and the VolumeIdentityError/
+    _FingerprintUnavailable mapping onto RewriteReconnectResult.
 
-    on_progress and cancel reach run_reconnection through the callback.
-    A mutable holder dict with keys reconnect and csv_path,
-    both initially None, is populated by the callback and read after
-    plan_and_write_nml returns. The write order inside the callback fixes
-    the holder's meaning in every case: run_reconnection returns first
-    and the holder's reconnect key is set immediately, then the CSV is
-    written and csv_path is set - so there is no state in which csv_path
-    is set while reconnect is None, and no partial ReconnectResult is
-    ever stored. ScanCancelled escapes rather than becoming a field.
+    provide_result is called with the parsed old root and must return a
+    ReconnectResult; rewrite_from_reconnect's provider runs
+    run_reconnection, and a wizard's provider returns the reviewed result
+    it already holds. Because provide_result is called from inside
+    plan_and_write_nml's own callback, the output-collision refusal -
+    plan_and_write_nml's first statement, ahead of parsing and ahead of
+    either callback - still runs before provide_result for every caller,
+    so a refused write never costs whatever provide_result would have
+    done (DL-065). The two write paths therefore differ only in which
+    provide_result ran, which is what keeps section 3.3's zero-override
+    byte identity a structural property of the factoring rather than a
+    coincidence of two separate implementations (DL-066).
 
-    Both the tag cache (via run_reconnection's cache.flush()) and the
-    ambiguity CSV are written on every call regardless of args.dry_run:
-    dry_run governs only the final write_nml_safely/plan_and_write_nml
-    step, and neither the cache nor the CSV is this command's declared
-    output.
+    on_progress and cancel are accepted for signature symmetry with
+    scan_reconnect_candidates and rewrite_from_reconnect; this function
+    does not forward them anywhere itself, since provide_result already
+    closes over whatever it needs - as rewrite_from_reconnect's provider
+    does. diagnostics, in the same caller-owned-list shape run_reconnection
+    already uses, is read back into a VolumeIdentityError or
+    _FingerprintUnavailable result below; when omitted a fresh, empty list
+    is used, so those results carry an empty diagnostics tuple unless a
+    caller supplies the same list its provide_result appends into.
+
+    A mutable holder dict with keys reconnect and csv_path, both initially
+    None, is populated by whichever branch plan_and_write_nml selects and
+    read after it returns. The write order inside each branch fixes the
+    holder's meaning in every case: provide_result returns first and the
+    holder's reconnect key is set immediately, then the CSV is written and
+    csv_path is set - so there is no state in which csv_path is set while
+    reconnect is None, and no partial ReconnectResult is ever stored.
+    ScanCancelled raised by provide_result is caught nowhere here, so it
+    leaves no RewriteReconnectResult at all (DL-068).
+
+    Both the tag cache and the ambiguity CSV are written on every call
+    regardless of args.dry_run: dry_run governs only the final
+    write_nml_safely/plan_and_write_nml step, and neither the cache nor
+    the CSV is this command's declared output.
     """
+    if diagnostics is None:
+        diagnostics = []
     holder: dict[str, object] = {"reconnect": None, "csv_path": None}
-    diagnostics: list[str] = []
 
     def _collect_patches(old_root):
-        result = run_reconnection(
-            args, old_root, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
-        )
+        result = provide_result(old_root)
         holder["reconnect"] = result
         patches, apply_stats = _collect_compare_patches(old_root, result.old_records, result.mapping)
         merged_stats = {**apply_stats, **result.stats}
@@ -412,9 +463,7 @@ def rewrite_from_reconnect(
         return patches, merged_stats, []
 
     def mutate_tree(old_root, dry_run):
-        result = run_reconnection(
-            args, old_root, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
-        )
+        result = provide_result(old_root)
         holder["reconnect"] = result
         merged_stats = {
             "collection_locations_rewritten": 0,
@@ -437,3 +486,28 @@ def rewrite_from_reconnect(
         return RewriteReconnectResult(None, None, None, f"fingerprint_unavailable={exc}", tuple(diagnostics))
 
     return RewriteReconnectResult(outcome, holder["reconnect"], holder["csv_path"], None)
+
+
+def rewrite_from_reconnect(
+    args: argparse.Namespace,
+    *,
+    on_progress: Optional[Callable[[int, int, Path], None]] = None,
+    cancel=None,
+) -> RewriteReconnectResult:
+    """Run one rewrite-from-reconnect pass, printless: one call to
+    write_reconnect_result whose provider runs run_reconnection over the
+    supplied root with the same args, on_progress, cancel and diagnostics
+    list, so a scan-driven write and a wizard-driven write run through
+    the one write core and differ only in which provider ran (DL-065,
+    DL-066).
+    """
+    diagnostics: list[str] = []
+
+    def provide_result(old_root):
+        return run_reconnection(
+            args, old_root, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
+        )
+
+    return write_reconnect_result(
+        args, provide_result, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
+    )
