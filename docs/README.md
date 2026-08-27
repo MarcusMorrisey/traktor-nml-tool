@@ -2,9 +2,10 @@
 
 ## Overview
 
-This directory holds planning material and development context, not current
-documentation. The command reference lives in the [repository
-README](../README.md) and the architecture in the [package
+This directory primarily holds planning material and development context. The
+current code documentation now lives in the Sphinx project under
+[`source/`](source/), while the command reference still lives in the
+[repository README](../README.md) and the architecture in the [package
 guide](../traktor_nml/README.md).
 
 The file index is in [CLAUDE.md](CLAUDE.md). What that index cannot tell you is
@@ -46,4 +47,4 @@ These describe intent at the time of writing and have not been maintained since;
 where they disagree with the code, the code is correct.
 
 For current behaviour, use the CLI help (`python traktor_nml_tool.py --help`),
-the repository README, and the tests.
+the repository README, the Sphinx API docs under `source/`, and the tests.

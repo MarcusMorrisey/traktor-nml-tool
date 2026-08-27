@@ -30,3 +30,5 @@ __pycache__/
 /build/
 /dist/
 /.venv/
+/docs/build/
+/docs/source/generated/

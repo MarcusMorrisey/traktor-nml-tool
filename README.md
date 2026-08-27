@@ -56,6 +56,20 @@ See [the package architecture guide](traktor_nml/README.md) for design
 decisions and invariants. See [the documentation index](docs/README.md) for
 project planning material and retained development context.
 
+## API documentation
+
+Sphinx-based code documentation lives under `docs/source/`. The API pages are
+generated automatically from the `traktor_nml` package at build time, so the
+module inventory stays in sync with the code instead of relying on a
+hand-maintained file list.
+
+```bash
+pip install .[docs]
+sphinx-build -b html docs/source docs/build/html
+```
+
+The generated site lands at `docs/build/html/index.html`.
+
 ## Running on a server (Docker)
 
 There is no web interface and nothing listens on a port — this is a CLI, so

@@ -1,0 +1,24 @@
+Overview
+========
+
+``traktor-nml-tool`` is a Python CLI for inspecting, repairing, merging, and
+splitting Traktor ``.nml`` collection files.
+
+Documentation layout
+--------------------
+
+- The repository ``README.md`` is the operator-facing overview and install guide.
+- ``traktor_nml/README.md`` is the architectural reference and decision log.
+- This Sphinx site is the code reference for the importable package and CLI shim.
+
+Build the docs
+--------------
+
+Install the docs extra and build HTML output:
+
+.. code-block:: bash
+
+   pip install .[docs]
+   sphinx-build -b html docs/source docs/build/html
+
+The generated site entrypoint is ``docs/build/html/index.html``.
