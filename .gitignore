@@ -22,9 +22,11 @@ __pycache__/
 # the test suite - no code path references it.
 /testing/
 
-# Packaging-spike build output (section 6). The spike app itself is tracked so
-# the checks can be re-run on a clean machine; its build artifacts are not.
+# Packaging-spike build output (section 6). The spike app and the two specs
+# it builds through are tracked so the checks can be re-run on a clean
+# machine; the bundles they produce are not. The specs pin absolute paths to
+# .venv's nicegui and to the winget fpcalc, so a spec regenerated elsewhere
+# is not the one the spike validated.
 /build/
 /dist/
-/*.spec
 /.venv/
