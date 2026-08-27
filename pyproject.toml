@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traktor-nml-tool"
+version = "0.1.0"
+description = "A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's .nml collection files."
+readme = "README.md"
+license = { text = "GPL-2.0-only" }
+requires-python = ">=3.10"
+dependencies = [
+    "lxml",
+]
+
+[project.optional-dependencies]
+tags = [
+    "mutagen",
+]
+fingerprint = [
+    "pyacoustid",
+]
+gui = [
+    "nicegui>=3.16.0",
+]
+all = [
+    "traktor-nml-tool[tags,fingerprint,gui]",
+]
+
+[tool.setuptools]
+packages = ["traktor_nml", "traktor_nml.commands"]
