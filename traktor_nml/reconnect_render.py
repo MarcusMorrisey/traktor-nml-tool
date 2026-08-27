@@ -48,11 +48,12 @@ def render_scan_reconnect_candidates(
     then the refutation-disabled line when refutation is off.
     tests/baselines/manifest.json's recorded scan-reconnect-candidates
     cases are the oracle for this exact ordering. An error on the result
-    short-circuits to a single stderr line and exit code 2, since no
-    ReconnectResult exists yet.
+    short-circuits stderr to result.diagnostics - whatever the scan
+    emitted before the typed error was raised - followed by the error
+    line, with exit code 2, since no ReconnectResult exists yet.
     """
     if result.error is not None:
-        return RenderedOutput([], [result.error], 2)
+        return RenderedOutput([], list(result.diagnostics) + [result.error], 2)
 
     reconnect = result.result
     stdout_lines = [f"reconnectable={len(reconnect.mapping)}"]
@@ -81,10 +82,13 @@ def render_rewrite_from_reconnect(
     sourced from the WriteOutcome, in the same order write_nml_safely
     prints them. The CSV line comes first because the CSV is written
     inside the reconnection callback, before plan_and_write_nml's write
-    step runs. Diagnostics, warnings and the refutation line are gated on
+    step runs. Warnings and the refutation line are gated on
     result.reconnect being populated, so a run that fails before
     reconnection completes (an output collision, or a volume-identity/
-    fingerprint error) prints none of them.
+    fingerprint error) prints neither. Diagnostics are not gated the same
+    way: result.diagnostics carries whatever the scan emitted before such
+    a typed error was raised, and is emitted ahead of the error line
+    regardless of whether reconnection completed.
     """
     stdout_lines: list[str] = []
     if result.csv_path is not None:
@@ -109,6 +113,8 @@ def render_rewrite_from_reconnect(
         refutation_line = refutation_disabled_line(args)
         if refutation_line is not None:
             stderr_lines.append(refutation_line)
+    else:
+        stderr_lines.extend(result.diagnostics)
     if outcome is not None and outcome.error is not None:
         stderr_lines.append(outcome.error)
     elif result.error is not None:

@@ -427,6 +427,73 @@ def test_scan_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutatio
     ]
 
 
+def test_scan_reconnect_typed_error_after_scan_emits_diagnostics_before_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """CI-M-002-017: a typed error raised after a scan that already emitted
+    diagnostics must still surface those diagnostics, ahead of the error line,
+    on stderr - reproducing the pre-raise portion of run_reconnection's output
+    even though no ReconnectResult was ever constructed. Asserted at the
+    emit() level, not only on the returned RenderedOutput, for the same reason
+    as the ordering test above. Observed to fail (stderr_lines ==
+    ["volume_identity_error=no matching volume"] only, diagnostics dropped)
+    when render_scan_reconnect_candidates's error short-circuit is reverted to
+    `return RenderedOutput([], [result.error], 2)`."""
+    result = ScanReconnectResult(
+        result=None,
+        error="volume_identity_error=no matching volume",
+        csv_path=None,
+        diagnostics=("tag_reading_unavailable=mutagen not installed", "disk_scan_progress=500"),
+    )
+    rendered = render_scan_reconnect_candidates(result, _no_refute_args())
+
+    exit_code = emit(rendered)
+    captured = capsys.readouterr()
+    stderr_lines = captured.err.splitlines()
+
+    assert stderr_lines == [
+        "tag_reading_unavailable=mutagen not installed",
+        "disk_scan_progress=500",
+        "volume_identity_error=no matching volume",
+    ]
+    assert captured.out == ""
+    assert exit_code == 2
+
+
+def test_rewrite_from_reconnect_typed_error_after_scan_emits_diagnostics_before_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Same CI-M-002-017 requirement as
+    test_scan_reconnect_typed_error_after_scan_emits_diagnostics_before_error,
+    for render_rewrite_from_reconnect. reconnect is None here because
+    run_reconnection raised before returning a ReconnectResult, so the
+    diagnostics collected before the raise reach the renderer only through
+    result.diagnostics rather than result.reconnect.diagnostics. Observed to
+    fail (stderr_lines == ["fingerprint_unavailable=pyacoustid not installed"]
+    only, diagnostics dropped) when the `else: stderr_lines.extend(
+    result.diagnostics)` branch is removed from render_rewrite_from_reconnect."""
+    result = RewriteReconnectResult(
+        outcome=None,
+        reconnect=None,
+        csv_path=None,
+        error="fingerprint_unavailable=pyacoustid not installed",
+        diagnostics=("tag_reading_unavailable=mutagen not installed", "disk_scan_progress=500"),
+    )
+    rendered = render_rewrite_from_reconnect(result, _no_refute_args())
+
+    exit_code = emit(rendered)
+    captured = capsys.readouterr()
+    stderr_lines = captured.err.splitlines()
+
+    assert stderr_lines == [
+        "tag_reading_unavailable=mutagen not installed",
+        "disk_scan_progress=500",
+        "fingerprint_unavailable=pyacoustid not installed",
+    ]
+    assert captured.out == ""
+    assert exit_code == 2
+
+
 def test_rewrite_from_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutation(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

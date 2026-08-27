@@ -92,6 +92,11 @@ class ScanReconnectResult:
     """One scan-reconnect-candidates pass. Exactly one of result and
     error is non-None; csv_path is non-None only alongside a non-None
     result, because the CSV is written after run_reconnection returns.
+    diagnostics holds whatever index_scan_roots emitted before a
+    volume_identity_error or fingerprint_unavailable error was raised -
+    it is empty when result is set (the diagnostics then live on
+    result.diagnostics instead) and empty for input_not_found or
+    xml_parse_error, which occur before any scan runs.
     """
 
     # error carries one of input_not_found=, xml_parse_error=,
@@ -100,6 +105,7 @@ class ScanReconnectResult:
     result: Optional[ReconnectResult]
     error: Optional[str]
     csv_path: Optional[Path]
+    diagnostics: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -109,7 +115,10 @@ class RewriteReconnectResult:
     failures, and this error field is only for a failure that came out of
     the reconnection callback before plan_and_write_nml could produce an
     outcome at all. csv_path is non-None only alongside a non-None
-    reconnect.
+    reconnect. diagnostics holds whatever index_scan_roots emitted before
+    a volume_identity_error or fingerprint_unavailable error was raised -
+    it is empty when reconnect is set (the diagnostics then live on
+    reconnect.diagnostics instead).
     """
 
     # outcome is None only when error is set: a volume_identity_error or
@@ -120,6 +129,7 @@ class RewriteReconnectResult:
     reconnect: Optional[ReconnectResult]
     csv_path: Optional[Path]
     error: Optional[str]
+    diagnostics: tuple[str, ...] = ()
 
 
 def _resolve_volume_identities_and_mounts(
@@ -220,6 +230,7 @@ def run_reconnection(
     *,
     on_progress: Optional[Callable[[int, int, Path], None]] = None,
     cancel=None,
+    diagnostics: Optional[list[str]] = None,
 ) -> ReconnectResult:
     """Run the whole reconnection pipeline and return a ReconnectResult.
 
@@ -235,6 +246,14 @@ def run_reconnection(
     a short candidate list is indistinguishable from a complete one, so a
     partial result would report most of the collection as missing - a
     wrong answer delivered confidently.
+
+    diagnostics, when supplied, is the caller's own list and this
+    function appends into it rather than creating its own - so the
+    diagnostics collected before a later VolumeIdentityError or
+    _FingerprintUnavailable raise still exist in the caller's scope after
+    the raise propagates and no ReconnectResult is ever constructed. When
+    omitted a fresh list is created, and ReconnectResult.diagnostics is
+    populated from it exactly as before.
     """
     # Volume identities are resolved once here and reused by both the
     # fingerprint tier (_build_fingerprint_tier's known_mounts) and the
@@ -242,7 +261,8 @@ def run_reconnection(
     # redesign must not reintroduce a second resolution (ref: DL-046).
     old_records = collection_records(old_root)
     cache = TagCache(args.cache)
-    diagnostics: list[str] = []
+    if diagnostics is None:
+        diagnostics = []
     candidates = index_scan_roots(
         args.scan_roots, cache, refresh_cache=args.refresh_cache,
         on_progress=on_progress, cancel=cancel,
@@ -308,12 +328,15 @@ def scan_reconnect_candidates(
     except XML_PARSE_ERROR as exc:
         return ScanReconnectResult(None, f"xml_parse_error={args.old_input.as_posix()}: {exc}", None)
 
+    diagnostics: list[str] = []
     try:
-        result = run_reconnection(args, old_tree.getroot(), on_progress=on_progress, cancel=cancel)
+        result = run_reconnection(
+            args, old_tree.getroot(), on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
+        )
     except VolumeIdentityError as exc:
-        return ScanReconnectResult(None, f"volume_identity_error={exc}", None)
+        return ScanReconnectResult(None, f"volume_identity_error={exc}", None, tuple(diagnostics))
     except _FingerprintUnavailable as exc:
-        return ScanReconnectResult(None, f"fingerprint_unavailable={exc}", None)
+        return ScanReconnectResult(None, f"fingerprint_unavailable={exc}", None, tuple(diagnostics))
 
     csv_path = None
     if args.csv is not None:
@@ -374,9 +397,12 @@ def rewrite_from_reconnect(
     output.
     """
     holder: dict[str, object] = {"reconnect": None, "csv_path": None}
+    diagnostics: list[str] = []
 
     def _collect_patches(old_root):
-        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)
+        result = run_reconnection(
+            args, old_root, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
+        )
         holder["reconnect"] = result
         patches, apply_stats = _collect_compare_patches(old_root, result.old_records, result.mapping)
         merged_stats = {**apply_stats, **result.stats}
@@ -386,7 +412,9 @@ def rewrite_from_reconnect(
         return patches, merged_stats, []
 
     def mutate_tree(old_root, dry_run):
-        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)
+        result = run_reconnection(
+            args, old_root, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
+        )
         holder["reconnect"] = result
         merged_stats = {
             "collection_locations_rewritten": 0,
@@ -404,8 +432,8 @@ def rewrite_from_reconnect(
     try:
         outcome = plan_and_write_nml(args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree)
     except VolumeIdentityError as exc:
-        return RewriteReconnectResult(None, None, None, f"volume_identity_error={exc}")
+        return RewriteReconnectResult(None, None, None, f"volume_identity_error={exc}", tuple(diagnostics))
     except _FingerprintUnavailable as exc:
-        return RewriteReconnectResult(None, None, None, f"fingerprint_unavailable={exc}")
+        return RewriteReconnectResult(None, None, None, f"fingerprint_unavailable={exc}", tuple(diagnostics))
 
     return RewriteReconnectResult(outcome, holder["reconnect"], holder["csv_path"], None)
