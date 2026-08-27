@@ -519,8 +519,9 @@ def write_nml_safely(
     (rewrite, rewrite-from-collection-compare) are expressed as callers of
     this helper, one supplying collect_patches for the lxml path and
     mutate_tree for the stdlib fallback. Delegates to plan_and_write_nml
-    and turns the returned WriteOutcome into the same stream writes this
-    function made when it owned the sequence directly.
+    and turns the returned WriteOutcome into stream writes: the stats/
+    samples block to stdout when stats was collected, then any error line
+    to stderr, then output_written= to stdout when a write happened.
     """
     outcome = plan_and_write_nml(
         input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs

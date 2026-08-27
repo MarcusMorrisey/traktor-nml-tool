@@ -5,7 +5,7 @@
 | File                | What                                                          | When to read                                          |
 | ------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
 | `__init__.py`       | Package marker; `cli.py` iterates this package to find subcommands | Adding a new command module                           |
-| `_shared_args.py` | Argument definitions shared by several subcommands | Adding a flag more than one subcommand needs, or changing one |
+| `_shared_args.py` | Argument definitions shared by several subcommands; `add_no_refute_argument`/`warn_refutation_disabled`, the shared `--no-refute` surface | Adding a flag more than one subcommand needs, changing one, or changing the `--no-refute` flag |
 | `inspect_cmd.py`    | `inspect`/`encode-dir` subcommands                             | Changing collection/playlist inspection output        |
 | `rewrite_cmd.py`    | `preview-diff`/`rewrite` subcommands (rule-based rewriting)    | Changing rule-based path rewrite behavior              |
 | `compare_cmd.py`    | `preview-compare`/`scan-compare-candidates`/`rewrite-from-collection-compare` subcommands; the rewrite declares both collections as inputs so an output resolving to either is refused (DL-023), and enforces one-to-one through `reconnect.enforce_one_to_one` (DL-015) | Changing compare-based rewrite, candidate scanning, or `--no-refute` on the compare commands |

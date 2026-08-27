@@ -20,6 +20,7 @@
 | `test_splice.py`         | Splice merge/conflict-resolution tests                         | Changing `splice.py` or `playlists.py`                        |
 | `test_split.py`          | Split filter/dangling-reference tests                          | Changing `split.py`                                           |
 | `test_tracklist.py`      | External track-list parsing and per-line resolution tests      | Changing `tracklist.py`                                       |
+| `test_write_shell_split.py` | `plan_and_write_nml` unit tests: output-collision stats-is-None, text_patch_error keeping its collected stats ahead of the error, callback-exception propagation, and printlessness across every outcome. No manifest case sets an output path equal to its input and no manifest case carries both a stats block and a stderr error, so this is the only test exercising the collision refusal and the stats-before-error ordering | Changing `plan_and_write_nml`, `WriteOutcome`, or `format_stats_and_samples` |
 | `test_build_playlist.py` | build-playlist synthesis, insertion and CLI-surface tests       | Changing `buildplaylist.py`, its insertion point, or `commands/build_playlist_cmd.py` |
 | `test_xmlio.py`          | `parse_xml_bytes`'s lxml/stdlib backend-selection tests          | Changing `xmlio.py`'s parsing helpers                        |
 

@@ -6,9 +6,9 @@ test_no_outcome_writes_to_either_stream and
 test_write_nml_safely_prints_stats_before_error_on_text_patch_error each
 carry a companion proof in this file - the former runs write_nml_safely
 over a collision input and shows stderr is non-empty (ruling out a
-misconfigured capsys), the latter builds the inverted print-order
-wrapper DL-003 warns against and shows its ordering actually diverges
-from the real wrapper's. The other three assert what plan_and_write_nml
+misconfigured capsys), the latter builds an inverted print-order
+wrapper and shows its ordering actually diverges from the real
+wrapper's. The other three assert what plan_and_write_nml
 returns on a collision, a write-time text_patch_error, and a callback
 exception, without a comparable proof here that the assertion would
 catch a broken implementation.
@@ -64,9 +64,10 @@ def test_output_collision_carries_no_stats(tmp_path: Path) -> None:
     mutate_tree at all, so stats being None (rather than an empty dict)
     is the signal there is no stats block to render. Negative case: a
     run that does reach collect_patches produces a populated dict, not
-    None, so the two outcomes are distinguishable by type - proved here
-    by running both against the same input and comparing them, rather
-    than trusting the docstring that stats is None only for a collision."""
+    None, so the two outcomes are distinguishable by type - shown here
+    by running both against the same input and comparing them, though
+    without a broken variant exercised alongside them, this does not
+    prove the comparison would catch a regression."""
     input_path = tmp_path / "a.nml"
     _write_minimal_nml(input_path)
 
@@ -96,9 +97,10 @@ def test_text_patch_error_keeps_the_stats_it_already_collected(tmp_path: Path) -
     - WriteOutcome(None, None, error, None, 2), discarding the stats
     collect_patches had already returned - is constructed here from the
     same error and exit_code and shown to carry stats that differ from
-    (and are less informative than) the real outcome's, which is what
-    actually distinguishes the correct behaviour from the discarding one
-    rather than only asserting the correct side.
+    (and are less informative than) the real outcome's. That comparison
+    is against a manually built stand-in rather than a broken
+    implementation actually exercised, so it does not by itself prove a
+    regression would be caught.
     """
     input_path = tmp_path / "a.nml"
     _write_minimal_nml(input_path)
@@ -140,8 +142,8 @@ def test_callback_exception_reaches_the_caller(tmp_path: Path) -> None:
     write-time exception from apply_and_write (text_patch_error) is the
     contrasting behaviour - plan_and_write_nml folds that one into a
     WriteOutcome instead of raising, so the two failure classes are
-    proved to be handled differently rather than everything simply
-    propagating."""
+    shown here to be handled differently, without a broken variant
+    exercised to prove either assertion would catch a regression."""
     input_path = tmp_path / "a.nml"
     _write_minimal_nml(input_path)
     output_path = tmp_path / "out.nml"
@@ -188,11 +190,11 @@ def test_no_outcome_writes_to_either_stream(tmp_path: Path, capsys: pytest.Captu
 def test_write_nml_safely_prints_stats_before_error_on_text_patch_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """write_nml_safely's fixed print order is DL-003's contractual
-    ordering: on the lxml path apply_and_write raises after
-    collect_patches has already returned stats, so a text_patch_error
-    must show the stats block on stdout before the error reaches
-    stderr - the manifest cannot pin this because all twelve recorded
+    """write_nml_safely's fixed print order is contractual: on the lxml
+    path apply_and_write raises after collect_patches has already
+    returned stats, so a text_patch_error must show the stats block on
+    stdout before the error reaches stderr - the manifest cannot pin
+    this because all twelve recorded
     stderr values are empty, so no manifest case has both a stats block
     and an error line at once. Negative case: this test builds the
     inverted wrapper - error printed before the stats block, the exact
@@ -236,10 +238,10 @@ def test_write_nml_safely_prints_stats_before_error_on_text_patch_error(
     assert stats_index < error_index
 
     # The negative case: an inverted wrapper - error emitted before the
-    # stats block, the exact bug DL-003 warns against - built from the
-    # same WriteOutcome and driven through the same recorder, so its
-    # ordering can be shown to actually diverge from the real wrapper's
-    # rather than merely being described as wrong.
+    # stats block, the exact ordering bug this guard exists to catch -
+    # built from the same WriteOutcome and driven through the same
+    # recorder, so its ordering can be shown to actually diverge from
+    # the real wrapper's rather than merely being described as wrong.
     calls.clear()
     outcome = plan_and_write_nml(input_path, output_path, False, collect_patches, _no_op_mutate)
 

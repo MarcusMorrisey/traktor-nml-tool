@@ -121,7 +121,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 
 - **CI-M-001-001** `traktor_nml/rewrite.py::WriteOutcome`: A frozen dataclass describing one attempt at the read/parse/patch/write sequence. Fields: stats (dict of str to int, or None when the attempt ended before any stats existed), samples (the sample-match tuples, or None), error (the key=value text destined for stderr, or None), written_path (the Path actually written, or None on a dry run or a failure) and exit_code (0 or 2). stats being None rather than empty is the signal that no stats block belongs in the output at all, which is what separates an output collision from a run that collected stats and then failed to write. (refs: DL-002, DL-003)
 - **CI-M-001-002** `traktor_nml/rewrite.py::plan_and_write_nml`: Takes the same parameters as the printing wrapper (input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs) and returns a WriteOutcome. It resolves the output against input_path and extra_inputs first and returns the output_must_differ_from_input outcome with stats of None before touching the filesystem or the callbacks. On the lxml path it reads and parses, returns the read error as an outcome with stats of None, otherwise calls collect_patches, keeps the returned stats and samples on the outcome, and when not dry_run applies the patches and records written_path; a UnicodeDecodeError or ValueError from apply_and_write becomes the text_patch_error outcome with the collected stats still populated. The stdlib path maps FileNotFoundError and XML_PARSE_ERROR to their outcomes, calls mutate_tree, and writes through write_traktor_xml when not dry_run. It performs no I/O to stdout or stderr and catches nothing raised by the two callables. (refs: DL-002, DL-003, DL-004, DL-008)
-- **CI-M-001-003** `traktor_nml/rewrite.py::write_nml_safely`: Delegates to plan_and_write_nml and turns the outcome into the same stream writes it made when it owned the sequence: print_stats_and_samples when stats is not None, then the error to stderr when error is not None, then the output_written line to stdout when written_path is set, returning exit_code. Its signature, its docstring contract and its byte-level output for rewrite_cmd and compare_cmd are unchanged. (refs: DL-002, DL-003)
+- **CI-M-001-003** `traktor_nml/rewrite.py::write_nml_safely`: Delegates to plan_and_write_nml and turns the outcome into the stream writes the CLI contract requires: print_stats_and_samples when stats is not None, then the error to stderr when error is not None, then the output_written line to stdout when written_path is set, returning exit_code. Its signature, its docstring contract and its byte-level output for rewrite_cmd and compare_cmd are unchanged. (refs: DL-002, DL-003)
 - **CI-M-001-004** `tests/test_write_shell_split.py`: Unit tests over plan_and_write_nml that cover what the manifest cannot reach. An output-collision case asserts stats is None and exit_code is 2. A text_patch_error case (a collect_patches returning a patch that apply_text_patches rejects) asserts stats is populated alongside the error, and a companion assertion demonstrates that rendering the error before the stats produces output the recorded ordering rejects, so the ordering guard is one that has been seen to fail. A callback-raises case asserts a RuntimeError from collect_patches leaves plan_and_write_nml and reaches the caller. A no-output case asserts no captured stdout or stderr for every outcome the function can return. Each test names in its docstring the invariant it breaks to prove it guards. (refs: DL-003, DL-004, DL-008)
 - **CI-M-001-005** `traktor_nml/rewrite.py::format_stats_and_samples`: Returns the stats and sample_matches block as a list of lines: one key=value line per stats entry in insertion order, then the sample_matches header and the label, matched_by, before and after lines for each of the first limit samples. print_stats_and_samples prints exactly these lines and nothing else, so one definition of the block serves both the printing wrapper and reconnect_render.render_rewrite_from_reconnect, which composes the same block into its buffered stdout without restating the format. (refs: DL-002, DL-006)
 
@@ -349,7 +349,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 -    mutate_tree for the stdlib fallback.
 +    mutate_tree for the stdlib fallback. Delegates to plan_and_write_nml
 +    and turns the returned WriteOutcome into the same stream writes this
-+    function made when it owned the sequence directly.
++    contract requires, in that fixed order.
      """
 -    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
 -        print("output_must_differ_from_input", file=sys.stderr)
@@ -700,10 +700,10 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +"""Printless reconnection core: match an old collection's tracks against
 +disk-scan candidates and return typed results.
 +
-+commands/reconnect_cmd.py used to run this pipeline and print its own
-+stdout mid-run; a GUI review table needs the mapping and the ambiguity
-+rows as objects while a run is in progress, and a transcript parsed after
-+the fact arrives too late for that. run_reconnection returns a
++commands/reconnect_cmd.py holds argparse wiring only; the pipeline lives
++here and prints nothing. A GUI review table needs the mapping and the
++ambiguity rows as objects while a run is in progress, and a transcript
++parsed after the fact arrives too late for that. run_reconnection returns a
 +ReconnectResult, and scan_reconnect_candidates/rewrite_from_reconnect wrap
 +it with the CSV write and the typed-error mapping each command needs,
 +also as results rather than prints. reconnect_render turns these into
@@ -1422,9 +1422,9 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +
 +    stderr_lines: list[str] = []
 +    if result.reconnect is not None:
-+        # warn_refutation_disabled in the pre-split core only ran after
-+        # volume-identity resolution and the fingerprint check both
-+        # succeeded, i.e. only on a run that reached matching - gating on
++        # The refutation warning belongs only to a run that reached
++        # matching: volume-identity resolution and the fingerprint check
++        # must both have succeeded first - gating on
 +        # result.reconnect (populated only once run_reconnection returns)
 +        # reproduces that: an output collision or a volume_identity_error/
 +        # fingerprint_unavailable failure prints neither warning.
@@ -1826,9 +1826,9 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +++ b/tests/test_reconnect_render_equivalence.py
 @@ -0,0 +1,358 @@
 +"""Section 3.2 equivalence tests: the renderer over the printless core
-+must reproduce exactly what the CLI printed before the split, using the
-+recorded reconnect cases in tests/baselines/manifest.json as the
-+expectation rather than restating them.
++must reproduce the recorded CLI output exactly, using the reconnect
++cases in tests/baselines/manifest.json as the expectation rather than
++restating them.
 +"""
 +
 +from __future__ import annotations
