@@ -343,14 +343,15 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 ```diff
 --- a/traktor_nml/rewrite.py
 +++ b/traktor_nml/rewrite.py
-@@ -506,41 +506,17 @@ def write_nml_safely(
+@@ -506,41 +506,18 @@ def write_nml_safely(
      extra_inputs (existing tool convention). Both existing write commands
      (rewrite, rewrite-from-collection-compare) are expressed as callers of
      this helper, one supplying collect_patches for the lxml path and
 -    mutate_tree for the stdlib fallback.
 +    mutate_tree for the stdlib fallback. Delegates to plan_and_write_nml
-+    and turns the returned WriteOutcome into the same stream writes this
-+    contract requires, in that fixed order.
++    and turns the returned WriteOutcome into stream writes: the stats/
++    samples block to stdout when stats was collected, then any error line
++    to stderr, then output_written= to stdout when a write happened.
      """
 -    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
 -        print("output_must_differ_from_input", file=sys.stderr)
@@ -427,23 +428,43 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 ```diff
 --- /dev/null
 +++ b/tests/test_write_shell_split.py
-@@ -0,0 +1,158 @@
-+"""Unit tests over plan_and_write_nml covering what the byte-parity
-+manifest cannot reach: the printless core's own outcomes rather than the
-+stream writes a caller layers on top of it.
+@@ -0,0 +1,273 @@
++"""Unit tests over plan_and_write_nml and write_nml_safely covering
++what the byte-parity manifest cannot reach: the printless core's own
++outcomes, and one print-order guard on the wrapper that the manifest
++cannot pin because all twelve recorded stderr values are empty.
++test_no_outcome_writes_to_either_stream and
++test_write_nml_safely_prints_stats_before_error_on_text_patch_error each
++carry a companion proof in this file - the former runs write_nml_safely
++over a collision input and shows stderr is non-empty (ruling out a
++misconfigured capsys), the latter builds the inverted print-order
++wrapper DL-003 warns against and shows its ordering actually diverges
++from the real wrapper's. The other three assert what plan_and_write_nml
++returns on a collision, a write-time text_patch_error, and a callback
++exception, without a comparable proof here that the assertion would
++catch a broken implementation.
 +"""
 +
 +from __future__ import annotations
 +
++import sys
 +from pathlib import Path
 +
 +import pytest
 +
 +from traktor_nml.model import ElemPatch
-+from traktor_nml.rewrite import WriteOutcome, plan_and_write_nml, write_nml_safely
++from traktor_nml.rewrite import (
++    WriteOutcome,
++    format_stats_and_samples,
++    plan_and_write_nml,
++    write_nml_safely,
++)
 +
 +
 +def _write_minimal_nml(path: Path) -> None:
++    """A COLLECTION with no entries - enough for plan_and_write_nml to
++    parse and reach either callback; the tests below don't need entries,
++    only a valid document to read, patch and (sometimes) write."""
 +    path.write_text(
 +        '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n'
 +        '<NML VERSION="19">\n'
@@ -455,10 +476,17 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +
 +
 +def _no_op_collect(root):
++    """Minimal collect_patches returning fixed patches/stats/samples:
++    isolates plan_and_write_nml's write-shell behaviour (collision
++    refusal, write-time error handling, printlessness) from patch
++    computation, which these tests are not exercising."""
 +    return [], {"x": 1}, []
 +
 +
 +def _no_op_mutate(root, dry_run):
++    """Minimal mutate_tree returning fixed stats, ignoring dry_run:
++    isolates the write shell the same way _no_op_collect does, for the
++    stdlib-fallback path."""
 +    return {"x": 1}, []
 +
 +
@@ -586,7 +614,94 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +
 +    write_nml_safely(input_path, input_path, False, _no_op_collect, _no_op_mutate)
 +    assert capsys.readouterr().err != ""
-
++
++
++def test_write_nml_safely_prints_stats_before_error_on_text_patch_error(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    """write_nml_safely's fixed print order is DL-003's contractual
++    ordering: on the lxml path apply_and_write raises after
++    collect_patches has already returned stats, so a text_patch_error
++    must show the stats block on stdout before the error reaches
++    stderr - the manifest cannot pin this because all twelve recorded
++    stderr values are empty, so no manifest case has both a stats block
++    and an error line at once. Negative case: this test builds the
++    inverted wrapper - error printed before the stats block, the exact
++    swap this guard exists to catch - and drives it through the same
++    print recorder used for the real wrapper, showing the two orderings
++    actually diverge rather than only asserting the correct one in
++    isolation."""
++    input_path = tmp_path / "a.nml"
++    _write_minimal_nml(input_path)
++    output_path = tmp_path / "out.nml"
++
++    bogus_patch = ElemPatch(
++        sourceline=1,
++        tag_name="LOCATION",
++        locator=(("VOLUME", "does-not-exist"),),
++        changes=[("VOLUME", "does-not-exist", "X")],
++    )
++
++    def collect_patches(root):
++        return [bogus_patch], {"collection_locations_rewritten": 1}, []
++
++    calls: list[tuple[str, str]] = []
++
++    def recording_print(*args, file=None, **kwargs) -> None:
++        stream = "stderr" if file is sys.stderr else "stdout"
++        calls.append((stream, " ".join(str(a) for a in args)))
++
++    monkeypatch.setattr("traktor_nml.rewrite.print", recording_print, raising=False)
++
++    exit_code = write_nml_safely(input_path, output_path, False, collect_patches, _no_op_mutate)
++
++    assert exit_code == 2
++    stats_index = next(
++        i for i, (stream, text) in enumerate(calls)
++        if stream == "stdout" and "collection_locations_rewritten=1" in text
++    )
++    error_index = next(
++        i for i, (stream, text) in enumerate(calls)
++        if stream == "stderr" and text.startswith("text_patch_error=")
++    )
++    assert stats_index < error_index
++
++    # The negative case: an inverted wrapper - error emitted before the
++    # stats block, the exact bug DL-003 warns against - built from the
++    # same WriteOutcome and driven through the same recorder, so its
++    # ordering can be shown to actually diverge from the real wrapper's
++    # rather than merely being described as wrong.
++    calls.clear()
++    outcome = plan_and_write_nml(input_path, output_path, False, collect_patches, _no_op_mutate)
++
++    def inverted_write_nml_safely(outcome: WriteOutcome) -> int:
++        if outcome.error is not None:
++            recording_print(outcome.error, file=sys.stderr)
++        if outcome.stats is not None:
++            for line in format_stats_and_samples(outcome.stats, outcome.samples):
++                recording_print(line)
++        if outcome.written_path is not None:
++            recording_print(f"output_written={outcome.written_path.as_posix()}")
++        return outcome.exit_code
++
++    inverted_write_nml_safely(outcome)
++
++    inv_stats_index = next(
++        i for i, (stream, text) in enumerate(calls)
++        if stream == "stdout" and "collection_locations_rewritten=1" in text
++    )
++    inv_error_index = next(
++        i for i, (stream, text) in enumerate(calls)
++        if stream == "stderr" and text.startswith("text_patch_error=")
++    )
++    # The real wrapper puts stats first (asserted above: stats_index <
++    # error_index); the inverted wrapper puts error first, i.e. its
++    # stats index comes AFTER its error index - the two orderings are
++    # shown here to actually diverge, which is what would make this
++    # guard fail if write_nml_safely were ever changed to match the
++    # inverted ordering.
++    assert inv_error_index < inv_stats_index
++    assert stats_index < error_index and inv_stats_index > inv_error_index
 ```
 
 **Documentation:**
@@ -594,53 +709,90 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 ```diff
 --- a/tests/test_write_shell_split.py
 +++ b/tests/test_write_shell_split.py
-@@ -1,6 +1,14 @@
- """Unit tests over plan_and_write_nml covering what the byte-parity
- manifest cannot reach: the printless core's own outcomes rather than the
--stream writes a caller layers on top of it.
-+stream writes a caller layers on top of it. Of the four guards below,
-+only test_no_outcome_writes_to_either_stream carries a companion proof
-+in this file: it runs the printing wrapper write_nml_safely over the
-+same collision input and shows stderr is non-empty, which is what
-+rules out the printlessness assertions above it being an artifact of a
-+misconfigured capsys rather than real silence. The other three assert
-+what plan_and_write_nml returns on a collision, a write-time
-+text_patch_error, and a callback exception, without a comparable
-+proof here that the assertion would catch a broken implementation.
- """
+@@ -6,9 +6,9 @@ test_no_outcome_writes_to_either_stream and
+ test_write_nml_safely_prints_stats_before_error_on_text_patch_error each
+ carry a companion proof in this file - the former runs write_nml_safely
+ over a collision input and shows stderr is non-empty (ruling out a
+-misconfigured capsys), the latter builds the inverted print-order
+-wrapper DL-003 warns against and shows its ordering actually diverges
+-from the real wrapper's. The other three assert what plan_and_write_nml
++misconfigured capsys), the latter builds an inverted print-order
++wrapper and shows its ordering actually diverges from the real
++wrapper's. The other three assert what plan_and_write_nml
+ returns on a collision, a write-time text_patch_error, and a callback
+ exception, without a comparable proof here that the assertion would
+ catch a broken implementation.
+@@ -64,9 +64,10 @@ def test_output_collision_carries_no_stats(tmp_path: Path) -> None:
+     mutate_tree at all, so stats being None (rather than an empty dict)
+     is the signal there is no stats block to render. Negative case: a
+     run that does reach collect_patches produces a populated dict, not
+-    None, so the two outcomes are distinguishable by type - proved here
+-    by running both against the same input and comparing them, rather
+-    than trusting the docstring that stats is None only for a collision."""
++    None, so the two outcomes are distinguishable by type - shown here
++    by running both against the same input and comparing them, though
++    without a broken variant exercised alongside them, this does not
++    prove the comparison would catch a regression."""
+     input_path = tmp_path / "a.nml"
+     _write_minimal_nml(input_path)
  
- from __future__ import annotations
-@@ -17,19 +29,29 @@ from traktor_nml.rewrite import WriteOutcome, plan_and_write_nml, write_nml_sa
+@@ -96,9 +97,10 @@ def test_text_patch_error_keeps_the_stats_it_already_collected(tmp_path: Path) -
+     - WriteOutcome(None, None, error, None, 2), discarding the stats
+     collect_patches had already returned - is constructed here from the
+     same error and exit_code and shown to carry stats that differ from
+-    (and are less informative than) the real outcome's, which is what
+-    actually distinguishes the correct behaviour from the discarding one
+-    rather than only asserting the correct side.
++    (and are less informative than) the real outcome's. That comparison
++    is against a manually built stand-in rather than a broken
++    implementation actually exercised, so it does not by itself prove a
++    regression would be caught.
+     """
+     input_path = tmp_path / "a.nml"
+     _write_minimal_nml(input_path)
+@@ -140,8 +142,8 @@ def test_callback_exception_reaches_the_caller(tmp_path: Path) -> None:
+     write-time exception from apply_and_write (text_patch_error) is the
+     contrasting behaviour - plan_and_write_nml folds that one into a
+     WriteOutcome instead of raising, so the two failure classes are
+-    proved to be handled differently rather than everything simply
+-    propagating."""
++    shown here to be handled differently, without a broken variant
++    exercised to prove either assertion would catch a regression."""
+     input_path = tmp_path / "a.nml"
+     _write_minimal_nml(input_path)
+     output_path = tmp_path / "out.nml"
+@@ -188,11 +190,11 @@ def test_no_outcome_writes_to_either_stream(tmp_path: Path, capsys: pytest.Captu
+ def test_write_nml_safely_prints_stats_before_error_on_text_patch_error(
+     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+ ) -> None:
+-    """write_nml_safely's fixed print order is DL-003's contractual
+-    ordering: on the lxml path apply_and_write raises after
+-    collect_patches has already returned stats, so a text_patch_error
+-    must show the stats block on stdout before the error reaches
+-    stderr - the manifest cannot pin this because all twelve recorded
++    """write_nml_safely's fixed print order is contractual: on the lxml
++    path apply_and_write raises after collect_patches has already
++    returned stats, so a text_patch_error must show the stats block on
++    stdout before the error reaches stderr - the manifest cannot pin
++    this because all twelve recorded
+     stderr values are empty, so no manifest case has both a stats block
+     and an error line at once. Negative case: this test builds the
+     inverted wrapper - error printed before the stats block, the exact
+@@ -236,10 +238,10 @@ def test_write_nml_safely_prints_stats_before_error_on_text_patch_error(
+     assert stats_index < error_index
  
+     # The negative case: an inverted wrapper - error emitted before the
+-    # stats block, the exact bug DL-003 warns against - built from the
+-    # same WriteOutcome and driven through the same recorder, so its
+-    # ordering can be shown to actually diverge from the real wrapper's
+-    # rather than merely being described as wrong.
++    # stats block, the exact ordering bug this guard exists to catch -
++    # built from the same WriteOutcome and driven through the same
++    # recorder, so its ordering can be shown to actually diverge from
++    # the real wrapper's rather than merely being described as wrong.
+     calls.clear()
+     outcome = plan_and_write_nml(input_path, output_path, False, collect_patches, _no_op_mutate)
  
- def _write_minimal_nml(path: Path) -> None:
-+    """A COLLECTION with no entries - enough for plan_and_write_nml to
-+    parse and reach either callback; the tests below don't need entries,
-+    only a valid document to read, patch and (sometimes) write."""
-     path.write_text(
-         '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n'
-         '<NML VERSION="19">\n'
-         '  <COLLECTION ENTRIES="0">\n'
-         '  </COLLECTION>\n'
-         '</NML>\n',
-         encoding="utf-8",
-     )
- 
- 
- def _no_op_collect(root):
-+    """Minimal collect_patches returning fixed patches/stats/samples:
-+    isolates plan_and_write_nml's write-shell behaviour (collision
-+    refusal, write-time error handling, printlessness) from patch
-+    computation, which these tests are not exercising."""
-     return [], {"x": 1}, []
- 
- 
- def _no_op_mutate(root, dry_run):
-+    """Minimal mutate_tree returning fixed stats, ignoring dry_run:
-+    isolates the write shell the same way _no_op_collect does, for the
-+    stdlib-fallback path."""
-     return {"x": 1}, []
-
 ```
 
 
@@ -878,7 +1030,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 --- a/traktor_nml/reconnect_run.py
 +++ b/traktor_nml/reconnect_run.py
 @@ -101,7 +101,11 @@ class RewriteReconnectResult:
-     outcome could produce one at all. csv_path is non-None only alongside a non-None
+     outcome at all. csv_path is non-None only alongside a non-None
      reconnect.
      """
  
@@ -1066,8 +1218,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +    a future GUI review table is meant to call once it exists, not dead
 +    code to remove (DL-054).
      ScanCancelled propagates rather than becoming a field on the result:
-@@ -119,6 +123,10 @@ def run_reconnection(
-     ScanCancelled propagates rather than becoming a field on the result:
+@@ -118,5 +122,9 @@ def run_reconnection(
      a short candidate list is indistinguishable from a complete one, so a
      partial result would report most of the collection as missing - a
      wrong answer delivered confidently.
@@ -1805,7 +1956,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
  def _handle_scan_reconnect_candidates(args: argparse.Namespace) -> int:
 +    """Argparse wiring only: emit(render(core(args))). Holds no print
 +    call and writes to neither stream itself - the command layer never
-+    computes a value it prints, per tests/test_command_layer_printless.py."""
++    computes a value it prints."""
      return emit(render_scan_reconnect_candidates(reconnect_run.scan_reconnect_candidates(args), args))
  
  
@@ -2299,7 +2450,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 -def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
 -    """Resolve the effective MatchConfidence: an explicit
 -    --match-confidence always wins; otherwise --allow-artist-title-only
--    selects loose and its absence selects strict (DL-055)."""
+-    selects loose and its absence selects strict (DL-010)."""
 -    if getattr(args, "match_confidence", None):
 -        return parse_match_confidence(args.match_confidence)
 -    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
@@ -2395,7 +2546,7 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
 +    """Resolve the effective MatchConfidence: an explicit
 +    --match-confidence always wins; otherwise --allow-artist-title-only
-+    selects loose and its absence selects strict (DL-055)."""
++    selects loose and its absence selects strict (DL-010)."""
 +    if getattr(args, "match_confidence", None):
 +        return parse_match_confidence(args.match_confidence)
 +    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
@@ -2538,13 +2689,14 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 ```diff
 --- a/traktor_nml/reconnect_run.py
 +++ b/traktor_nml/reconnect_run.py
-@@ -77,5 +77,6 @@ class ReconnectResult:
+@@ -77,6 +77,7 @@ class ReconnectResult:
      mapping: dict[str, EntryRecord]
      stats: dict[str, int]
      ambiguity_rows: list[dict[str, str]]
      old_records: list[EntryRecord]
      warnings: list[str] = field(default_factory=list)
 +    diagnostics: tuple[str, ...] = ()
+ 
 ```
 
 ```diff
@@ -2560,11 +2712,12 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 +        on_diagnostic=diagnostics.append,
      )
      confidence = resolve_confidence(args)
-@@ -270,3 +273,3 @@ def run_reconnection(
+@@ -270,4 +273,4 @@ def run_reconnection(
  
      cache.flush()
 -    return ReconnectResult(mapping, stats, ambiguity_rows, old_records, warnings)
 +    return ReconnectResult(mapping, stats, ambiguity_rows, old_records, warnings, tuple(diagnostics))
+ 
 ```
 
 **Documentation:**
@@ -3017,11 +3170,12 @@ The reconnect path runs in three layers. reconnect_run.py owns the pipeline and 
 
 #### Follow-up Fix: diagnostics survive a typed error after the scan
 
-**Provenance**: commit e076b1a, not Milestone 2. This block is recorded here so
-the Code Changes in this document reconstruct
-tests/test_reconnect_render_equivalence.py in full, and it is kept separate from
-the CC-M-002-0NN blocks so the file's provenance stays visible: Milestone 2 did
-not author these two tests.
+**Provenance**: commit e076b1a, not Milestone 2. The three blocks below are
+recorded here so the Code Changes in this document reconstruct
+tests/test_reconnect_render_equivalence.py, traktor_nml/reconnect_render.py and
+traktor_nml/reconnect_run.py in full, and they are kept separate from the
+CC-M-002-0NN blocks so those files' provenance stays visible: Milestone 2
+authored neither the two tests nor the renderer and core changes they cover.
 
 CI-M-002-017 requires that on a typed error raised after the scan the scan's
 diagnostics still precede the error line on stderr. index_scan_roots runs ahead
@@ -3033,8 +3187,8 @@ and both renderers emit it ahead of the error line. No manifest case reaches thi
 path - none runs without mutagen, none crosses the progress threshold, and none
 hits a typed error after a scan - so the two tests below assert the ordering at
 the emit() level, each recording the renderer mutation it was observed to fail
-against. The renderer and core halves of this fix are not recorded in this
-document.
+against. CC-FIX-002 and CC-FIX-003 carry the renderer and core halves of the
+same commit.
 
 **CC-FIX-001** (tests/test_reconnect_render_equivalence.py) - implements CI-M-002-017
 
@@ -3117,6 +3271,194 @@ document.
  def test_rewrite_from_reconnect_stderr_order_is_diagnostics_then_warnings_then_refutation(
      capsys: pytest.CaptureFixture[str],
  ) -> None:
+```
+
+**CC-FIX-002** (traktor_nml/reconnect_render.py) - implements CI-M-002-017
+
+**Code:**
+
+```diff
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -48,11 +48,12 @@ def render_scan_reconnect_candidates(
+     then the refutation-disabled line when refutation is off.
+     tests/baselines/manifest.json's recorded scan-reconnect-candidates
+     cases are the oracle for this exact ordering. An error on the result
+-    short-circuits to a single stderr line and exit code 2, since no
+-    ReconnectResult exists yet.
++    short-circuits stderr to result.diagnostics - whatever the scan
++    emitted before the typed error was raised - followed by the error
++    line, with exit code 2, since no ReconnectResult exists yet.
+     """
+     if result.error is not None:
+-        return RenderedOutput([], [result.error], 2)
++        return RenderedOutput([], list(result.diagnostics) + [result.error], 2)
+ 
+     reconnect = result.result
+     stdout_lines = [f"reconnectable={len(reconnect.mapping)}"]
+@@ -81,10 +82,13 @@ def render_rewrite_from_reconnect(
+     sourced from the WriteOutcome, in the same order write_nml_safely
+     prints them. The CSV line comes first because the CSV is written
+     inside the reconnection callback, before plan_and_write_nml's write
+-    step runs. Diagnostics, warnings and the refutation line are gated on
++    step runs. Warnings and the refutation line are gated on
+     result.reconnect being populated, so a run that fails before
+     reconnection completes (an output collision, or a volume-identity/
+-    fingerprint error) prints none of them.
++    fingerprint error) prints neither. Diagnostics are not gated the same
++    way: result.diagnostics carries whatever the scan emitted before such
++    a typed error was raised, and is emitted ahead of the error line
++    regardless of whether reconnection completed.
+     """
+     stdout_lines: list[str] = []
+     if result.csv_path is not None:
+@@ -109,6 +113,8 @@ def render_rewrite_from_reconnect(
+         refutation_line = refutation_disabled_line(args)
+         if refutation_line is not None:
+             stderr_lines.append(refutation_line)
++    else:
++        stderr_lines.extend(result.diagnostics)
+     if outcome is not None and outcome.error is not None:
+         stderr_lines.append(outcome.error)
+     elif result.error is not None:
+```
+
+
+**CC-FIX-003** (traktor_nml/reconnect_run.py) - implements CI-M-002-017
+
+**Code:**
+
+```diff
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -92,6 +92,11 @@ class ScanReconnectResult:
+     """One scan-reconnect-candidates pass. Exactly one of result and
+     error is non-None; csv_path is non-None only alongside a non-None
+     result, because the CSV is written after run_reconnection returns.
++    diagnostics holds whatever index_scan_roots emitted before a
++    volume_identity_error or fingerprint_unavailable error was raised -
++    it is empty when result is set (the diagnostics then live on
++    result.diagnostics instead) and empty for input_not_found or
++    xml_parse_error, which occur before any scan runs.
+     """
+ 
+     # error carries one of input_not_found=, xml_parse_error=,
+@@ -100,6 +105,7 @@ class ScanReconnectResult:
+     result: Optional[ReconnectResult]
+     error: Optional[str]
+     csv_path: Optional[Path]
++    diagnostics: tuple[str, ...] = ()
+ 
+ 
+ @dataclass(frozen=True)
+@@ -109,7 +115,10 @@ class RewriteReconnectResult:
+     failures, and this error field is only for a failure that came out of
+     the reconnection callback before plan_and_write_nml could produce an
+     outcome at all. csv_path is non-None only alongside a non-None
+-    reconnect.
++    reconnect. diagnostics holds whatever index_scan_roots emitted before
++    a volume_identity_error or fingerprint_unavailable error was raised -
++    it is empty when reconnect is set (the diagnostics then live on
++    reconnect.diagnostics instead).
+     """
+ 
+     # outcome is None only when error is set: a volume_identity_error or
+@@ -120,6 +129,7 @@ class RewriteReconnectResult:
+     reconnect: Optional[ReconnectResult]
+     csv_path: Optional[Path]
+     error: Optional[str]
++    diagnostics: tuple[str, ...] = ()
+ 
+ 
+ def _resolve_volume_identities_and_mounts(
+@@ -220,6 +230,7 @@ def run_reconnection(
+     *,
+     on_progress: Optional[Callable[[int, int, Path], None]] = None,
+     cancel=None,
++    diagnostics: Optional[list[str]] = None,
+ ) -> ReconnectResult:
+     """Run the whole reconnection pipeline and return a ReconnectResult.
+ 
+@@ -235,6 +246,14 @@ def run_reconnection(
+     a short candidate list is indistinguishable from a complete one, so a
+     partial result would report most of the collection as missing - a
+     wrong answer delivered confidently.
++
++    diagnostics, when supplied, is the caller's own list and this
++    function appends into it rather than creating its own - so the
++    diagnostics collected before a later VolumeIdentityError or
++    _FingerprintUnavailable raise still exist in the caller's scope after
++    the raise propagates and no ReconnectResult is ever constructed. When
++    omitted a fresh list is created, and ReconnectResult.diagnostics is
++    populated from it exactly as before.
+     """
+     # Volume identities are resolved once here and reused by both the
+     # fingerprint tier (_build_fingerprint_tier's known_mounts) and the
+@@ -242,7 +261,8 @@ def run_reconnection(
+     # redesign must not reintroduce a second resolution (ref: DL-046).
+     old_records = collection_records(old_root)
+     cache = TagCache(args.cache)
+-    diagnostics: list[str] = []
++    if diagnostics is None:
++        diagnostics = []
+     candidates = index_scan_roots(
+         args.scan_roots, cache, refresh_cache=args.refresh_cache,
+         on_progress=on_progress, cancel=cancel,
+@@ -308,12 +328,15 @@ def scan_reconnect_candidates(
+     except XML_PARSE_ERROR as exc:
+         return ScanReconnectResult(None, f"xml_parse_error={args.old_input.as_posix()}: {exc}", None)
+ 
++    diagnostics: list[str] = []
+     try:
+-        result = run_reconnection(args, old_tree.getroot(), on_progress=on_progress, cancel=cancel)
++        result = run_reconnection(
++            args, old_tree.getroot(), on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
++        )
+     except VolumeIdentityError as exc:
+-        return ScanReconnectResult(None, f"volume_identity_error={exc}", None)
++        return ScanReconnectResult(None, f"volume_identity_error={exc}", None, tuple(diagnostics))
+     except _FingerprintUnavailable as exc:
+-        return ScanReconnectResult(None, f"fingerprint_unavailable={exc}", None)
++        return ScanReconnectResult(None, f"fingerprint_unavailable={exc}", None, tuple(diagnostics))
+ 
+     csv_path = None
+     if args.csv is not None:
+@@ -374,9 +397,12 @@ def rewrite_from_reconnect(
+     output.
+     """
+     holder: dict[str, object] = {"reconnect": None, "csv_path": None}
++    diagnostics: list[str] = []
+ 
+     def _collect_patches(old_root):
+-        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)
++        result = run_reconnection(
++            args, old_root, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
++        )
+         holder["reconnect"] = result
+         patches, apply_stats = _collect_compare_patches(old_root, result.old_records, result.mapping)
+         merged_stats = {**apply_stats, **result.stats}
+@@ -386,7 +412,9 @@ def rewrite_from_reconnect(
+         return patches, merged_stats, []
+ 
+     def mutate_tree(old_root, dry_run):
+-        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)
++        result = run_reconnection(
++            args, old_root, on_progress=on_progress, cancel=cancel, diagnostics=diagnostics,
++        )
+         holder["reconnect"] = result
+         merged_stats = {
+             "collection_locations_rewritten": 0,
+@@ -404,8 +432,8 @@ def rewrite_from_reconnect(
+     try:
+         outcome = plan_and_write_nml(args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree)
+     except VolumeIdentityError as exc:
+-        return RewriteReconnectResult(None, None, None, f"volume_identity_error={exc}")
++        return RewriteReconnectResult(None, None, None, f"volume_identity_error={exc}", tuple(diagnostics))
+     except _FingerprintUnavailable as exc:
+-        return RewriteReconnectResult(None, None, None, f"fingerprint_unavailable={exc}")
++        return RewriteReconnectResult(None, None, None, f"fingerprint_unavailable={exc}", tuple(diagnostics))
+ 
+     return RewriteReconnectResult(outcome, holder["reconnect"], holder["csv_path"], None)
 ```
 
 
@@ -3252,48 +3594,163 @@ document.
 
 **CC-M-003-002** (traktor_nml/README.md) - implements CI-M-003-002
 
+**Provenance**: the Code diff is commit a229c7b, Milestone 3's own. The
+Documentation diff is commit 402747e, a later repair that states the DL-tag
+convention every citation under traktor_nml/ and tests/ resolves against; it is
+recorded here so this document reconstructs traktor_nml/README.md in full, and
+it is named separately so the section's provenance stays visible.
+
 **Code:**
 
 ```diff
 --- a/traktor_nml/README.md
 +++ b/traktor_nml/README.md
-@@ -25,7 +25,14 @@ Two write mechanisms coexist and never mix within one command:
- `commands/` holds one module per subcommand; `cli.py` discovers them by
+@@ -27,6 +27,20 @@ Two write mechanisms coexist and never mix within one command:
  iterating the package rather than listing them, so adding a subcommand
- never requires editing `cli.py` (DL-048).
-
+ never requires editing `cli.py` (DL-003).
+ 
 +`reconnect_run.py` (the printless reconnection core) and
 +`reconnect_render.py` (the buffered stdout/stderr renderer for it) sit
 +beside the other top-level modules, not inside `commands/`:
 +`commands/reconnect_cmd.py` imports downward into them rather than the
 +reverse, so a caller other than the CLI - a GUI review table - can reach
-+the same core and renderer without going through argparse wiring (DL-052).
++the same core and renderer without going through argparse wiring
++(DL-052). `shared_args.py` holds `resolve_confidence`/`should_refute`/
++`refutation_disabled_line` below `commands/`, on the same side of that
++boundary as the reconnect core and renderer, since a core module
++importing from `commands/` would create the reverse of the import
++direction DL-052 establishes; `commands/_shared_args.py` re-exports the
++same three names so `compare_cmd.py` and `reconnect_cmd.py` keep one
++import site each.
 +
  `build-playlist` synthesizes its playlist node from an external track list
  with no source span to transplant, so it always takes the serialization
  path this split already sanctions for genuinely new content (DL-028), and
-@@ -192,10 +198,20 @@ manufactures a difference the filesystem does not have - measured on the
-   promoting it to strict so that stem upgrades match by default would have
-   contradicted that precedent. `bare_name` drops the folder as well and
-   reaches filename level only: one real library holds 208 files named
-   `vocals` and 176 named `drums` from stem-extraction folders. These tiers
-   are only reachable because DL-040 stopped size refuting across sources -
-   a re-encode runs 0.23x to 49x the original, so the earlier band would
-   have found these candidates and then discarded them (DL-045).
-+- The reconnect commands run behind a printless core in `reconnect_run.py`
-+  that returns a `ReconnectResult`, and a renderer in `reconnect_render.py`
-+  that turns it into buffered stdout/stderr lines and an exit code,
-+  because a GUI review table needs the mapping and the ambiguity rows as
-+  objects while a run is in progress and a parsed transcript arrives only
-+  at the end. `write_nml_safely` is a printing wrapper over a printless
-+  `plan_and_write_nml` for the same reason: the reconnect stdout was
-+  produced inside the write shell, and a reconnect-local write path would
-+  duplicate the read/parse/patch/write skeleton DL-019 exists to prevent
-+  (DL-047).
- - A candidate the check withdraws is counted as `refuted` alongside
-   `unmatched` rather than folded into it, so "found it and declined" never
-   reads as "the file is gone" - the same distinction DL-016 drew for
-
+@@ -212,6 +226,12 @@ every stricter tier unreachable (DL-032).
+   source byte span. `playlists.py`'s UUID-marker locator is gone, so a
+   playlist whose `PLAYLIST` child carries no UUID is still located and no
+   locator rescans the document per element (DL-014, DL-021).
++- Every element is located in source by tree identity through `spans.py`'s
++  shared `SpanIndex`, never by searching for an attribute value and never
++  through a second, independent locator: a `PLAYLIST` element whose child
++  carries no UUID is located by this same route, and one locator handles
++  every case rather than two locators that could disagree about where an
++  element sits (DL-021).
+ - The one-to-one destination-collision post-pass is a named function in
+   `reconnect.py` (`enforce_one_to_one`) that both `resolve_reconnection`
+   and compare-based rewriting call, so the pre-existing DL-004 guarantee
+@@ -342,6 +362,111 @@ every stricter tier unreachable (DL-032).
+   shorthand, absence of extra whitespace), with no attempt to match the
+   base document's own formatting conventions, the same as `playlists.py`'s
+   existing renamed/redirected fragments already do (DL-039).
++- The two reconnect subcommands run behind a printless core that returns
++  one typed result per command, with a renderer turning that result into
++  stdout lines, stderr lines and an exit code; the argparse handler is
++  `emit(render(core(args)))`. A GUI review table needs the mapping, stats
++  and ambiguity rows mid-run and as objects, and a transcript parsed after
++  the fact arrives too late for that, so the flattening lives behind a
++  render boundary the CLI and a future GUI both sit above (DL-046).
++- `plan_and_write_nml` is a printless read/parse/patch/write sequence
++  returning a `WriteOutcome`; `write_nml_safely` is a thin printing
++  wrapper over it. `rewrite-from-reconnect`'s stdout is produced inside
++  `write_nml_safely`, not in the handler, so a printing core would leave
++  the reconnect core itself writing to stdout; a reconnect-local write
++  path would instead duplicate the read/parse/patch/write skeleton
++  DL-019 exists to prevent. The separation is proved rather than merely
++  asserted, by the unregenerated manifest cases for `rewrite` and
++  `rewrite-from-collection-compare` (DL-047).
++- `WriteOutcome` carries `stats` as `None` when the run failed before
++  stats were collected, and carries both `stats` and `error` when it
++  failed after. On the lxml path stats print before `apply_and_write`, so
++  a `text_patch_error` emits the full stats block on stdout and then the
++  error on stderr; a single error flag cannot reproduce that ordering, so
++  the presence of stats is itself the signal (DL-048).
++- The output-equals-input refusal stays the first thing
++  `plan_and_write_nml` does, ahead of parsing and ahead of the
++  `collect_patches`/`mutate_tree` callback: the reconnect callback owns a
++  disk scan that can run tens of minutes and writes the tag cache, so
++  running it before the collision check would make a refused write cost
++  the whole scan. A collision therefore produces no `ReconnectResult` at
++  all (DL-049).
++- `warn_refutation_disabled` lives in the renderer, not the reconnect
++  core, and the fingerprint-dependency warning is a field on the result:
++  the refutation warning is a pure function of argv and the fingerprint
++  warning is derived from probing the run, so only the second is
++  knowledge the core discovers. Argv-derived text belongs above the
++  core boundary and run-derived text belongs on the result, and the
++  renderer emits the fingerprint line before the refutation line to
++  preserve stderr order (DL-050).
++- The renderer returns buffered stdout and stderr line lists plus an exit
++  code, and a single `emit` helper in the render module performs every
++  print: the renderer must be a value-returning function to compare
++  against recorded stdout, and the manifest captures stdout and stderr as
++  separate streams, so buffering cannot reorder anything it observes.
++  `commands/reconnect_cmd.py` then holds no print call at all (DL-051).
++- The reconnect core and renderer live in `reconnect_run.py` and
++  `reconnect_render.py`, not under `commands/`: `commands/__init__.py`
++  imports every command module at CLI startup, so a GUI importing the
++  core through `commands/` would drag every subparser with it. The pair
++  sits beside `reconnect.py` in the package root, and `commands/` imports
++  downward into it (DL-052).
++- `ScanCancelled`, `VolumeIdentityError` and the fingerprint-unavailable
++  error propagate out of `plan_and_write_nml` unchanged; the reconnect
++  core converts the latter two into typed errors on its result and lets
++  `ScanCancelled` escape. A cancelled scan must never return partial
++  results, because a short candidate list reads as a mostly-missing
++  collection - catching it at the write shell would turn a refusal into a
++  plausible wrong answer. Only the two errors that already map to a
++  printed `key=value` line and exit code 2 become data (DL-053).
++- `run_reconnection` and both reconnect cores accept `on_progress` and
++  `cancel` keyword arguments and forward them verbatim to
++  `index_scan_roots`; both default to `None` and the argparse handlers
++  pass neither. `index_scan_roots` already accepts both, and a core
++  boundary that dropped them would force a GUI to bypass the core and
++  re-implement the pipeline just to get live progress or a cancel token -
++  exactly what DL-046 exists to prevent (DL-054).
++- The refutation-disabled message has one definition:
++  `shared_args.refutation_disabled_line()` returns the text,
++  `warn_refutation_disabled` prints what it returns, and
++  `reconnect_render` appends what it returns. No manifest case sets
++  `--no-refute` for either reconnect command, so a second copy of the
++  literal in the renderer would drift from the one in `shared_args`
++  without any oracle noticing; routing both callers through one
++  text-producing helper makes drift impossible rather than merely
++  detectable (DL-055).
++- `index_scan_roots` emits `tag_reading_unavailable` once at entry when
++  mutagen is absent and `disk_scan_progress` every `progress_every` files
++  inside the walk directly to stderr, so a core that calls it writes to
++  stderr no matter how carefully the rest of the core is written, and
++  DL-046's printless-core property is false in exactly the case that
++  matters, a real scan on a machine without mutagen. `index_scan_roots`
++  accepts an `on_diagnostic` keyword argument that receives each fully
++  formatted diagnostic line; it defaults to `None`, in which case the
++  function prints to stderr. `reconnect_run` passes a collector, an
++  ordered list appended to at the point each line would have been
++  printed, so the core writes to no stream and emission order is
++  preserved; the renderer emits the collected diagnostics before the
++  fingerprint and refutation warnings, the order the pipeline produces
++  them in. The transport is default-inert rather than a signature
++  change, because `index_scan_roots` has a second production caller,
++  `discover_tracks_cmd.py`, with no manifest case and therefore unpinned
++  - a default-`None` parameter leaves it byte-identical by construction
++  rather than by test. The callback receives the formatted line rather
++  than structured fields, so the message text keeps exactly one
++  definition, the same argument DL-055 makes for the refutation line
++  (DL-056).
++- Buffered renderer equality is not accepted as evidence that the
++  reconnect core is printless; the CLI-level stderr assertion is.
++  `render(core(args))` compares the lines a renderer returns, so a stray
++  print inside the core never enters the comparison and the equality test
++  passes while the process still writes to the stream. The only place a
++  leak is observable is a real invocation, where stdout and stderr are
++  captured from the process, so `tests/test_baseline_parity.py` asserts
++  stderr alongside stdout and exit code - free, because the manifest
++  already records a stderr field per case. All twelve recorded stderr
++  values are empty, which makes that assertion precisely a no-leak
++  detector for every pinned path (DL-057).
+ 
+ ## Invariants
+ 
 ```
 
 **Documentation:**
@@ -3301,29 +3758,20 @@ document.
 ```diff
 --- a/traktor_nml/README.md
 +++ b/traktor_nml/README.md
-@@ -13,3 +13,8 @@ the same core and renderer without going through argparse wiring (DL-052).
- `build-playlist` synthesizes its playlist node from an external track list
- with no source span to transplant, so it always takes the serialization
- path this split already sanctions for genuinely new content (DL-028), and
-+`shared_args.py` holds `resolve_confidence`/`should_refute`/
-+`refutation_disabled_line` below `commands/`: both `reconnect_run.py` and
-+`commands/_shared_args.py` import them from here, since a core module
-+importing from `commands/` would create the reverse of the import
-+direction DL-052 establishes.
-@@ -204,3 +209,12 @@ manufactures a difference the filesystem does not have - measured on the
-   duplicate the read/parse/patch/write skeleton DL-019 exists to prevent
-   (DL-047).
-+  `run_reconnection` and both reconnect cores also accept `on_progress`
-+  and `cancel`, forwarded to `index_scan_roots`, so the same core can
-+  report live indexing progress and be cancelled by a caller other than
-+  the CLI; neither argparse handler passes them today, and that absence
-+  is intended rather than dead code (DL-054). A cancelled scan raises
-+  `ScanCancelled` rather than returning a partial `ReconnectResult`,
-+  because a short candidate list is indistinguishable from a complete
-+  one and would report most of the collection as missing - a wrong
-+  answer delivered confidently.
- - A candidate the check withdraws is counted as `refuted` alongside
-
+@@ -50,6 +50,13 @@ every stricter tier unreachable (DL-032).
+ 
+ ## Design Decisions
+ 
++A `DL-nnn` tag marks the decision a statement traces to; the statement lives in
++whichever section actually describes it - Overview, Architecture, Invariants
++or Tradeoffs - and lands here only when no other section fits. Each decision
++is stated once, so a citation resolves against that single statement wherever
++it sits, never against a bullet in this section specifically; a second
++statement of the same decision would only give it two copies to drift apart.
++
+ - `matching.py`'s cascade accepts injected key providers; `fingerprint.py`
+   supplies one behind an availability guard, so the core matching path
+   never becomes import-guard-laden for a native chromaprint dependency
 ```
 
 
@@ -3334,22 +3782,16 @@ document.
 ```diff
 --- a/traktor_nml/CLAUDE.md
 +++ b/traktor_nml/CLAUDE.md
-@@ -9,11 +9,13 @@
- | `model.py`         | `LocationParts`/`RewriteRule`/`EntryRecord`, LOCATION/PRIMARYKEY parsing; `decode_traktor_dir` is memoised because the cascade reads `decoded_dir` several times per record | Adding an identity field, changing LOCATION encode/decode  |
- | `xmlio.py`         | lxml/stdlib ET parsing wrapper                             | Changing how NML files are parsed or serialized            |
- | `textpatch.py`     | `apply_text_patches`/`ElemPatch` byte-preserving attribute writes | Changing how LOCATION/PRIMARYKEY attribute rewrites are applied |
--| `rewrite.py`       | Rule-based and compare-based rewrite patch collection, `write_nml_safely`; also `read_and_parse_source`, `write_bytes_atomically`, `path_collides`, and `write_row_report`, reusable read/write/report helpers other commands are expected to call, plus `add_no_refute_argument`/`warn_if_refutation_disabled`, the shared `--no-refute` surface | Modifying the rewrite/compare cascade, the write path, or the `--no-refute` flag |
-+| `rewrite.py`       | Rule-based and compare-based rewrite patch collection; `plan_and_write_nml`, the printless read/parse/patch/write sequence, and `write_nml_safely`, the printing wrapper over it; also `read_and_parse_source`, `write_bytes_atomically`, `path_collides`, and `write_row_report`, reusable read/write/report helpers other commands are expected to call, plus `add_no_refute_argument`/`warn_if_refutation_disabled`, the shared `--no-refute` surface | Modifying the rewrite/compare cascade, the write path, or the `--no-refute` flag |
- | `confidence.py`    | `MatchConfidence` ordered enum (strict/loose/filename), the tier ladder each level admits, and the measured uniqueness behind each path-suffix tier's level | Adding a match tier or confidence level, or moving a tier between levels |
- | `matching.py`      | `record_keys`/`match_records` tiered match cascade; `_CASCADE`, the one table declaring every built-in tier and its properties; the size/duration refutation filter and its `refute` switch | Changing match-key tiers, matching tolerances, tier ordering, or ambiguity detection |
- | `diskscan.py`      | Filesystem candidate scanning for reconnection; candidate `filesize` is bytes on disk, not Traktor's kilobytes; optional `on_progress` and `cancel` for a UI driving the scan | Adding or changing disk-scan candidate discovery, progress reporting, or cancellation |
+@@ -16,6 +16,9 @@
  | `discovery.py`     | Fuzzy artist/title ranking of disk and collection candidates; review-only, never selects or writes | Changing discovery scoring, normalisation, or stop words   |
  | `tagcache.py`      | Tag-read caching                                           | Changing tag cache key composition or eviction             |
  | `reconnect.py`     | Disk-scan reconnection; `location_from_disk_path` (candidate-side volume-relative-to-absolute transform) and `enforce_one_to_one`, the shared one-to-one assignment post-pass compare-based rewriting also calls | Modifying reconnection matching or destination-collision handling |
++| `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or reports, or its `on_progress`/`cancel` progress-reporting and cancellation channel |
 +| `reconnect_render.py` | Every character the reconnect commands put on stdout or stderr, returned as buffered lines rather than printed | Changing reconnect output text or ordering |
-+| `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or what it reports |
++| `shared_args.py`   | `resolve_confidence`/`should_refute`/`refutation_disabled_line`, pure functions of an argparse.Namespace shared below `commands/` | Changing confidence resolution or the refutation-disabled message |
  | `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |
-
+ | `fingerprint.py`   | Acoustic fingerprint comparison; `FpcalcSession` owns the fpcalc child so a fingerprint can be timed out or terminated mid-run; `fingerprint_unavailable_reason` probes its three independent dependencies (module, `fpcalc`, chromaprint library) separately; the old side resolves its path through `volumes.py` rather than from `decoded_path` | Modifying fingerprint matching, its timeout or cancellation, or diagnosing why the tier matches nothing |
+ | `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation, `SpanIndex` as the single-pass identity locator | Modifying splice/split's structural write path or count recalculation |
 ```
 
 **Documentation:**
@@ -3357,12 +3799,15 @@ document.
 ```diff
 --- a/traktor_nml/CLAUDE.md
 +++ b/traktor_nml/CLAUDE.md
-@@ -13,2 +13,3 @@
--| `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or what it reports |
-+| `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or reports, or its `on_progress`/`cancel` progress-reporting and cancellation channel |
-+| `shared_args.py` | `resolve_confidence`/`should_refute`/`refutation_disabled_line`, pure functions of an argparse.Namespace shared below `commands/` | Changing confidence resolution or the refutation-disabled message |
- | `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |
-
+@@ -9,7 +9,7 @@
+ | `model.py`         | `LocationParts`/`RewriteRule`/`EntryRecord`, LOCATION/PRIMARYKEY parsing; `decode_traktor_dir` is memoised because the cascade reads `decoded_dir` several times per record | Adding an identity field, changing LOCATION encode/decode  |
+ | `xmlio.py`         | lxml/stdlib ET parsing wrapper                             | Changing how NML files are parsed or serialized            |
+ | `textpatch.py`     | `apply_text_patches`/`ElemPatch` byte-preserving attribute writes | Changing how LOCATION/PRIMARYKEY attribute rewrites are applied |
+-| `rewrite.py`       | Rule-based and compare-based rewrite patch collection, `write_nml_safely`; also `read_and_parse_source`, `write_bytes_atomically`, `path_collides`, and `write_row_report`, reusable read/write/report helpers other commands are expected to call, plus `add_no_refute_argument`/`warn_if_refutation_disabled`, the shared `--no-refute` surface | Modifying the rewrite/compare cascade, the write path, or the `--no-refute` flag |
++| `rewrite.py`       | Rule-based and compare-based rewrite patch collection; `plan_and_write_nml` (printless read/parse/patch/write returning `WriteOutcome`) and `write_nml_safely` (its printing wrapper); `format_stats_and_samples` (stats/sample_matches block as lines, shared by the printing wrapper and the reconnect renderer); also `read_and_parse_source`, `write_bytes_atomically`, `path_collides`, and `write_row_report`, reusable read/write/report helpers other commands are expected to call | Modifying the rewrite/compare cascade or the write path |
+ | `confidence.py`    | `MatchConfidence` ordered enum (strict/loose/filename), the tier ladder each level admits, and the measured uniqueness behind each path-suffix tier's level | Adding a match tier or confidence level, or moving a tier between levels |
+ | `matching.py`      | `record_keys`/`match_records` tiered match cascade; `_CASCADE`, the one table declaring every built-in tier and its properties; the size/duration refutation filter and its `refute` switch | Changing match-key tiers, matching tolerances, tier ordering, or ambiguity detection |
+ | `diskscan.py`      | Filesystem candidate scanning for reconnection; candidate `filesize` is bytes on disk, not Traktor's kilobytes; optional `on_progress` and `cancel` for a UI driving the scan | Adding or changing disk-scan candidate discovery, progress reporting, or cancellation |
 ```
 
 
@@ -3373,27 +3818,26 @@ document.
 ```diff
 --- a/tests/CLAUDE.md
 +++ b/tests/CLAUDE.md
-@@ -7,6 +7,7 @@
+@@ -6,8 +6,9 @@
+ | ------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------ |
+ | `__init__.py`            | Package marker                                               | -                                                             |
  | `conftest.py`            | `run_tool`/`fixture_corpus` fixtures shared across test modules | Adding a test module, changing how the CLI is invoked under test |
- | `test_baseline_parity.py`| Byte-level parity oracle against `baselines/manifest.json`    | Changing any CLI subcommand's output, exit code, or written bytes |
+-| `test_baseline_parity.py`| Byte-level parity oracle against `baselines/manifest.json`    | Changing any CLI subcommand's output, exit code, or written bytes |
++| `test_baseline_parity.py`| Byte-level parity oracle against `baselines/manifest.json`, asserting stdout, stderr, exit code and output bytes per case | Changing any CLI subcommand's output, exit code, or written bytes |
  | `test_cli_contract.py`   | Subcommand surface + `--allow-artist-title-only`/`--match-confidence` alias contract; splice/split malformed-input and atomic-write tests | Adding/renaming a subcommand, changing legacy-flag equivalence |
 +| `test_command_layer_printless.py` | Guard that `commands/reconnect_cmd.py` holds no print call and writes to neither stream | Changing `reconnect_cmd.py`'s handlers, or the printless-command-layer convention |
  | `test_compare.py`        | Compare-based rewrite input-protection and destination-collision tests | Changing `rewrite_from_collection_compare` or `compare_cmd.py`'s write path |
  | `test_diskscan.py`       | Disk-scan candidate discovery tests                            | Changing `diskscan.py`                                        |
  | `test_fpcalc_session.py` | Owned fpcalc child: output parsing, per-file timeout, mid-fingerprint termination, and that a cancelled session spawns nothing further. Uses a stub fpcalc via the FPCALC env var | Changing `FpcalcSession`, the fingerprint timeout, or cancellation |
-@@ -15,5 +16,6 @@
+@@ -15,6 +16,8 @@
+ | `test_discovery.py`      | Fuzzy discovery stays review-only and works on untagged files  | Changing `discovery.py` or either discover subcommand         |
  | `test_parity_baseline.py`| Tamper-evidence for the oracle itself: pins `manifest.json`'s own SHA-256 | Regenerating the baseline, or changing what the pin guarantees |
  | `test_reconnect.py`      | Reconnection matching, path-suffix tiers, size/duration refutation and `--no-refute`, one-to-one assignment, and the `_CASCADE`/ladder consistency checks | Changing `reconnect.py`, `volumes.py`, `matching.py`'s tiers, a matching tolerance, or the cascade table |
-+| `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases, plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |
++| `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases (all four pass `--match-confidence filename`; no `--fingerprint` or strict/normal/loose/bare_name case exists), plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |
++| `test_scan_diagnostics.py` | Direct-core capture tests for the two scan diagnostics the parity oracle cannot reach - the missing-mutagen line and the progress lines - exercising both the default-print-to-stderr and additive-collector transports of `on_diagnostic` | Changing what `index_scan_roots` reports or how it is transported |
  | `test_fingerprint.py`    | Fingerprint tier end to end: generates two-bitrate audio fixtures with ffmpeg, pins the duration pre-filter and the degrade-on-broken-comparison path, and gates each test on the dependency it actually needs | Changing `fingerprint.py`, or a test here skipping unexpectedly |
  | `test_spans.py`          | Byte-span scanner, `OutputBuilder`, count-attribute recalculation tests | Changing `spans.py`                                           |
  | `test_splice.py`         | Splice merge/conflict-resolution tests                         | Changing `splice.py` or `playlists.py`                        |
-@@ -22,3 +24,4 @@
- | `test_tracklist.py`      | External track-list parsing and per-line resolution tests      | Changing `tracklist.py`                                       |
- | `test_build_playlist.py` | build-playlist synthesis, insertion and CLI-surface tests       | Changing `buildplaylist.py`, its insertion point, or `commands/build_playlist_cmd.py` |
- | `test_xmlio.py`          | `parse_xml_bytes`'s lxml/stdlib backend-selection tests          | Changing `xmlio.py`'s parsing helpers                        |
-+| `test_write_shell_split.py` | Write-shell outcomes the manifest cannot reach: output collision, `text_patch_error` ordering, callback exceptions, and that `plan_and_write_nml` writes to no stream | Changing `plan_and_write_nml` or `write_nml_safely` |
-
 ```
 
 **Documentation:**
@@ -3401,11 +3845,14 @@ document.
 ```diff
 --- a/tests/CLAUDE.md
 +++ b/tests/CLAUDE.md
-@@ -13,2 +13,2 @@
- | `test_reconnect.py`      | Reconnection matching, path-suffix tiers, size/duration refutation and `--no-refute`, one-to-one assignment, and the `_CASCADE`/ladder consistency checks | Changing `reconnect.py`, `volumes.py`, `matching.py`'s tiers, a matching tolerance, or the cascade table |
--| `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases, plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |
-+| `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases (all four pass `--match-confidence filename`; no `--fingerprint` or strict/normal/loose/bare_name case exists), plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |
-
+@@ -20,6 +20,7 @@
+ | `test_splice.py`         | Splice merge/conflict-resolution tests                         | Changing `splice.py` or `playlists.py`                        |
+ | `test_split.py`          | Split filter/dangling-reference tests                          | Changing `split.py`                                           |
+ | `test_tracklist.py`      | External track-list parsing and per-line resolution tests      | Changing `tracklist.py`                                       |
++| `test_write_shell_split.py` | `plan_and_write_nml` unit tests: output-collision stats-is-None, text_patch_error keeping its collected stats ahead of the error, callback-exception propagation, and printlessness across every outcome. No manifest case sets an output path equal to its input and no manifest case carries both a stats block and a stderr error, so this is the only test exercising the collision refusal and the stats-before-error ordering | Changing `plan_and_write_nml`, `WriteOutcome`, or `format_stats_and_samples` |
+ | `test_build_playlist.py` | build-playlist synthesis, insertion and CLI-surface tests       | Changing `buildplaylist.py`, its insertion point, or `commands/build_playlist_cmd.py` |
+ | `test_xmlio.py`          | `parse_xml_bytes`'s lxml/stdlib backend-selection tests          | Changing `xmlio.py`'s parsing helpers                        |
+ 
 ```
 
 
@@ -3454,6 +3901,59 @@ guards is legible from the test.
      test_scan_reconnect_typed_error_after_scan_emits_diagnostics_before_error,
      for render_rewrite_from_reconnect. reconnect is None here because
      run_reconnection raised before returning a ReconnectResult, so the
+```
+
+**CC-M-003-006** (tests/test_baseline_parity.py) - implements CI-M-003-005
+
+**Code:**
+
+```diff
+--- a/tests/test_baseline_parity.py
++++ b/tests/test_baseline_parity.py
+@@ -42,9 +56,11 @@ def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Pa
+     # about what was substituted (see tests/baselines/run_root.py).
+     relax = case.get("normalise_run_root", False)
+     stdout = normalise_run_root(result.stdout, tmp_path) if relax else result.stdout
++    stderr = normalise_run_root(result.stderr, tmp_path) if relax else result.stderr
+ 
+     assert result.exit_code == case["exit_code"]
+     assert stdout == case["stdout"]
++    assert stderr == case["stderr"]
+ 
+     for rel_path, expected_b64 in case["output_files"].items():
+         written = (tmp_path / rel_path).read_bytes()
+```
+
+**Documentation:**
+
+```diff
+--- a/tests/test_baseline_parity.py
++++ b/tests/test_baseline_parity.py
+@@ -32,8 +32,22 @@ def _load_manifest() -> list[dict]:
+ @pytest.mark.parametrize("case", _load_manifest(), ids=lambda c: " ".join(c["argv"]))
+ def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Path, tmp_path: Path) -> None:
+     """Re-runs one recorded invocation against the fixture corpus and
+-    compares exit code, stdout and every written file's bytes against the
+-    manifest's stored values."""
++    compares exit code, stdout, stderr and every written file's bytes
++    against the manifest's stored values.
++
++    The stderr assertion is a no-leak detector, not merely a parity check:
++    all twelve recorded stderr values are empty, so any stream write that
++    escapes the renderer - from the reconnect core, the write shell, or
++    index_scan_roots - turns a passing case red. Renderer-equality tests
++    (test_reconnect_render_equivalence.py) cannot see this: they compare
++    lines a function returns, and a stray print inside the core never
++    enters that comparison. Only a real invocation, captured here, sees a
++    leaked stream write. Demonstrated failing: with one extra line
++    ('leak', file=sys.stderr) spliced into reconnect_run.scan_reconnect_candidates
++    (a printless function that borrowed sys/print for the mutation only),
++    the scan-reconnect-candidates case failed with
++    AssertionError: assert 'leak\\n' == '' - the exact shape a leak takes.
++    """
+     (tmp_path / "out").mkdir(exist_ok=True)
+     result = run_tool(case["argv"], cwd=tmp_path)
+ 
 ```
 
 
