@@ -48,6 +48,19 @@ it resolves track identity at a fixed `MatchConfidence.LOOSE` with no
 level selector, since a track list carrying only artist and title leaves
 every stricter tier unreachable (DL-032).
 
+`traktor_nml.gui` is a fourth package alongside `traktor_nml`,
+`traktor_nml.commands` and `traktor_nml.gui`'s own three framework
+modules; `[tool.setuptools] packages` in `pyproject.toml` lists it
+explicitly (`packages = ["traktor_nml", "traktor_nml.commands",
+"traktor_nml.gui"]`), since that array is not automatic discovery and a
+package absent from it imports fine from a source checkout while missing
+from an installed wheel (DL-070). Within the package, `review_model.py`
+and `wizard_state.py` import no `nicegui` or `pywebview` and are reachable
+from the test suite's system interpreter; `app.py`, `file_picker.py` and
+`__main__.py` are the only modules that do import them, so the suite -
+which runs where `nicegui` is not installed - never crosses into the
+three (DL-069).
+
 ## Design Decisions
 
 A `DL-nnn` tag marks the decision a statement traces to; the statement lives in
@@ -474,6 +487,184 @@ statement of the same decision would only give it two copies to drift apart.
   already records a stderr field per case. All twelve recorded stderr
   values are empty, which makes that assertion precisely a no-leak
   detector for every pinned path (DL-057).
+- `matching.py`'s `match_records` takes an `on_review` keyword defaulting
+  to `None`, in the same shape `on_progress`/`cancel`/`on_diagnostic`
+  already use; `resolve_reconnection` and `run_reconnection` forward it
+  verbatim. `match_records` has a production caller with no manifest
+  case - `tracklist.resolve_tracklist` reaches it from `build-playlist` -
+  so a required parameter would leave that caller changed with nothing
+  pinning its bytes; a default-`None` keyword leaves every call site
+  byte-identical by construction instead, the argument DL-056 makes for
+  `index_scan_roots`' second caller applied here (DL-058).
+- Reviews are built inside the per-record cascade loop `match_records`
+  already runs, from the same branch that decides each record's stats
+  bucket, rather than re-derived by a second pass over the candidate
+  indexes: the loop already computes each record's tier bucket, the
+  current-Sync-copy preference, the refutation filter and the
+  single-size-agreement tiebreak, and a second implementation of that
+  selection logic could drift from the first with no oracle noticing,
+  the drift DL-055 already routes the refutation-disabled message through
+  one helper to avoid (DL-059).
+- The size/duration contradiction rule has one definition:
+  `_refutation_reason(old_claims, candidate)` returns a `RefutationDetail`
+  or `None`, and `_claims_refute` is that call compared against `None`.
+  A Refuted row's detail panel names the contradicting field and
+  quantifies it against its allowance, so the display reuses the same
+  arithmetic the filter uses rather than a second, display-only copy of
+  tolerances calibrated against one real collection that could drift
+  from the copy deciding refusals; the detail object is constructed only
+  where the boolean form would return `True`, so the common
+  non-refuting path allocates the same `_Claims` it always has (DL-060).
+- `run_reconnection` takes `reviews` as an optional caller-owned list it
+  appends into and populates `ReconnectResult.reviews` from, in the same
+  shape `diagnostics` already uses so lines collected before a later
+  `VolumeIdentityError` or `_FingerprintUnavailable` raise survive in the
+  caller's scope. Omitted, no collector is installed and `match_records`
+  constructs no review object at all, which is what leaves matching
+  results identical by construction rather than by measurement
+  (DL-061).
+- `resolve_reconnection` overlays `destination_collision` onto a review
+  after `enforce_one_to_one` runs, rather than `match_records` emitting
+  it: `reconnect.py`'s module docstring states that `match_records` is
+  unaware a one-to-one guarantee is layered on its plain old-to-new
+  mapping, so emitting the collision status from inside the matcher
+  would push a post-pass concept down into a module that would then be
+  wrong about records it matched correctly. `resolve_reconnection`
+  already holds `collided_keys` and already walks every unmatched record
+  to build `ambiguity_rows`, so the reclassification happens in that
+  same walk (DL-062).
+- Re-encoded is derived in `traktor_nml/gui/review_model.py`'s
+  `row_status`, from an emitted review, not carried as a matcher status:
+  matching has no notion of a format change, since `_FORMAT_SUFFIX`
+  strips the container so `bare_name_in_folder`, `filename` and
+  `bare_name` key a stem, and a stem upgrade matches those tiers exactly
+  like any other move. Calling the outcome re-encoded is a comparison of
+  the suffix on the old record against the suffix on the winner, which is
+  a presentation question about a match the matcher already made, so
+  deriving it above the core keeps the matcher's result unchanged and
+  puts all six Specs statuses in one module (DL-063).
+- The four confidence tokens Specs names - Strong, Good, Weak, None - map
+  from the cascade tier that produced a candidate, held as a table
+  (`_STRONG_TIERS`/`_GOOD_TIERS`) in `traktor_nml/gui/review_model.py`,
+  and are not `MatchConfidence` values: `MatchConfidence` has three
+  members (strict/loose/filename) and is a run-wide ladder gating which
+  tiers may fire, not a per-candidate judgement, so reusing it as the row
+  token would print the same word on every row of a run and would read
+  Weak for a strict match found during a loose run. The token is derived
+  per candidate from the tier name on its review instead (DL-064).
+- `write_reconnect_result(args, provide_result, on_progress, cancel)` is
+  parameterised by a result provider called from inside
+  `plan_and_write_nml`'s own callback, not by an already-computed
+  `ReconnectResult`: the output-collision refusal is
+  `plan_and_write_nml`'s first statement, ahead of parsing and ahead of
+  either callback, which is what makes a refused write cost nothing
+  rather than the scan (DL-049). A signature taking a finished result
+  would force every caller to run its scan before that refusal could be
+  reached, moving the cost back in front of the check; a provider
+  invoked inside the callback keeps the refusal first for both callers,
+  with `rewrite_from_reconnect` supplying `run_reconnection` and the
+  wizard supplying a provider that returns the reviewed result it
+  already holds (DL-065).
+- `rewrite_from_reconnect` is one call to `write_reconnect_result`, so
+  both write paths share a single implementation of patch collection,
+  CSV export, holder population and typed-error mapping. Proving
+  zero-override byte identity only by test would leave the two paths
+  free to diverge in every commit between test runs; with one
+  implementation the wizard write and the CLI write differ solely in
+  which provider ran, so identical bytes follow from the provider
+  returning the same result object. The three unregenerated
+  `rewrite-from-reconnect` manifest cases (dry-run, plain, and `--csv`)
+  are what proves the factoring itself changed nothing (DL-066).
+- `output_collision_refusal(input_path, output_path, extra_inputs)` in
+  `rewrite.py` is the single definition of the collision rule:
+  `plan_and_write_nml`'s first statement returns a `WriteOutcome` built
+  from it, and the wizard calls it directly to decide whether its Write
+  control is enabled and what reason it shows. A wizard-side
+  re-implementation of resolve-and-compare-against-every-input would be a
+  second copy of a safety rule that could drift silently the moment
+  `extra_inputs` grows a member; one predicate with two callers keeps the
+  disabled-button reason the same string the CLI prints (DL-067).
+- `ScanCancelled` is caught nowhere on the wizard's write path: it
+  escapes the provider, escapes `plan_and_write_nml`, and escapes
+  `write_reconnect_result`, so a cancelled scan leaves no
+  `RewriteReconnectResult` at all. DL-053 already records why a
+  cancelled scan yields no result rather than a partial one - a short
+  candidate list is indistinguishable from a complete one and would
+  report most of the collection as missing - and a review table would be
+  an even more persuasive way to deliver that wrong answer than a stats
+  line, so the exception is left to cross every function on this path
+  untouched (DL-068).
+- `design/reconnect-wizard/Specs.dc.html` is read as a committed primary
+  source: `.gitignore` excludes only the generated
+  `/design/*/reconnect-wizard.html` bundle, and every `.dc.html` plus
+  `canvas.json` is tracked. The `.dc.html` files are the artboard sources
+  the bundle is seeded from, so `Specs.dc.html` carries the same weight
+  as `docs/nicegui-gui-analysis.md`, and `design/reconnect-wizard/README.md`
+  fixes disagreements among the design files in `Specs.dc.html` first
+  (DL-071).
+- Where `Specs.dc.html` and sections 1-5 of `docs/nicegui-gui-analysis.md`
+  disagree, `Specs.dc.html` governs the six statuses, the seven filter
+  chips and the keyboard map, and section 4 governs `run.io_bound`,
+  `ui.log` and the `local_file_picker` component; both splits are
+  recorded in `traktor_nml/gui/CLAUDE.md` rather than one document being
+  silently preferred, since a reader who meets only one of the two
+  documents would otherwise be unable to tell whether a difference was
+  decided or overlooked. `Specs.dc.html` wins on what the operator sees
+  and presses because it is the cross-screen contract; section 4 wins on
+  framework mechanics because `Specs.dc.html` names no framework at all
+  (DL-072).
+- `scan-reconnect-candidates`' dual tier membership - primary Tier 1
+  assignment and separate Tier 2 form-generator eligibility - is resolved
+  by `tests/test_gui_command_classification.py`'s two predicates,
+  `PRIMARY_TIER` and `TIER2_ELIGIBLE`, checked against the real
+  `build_parser` choices, and is not re-derived anywhere else; the wizard
+  reads the dual membership as already settled (DL-073).
+- Accepting an alternative candidate resolves its VOLUME/VOLUMEID through
+  `reconnect_run.resolve_candidate_volume_identity` against
+  `ReconnectResult.volume_identities` - the same per-scan-root identities
+  and the same `relative_to` subtree test `_reencode_winning_locations`
+  applies to winners - rather than writing the candidate's placeholder
+  `LocationParts` or re-deriving identity from `source_path.anchor`. An
+  anchor-keyed re-derivation cannot tell apart two scan roots that share
+  a filesystem anchor but were given different `--volume-map` identities;
+  `resolve_candidate_volume_identity` raises `UnresolvedCandidateVolume`
+  rather than passing the placeholder through when no scan root claims
+  the candidate (DL-074).
+- The wizard imports and drives `run_reconnection` and the two reconnect
+  cores directly and renders its own view from `ReconnectResult`;
+  subprocess-scraping the CLI's key=value stdout transcript was evaluated
+  as the data source, rejected for Tier 1, and survives only as the
+  `docs/nicegui-gui-analysis.md` section 5 fallback. Tier 1 needs
+  structured data while a run is still open - a live scan progress feed
+  and an ambiguous-match table the operator acts on mid-run - and a
+  parsed transcript exists only after the process has exited, so a
+  scraping wizard could build its review table only after the decision
+  point the table exists to serve, with no live object to cancel. `ui.log`
+  is fed from `reconnect_render`'s line-producing functions over the
+  `RenderedOutput` they already return, not from parsed stdout (DL-075).
+- The wizard's provider returns a `ReconnectResult` built by
+  `traktor_nml/gui/wizard_state.py`'s `amended_result(result, decisions)`,
+  which replaces only `mapping`; `stats`, `ambiguity_rows`, `old_records`,
+  `reviews`, `warnings` and `diagnostics` carry through unchanged as the
+  scan's own record, and the wizard renders override counts from the
+  decision set in a separate panel beside them. Re-deriving `stats` and
+  `ambiguity_rows` from an amended mapping would change what those
+  fields mean, since `ambiguity_rows` records which records the matcher
+  found ambiguous and no operator decision changes what the matcher
+  found; carrying the scan's counts through unchanged keeps one meaning
+  for those fields on both the wizard and the CLI paths (DL-076).
+- The fingerprint control's enabled state comes from
+  `traktor_nml/gui/wizard_state.py`'s `fingerprint_control_state()`,
+  which mirrors `reconnect_run.py`'s own two-step check in its own
+  order: `fingerprint_key_provider` being `None` disables the control
+  with the not-installed reason without calling
+  `fingerprint_unavailable_reason` at all, since that binding is `None`
+  in exactly the case the probe would raise `TypeError: 'NoneType'
+  object is not callable`; only when the provider is not `None` is
+  `fingerprint_unavailable_reason()` called and a non-`None` return used
+  as the reason. Putting the two-step in a plain function rather than
+  inside the view gives the deliberately untested view a tested source
+  of truth (DL-077).
 
 ## Invariants
 

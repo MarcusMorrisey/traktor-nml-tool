@@ -20,13 +20,24 @@ NML at all.
 
 What remains: the score is a ranking number, not an *explanation* - a reviewer
 sees 0.62 without seeing which terms agreed. And because discovery cannot write,
-"explicit confirmation before writing" has no counterpart yet; acting on a
-reviewed CSV is still manual. Both belong with Guided Repair Review below,
-which is where a confirmation step would live.
+"explicit confirmation before writing" has no counterpart in `discovery.py`
+itself; acting on a reviewed CSV from `discover-tracks`/`discover-collection-tracks`
+is still manual. Both are questions about the discovery CSVs specifically -
+the confirmation step for the reconnect matcher already lives in Guided Repair
+Review below.
 
 ## Guided Repair Review
 
-Add a list-by-list repair workflow that presents unresolved and ambiguous
-playlist entries, accepts or rejects proposed matches, records each manual
-override, and then generates a validated output collection or playlist-only
-NML.
+The reconnect wizard (`python -m traktor_nml.gui`, the `gui` extra) is this
+workflow: a list-by-list review of unresolved and ambiguous playlist entries
+that accepts or rejects proposed matches, records each override, and writes a
+validated output collection. It is driven in-process against
+`run_reconnection` and the two reconnect cores rather than over a parsed CLI
+transcript, which is what lets the review happen while the run is still open
+instead of after it has exited. Its confirmation dialog before the final write
+is the explicit-confirmation-before-writing step the paragraph above defers to.
+
+The CSV exports remain a separate path for scripted use: `rewrite-from-reconnect`
+stays one call to the shared write core `write_reconnect_result`, so its `--csv`
+ambiguity export keeps producing the same file from the same code the wizard's
+write path runs.

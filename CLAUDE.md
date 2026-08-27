@@ -22,7 +22,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 
 | Directory      | What                                              | When to read                                          |
 | -------------- | -------------------------------------------------- | ------------------------------------------------------ |
-| `traktor_nml/` | The package: parsing, matching, rewrite/reconnect/splice/split/build-playlist cores, and CLI subcommands | Implementing or modifying any tool behavior           |
+| `traktor_nml/` | The package: parsing, matching, rewrite/reconnect/splice/split/build-playlist cores, CLI subcommands, and the `gui/` reconnect wizard the package carries beside the CLI | Implementing or modifying any tool behavior           |
 | `tests/`       | Pytest suite, fixtures, and baseline-parity corpus | Adding or changing tests                               |
 | `docs/`        | Retained planning material and development context | Looking up why a past design decision was made         |
 | `design/`      | Design briefs and canvas sources for the unimplemented GUI | Working on the GUI's visual or interaction design       |

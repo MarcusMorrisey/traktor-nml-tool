@@ -40,6 +40,12 @@ dependencies are available as extras: `pip install .[tags]` for `mutagen`,
 `pip install .[fingerprint]` for `pyacoustid`, `pip install .[gui]` for
 `nicegui`, or `pip install .[all]` for all three together.
 
+With the `gui` extra installed, `python -m traktor_nml.gui` starts the
+reconnect wizard: a four-step (set up, scan, review, write) desktop
+window over the same reconnection cores `rewrite-from-reconnect` uses,
+for reviewing ambiguous and refuted matches interactively instead of
+adjudicating them from the ambiguity CSV.
+
 `pyacoustid` also needs the `fpcalc` binary (from [Chromaprint](https://acoustid.org/chromaprint)) on `PATH` to compute fingerprints, **and** the chromaprint shared library to compare them - the standalone `fpcalc` download ships the binary only. With any of the three missing, `--fingerprint` names which one and matches nothing rather than failing. Everything else degrades gracefully if these are absent.
 
 ## Usage
