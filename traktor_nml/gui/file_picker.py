@@ -26,6 +26,8 @@ from typing import Optional
 import webview
 from nicegui import app, events, ui
 
+from ._fs_nav import DRIVE_LIST, entries_for, list_drive_roots, resolve_target
+
 
 def pick_file(*, start_dir: Optional[Path] = None) -> Optional[Path]:
     """One existing file, chosen through pywebview's native dialog in
@@ -63,7 +65,15 @@ class LocalFilePicker(ui.dialog):
     window is available to host pywebview's dialog - the local_file_picker
     component pattern #4 names. Lists directories and files under one
     directory at a time; selecting a file closes the dialog with that
-    path, and ".." navigates to the parent directory."""
+    path, and ".." navigates to the parent directory.
+
+    Every probed drive is reachable, not only the one this dialog
+    started on: at a drive root with more than one drive available,
+    ".." leads to a virtual drive-list entry (self.path becomes
+    traktor_nml.gui._fs_nav.DRIVE_LIST) instead of looping back to the
+    root itself, and that listing's rows are the drives themselves.
+    With zero or one drive available, ".." is omitted there instead of
+    rendering a control that would go nowhere."""
 
     def __init__(self, directory: str = ".", *, upper_limit: Optional[str] = None,
                  show_hidden_files: bool = False, directories_only: bool = False) -> None:
@@ -72,6 +82,7 @@ class LocalFilePicker(ui.dialog):
         self.upper_limit = None if upper_limit is None else Path(upper_limit).expanduser().resolve()
         self.show_hidden_files = show_hidden_files
         self.directories_only = directories_only
+        self._drive_roots = list_drive_roots()
 
         with self, ui.card():
             self.add_slot("header")
@@ -85,20 +96,12 @@ class LocalFilePicker(ui.dialog):
         self._update_grid()
 
     def _entries(self) -> list[dict]:
-        entries = []
-        if self.upper_limit is None or self.path != self.upper_limit:
-            entries.append({"name": ".."})
-        try:
-            children = sorted(self.path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
-        except OSError:
-            children = []
-        for child in children:
-            if not self.show_hidden_files and child.name.startswith("."):
-                continue
-            if self.directories_only and not child.is_dir():
-                continue
-            entries.append({"name": (child.name + "/") if child.is_dir() else child.name})
-        return entries
+        return entries_for(
+            self.path, self._drive_roots,
+            upper_limit=self.upper_limit,
+            show_hidden_files=self.show_hidden_files,
+            directories_only=self.directories_only,
+        )
 
     def _update_grid(self) -> None:
         self.grid.options["rowData"] = self._entries()
@@ -106,11 +109,11 @@ class LocalFilePicker(ui.dialog):
 
     def _on_double_click(self, event: events.GenericEventArguments) -> None:
         name = event.args["data"]["name"]
-        if name == "..":
-            self.path = self.path.parent
-        else:
-            self.path = self.path / name.rstrip("/")
-        if self.path.is_dir():
+        target = resolve_target(self.path, name, self._drive_roots)
+        if target is None:
+            return
+        self.path = target
+        if self.path == DRIVE_LIST or self.path.is_dir():
             self._update_grid()
         else:
             self.submit([str(self.path)])
@@ -118,10 +121,18 @@ class LocalFilePicker(ui.dialog):
     def _select(self) -> None:
         rows = self.grid.selected_rows if hasattr(self.grid, "selected_rows") else []
         if not rows:
+            if self.path == DRIVE_LIST:
+                return
             self.submit([str(self.path)])
             return
         name = rows[0]["name"]
-        target = self.path if name == ".." else self.path / name.rstrip("/")
+        target = resolve_target(self.path, name, self._drive_roots)
+        if target is None:
+            return
+        if target == DRIVE_LIST:
+            self.path = target
+            self._update_grid()
+            return
         self.submit([str(target)])
 
 
