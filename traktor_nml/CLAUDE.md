@@ -34,3 +34,4 @@
 | Directory   | What                              | When to read                                    |
 | ----------- | --------------------------------- | ------------------------------------------------ |
 | `commands/` | One module per CLI subcommand     | Adding a subcommand or changing its arguments/handler |
+| `gui/`      | The reconnect wizard: `review_model.py` (RecordReview + a decision into the six Specs statuses, confidence tokens, the seven filter chips) and `wizard_state.py` (the operator's decisions, the amended mapping and `ReconnectResult` they produce, the write refusal and fingerprint-control-state checks) - nicegui-free, importable from `traktor_nml.commands`/`cli.py` in neither direction | Changing wizard decision logic, the status/confidence/filter vocabulary, or the amended-mapping/write-refusal rules |

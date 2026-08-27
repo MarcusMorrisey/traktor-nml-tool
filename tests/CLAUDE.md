@@ -29,6 +29,8 @@
 | `test_write_shell_split.py` | `plan_and_write_nml` unit tests: output-collision stats-is-None, text_patch_error keeping its collected stats ahead of the error, callback-exception propagation, and printlessness across every outcome. No manifest case sets an output path equal to its input and no manifest case carries both a stats block and a stderr error, so this is the only test exercising the collision refusal and the stats-before-error ordering | Changing `plan_and_write_nml`, `WriteOutcome`, or `format_stats_and_samples` |
 | `test_build_playlist.py` | build-playlist synthesis, insertion and CLI-surface tests       | Changing `buildplaylist.py`, its insertion point, or `commands/build_playlist_cmd.py` |
 | `test_xmlio.py`          | `parse_xml_bytes`'s lxml/stdlib backend-selection tests          | Changing `xmlio.py`'s parsing helpers                        |
+| `test_gui_review_model.py` | `traktor_nml/gui/review_model.py` guards: six-status totality/partition, accepted-is-not-a-seventh-status, the format-vs-matched suffix derivation, per-candidate confidence tokens, and the seven FILTERS counts against the four-chip queue | Changing `review_model.py`'s status, confidence, or filter derivation |
+| `test_gui_wizard_state.py` | `traktor_nml/gui/wizard_state.py` guards: zero-override mapping equality, reject/accept/pick/undo, candidate LOCATION re-encoding, `amended_result`'s field-for-field carry-through, `write_refusal`, and `fingerprint_control_state`'s two-step ordering | Changing `wizard_state.py`'s amended-mapping, write-refusal, or fingerprint-control-state logic |
 
 ## Subdirectories
 

@@ -91,6 +91,16 @@ class ReconnectResult:
     # called with a reviews list; empty for every CLI run, since the CLI
     # supplies no such list and installs no collector (DL-061).
     reviews: tuple[RecordReview, ...] = ()
+    # Each scan root's own resolved (volume, volumeid), the same mapping
+    # _resolve_volume_identities_and_mounts produces and
+    # _reencode_winning_locations consumes below - resolved once per run
+    # and carried here so a caller re-encoding a candidate after the run
+    # (a wizard promoting an operator-picked alternative) reuses the
+    # actual resolved identities rather than re-deriving them from
+    # source_path.anchor, which cannot tell apart two scan roots that
+    # share a filesystem anchor but were given different --volume-map
+    # identities.
+    volume_identities: dict[Path, tuple[str, str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -210,6 +220,41 @@ def _build_fingerprint_tier(
     return key_providers, fingerprint_stats, warnings, fpcalc_session
 
 
+class UnresolvedCandidateVolume(ValueError):
+    """A candidate's source_path matched no scan root's resolved volume
+    identity in resolve_candidate_volume_identity - raised rather than
+    letting the candidate's placeholder LocationParts (no real VOLUME or
+    VOLUMEID) reach the write path looking like a well-formed LOCATION."""
+    pass
+
+
+def resolve_candidate_volume_identity(
+    source_path: Path, volume_identities: dict[Path, tuple[str, str]]
+) -> tuple[str, str]:
+    """The (volume, volumeid) of the scan root source_path resolves
+    under, found by testing source_path against every scan root's own
+    resolved identity via relative_to - a per-scan-root subtree test,
+    not a lookup keyed on source_path.anchor (the drive letter), because
+    --volume-map can assign two scan roots that share a filesystem
+    anchor (e.g. D:/New and D:/Old, both under D:) different identities,
+    and an anchor-keyed lookup cannot tell those two roots apart.
+
+    Raises UnresolvedCandidateVolume when no scan root's resolved
+    identity claims source_path - every record from that volume was
+    ambiguous, refuted or unmatched, or the candidate is the only one
+    from that volume and it was never itself a winner.
+    """
+    for scan_root, identity in volume_identities.items():
+        try:
+            source_path.relative_to(scan_root.resolve())
+        except ValueError:
+            continue
+        return identity
+    raise UnresolvedCandidateVolume(
+        f"unresolved_candidate_volume source_path={source_path.as_posix()}"
+    )
+
+
 def _reencode_winning_locations(
     mapping: dict[str, EntryRecord], volume_identities: dict[Path, tuple[str, str]]
 ) -> None:
@@ -221,13 +266,8 @@ def _reencode_winning_locations(
     for candidate in mapping.values():
         if candidate.source_path is None:
             continue
-        for scan_root, identity in volume_identities.items():
-            try:
-                candidate.source_path.relative_to(scan_root.resolve())
-            except ValueError:
-                continue
-            candidate.location = location_from_disk_path(candidate.source_path, *identity)
-            break
+        identity = resolve_candidate_volume_identity(candidate.source_path, volume_identities)
+        candidate.location = location_from_disk_path(candidate.source_path, *identity)
 
 
 def run_reconnection(
@@ -312,6 +352,7 @@ def run_reconnection(
     return ReconnectResult(
         mapping, stats, ambiguity_rows, old_records, warnings, tuple(diagnostics),
         tuple(reviews) if reviews is not None else (),
+        volume_identities,
     )
 
 

@@ -19,6 +19,7 @@ import pytest
 from traktor_nml import diskscan, reconnect_run
 from traktor_nml.cli import build_parser
 from traktor_nml.diskscan import ScanCancelled, _tag_free_summary
+from traktor_nml.gui.wizard_state import WizardState, amended_result, apply
 from traktor_nml.rewrite import output_collision_refusal
 from traktor_nml.tagcache import TagCache
 
@@ -389,3 +390,156 @@ def test_volume_identity_error_carries_diagnostics_collected_before_the_raise(
     assert result.reconnect is None
     assert result.diagnostics == (expected_tag_line,)
     assert diagnostics == [expected_tag_line]
+
+
+def _parse_entry_locations(nml_bytes: bytes) -> dict[tuple[str, str], tuple[str, str, str, str]]:
+    """Every COLLECTION ENTRY's (ARTIST, TITLE) mapped to its LOCATION's
+    (DIR, FILE, VOLUME, VOLUMEID), for the element-by-element comparison
+    CI-M-004-009 requires rather than a byte diff - a rejected record's
+    LOCATION differs in string length from the zero-override write's, so
+    every byte after that point shifts and a byte-offset diff would
+    report the whole tail as differing."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(nml_bytes)
+    locations: dict[tuple[str, str], tuple[str, str, str, str]] = {}
+    for entry in root.find("COLLECTION").findall("ENTRY"):
+        key = (entry.attrib.get("ARTIST", ""), entry.attrib.get("TITLE", ""))
+        loc = entry.find("LOCATION")
+        locations[key] = (
+            loc.attrib.get("DIR", ""), loc.attrib.get("FILE", ""),
+            loc.attrib.get("VOLUME", ""), loc.attrib.get("VOLUMEID", ""),
+        )
+    return locations
+
+
+def test_non_zero_override_write_matches_element_by_element_except_the_rejected_record(
+    fixture_corpus: Path, tmp_path: Path
+) -> None:
+    """A provider returning wizard_state.amended_result over a decision
+    set rejecting one record - the collection's one matched record,
+    Aphex Twin/Xtal, present in result.mapping and therefore actually
+    changed by the rejection - is written and compared against the
+    zero-override write element by element: every ENTRY's LOCATION
+    matches except Xtal's, whose amended LOCATION equals the LOCATION
+    the stale.nml input carried for it (D:, "/:Gone/:Music/:",
+    "xtal_recon.mp3"), reverted from the reconnected
+    "{RUN_ROOT}/:recon/:audio/:moved/:" the zero-override write carries
+    (the same string test_zero_override_write_is_sensitive_to_the_mapping
+    above observes for a dropped-mapping-key provider). The
+    RewriteReconnectResult's stats and ambiguity_rows are asserted equal
+    to the scan's own - the carried-through values amended_result
+    returns - rather than recomputed.
+    """
+    case = _rewrite_out_case()
+    (tmp_path / "out").mkdir(exist_ok=True)
+    (tmp_path / "out2").mkdir(exist_ok=True)
+    args_zero = _parse_args(case["argv"])
+    args_amended = _parse_args([
+        "rewrite-from-reconnect", "recon/stale.nml", "out2/recon_out.nml",
+        "--scan-root", "recon/audio",
+        "--volume-map", "recon/audio", "D:", "D:",
+        "--match-confidence", "filename",
+        "--cache", "out/recon.tagcache.json",
+    ])
+
+    def provide_zero(old_root):
+        return reconnect_run.run_reconnection(args_zero, old_root)
+
+    reviews: list = []
+
+    def provide_amended(old_root):
+        scanned = reconnect_run.run_reconnection(args_amended, old_root, reviews=reviews)
+        decisions = WizardState()
+        rejected_key = next(iter(scanned.mapping))
+        decisions.reject(rejected_key)
+        return amended_result(scanned, decisions), decisions, scanned
+
+    holder: dict[str, object] = {}
+
+    def provide_amended_wrapped(old_root):
+        result, decisions, scanned = provide_amended(old_root)
+        holder["decisions"] = decisions
+        holder["scanned"] = scanned
+        return result
+
+    with _in_dir(tmp_path):
+        reconnect_run.write_reconnect_result(args_zero, provide_zero)
+        amended_write = reconnect_run.write_reconnect_result(args_amended, provide_amended_wrapped)
+
+    zero_bytes = (tmp_path / "out" / "recon_out.nml").read_bytes()
+    amended_bytes = (tmp_path / "out2" / "recon_out.nml").read_bytes()
+
+    zero_locations = _parse_entry_locations(zero_bytes)
+    amended_locations = _parse_entry_locations(amended_bytes)
+    rejected = ("Aphex Twin", "Xtal")
+    assert set(zero_locations) == set(amended_locations)
+    for key in zero_locations:
+        if key == rejected:
+            continue
+        assert amended_locations[key] == zero_locations[key]
+    assert zero_locations[rejected][0].endswith("/:recon/:audio/:moved/:")
+    assert zero_locations[rejected][1:] == ("xtal_recon.mp3", "D:", "D:")
+    assert amended_locations[rejected] == ("/:Gone/:Music/:", "xtal_recon.mp3", "D:", "D:")
+
+    scanned = holder["scanned"]
+    decisions = holder["decisions"]
+    assert amended_write.reconnect.stats == scanned.stats
+    assert amended_write.reconnect.ambiguity_rows == scanned.ambiguity_rows
+
+    # Negative controls, both executed rather than merely described:
+    #
+    # 1) LOCATION sensitivity to WHICH records were overridden, not just
+    #    that the file changed at all: the fixture corpus scanned above
+    #    matches exactly one record, so a second, synthetic mapping entry
+    #    (a second EntryRecord under the same scan) is added to a copy of
+    #    the scanned mapping to show that dropping IT changes a different
+    #    LOCATION than dropping the real one does - the amended mapping is
+    #    sensitive to which key was rejected, not merely to a change
+    #    having happened.
+    from dataclasses import replace as _replace
+    from traktor_nml.model import EntryRecord as _EntryRecord
+
+    only_key = next(iter(scanned.mapping))
+    only_winner = scanned.mapping[only_key]
+    second_old = next(r for r in scanned.old_records if r.primary_key != only_key)
+    second_winner = _replace(only_winner, file_name="synthetic_second.mp3")
+    two_record_scanned = _replace(
+        scanned, mapping={**scanned.mapping, second_old.primary_key: second_winner}
+    )
+    reject_only = WizardState()
+    reject_only.reject(only_key)
+    reject_second = WizardState()
+    reject_second.reject(second_old.primary_key)
+    dropped_only = apply(two_record_scanned, reject_only)
+    dropped_second = apply(two_record_scanned, reject_second)
+    assert dropped_only != dropped_second
+    assert only_key not in dropped_only and second_old.primary_key in dropped_only
+    assert second_old.primary_key not in dropped_second and only_key in dropped_second
+
+    # 2) ambiguity_rows recount observed to diverge from the carried-through
+    #    values in both directions: matched short by exactly one, and a
+    #    row for the rejected record present in the recount and absent
+    #    from the carried-through rows.
+    amended_mapping = apply(scanned, decisions)
+    recounted_matched = len(amended_mapping)
+    rejected_record = next(r for r in scanned.old_records if r.primary_key not in amended_mapping)
+    original_ambiguity_paths = {row["old_path"] for row in scanned.ambiguity_rows}
+    recounted_rows = list(scanned.ambiguity_rows)
+    for record in scanned.old_records:
+        if record.primary_key not in amended_mapping and str(record.location.decoded_path) not in original_ambiguity_paths:
+            recounted_rows.append(
+                {
+                    "artist": record.artist, "title": record.title,
+                    "old_path": str(record.location.decoded_path), "reason": "left_missing",
+                }
+            )
+    rejected_path = str(rejected_record.location.decoded_path)
+    # Observed on the fixture corpus: the scan's own stats['matched'] is 1
+    # (one record - Xtal - matches at --match-confidence filename), and
+    # the recount over the amended mapping is 0.
+    assert scanned.stats["matched"] == 1
+    assert recounted_matched == 0
+    assert recounted_matched == scanned.stats["matched"] - 1
+    assert any(row["old_path"] == rejected_path for row in recounted_rows)
+    assert not any(row["old_path"] == rejected_path for row in scanned.ambiguity_rows)

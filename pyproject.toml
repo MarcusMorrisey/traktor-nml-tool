@@ -31,4 +31,4 @@ all = [
 ]
 
 [tool.setuptools]
-packages = ["traktor_nml", "traktor_nml.commands"]
+packages = ["traktor_nml", "traktor_nml.commands", "traktor_nml.gui"]
