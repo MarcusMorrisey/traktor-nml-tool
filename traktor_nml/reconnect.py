@@ -17,11 +17,14 @@ collisions and exported to the ambiguity CSV instead of being rewritten
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
+from typing import Callable, Optional
 
 from .confidence import MatchConfidence
 from .matching import AMBIGUOUS, KeyProvider, build_new_indexes, match_records, record_keys
 from .model import EntryRecord, LocationParts, encode_traktor_dir
+from .review import RecordReview
 
 
 def location_from_disk_path(path: Path, volume: str, volumeid: str) -> LocationParts:
@@ -104,26 +107,53 @@ def resolve_reconnection(
     confidence: MatchConfidence,
     key_providers: list[KeyProvider] = (),
     refute: bool = True,
+    on_review: Optional[Callable[[RecordReview], None]] = None,
 ) -> tuple[dict[str, EntryRecord], dict[str, int], list[dict[str, str]]]:
     """Match old_records against candidates via the shared cascade, then
     invert the resulting mapping to find and drop destination collisions
     - candidates claimed by more than one old record - reclassifying
     their claimants out of the one-to-one mapping and re-deriving each
     affected tier's match count so matched_<tier> totals stay consistent
-    with the final matched count (DL-004)."""
+    with the final matched count (DL-004).
+
+    on_review defaults to None and is forwarded to match_records with
+    nothing else changed, so a caller supplying nothing gets the identical
+    mapping, stats and ambiguity_rows this function has always returned.
+    When supplied, the reviews match_records emits are held here rather
+    than handed straight to the caller, because the one-to-one guarantee
+    match_records is deliberately unaware of (see the module docstring)
+    is not resolved until enforce_one_to_one runs below: a review is
+    reclassified to destination_collision in the same walk that already
+    builds ambiguity_rows for every collided key, then on_review is called
+    for each review in the order match_records produced them.
+    """
     # Built once and reused both for match_records' own lookup and for the
     # post-match ambiguity check below, instead of match_records building
     # its own copy and this function silently rebuilding an identical one
     # (doubling the O(old x candidates) fingerprint similarity search when a
     # fingerprint provider is injected).
     indexes = build_new_indexes(candidates, confidence, key_providers)
+    reviews: list[RecordReview] | None = [] if on_review is not None else None
     mapping, match_stats, _samples = match_records(
-        old_records, candidates, confidence, key_providers, indexes=indexes, refute=refute
+        old_records,
+        candidates,
+        confidence,
+        key_providers,
+        indexes=indexes,
+        refute=refute,
+        on_review=None if reviews is None else reviews.append,
     )
 
     final_mapping, stats, collided_keys = enforce_one_to_one(
         mapping, match_stats, old_records, indexes, confidence, key_providers
     )
+
+    if reviews is not None:
+        for index, review in enumerate(reviews):
+            if review.old.primary_key in collided_keys:
+                reviews[index] = replace(review, status="destination_collision")
+        for review in reviews:
+            on_review(review)
 
     ambiguity_rows: list[dict[str, str]] = []
     for record in old_records:

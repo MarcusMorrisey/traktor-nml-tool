@@ -451,6 +451,22 @@ CollectPatchesFn = Callable[[ET.Element], tuple[list[ElemPatch], dict[str, int],
 MutateTreeFn = Callable[[ET.Element, bool], tuple[dict[str, int], list]]
 
 
+def output_collision_refusal(
+    input_path: Path, output_path: Path, extra_inputs: tuple[Path, ...] = ()
+) -> Optional[str]:
+    """The refusal string when output_path resolves to input_path or any
+    path in extra_inputs, None otherwise.
+
+    One definition of the rule, reachable from above the CLI so a caller -
+    the wizard's Write control - can ask the question before doing any
+    work rather than discovering the answer from a WriteOutcome after
+    committing to a run.
+    """
+    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
+        return "output_must_differ_from_input"
+    return None
+
+
 def plan_and_write_nml(
     input_path: Path,
     output_path: Path,
@@ -469,12 +485,13 @@ def plan_and_write_nml(
     exceptions apply_and_write can raise are caught and folded into the
     outcome.
     """
-    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
+    refusal = output_collision_refusal(input_path, output_path, extra_inputs)
+    if refusal is not None:
         # Checked before parsing and before either callback runs: the
         # reconnect callback owns a long disk scan, and running it ahead
         # of this refusal would make a refused write cost the whole scan
         # instead of returning immediately.
-        return WriteOutcome(None, None, "output_must_differ_from_input", None, 2)
+        return WriteOutcome(None, None, refusal, None, 2)
 
     if HAS_LXML:
         read_result = read_and_parse_source(input_path)

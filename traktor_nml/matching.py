@@ -18,6 +18,7 @@ from typing import Callable, Iterable, Optional
 
 from .confidence import MatchConfidence
 from .model import EntryRecord, record_label
+from .review import CandidateView, RecordReview, RefutationDetail
 
 @dataclass(frozen=True)
 class _TierSpec:
@@ -206,13 +207,18 @@ class _Claims:
         self.from_disk = record.source_path is not None
 
 
-def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
-    """True when duration positively contradicts the candidate.
+def _refutation_reason(old: _Claims, candidate: EntryRecord) -> Optional[RefutationDetail]:
+    """The size or duration contradiction that refutes the candidate, or
+    None when neither field contradicts it.
 
     Absent data never refutes: a candidate whose tags could not be read is
     left for the tier keys to judge rather than silently discarded. Size
     refutes only when both sides come from the same source; across sources
-    it is corroboration only, for the reasons set out below.
+    it is corroboration only, for the reasons set out below. The detail
+    object is built only on the path that reports a contradiction, so the
+    common non-refuting path allocates nothing beyond the _Claims already
+    built for it - every other branch below returns None rather than
+    constructing one.
     """
     new = _Claims(candidate)
     # Only when one side is disk-derived and the other is not do the two
@@ -246,8 +252,15 @@ def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
         #
         # Size still earns its keep as POSITIVE evidence - see
         # _size_agrees, which breaks ambiguity rather than creating it.
-        if abs(old_kb - new_kb) / max(old_kb, new_kb) > _SIZE_REL_TOLERANCE:
-            return True
+        size_diff = abs(old_kb - new_kb) / max(old_kb, new_kb)
+        if size_diff > _SIZE_REL_TOLERANCE:
+            return RefutationDetail(
+                field="size",
+                old_value=old_kb,
+                candidate_value=new_kb,
+                difference=abs(old_kb - new_kb),
+                allowance=_SIZE_REL_TOLERANCE * max(old_kb, new_kb),
+            )
 
     old_s, new_s = old.seconds, new.seconds
     if old_s is not None and new_s is not None:
@@ -256,10 +269,27 @@ def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
             # Relative, because mutagen's error on a headerless VBR file
             # scales with track length rather than being a fixed offset.
             allowance = max(allowance, _CROSS_DURATION_REL_TOLERANCE * max(old_s, new_s))
-        if abs(old_s - new_s) > allowance:
-            return True
+        duration_diff = abs(old_s - new_s)
+        if duration_diff > allowance:
+            return RefutationDetail(
+                field="duration",
+                old_value=old_s,
+                candidate_value=new_s,
+                difference=duration_diff,
+                allowance=allowance,
+            )
 
-    return False
+    return None
+
+
+def _claims_refute(old: _Claims, candidate: EntryRecord) -> bool:
+    """True when duration positively contradicts the candidate.
+
+    The filter inside the cascade and the detail beside a review row are
+    the same tolerance table read twice, not two implementations of it:
+    this is _refutation_reason compared against None.
+    """
+    return _refutation_reason(old, candidate) is not None
 
 
 def _size_agrees(old: _Claims, candidate: EntryRecord) -> bool:
@@ -493,6 +523,7 @@ def match_records(
     key_providers: Iterable[KeyProvider] = (),
     indexes: dict[str, dict[tuple[str, ...], list[EntryRecord]]] | None = None,
     refute: bool = True,
+    on_review: Optional[Callable[[RecordReview], None]] = None,
 ) -> tuple[dict[str, EntryRecord], dict[str, int], list[tuple[str, str, str, str]]]:
     """refute=False disables the size/duration contradiction filter.
 
@@ -500,7 +531,18 @@ def match_records(
     library that breaks an assumption behind them loses correct candidates
     with no way to overrule it from outside this module. That is what the
     switch is for; it is not a general-purpose knob, and the default stays
-    on because a contradiction is usually real."""
+    on because a contradiction is usually real.
+
+    on_review defaults to None, in the shape on_progress/cancel/diagnostics
+    already use elsewhere in this project: with it left at None the loop
+    below builds no CandidateView and calls nothing, so match_records
+    returns the same mapping, stats and samples for every call site
+    regardless of whether that site knows this parameter exists - which is
+    what leaves tracklist.resolve_tracklist's build-playlist caller, which
+    has no manifest case pinning it, byte-identical by construction rather
+    than by coverage. When supplied, on_review is called once per old
+    record with a RecordReview built from the same branch that already
+    decided that record's stats bucket."""
     # A caller that already built the candidate index for its own purposes
     # (e.g. reconnection's post-match ambiguity check) can pass it in so the
     # O(candidates) index build never runs twice for one match_records call.
@@ -544,6 +586,11 @@ def match_records(
         matched_by: str | None = None
         ambiguous_here = False
         refuted_here = False
+        # Built only when a caller opted in: the review a 12,418-entry
+        # collection would hold in memory for every record is a cost that
+        # must land on the one surface asking for it, never on a call site
+        # that supplied nothing.
+        record_candidates: list[CandidateView] | None = [] if on_review is not None else None
 
         for key_name, key_value in record_keys(old_record, confidence, key_providers):
             if key_value is AMBIGUOUS:
@@ -568,10 +615,27 @@ def match_records(
                 # removes a candidate, so a tier with one plausible and one
                 # implausible hit resolves cleanly instead of reporting a
                 # false ambiguity the operator would have to adjudicate.
-                kept = [c for c in candidates if not _claims_refute(old_claims, c)]
+                if record_candidates is not None:
+                    # Same rule read twice (DL-060): the detail beside a
+                    # review row and the boolean that filters here both come
+                    # from _refutation_reason, so the two can never disagree
+                    # about which candidate was removed or why.
+                    details = [_refutation_reason(old_claims, c) for c in candidates]
+                    record_candidates.extend(
+                        CandidateView(candidate=c, key_name=key_name, refuted=d is not None, detail=d)
+                        for c, d in zip(candidates, details)
+                    )
+                    kept = [c for c, d in zip(candidates, details) if d is None]
+                else:
+                    kept = [c for c in candidates if not _claims_refute(old_claims, c)]
                 if len(kept) != len(candidates):
                     refuted_here = True
                 candidates = kept
+            elif record_candidates is not None:
+                record_candidates.extend(
+                    CandidateView(candidate=c, key_name=key_name, refuted=False, detail=None)
+                    for c in candidates
+                )
             if len(candidates) > 1:
                 # Size as POSITIVE evidence, the only role it has across
                 # sources: when a tier cannot separate its candidates on its
@@ -612,5 +676,28 @@ def match_records(
             # was found and declined rather than never found at all.
             if refuted_here:
                 stats["refuted"] += 1
+
+        if on_review is not None:
+            # Read off the same branch that just decided this record's stats
+            # bucket, rather than re-derived from the candidate list, so the
+            # status a review carries can never disagree with where the
+            # record actually landed.
+            if matched_new is not None and matched_by is not None:
+                status = "matched"
+            elif ambiguous_here:
+                status = "ambiguous"
+            elif refuted_here:
+                status = "refuted"
+            else:
+                status = "unmatched"
+            on_review(
+                RecordReview(
+                    old=old_record,
+                    status=status,
+                    candidates=tuple(record_candidates or ()),
+                    chosen=matched_new,
+                    matched_by=matched_by,
+                )
+            )
 
     return mapping, stats, samples
