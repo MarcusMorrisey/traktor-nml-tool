@@ -1,10 +1,11 @@
 """Byte-level parity oracle against the reference tool's recorded output.
 
-manifest.json (DL-002) records the tool's stdout, exit code and every
-written file's bytes for a fixed set of invocations. Regenerating it is
-correct only against a deliberate, reviewed behavior change - never to
-make a failing test pass, since that would silently rewrite the contract
-this test enforces.
+manifest.json records the tool's stdout, exit code and every written
+file's bytes for a fixed set of invocations; its schema and the rules
+governing it live in tests/baselines/manifest.schema.md. Regenerating
+it is correct only against a deliberate, reviewed behavior change -
+never to make a failing test pass, since that would silently rewrite
+the contract this test enforces.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ BASELINE_MANIFEST = Path(__file__).parent / "baselines" / "manifest.json"
 
 
 def _load_manifest() -> list[dict]:
-    """Loads the tool's recorded output contract (DL-002). Regenerating
+    """Loads the tool's recorded output contract. Regenerating
     manifest.json is correct only for a deliberate, reviewed behavior
     change - never to make a failing test pass."""
     return json.loads(BASELINE_MANIFEST.read_text(encoding="utf-8"))
@@ -32,7 +33,7 @@ def _load_manifest() -> list[dict]:
 def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Path, tmp_path: Path) -> None:
     """Re-runs one recorded invocation against the fixture corpus and
     compares exit code, stdout and every written file's bytes against the
-    manifest's stored values (DL-011)."""
+    manifest's stored values."""
     (tmp_path / "out").mkdir(exist_ok=True)
     result = run_tool(case["argv"], cwd=tmp_path)
 
@@ -83,7 +84,7 @@ def test_no_stored_stream_carries_a_host_path_separator() -> None:
     pins the manifest to the OS that captured it: the same invocation then
     fails everywhere else with no diagnostic distinguishing "wrong host"
     from "tool regression", and the obvious fix - regenerating - destroys
-    the recorded contract this oracle exists to hold (DL-002/DL-011).
+    the recorded contract this oracle exists to hold.
 
     Checked here rather than by running the suite once on another OS,
     because a one-off run proves today while this fails on the commit that

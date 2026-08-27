@@ -18,7 +18,7 @@ class RunResult:
     """Captures exit code and captured stdout/stderr from one in-process
     CLI invocation, since every guarantee in this suite is stated over a
     printed stats line or written file, not an internal function's return
-    value (DL-011)."""
+    value."""
     exit_code: int
     stdout: str
     stderr: str
