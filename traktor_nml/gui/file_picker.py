@@ -12,6 +12,10 @@ a real OS file dialog through create_file_dialog. Outside native mode -
 ui.run(show=True) opening a browser - there is no server-side dialog to
 call, so this module falls back to NiceGUI's local_file_picker component
 pattern, a small ui.dialog listing the server's own filesystem.
+
+pick_file_or_folder detects which of those two situations applies by
+checking webview.windows, rather than trusting a caller-supplied flag -
+so app.py never has to know or assert whether it is running natively.
 """
 
 from __future__ import annotations
@@ -121,12 +125,26 @@ class LocalFilePicker(ui.dialog):
         self.submit([str(target)])
 
 
-async def pick_file_or_folder(*, native: bool, start_dir: Optional[Path] = None,
+async def pick_file_or_folder(*, native: Optional[bool] = None, start_dir: Optional[Path] = None,
                                directories_only: bool = False) -> Optional[Path]:
     """The one entry point app.py calls: native mode reaches pywebview's
     create_file_dialog directly, otherwise a LocalFilePicker dialog is
-    shown and awaited."""
+    shown and awaited.
+
+    `native` defaults to None, meaning "detect" - this is the single
+    place that decides what native means, so callers (app.py) never
+    hardcode it. Detection reads `webview.windows`, the same source
+    pick_file/pick_folder themselves consult: a pywebview window exists
+    only once ui.run(native=True) has created one, so an empty list
+    means the app is being served over HTTP with no native window to
+    host a dialog in, and the LocalFilePicker fallback is used instead.
+    """
+    if native is None:
+        native = bool(webview.windows)
     if native:
+        if not webview.windows:
+            ui.notify("No native file dialog is available", type="negative")
+            return None
         return pick_folder(start_dir=start_dir) if directories_only else pick_file(start_dir=start_dir)
     picker = LocalFilePicker(str(start_dir) if start_dir is not None else ".", directories_only=directories_only)
     result = await picker

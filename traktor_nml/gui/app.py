@@ -147,7 +147,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         old_input_holder: dict[str, Optional[Path]] = {"path": None}
 
         async def choose_old_input() -> None:
-            path = await pick_file_or_folder(native=True, directories_only=False)
+            path = await pick_file_or_folder(directories_only=False)
             if path is not None:
                 old_input_holder["path"] = path
                 old_input_display.set_text(str(path))
@@ -158,7 +158,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         scan_roots_holder: list[Path] = []
 
         async def add_scan_root() -> None:
-            path = await pick_file_or_folder(native=True, directories_only=True)
+            path = await pick_file_or_folder(directories_only=True)
             if path is not None:
                 scan_roots_holder.append(path)
                 with scan_roots_list:
