@@ -14,6 +14,12 @@ import argparse
 import sys
 
 from ..confidence import MatchConfidence, parse_match_confidence
+# Re-exported from shared_args.py: reconnect_run.py and reconnect_render.py
+# also need resolve_confidence/should_refute/refutation_disabled_line, and
+# commands/ is the only side of that import boundary allowed to depend on
+# the other (ref: DL-052). compare_cmd.py and reconnect_cmd.py import these
+# three names from this module rather than from shared_args.py directly.
+from ..shared_args import refutation_disabled_line, resolve_confidence, should_refute
 
 
 def add_confidence_args(parser: argparse.ArgumentParser) -> None:
@@ -31,15 +37,6 @@ def add_confidence_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
-    """Resolve the effective MatchConfidence: an explicit
-    --match-confidence always wins; otherwise --allow-artist-title-only
-    selects loose and its absence selects strict (DL-010)."""
-    if getattr(args, "match_confidence", None):
-        return parse_match_confidence(args.match_confidence)
-    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
-
-
 def add_no_refute_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--no-refute",
@@ -50,18 +47,6 @@ def add_no_refute_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def should_refute(args: argparse.Namespace) -> bool:
-    """Whether the cascade should apply the size/duration check.
-
-    Pure: safe to call anywhere, any number of times. The warning is a
-    separate call precisely so this one carries no call-once contract -
-    reading a flag and announcing it are different jobs, and conflating
-    them meant a caller with two passes over the same run had to know to
-    cache the result or the warning printed twice.
-    """
-    return not getattr(args, "no_refute", False)
-
-
 def warn_refutation_disabled(args: argparse.Namespace) -> None:
     """Announce --no-refute once per run, if it is set.
 
@@ -69,9 +54,6 @@ def warn_refutation_disabled(args: argparse.Namespace) -> None:
     rewrite onto a file the collection's own numbers say is the wrong one,
     so the switch says so on every run rather than only in --help.
     """
-    if not should_refute(args):
-        print(
-            "refutation_disabled=size and duration contradictions will be ignored; "
-            "a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match",
-            file=sys.stderr,
-        )
+    line = refutation_disabled_line(args)
+    if line is not None:
+        print(line, file=sys.stderr)

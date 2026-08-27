@@ -145,6 +145,17 @@ def _report_progress(on_progress, done, total, path, every):
         on_progress(done, total, path)
 
 
+def _emit_diagnostic(on_diagnostic, line: str) -> None:
+    """Hand a fully formatted diagnostic line to on_diagnostic when a
+    caller supplied one, or print it to stderr when it is unset. The
+    branch lives in one place so index_scan_roots' two emission sites
+    cannot diverge (DL-056)."""
+    if on_diagnostic is not None:
+        on_diagnostic(line)
+    else:
+        print(line, file=sys.stderr)
+
+
 def index_scan_roots(
     scan_roots: Iterable[Path],
     cache: TagCache,
@@ -155,6 +166,7 @@ def index_scan_roots(
     on_progress: Optional[Callable[[int, int, Path], None]] = None,
     cancel: Optional[threading.Event] = None,
     callback_every: int = 25,
+    on_diagnostic: Optional[Callable[[str], None]] = None,
 ) -> list[EntryRecord]:
     """Walk each scan root, deduplicate by resolved path, and yield candidates.
 
@@ -170,8 +182,15 @@ def index_scan_roots(
     the scan learned before that point is still flushed to the tag cache, so
     a cancelled run does not throw away reading it already paid for.
 
-    Both default to None, and the scan then behaves exactly as it did before
-    they existed: same records, same stats, same stderr, same cache.
+    on_diagnostic(line), when supplied, receives the tag_reading_unavailable
+    and disk_scan_progress lines instead of them being printed to stderr.
+
+    All three default to None, and with all three unset the scan produces
+    the same records, the same stats, the same stderr, and the same cache
+    as a call that never mentions them. discover_tracks_cmd, the only other
+    production caller, passes none of the three and has no parity-manifest
+    case of its own; this default-inertness is what keeps it unchanged, by
+    construction rather than by test coverage.
     """
     if not HAS_MUTAGEN:
         # Derived from the cascade table, not written out in prose. Without
@@ -180,10 +199,10 @@ def index_scan_roots(
         # the message went stale the moment a tier changed level. It already
         # had: it claimed plural "path-suffix tiers" at the default after
         # path_suffix_2 moved to loose.
-        print(
+        _emit_diagnostic(
+            on_diagnostic,
             "tag_reading_unavailable=mutagen not installed; tiers still able to "
             "match, by --match-confidence level: " + _tag_free_summary(),
-            file=sys.stderr,
         )
 
     if stats is None:
@@ -208,7 +227,9 @@ def index_scan_roots(
 
             stats["files_seen"] += 1
             if stats["files_seen"] % progress_every == 0:
-                print(f"disk_scan_progress={stats['files_seen']}", file=sys.stderr)
+                _emit_diagnostic(
+                    on_diagnostic, f"disk_scan_progress={stats['files_seen']}"
+                )
 
             try:
                 file_stat = resolved.stat()

@@ -149,8 +149,12 @@ def test_fingerprint_flag_names_the_dependency_that_is_actually_missing(
         "fingerprint_unavailable_reason",
         lambda: "the chromaprint shared library is not available",
     )
+    # Patched on both the defining module and reconnect_run's bound name:
+    # reconnect_run imports fingerprint_unavailable_reason by value at
+    # import time, so patching only traktor_nml.fingerprint would leave
+    # the core still calling the pre-patch function object.
     monkeypatch.setattr(
-        "traktor_nml.commands.reconnect_cmd.fingerprint_unavailable_reason",
+        "traktor_nml.reconnect_run.fingerprint_unavailable_reason",
         lambda: "the chromaprint shared library is not available",
     )
 
