@@ -47,9 +47,11 @@ from ..reconnect_render import (
 from ..reconnect_run import ReconnectResult
 from ..volumes import VolumeIdentityError
 from . import review_model
+# theme.py is the only source for a colour or size literal in this module (DL-078).
 from . import wizard_state
 from .file_picker import pick_file_or_folder
 from .wizard_state import WizardState
+from . import theme
 
 _KEYBOARD_MAP = (
     ("A", "Accept the highlighted file"),
@@ -128,9 +130,17 @@ def build_wizard() -> None:
 
     @ui.page("/")
     def index() -> None:
+        # Quasar's primary set carries theme.ACTION; dark/dark-page are
+        # fed from the ground and surface tokens so Quasar's own dark
+        # components land on the measured surfaces rather than a
+        # framework default (DL-078, DL-085).
+        ui.colors(primary=theme.ACTION, dark=theme.SURFACE_2, dark_page=theme.GROUND)
+        ui.dark_mode(True)
+        ui.add_head_html(f"<style>{theme.page_stylesheet()}</style>")
+
         state = _WizardPageState()
 
-        with ui.column().classes("w-full max-w-5xl mx-auto gap-4"):
+        with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
             ui.label("Reconnect wizard").classes("text-xl font-semibold")
             stepper = ui.stepper().props("vertical").classes("w-full")
             with stepper:
@@ -141,9 +151,9 @@ def build_wizard() -> None:
 
 
 def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
-    with ui.step("Set up"):
+    with ui.step("Set up").classes("wizard-section-head"):
         ui.label("My playlists are broken: the collection they point at moved.")
-        old_input_display = ui.label("No collection selected").classes("font-mono text-sm")
+        old_input_display = ui.label("No collection selected").classes("font-mono wizard-body-15 wizard-subtle-1")
         old_input_holder: dict[str, Optional[Path]] = {"path": None}
 
         async def choose_old_input() -> None:
@@ -152,7 +162,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 old_input_holder["path"] = path
                 old_input_display.set_text(str(path))
 
-        ui.button("Choose collection file...", on_click=choose_old_input)
+        ui.button("Choose collection file...", on_click=choose_old_input).classes("wizard-label")
 
         scan_roots_list = ui.column().classes("gap-1")
         scan_roots_holder: list[Path] = []
@@ -162,7 +172,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
             if path is not None:
                 scan_roots_holder.append(path)
                 with scan_roots_list:
-                    ui.label(str(path)).classes("font-mono text-sm")
+                    ui.label(str(path)).classes("font-mono wizard-body-11 wizard-subtle-2")
 
         ui.button("Add scan root...", on_click=add_scan_root)
 
@@ -172,14 +182,14 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         ui.label(
             "Scanning updates this cache file; it is written independently of "
             "whether the collection itself is written."
-        ).classes("text-xs text-grey-6")
+        ).classes("wizard-subtle-3 wizard-note")
         refresh_cache_switch = ui.switch("Refresh cache (discard prior scan work)")
 
         control = wizard_state.fingerprint_control_state()
         fingerprint_switch = ui.switch("Enable acoustic fingerprinting")
         if not control.enabled:
             fingerprint_switch.disable()
-            ui.label(control.reason or "").classes("text-xs text-grey-6")
+            ui.label(control.reason or "").classes("wizard-body-11-5 wizard-dim")
 
         output_input = ui.input("Output collection path").classes("w-full")
 
@@ -204,10 +214,20 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 
 
 def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
-    with ui.step("Scan"):
+    with ui.step("Scan").classes("wizard-header"):
         progress = ui.linear_progress(value=0).props("instant-feedback")
-        progress_label = ui.label("Not started")
-        log = ui.log().classes("w-full h-64")
+        progress_label = ui.label("Not started").classes("wizard-body-12-5 wizard-action")
+        # Scanning.dc.html:88's scan counter and :98's tile value are
+        # the step's two numeric displays, and on_progress is the one
+        # live source for both: the counter reads the artboard's
+        # 'indexed / total files' and the tile the indexed count on
+        # its own. They carry the display and title tokens onto real
+        # Scan-step elements rather than onto the page title or the
+        # Write control (DL-078). Both start empty because no count
+        # exists before the first progress callback.
+        scan_counter_display = ui.label("").classes("wizard-mono wizard-display")
+        scan_tile_value = ui.label("").classes("wizard-mono wizard-title")
+        log = ui.log().classes("w-full h-64 wizard-panel")
         cancel_button = ui.button("Cancel")
         start_button = ui.button("Start scan").props("color=primary")
 
@@ -215,6 +235,8 @@ def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
             if total:
                 progress.set_value(done / total)
             progress_label.set_text(f"{done} of {total}: {path}")
+            scan_counter_display.set_text(f"{done:,} / {total:,} files")
+            scan_tile_value.set_text(f"{done:,}")
 
         async def run_scan() -> None:
             if state.args is None:
@@ -268,18 +290,21 @@ def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 def _candidate_panel(state: _WizardPageState, review) -> ui.column:
     panel = ui.column().classes("gap-2")
     with panel:
-        ui.label(f"Old: {review.old.file_name}").classes("font-mono text-xs")
+        ui.label(f"Old: {review.old.file_name}").classes("font-mono wizard-heading-sm")
         for i, candidate_view in enumerate(review.candidates, start=1):
             confidence = review_model.display_confidence(candidate_view)
+            # A refuted candidate reads at the inactive-marker weight
+            # rather than the ordinary subtle-text weight (Specs.dc.html, "Confidence").
+            weight_class = "wizard-inactive" if candidate_view.refuted else "wizard-subtle-4"
             ui.label(
                 f"[{i}] {candidate_view.candidate.file_name} - {confidence}"
                 + (" (refuted)" if candidate_view.refuted else "")
-            ).classes("font-mono text-xs")
+            ).classes(f"font-mono wizard-body-13 {weight_class}")
     return panel
 
 
 def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
-    with ui.step("Review"):
+    with ui.step("Review").classes("wizard-hd-alt"):
         if state.cancelled:
             ui.label("Scan cancelled - no review table.").classes("text-warning")
             return
@@ -306,12 +331,37 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                     key = review.old.primary_key
                     decision = state.decisions.decision_state(key)
                     status = review_model.row_status(review, decision)
+                    # The three review statuses (ambiguous, refuted,
+                    # format) share wizard-status-review; a distinct
+                    # icon silhouette and the written word tell them
+                    # apart rather than a fourth colour
+                    # (Specs.dc.html, "Status"; DL-079).
+                    #
+                    # The status label doubles as the row's tag badge,
+                    # so each status names one class list carrying at
+                    # most one colour-setting class. matched and
+                    # rejected take the tinted tag surface alone,
+                    # whose own rule sets the text colour that tint is
+                    # designed for; the review statuses pair the
+                    # review tint, which sets background and border
+                    # only, with the status hue. Two color: rules on
+                    # one element are both class selectors at 0,1,0,
+                    # so <head> order rather than the token would
+                    # decide which paints.
+                    status_class = {
+                        "matched": "wizard-tag-found",
+                        "ambiguous": "wizard-tag-review wizard-status-review",
+                        "refuted": "wizard-tag-review wizard-status-review",
+                        "format": "wizard-tag-review wizard-status-review",
+                        "rejected": "wizard-tag-missing",
+                        "no_match": "wizard-faint",
+                    }[status]
                     with ui.row().classes("items-center gap-3 border-b py-1 w-full"):
-                        ui.label(status).classes("w-24 font-mono text-xs")
-                        ui.label(review.old.file_name).classes("flex-grow font-mono text-xs")
-                        ui.button("A", on_click=lambda k=key: (state.decisions.accept(k), render_all())).props("dense")
-                        ui.button("R", on_click=lambda k=key: (state.decisions.reject(k), render_all())).props("dense")
-                        ui.button("U", on_click=lambda k=key: (state.decisions.undo(k), render_all())).props("dense")
+                        ui.label(status).classes(f"w-24 wizard-mono text-xs {status_class}")
+                        ui.label(review.old.file_name).classes("flex-grow wizard-mono wizard-body-13-5")
+                        ui.button("A", on_click=lambda k=key: (state.decisions.accept(k), render_all())).props("dense color=primary").classes("wizard-control")
+                        ui.button("R", on_click=lambda k=key: (state.decisions.reject(k), render_all())).props("dense color=primary").classes("wizard-control")
+                        ui.button("U", on_click=lambda k=key: (state.decisions.undo(k), render_all())).props("dense color=primary").classes("wizard-control")
 
         def render_filters() -> None:
             filter_row.clear()
@@ -319,7 +369,9 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
             with filter_row:
                 for key, label, _pred in review_model.FILTERS:
                     text = f"{label} ({c[key]})"
-                    button = ui.button(text, on_click=lambda k=key: select_filter(k)).props("outline dense")
+                    button = ui.button(text, on_click=lambda k=key: select_filter(k)).props("outline dense").classes(
+                        "wizard-control wizard-tag-action" if key == state.active_filter else "wizard-control wizard-tag-action-outline"
+                    )
                     if key == state.active_filter:
                         button.props("color=primary")
 
@@ -344,7 +396,7 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 
 
 def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
-    with ui.step("Write"):
+    with ui.step("Write").classes("wizard-sec-alt"):
         if state.cancelled or state.scan_result is None:
             ui.label("Nothing to write.")
             return
