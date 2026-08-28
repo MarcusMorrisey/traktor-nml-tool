@@ -1,279 +1,293 @@
-# Windows Desktop Distribution Plan
+# Local Windows Setup Plan
 
 ## Goal
 
-Ship the existing native NiceGUI reconnect wizard as a self-contained Windows
-application for DJs who do not have Python installed. Version 1 targets
-Windows 11 x64 and installs a conventional Start Menu application backed by an
-`--onedir` PyInstaller bundle.
+Make the existing NiceGUI reconnect wizard straightforward to set up and run
+from a source checkout or release ZIP on Windows, without asking users to
+install or manage Python themselves. Version 1 ships the GUI by default through
+a reproducible local environment; it does not yet ship a frozen `.exe` or an
+installer.
 
-The CLI remains usable from source and retains its existing CWD-relative
-`--cache` default. The packaged GUI receives a stable per-user cache default.
+The intended experience is:
 
-## Evidence Already Available
+```powershell
+git clone <repository-url>
+cd traktor-nml-tool
+.\setup.ps1
+.\gui.ps1
+```
 
-The section 6 packaging spike has already shown that a Windows `--onedir`
-bundle can parse the large real-world collection fixture, bundle and execute
-`fpcalc`, and write persistent data below `%LOCALAPPDATA%`. Its bundle was
-approximately 84 MB. The reusable starting points are:
+For a release ZIP downloaded through a browser, users review its source and
+then unblock each shipped PowerShell script before the first invocation:
 
-- `spike/packaging/build.sh` for the `nicegui-pack` command and bundled
-  `fpcalc` handling.
-- `spike/packaging/checks.py` and `spike/packaging/spike_checks.py` for
-  frozen-bundle and state-directory assertions.
-- `docs/2026-08-25-packaging-spike-results.md` for the checks already passed
-  and the clean-machine checks still outstanding.
+```powershell
+Unblock-File -LiteralPath .\setup.ps1, .\gui.ps1, .\run.ps1
+.\setup.ps1
+.\gui.ps1
+```
+
+This removes the downloaded-file marker without changing a machine or user
+execution policy. The README presents the clone and release-ZIP paths
+separately.
+
+The same managed environment also exposes the CLI through `run.ps1`.
+
+## Evidence and Constraints
+
+- The project already provides the NiceGUI reconnect wizard and declares
+  optional `tags`, `fingerprint`, and `gui` dependency groups in
+  `pyproject.toml`.
+- Disk scanning needs `mutagen`; GUI setup therefore installs both `tags` and
+  `gui` by default.
+- Windows fingerprinting additionally needs `fpcalc` and the Chromaprint shared
+  library. Version 1 diagnoses their absence but does not download or bundle
+  native binaries.
+- Docker already provides the fingerprint stack on Linux, but its mount root is
+  load-bearing for repaired Traktor paths. It remains an advanced alternative,
+  not the recommended Windows setup path.
+- The existing PyInstaller packaging spike is retained as the basis for a future
+  self-contained desktop installer, not as a prerequisite for this plan.
 
 ## Scope
 
 Included:
 
-- Native Windows GUI bundle and installer.
-- Bundled `lxml`, NiceGUI/pywebview assets, `mutagen`, `pyacoustid`, and the
-  Windows `fpcalc.exe` required for optional fingerprinting.
-- Stable GUI cache location and cache schema migration behavior.
-- Repeatable local and CI builds, release artifacts, and smoke tests.
+- A checked-in `uv.lock` and `.python-version` pinning CPython 3.13.15 x64.
+- `setup.ps1` to bootstrap `uv`, create the project environment, and install
+  the GUI and local scanning dependencies by default.
+- `gui.ps1` to launch the existing native NiceGUI wizard and `run.ps1` for the
+  existing CLI.
+- Explicit opt-in fingerprint setup and diagnostics.
+- Windows CI and a clean-machine validation checklist.
 
 Excluded from version 1:
 
-- macOS and Linux installers.
-- Automatic updates.
-- Code signing, except for recording the unsigned SmartScreen result and
-  preparing an opt-in signing hook in the release workflow.
-- Turning every CLI subcommand into a GUI workflow.
+- PyInstaller, `nicegui-pack`, Inno Setup, code signing, Start Menu shortcuts,
+  bundled `fpcalc.exe`, and auto-updates.
+- Changes to the CLI's CWD-relative cache default or TagCache schema.
+- Hosted operation or network access to a user's music library.
 
 ## Architecture Decisions
 
-### Distribution Format
+### Environment Manager
 
-Use `nicegui-pack`/PyInstaller in `--onedir --windowed` mode, then package the
-result with Inno Setup. Do not use PyInstaller `--onefile` for version 1: it
-adds startup extraction, is more prone to antivirus friction, and makes a
-temporary bundle directory an unsafe place for application state.
+Use `uv` rather than a hand-written `venv` and `pip` sequence. It manages a
+supported Python interpreter when one is absent, creates an isolated `.venv`,
+and synchronizes the checked-in lockfile. `setup.ps1` uses `uv sync --locked`;
+it must never silently resolve newer dependencies on an end-user machine.
 
-### App State
+`.python-version` pins CPython 3.13.15 and `uv.lock` pins the full resolved
+graph. `pyproject.toml` remains the dependency-intent source. A dependency or
+interpreter upgrade updates the lockfile in a deliberate, reviewable change;
+the Windows CI job runs against the exact pinned interpreter.
 
-Add a small `traktor_nml.app_paths` module. Its GUI-facing function resolves
-the default cache path to:
+### Bootstrap and UI Launch
 
-`%LOCALAPPDATA%\\traktor-nml-tool\\tagcache-v1.json`
+`setup.ps1` is transparent and idempotent:
 
-Use `platformdirs` rather than hand-written platform branches. Keep all CLI
-parser defaults unchanged; only the GUI's cache field adopts this path when the
-operator has not explicitly selected a cache file.
+1. Confirm it is running from the repository root and can write to the
+   checkout.
+2. Use an existing `uv` that meets the documented minimum version.
+3. When `uv` is absent, offer the official WinGet command
+   `winget install --id=astral-sh.uv -e`. If WinGet is unavailable or fails,
+   stop with the official manual-install link instead of downloading and
+   executing an unverified remote script.
+4. Run `uv sync --locked --extra tags --extra gui` by default.
+5. Add `--Fingerprint` to install `--extra fingerprint`, record that opt-in in
+   `.setup-features.json`, and validate its native prerequisites. Later default
+   setup runs preserve that recorded opt-in.
+6. Add `--DisableFingerprint` as the only way to remove the fingerprint extra;
+   it updates `.setup-features.json` and synchronizes without that extra.
+7. Print the exact next commands, including `./gui.ps1` as the recommended
+   launch command and `./run.ps1 --help` for the CLI.
 
-Change `TagCache` from a bare JSON map to a versioned envelope:
+`gui.ps1` launches `python -m traktor_nml.gui` through the checkout's
+`.venv\\Scripts\\python.exe`. It verifies that the GUI extra is available and
+gives the corrective setup command if it is not. It does not start a web server
+on a public interface; NiceGUI stays in its existing native-window mode and
+accesses only the local machine selected by the user.
 
-```json
-{"schema_version": 1, "entries": {}}
+`run.ps1` forwards every argument unchanged to the existing CLI:
+
+```powershell
+& .\.venv\Scripts\python.exe .\traktor_nml_tool.py @args
 ```
 
-`TagCache` must read the current legacy map as schema 0 and migrate it in
-memory. Unknown future schemas must start cold, preserve the original file as
-`*.unsupported-schema-<timestamp>.json`, and return a visible GUI notice. A
-corrupt cache remains a cold cache, as it is today.
+No global console-script entry point is needed for version 1. Keeping the
+wrappers with the source makes the launch target, dependency environment, and
+upgrade path clear.
 
-Downgrades are supported as safe cold-cache events, not as reverse migrations.
-Before writing a newer schema, retain the immediately preceding cache as
-`*.pre-schema-<version>-<timestamp>.json`. A prior application version that
-encounters the newer envelope must ignore it and build a fresh cache; it must
-not mix envelope fields with entry records or crash. The uninstaller never
-deletes either cache variant unless the user chooses the optional data-removal
-control.
+### Optional Fingerprinting
 
-### Frozen GUI Startup
+Fingerprinting is an opt-in enhancement, not a prerequisite for the GUI.
+`setup.ps1 -Fingerprint` installs the Python extra and runs the project's
+availability probe. It reports separately whether `pyacoustid`, `fpcalc`, or
+the Chromaprint shared library is missing, and does not claim that fingerprint
+matching is active until all checks pass.
 
-Update the GUI entry point to call `multiprocessing.freeze_support()` as the
-first statement in its main guard. Keep `reload=False`; set the packaged native
-port through `nicegui.native.find_open_port()` so concurrent local processes do
-not collide. Confirm the native page registration remains outside the main
-guard, as NiceGUI requires for spawned native processes.
+The implementation exposes a small structured fingerprint-status command or
+helper that reports `available` plus a machine-readable failure reason. The
+setup script, GUI toggle, and tests consume that single result rather than
+duplicating native-dependency checks.
 
-### Native Dependencies
-
-Ship `fpcalc.exe` next to the frozen application assets and resolve it from the
-PyInstaller extraction/application root before consulting `PATH`. This must not
-change source-mode behavior, where `FPCALC` and `PATH` remain supported. The
-resolution order is: explicit `FPCALC`; bundled executable in a frozen build;
-then `fpcalc` on `PATH`. Put this resolver in `fingerprint.py` and make
-`FpcalcSession` call it rather than constructing the binary name directly.
-
-Record the source, version, and redistribution licence for the selected
-Chromaprint binary in `THIRD_PARTY_NOTICES.md`. Verify the exact dependency
-licenses before publishing the installer.
-
-### Build Inputs and Versioning
-
-Create `requirements/windows-build.lock` with exact versions and hashes for
-the build-only tools, including PyInstaller and Inno Setup's acquisition
-method. The build script installs the application explicitly as
-`.[gui,tags,fingerprint]`, then installs the locked build tools. Do not rely on
-the transitive dependency set of a developer machine.
-
-Store the approved `fpcalc.exe` in a versioned `vendor/` source location or
-download it from one documented upstream URL during the build. In either case,
-record its version, source URL, SHA-256, and licence in
-`vendor/fpcalc-manifest.json`; `build_windows.ps1` verifies the checksum before
-packaging and CI fails on a mismatch.
-
-Use the project version in `pyproject.toml` as the canonical version source.
-The bundle configuration, Inno Setup script, Windows version resource, release
-tag validation, and release artifact names read that value rather than carrying
-independent version strings.
-
-### Diagnostics
-
-A persistent local diagnostic log is required for the windowed build because
-there is no console for startup, packaging, or native-dependency errors. Write
-rotated UTF-8 logs below `%LOCALAPPDATA%\\traktor-nml-tool\\logs`, never next to
-the executable or in `sys._MEIPASS`. Exclude media paths, collection contents,
-and fingerprint values from routine log messages. The GUI exposes the log
-directory and shows a concise failure identifier when startup-adjacent errors
-can be recovered from.
+Users who require a guaranteed fingerprint stack may use the existing Docker
+workflow, observing its volume-root mapping and `--dry-run` preview guidance.
+The PowerShell setup path remains preferred for normal local GUI use.
 
 ## Workstreams
 
-### 1. Productionize the Bundle
+### 1. Lock the GUI Environment
 
 Deliverables:
 
-- `scripts/build_windows.ps1` creates a clean virtual environment, installs
-  the locked build dependencies plus `.[gui,tags,fingerprint]`, verifies the
-  approved `fpcalc.exe` checksum, and runs `nicegui-pack --onedir --windowed
-  --noconfirm`.
-- A checked-in PyInstaller/nicegui-pack configuration carries the application
-  name, icon, version resource, hidden imports, and data-file rules.
-- A build smoke test launches the frozen executable, waits for the native port
-  to become reachable, then closes it cleanly.
-- `traktor_nml.fingerprint` gains the frozen-bundle resolver described above;
-  tests cover each resolution branch.
+- Add `.python-version` containing `3.13.15` and confirm `uv` resolves that
+  exact x64 interpreter.
+- Generate and commit `uv.lock` from `pyproject.toml`.
+- Document the minimum supported `uv` version and Windows architecture.
+- Add a concise dependency-update procedure to contributor documentation.
 
 Acceptance criteria:
 
-- A machine without Python can launch the application.
-- The frozen app can parse the large NML fixture.
-- The bundled `fpcalc.exe -version` succeeds even when `PATH` does not contain
-  another copy.
-- With `PATH` empty and no `FPCALC` override, a frozen-runtime test proves that
-  `FpcalcSession` invokes the bundled executable.
-- With `FPCALC` set, the explicit override wins over both the bundled binary and
-  `PATH`.
-- The app launches with no console window and exits when its native window is
-  closed.
-- CI rejects an unpinned build dependency, an unexpected application version,
-  or an `fpcalc.exe` whose SHA-256 differs from its manifest.
+- `uv sync --locked --extra tags --extra gui` succeeds from a clean checkout.
+- Changing a declared dependency without regenerating `uv.lock` fails CI.
+- The synchronized environment imports `lxml`, `mutagen`, `nicegui`, and
+  `webview`.
+- CI asserts `sys.version_info[:3] == (3, 13, 15)` before running tests.
 
-### 2. Persistent State and Upgrade Safety
+### 2. Add Setup and Launch Scripts
 
 Deliverables:
 
-- Add `platformdirs` as a runtime dependency.
-- Add `app_paths.py`, versioned `TagCache` serialization, and GUI status text
-  that shows the resolved cache path.
-- Preserve explicit CLI and GUI cache paths exactly as supplied.
-
-Tests:
-
-- GUI default uses a test-controlled `%LOCALAPPDATA%` substitute, not CWD or
-  `sys._MEIPASS`.
-- Legacy cache data remains usable after migration.
-- An unknown schema creates a cold cache and preserves the original file.
-- A newer-schema cache is handled as a cold cache by the prior supported
-  release; a v2-to-v1 downgrade neither crashes nor mutates the newer file.
-- A schema upgrade retains the immediately preceding cache before it writes the
-  new envelope.
-- Interrupted/atomic cache writes remain reloadable.
-- The windowed build writes a diagnostic log outside the bundle; representative
-  log lines do not include a media path or fingerprint value.
-
-### 3. Installer
-
-Deliverables:
-
-- `installer/traktor-nml-tool.iss` for Inno Setup.
-- Per-user installation under `%LOCALAPPDATA%\\Programs\\traktor-nml-tool` by
-  default, avoiding administrator requirements.
-- Start Menu shortcut, uninstaller, version display, and optional desktop
-  shortcut.
-- Installer embeds the license and third-party notices.
-- Installer version, bundle version resource, and installed application version
-  match the value read from `pyproject.toml`.
+- `setup.ps1`, `gui.ps1`, and `run.ps1` with comment-based PowerShell help.
+- Default GUI-plus-tags setup, sticky opt-in fingerprint setup, and explicit
+  `-DisableFingerprint` removal.
+- Release-ZIP instructions that unblock the reviewed `setup.ps1`, `gui.ps1`,
+  and `run.ps1` files without changing execution policy.
+- Error messages naming the failed prerequisite and the exact corrective
+  command.
 
 Acceptance criteria:
 
-- Install, launch, uninstall, and reinstall work for a standard Windows user.
-- Uninstall removes program files but does not remove the user's cache unless
-  they explicitly select that option.
-- Installing version 2 over version 1 preserves or safely migrates state.
-- Reinstalling version 1 after version 2 starts successfully and treats its
-  newer cache as cold without modifying it.
+- Running `setup.ps1` twice is safe and does not re-resolve the lockfile.
+- Running default setup after `setup.ps1 -Fingerprint` preserves the installed
+  Python fingerprint extra; only `-DisableFingerprint` removes it.
+- `gui.ps1` starts the native reconnect wizard after default setup.
+- `run.ps1 --help` returns the existing CLI help unchanged.
+- `setup.ps1 -Fingerprint` reports a missing native prerequisite without
+  breaking baseline GUI or CLI setup.
+- Removing the checkout's `.venv` and rerunning setup recreates it without
+  changing the system Python installation.
 
-### 4. CI and Release Artifacts
+### 3. Documentation and Safety Guidance
 
 Deliverables:
 
-- GitHub Actions workflow on `windows-latest` that runs unit tests, builds the
-  frozen bundle, runs headless packaging checks, compiles the installer, and
-  uploads both the bundle and installer as separate artifacts.
-- Tag-triggered release job that publishes the installer, a SHA-256 checksum,
-  and release notes.
-- A protected release version source so the Python package and installer show
-  the same version, derived from `pyproject.toml`.
-- CI verifies `vendor/fpcalc-manifest.json` before the package step and retains
-  the verified manifest, notices, and diagnostic build log with each artifact.
+- Put the PowerShell GUI setup path first in the README.
+- Document separate clone and release-ZIP setup paths, including reviewing and
+  unblocking downloaded scripts with `Unblock-File`, never a permanent
+  execution-policy change.
+- Document the CLI wrapper, optional fingerprinting, and the fact that native
+  fingerprint prerequisites are outside Python.
+- Keep Docker as an advanced alternative and retain the warning that container
+  mount paths determine the paths written to a repaired NML.
+- Explain that GUI and CLI cache/output paths remain locally controlled by the
+  user in this source-based setup.
 
 Acceptance criteria:
 
-- Every tagged build is reproducible from a clean runner.
-- A failed test, missing `fpcalc`, or missing installer output fails the build.
-- Release assets have checksums and retain the third-party notices.
-- The workflow fails before publishing when the release tag does not equal the
-  canonical project version.
+- A new Windows user can reach the reconnect wizard from the README without
+  prior Python knowledge.
+- A browser-downloaded release ZIP can run all three scripts after the documented
+  review-and-unblock step under the default RemoteSigned policy.
+- The documentation never implies Docker mount paths are arbitrary.
+- Fingerprinting instructions distinguish a usable GUI from a disabled
+  fingerprint tier.
 
-### 5. Clean-Machine Validation
+### 4. CI and Clean-Machine Validation
 
-Run on a Windows 11 x64 machine with no Python and no globally installed
-`fpcalc`:
+Deliverables:
 
-1. Install from the produced installer.
-2. Pick an NML file and a scan folder through the native dialogs. This is a
-   release-blocking check, not a visual smoke test.
-3. Run a non-fingerprint scan and a fingerprint-enabled scan.
-4. Confirm a cache is created under the per-user application-data directory.
-5. Time cold launch to an interactive native window; target under 10 seconds.
-6. Check Defender and SmartScreen behavior on a clean profile.
-7. Install a newer build over the first, reopen the app, and verify cache
-   migration or a visible cold-cache notice.
-8. Uninstall and verify that application files are removed while user data
-   follows the selected uninstall option.
+- A Windows GitHub Actions job that installs `uv`, runs
+  `uv sync --locked --extra tags --extra gui`, executes the test suite, and
+  verifies both wrappers.
+- A lockfile freshness check in CI.
+- A manual clean-machine checklist for Windows 11 with no preinstalled Python.
 
-These checks are release gates, not merely exploratory testing. Defender
-quarantine, installation prevention, or deletion of the installer is a no-go:
-do not publish the affected artifact until the cause is corrected or code
-signing is introduced. A SmartScreen reputation warning that still permits an
-informed user to install is allowed for unsigned version 1 only when its exact
-text, Windows build, and workaround are recorded in the release notes. Any
-browser, Defender, or SmartScreen outcome that prevents an informed user from
-installing triggers the deferred code-signing work before release.
+Clean-machine checklist:
+
+1. Download or clone the source release and run `setup.ps1`.
+2. For the browser-downloaded ZIP path, verify the source, run the documented
+   `Unblock-File` command, and run all three scripts under RemoteSigned without
+   changing execution policy.
+3. Confirm the script explains how to install `uv` when it is absent, then
+   rerun successfully after installing it through WinGet or the official method.
+4. Run `run.ps1 --help` and a read-only `inspect` command on a sample NML.
+5. Run `gui.ps1`, select an NML file and a scan folder through native dialogs,
+   and confirm the reconnect wizard opens. This is a release-blocking check.
+6. Run `setup.ps1 -Fingerprint` on a machine without native fingerprint
+   prerequisites and confirm it emits a specific non-fatal diagnostic.
+7. On the documented known-good Windows fingerprint stack, run
+   `setup.ps1 -Fingerprint`, confirm the structured status is `available`, and
+   confirm the GUI enables the fingerprint control. Then run default setup and
+   verify the opt-in remains installed; run `-DisableFingerprint` and verify it
+   is removed.
+
+Acceptance criteria:
+
+- CI uses the lockfile and fails if synchronization or wrapper invocation
+  fails.
+- The clean-machine setup reaches working GUI and CLI use without a manual
+  Python installation.
+- GUI and fingerprint results are recorded separately from baseline setup
+  success.
+- A deterministic setup-script test substitutes the structured status helper
+  with both `available` and each documented failure reason, proving that the
+  script and GUI state respond correctly without depending on a developer's
+  native fingerprint installation.
+- The known-good Windows validation confirms the real native stack, not only a
+  test double.
+
+## Future Upgrades
+
+### Self-Contained Windows Installer
+
+The existing packaging spike in
+`docs/2026-08-25-packaging-spike-results.md` remains the starting point for a
+future PyInstaller/NiceGUI bundle and Inno Setup installer. That work should
+include bundled `fpcalc`, stable per-user cache storage, cache migration,
+diagnostic logs, Defender/SmartScreen release gates, code-signing policy, and
+upgrade/uninstall tests. It is not a blocker for the UI-first setup path.
+
+### Docker Improvements
+
+The checked-in Dockerfile and Compose configuration remain available for
+advanced users, particularly where guaranteed fingerprinting matters. A future
+Docker workstream may add a Windows-oriented walkthrough and a helper that
+validates the Traktor-to-container volume-root mapping before a write command.
+
+### Direct Package Installation
+
+If the project later publishes stable console entry points and release
+artifacts, `uv tool install` or `pipx install` can provide a global command.
+Defer that until packaging, artifact hosting, and upgrade policy are established.
 
 ## Agent Allocation
 
-With two agents, first complete a short build-contract handoff: agree and test
-the bundle directory layout, canonical version reader, exact locked dependency
-inputs, `fpcalc` manifest format, and produced artifact names. Only after that
-handoff passes can one agent complete workstreams 1-2 while the other implements
-the installer and CI against the accepted contract. Start workstream 5 as soon
-as an installer candidate exists; its manual results feed back into the other
-workstreams.
+With two agents, first agree on CPython 3.13.15, the `uv` minimum version, and
+the feature-extra matrix. One agent implements the lockfile and PowerShell
+wrappers; the other adds CI, documentation, and deterministic status tests.
+Merge only after the wrapper contract (`setup.ps1` flags, sticky feature state,
+`gui.ps1`, `run.ps1`, and exit behavior) is documented and tested.
 
-With one agent, implement in order: frozen startup and bundle, app-state
-migration, installer, CI, then clean-machine validation. Do not begin signing
-or auto-update work until this sequence is green.
+With one agent, implement in this order: lockfile, setup script, wrappers,
+README, CI, then clean-machine validation.
 
 ## Completion Definition
 
-Version 1 is ready to distribute when a tagged CI build produces an installer,
-a clean Windows 11 machine can install and use the native reconnect wizard
-without Python, bundled fingerprinting works without a global `fpcalc`, and
-upgrade/uninstall behavior has been recorded against the acceptance criteria
-above.
+Version 1 is ready when a Windows user with no Python installed can clone or
+unzip the project, follow the README to install `uv`, run `setup.ps1`, and
+launch the native reconnect wizard through `gui.ps1`. The same setup must
+support CLI use through `run.ps1`; fingerprinting must either pass its full
+availability probe or explain exactly why it is unavailable. Docker and a
+self-contained installer remain documented future upgrades, not release
+blockers.
