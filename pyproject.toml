@@ -22,6 +22,7 @@ fingerprint = [
 ]
 gui = [
     "nicegui>=3.16.0",
+    "pywebview",
 ]
 docs = [
     "sphinx>=8.0,<9.0",
