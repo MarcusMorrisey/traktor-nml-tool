@@ -32,3 +32,8 @@ __pycache__/
 /.venv/
 /docs/build/
 /docs/source/generated/
+
+# Pandoc renderings of the docs/ markdown (~660 KB each); rebuild from the
+# .md beside them. Same reason as the design-canvas bundle above: the
+# markdown is the source and a checked-in rendering drifts from it silently.
+/docs/*.html
