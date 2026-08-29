@@ -48,27 +48,36 @@ _APP_PY = Path(__file__).resolve().parents[1] / "traktor_nml" / "gui" / "app.py"
 #   the confirm dialog's "Cancel" / safe_button (Confirm.dc.html:159
 #     plain .btn)
 #
-# color="primary" - deliberately the one primary action on its step or
-# dialog, set explicitly rather than left to the default so "primary"
-# reads as a choice:
-#   Set up's "Continue", the Scan step's "Start scan", the Review
-#   step's "Continue to write", the Write step's "Write output"
-#   (Results.dc.html's .btn-pri), the confirm dialog's "Write"
-#   (Confirm.dc.html:160's .btn-pri)
+#   the five .btn-pri controls - Set up's "Continue", the Scan step's
+#     "Start scan", the Review step's "Continue to write", the Write
+#     step's "Write output" (Results.dc.html's .btn-pri) and the confirm
+#     dialog's "Write" (Confirm.dc.html:160's .btn-pri). Each is the one
+#     primary action on its step or dialog and each renders the action
+#     blue, but through wizard-control-primary rather than through
+#     Quasar's color="primary": that utility pairs bg-primary with
+#     text-white, and text-white holds the label at 2.31:1 against the
+#     blue where the artboard's own ink measures 8.2:1. Both utilities
+#     are !important in the layer Quasar orders last, so the ink arrives
+#     only when the constructor withholds the colour and the token class
+#     carries the background with it - DL-086's rung one, every rung
+#     measured in docs/2026-08-29-w004-focus-ring-record.md.
+#
+# color="primary" - no call carries it. A call that does has left its
+# label to Quasar's text-white, which is the defect above.
 _EXPECTED_COLOR_BY_CALL = {
     '"Choose collection file..."': "None",
     '"Add scan root..."': "None",
-    '"Continue", on_click=go_to_scan': '"primary"',
+    '"Continue", on_click=go_to_scan': "None",
     'cancel_button = ui.button("Cancel"': "None",
-    'start_button = ui.button("Start scan"': '"primary"',
+    'start_button = ui.button("Start scan"': "None",
     '"Accept", on_click=lambda k=key: (state.decisions.accept(k)': "None",
     '"Reject", on_click=lambda k=key: (state.decisions.reject(k)': "None",
     '"Undo", on_click=lambda k=key: (state.decisions.undo(k)': "None",
     'ui.button(filter_text,': "None",
-    '"Continue to write", on_click=go_to_write': '"primary"',
-    'write_button = ui.button("Write output"': '"primary"',
+    '"Continue to write", on_click=go_to_write': "None",
+    'write_button = ui.button("Write output"': "None",
     'safe_button = ui.button("Cancel", on_click=dialog.close': "None",
-    '"Write", on_click=lambda: (dialog.close(), _do_write())': '"primary"',
+    '"Write", on_click=lambda: (dialog.close(), _do_write())': "None",
 }
 
 _CALL_SPAN = 200

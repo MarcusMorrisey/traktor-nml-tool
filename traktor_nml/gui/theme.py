@@ -185,6 +185,15 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    .wizard-control's own height/nowrap-only rule so the two compose
    rather than one absorbing the other's job. */
 .wizard-decision-control {{ padding: 0 {SPACE_12}; }}
+/* Review.dc.html:36's .btn-pri: the action blue carrying the ground as
+   its ink, at weight 600 and TYPE_13. Quasar's color="primary" paints
+   bg-primary and text-white, both !important in the layer Quasar orders
+   last, so the ink reaches the label only when the constructor passes
+   color=None and this class carries the background too - DL-086's rung
+   one, with every rung measured in
+   docs/2026-08-29-w004-focus-ring-record.md. Every value is an existing
+   constant; this is a new combination of them. */
+.wizard-control-primary {{ background: {ACTION}; color: {GROUND}; font-weight: 600; font-size: {TYPE_13}; }}
 *:focus-visible {{ outline: {FOCUS_RING}; outline-offset: {FOCUS_RING_OFFSET}; }}
 /* Quasar's q-btn carries the no-outline class, whose outline: 0
    !important is declared inside a layer Quasar names quasar_importants

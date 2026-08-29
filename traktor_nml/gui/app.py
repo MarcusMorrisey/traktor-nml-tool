@@ -208,7 +208,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         # have outranked them; color=None is the only place that works
         # (DL-086 rung one). Main.dc.html:97's "Choose file..." is a plain
         # .btn, not .btn-pri, so this control is deliberately not primary.
-        ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-label")
+        ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-label")
 
         scan_roots_list = ui.column().classes("gap-1")
         scan_roots_holder: list[Path] = []
@@ -260,7 +260,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         # call, not an artboard citation - Specs' single-primary-action
         # principle argues against a second blue button competing with
         # this step's own "Continue".
-        ui.button("Add scan root...", on_click=add_scan_root, color=None)
+        ui.button("Add scan root...", on_click=add_scan_root, color=None).classes("wizard-control")
 
         cache_input = ui.input(
             "Tag cache path", value=".traktor_nml_tagcache.json"
@@ -298,10 +298,14 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
             )
             stepper.next()
 
-        # Deliberately primary - this step's one advancing action - set at
-        # the constructor rather than left to color's own default, so
-        # "primary" here reads as a choice rather than an accident.
-        ui.button("Continue", on_click=go_to_scan, color="primary")
+        # This step's one advancing action, and .btn-pri in Main.dc.html's
+        # own footer. wizard-control-primary carries the action blue and
+        # Review.dc.html:36's own ink together, which is why the
+        # constructor passes color=None: Quasar's own bg-primary and
+        # text-white are !important in the layer it orders last, and
+        # text-white holds the label at 2.31:1 against the blue where the
+        # artboard's ink measures 8.2:1 (DL-086 rung one).
+        ui.button("Continue", on_click=go_to_scan, color=None).classes("wizard-control wizard-control-primary")
 
 
 def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
@@ -354,9 +358,10 @@ def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         # definitely-wrong primary blue this control never should have
         # carried; the danger tint itself is not applied here and is a
         # separate finding, not invented into this fix.
-        cancel_button = ui.button("Cancel", color=None)
-        # Deliberately primary - this step's one advancing action.
-        start_button = ui.button("Start scan", color="primary")
+        cancel_button = ui.button("Cancel", color=None).classes("wizard-control")
+        # This step's one advancing action, primary for the same reason
+        # and by the same mechanism as the Set up step's own Continue.
+        start_button = ui.button("Start scan", color=None).classes("wizard-control wizard-control-primary")
         # Scanning.dc.html:166-167 fixes the step's forward control as
         # <button class="btn off" disabled>Review matches</button> -
         # plain, not primary, and disabled until a result exists. Its
@@ -364,7 +369,7 @@ def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         # only appears on Cancelling.dc.html, a stop-scan confirmation
         # screen this wizard does not build), so this step gets a
         # forward control only, not a second Back.
-        review_matches_button = ui.button("Review matches", on_click=lambda: go_to_review(), color=None)
+        review_matches_button = ui.button("Review matches", on_click=lambda: go_to_review(), color=None).classes("wizard-control")
         review_matches_button.disable()
 
         # Populated in place by scan_reconnect_candidates (passed as
@@ -919,10 +924,10 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
             # outright for this one. Pure navigation - stepper.previous()
             # touches neither state.scan_result nor state.decisions.
             ui.button("Back", on_click=stepper.previous, color=None).classes("wizard-control")
-            # Deliberately primary - this step's one advancing action -
-            # set at the constructor rather than left to color's own
-            # default.
-            ui.button("Continue to write", on_click=go_to_write, color="primary").classes("wizard-control")
+            # This step's one advancing action. wizard-control-primary
+            # carries the blue and the artboard's own ink together, so the
+            # constructor passes color=None (DL-086 rung one).
+            ui.button("Continue to write", on_click=go_to_write, color=None).classes("wizard-control wizard-control-primary")
 
 
 def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
@@ -997,10 +1002,11 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                     # navigation - stepper.previous() touches neither
                     # state.scan_result nor state.decisions.
                     ui.button("Back to review", on_click=stepper.previous, color=None).classes("wizard-control")
-                    # Deliberately primary - Results.dc.html's own write control, .btn-pri
-                    # - set at the constructor rather than left to color's own
-                    # default; tabindex=0 stays in props, it is not a colour prop.
-                    write_button = ui.button("Write output", color="primary").props("tabindex=0").classes("wizard-control")
+                    # Results.dc.html's own write control, .btn-pri, through
+                    # wizard-control-primary with color=None at the
+                    # constructor (DL-086 rung one); tabindex=0 stays in
+                    # props, it is not a colour prop.
+                    write_button = ui.button("Write output", color=None).props("tabindex=0").classes("wizard-control wizard-control-primary")
 
                 dialog = ui.dialog()
                 with dialog, ui.card().classes("wizard-panel wizard-hairline"):
@@ -1022,9 +1028,9 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                         # not .btn-pri - color=None removes the primary blue
                         # ui.button's own default would otherwise add.
                         safe_button = ui.button("Cancel", on_click=dialog.close, color=None).props("autofocus").classes("wizard-control")
-                        # Deliberately primary - Confirm.dc.html:160's .btn-pri "Write
-                        # collection" - set at the constructor.
-                        ui.button("Write", on_click=lambda: (dialog.close(), _do_write()), color="primary").classes("wizard-control")
+                        # Confirm.dc.html:160's .btn-pri "Write collection", through
+                        # wizard-control-primary with color=None at the constructor.
+                        ui.button("Write", on_click=lambda: (dialog.close(), _do_write()), color=None).classes("wizard-control wizard-control-primary")
                 # Enter never writes: the dialog's default/autofocus
                 # control is the safe button, so a stray Enter closes
                 # without writing rather than confirming (Specs.dc.html,

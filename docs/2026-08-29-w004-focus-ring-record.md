@@ -137,23 +137,100 @@ different reason than in the two earlier records: the pane composites now, and
 the gap is the write-to-disk step. Every verdict above carries the value behind
 it, and a later reader can re-run each query against a served page.
 
-## Still open, not fixed here
+## Second pass, same day: the primary button's ink and six unmeasured heights
 
-`Continue to write` renders its label at `rgb(255, 255, 255)` on `rgb(86, 180,
-233)`, a contrast of **2.31:1**. `Review.dc.html:36`'s `.btn-pri` fixes
-`color: #0F1113`, which measures **8.2:1** against the same background. The
-class list carries Quasar's own `text-white` utility and no wizard token for the
-ink; the weight reads `500` against `.btn-pri`'s `600` and the size `14px`
-against its `13px`. DL-086's ladder was not run against it here, so whether it
-settles at rung one or becomes the first DL-087 shortfall is undecided, and no
-entry is written for it in either direction.
+The ladder was run against `Continue` on the Set up step, which carries the same
+`color="primary"` as the other four primaries. Its label computed
+`rgb(255, 255, 255)` on `rgb(86, 180, 233)` - **2.31:1**, where
+`Review.dc.html:36`'s `.btn-pri` fixes `color: #0F1113` and measures **8.2:1**
+against the same blue. Weight read `500` against `.btn-pri`'s `600`, size
+`14px` against its `13px`.
+
+| Rung | Form | Ink | Contrast |
+|---|---|---|---|
+| - | Baseline, as served | `rgb(255, 255, 255)` | 2.31:1 |
+| One | Quasar's own palette class (`text-dark`) | `rgb(255, 255, 255)` | 2.31:1 |
+| **One** | **`color=None`, background and ink both on a token class** | **`rgb(15, 17, 19)`** | **8.2:1** |
+| One | The same token class with `bg-primary text-white` left on | `rgb(255, 255, 255)` | 2.31:1 |
+| Two | `add_head_html` at `html body button.q-btn.bg-primary.text-white` | `rgb(255, 255, 255)` | 2.31:1 |
+| Two | The same selector with `!important` | `rgb(255, 255, 255)` | 2.31:1 |
+| Two | `!important` inside `@layer quasar_importants` | `rgb(15, 17, 19)` | 8.2:1 |
+
+**The ladder stops at rung one.** The fourth row is the control that decides it:
+leaving Quasar's own classes on defeats the token class, so `color=None` is
+required rather than tidy. `text-white` is `!important` in the same
+last-ordered layer as `no-outline`, which is why every rung-two form except the
+layered one loses. This is the shape the review row's Accept and Reject already
+use, so it is **no DL-087 shortfall** and the "Framework shortfalls" section in
+`traktor_nml/README.md` still holds no entries.
+
+`.wizard-control-primary` carries `ACTION`, `GROUND`, weight 600 and `TYPE_13`
+together, and all five primaries take `color=None` at the constructor:
+Set up's `Continue`, Scan's `Start scan`, Review's `Continue to write`, Write's
+`Write output` and the confirm dialog's `Write`.
+
+### Six controls carried no token class at all
+
+The same run measured every control on the Set up and Scan steps, which no
+earlier record had reached - both prior gates measured only Review, Write and
+the dialog.
+
+| Control | `app.py` | Before | After |
+|---|---|---|---|
+| Choose collection file... | 211 | `41px` | `32px` |
+| Add scan root... | 263 | `80.05px` | `32.0156px` |
+| Continue | 304 | `36px` | `32px` |
+| Cancel | 357 | `36px` | `32.0156px` |
+| Start scan | 359 | `56.03px` | `32px` |
+| Review matches | 367 | `56.03px` | `32.0156px` |
+
+Specs fixes controls at 32px, every button on every screen. The `56.03px`
+readings are the two-line wrap this gate already diagnosed on `Write output` -
+twice the `24.01px` line height plus padding - and `white-space: nowrap` on
+`.wizard-control` is what holds a label to one line. None of the six carried
+`.wizard-control`, so none carried the floor or the nowrap.
+
+### Verified on the served page
+
+Re-served and driven through all four steps and the confirm dialog:
+
+| Step | Control | Height | Ink on blue |
+|---|---|---|---|
+| Set up | Choose collection file..., Add scan root... | `32px`, `32.0156px` | - |
+| Set up | Continue | `32px` | `rgb(15, 17, 19)`, 8.2:1, 600, `13px` |
+| Scan | Cancel, Review matches | `32.0156px` | - |
+| Scan | Start scan | `32px` | `rgb(15, 17, 19)`, 8.2:1, 600, `13px` |
+| Review | seven chips, Accept, Reject, Back | `32px`, `32.0156px` | - |
+| Review | Continue to write | `32px` | `rgb(15, 17, 19)`, 8.2:1, 600, `13px` |
+| Write | Back to review | `32.0156px` | - |
+| Write | Write output | `32px` | `rgb(15, 17, 19)`, 8.2:1, 600, `13px` |
+| Dialog | Cancel (autofocused) | `32.0156px` | - |
+| Dialog | Write | `32px` | `rgb(15, 17, 19)`, 8.2:1, 600, `13px` |
+
+The focus ring holds alongside the new class: a real Tab onto `Back to review`
+and `Write output` computes `outline: rgb(232, 235, 237) solid 2px` at `2px`
+offset on both.
+
+`tests/test_gui_button_color_defaults.py`'s `_EXPECTED_COLOR_BY_CALL` names
+`None` for every call in `app.py`. Its prose records that a call carrying
+`color="primary"` has left its label to Quasar's `text-white`, which is the
+defect above.
+
+### The write refusal, exercised
 
 With the output field left empty, `_build_args` passed `output` equal to
-`old_input` - the fixture's own collection. `wizard_state.write_refusal` covers
-exactly that case through `output_collision_refusal`'s
-`output_must_differ_from_input`, so the Write step is expected to refuse rather
-than overwrite. Not exercised: no write was performed in this session, and the
-fixture hashed identical afterwards across all 604 files.
+`old_input` - the fixture's own collection. Clicking `Write output` opened no
+dialog and rendered instead: "The output path is the same file this run reads
+from. Set a different path in Output collection path, on Set up."
+`wizard_state.write_refusal`'s `output_must_differ_from_input` reaches the
+operator as written copy, ahead of any work.
+
+Setting a distinct output path let the confirm dialog open on
+"Write the reconnected collection?" with `Cancel` holding focus, which is where
+the dialog's own `Write` was measured. The dialog was dismissed through
+`Cancel`. No write was performed in this session: the named output file does not
+exist afterwards, and the fixture hashed identical across all 604 files.
+
 
 ## What this record does not carry
 
