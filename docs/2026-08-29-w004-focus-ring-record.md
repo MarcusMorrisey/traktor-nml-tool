@@ -234,12 +234,11 @@ exist afterwards, and the fixture hashed identical across all 604 files.
 
 ## Third pass: the screen-reader attempt, and what it found
 
-The screen-reader pass **was not run**, and the reason is the machine rather
-than the wizard. `C:\Windows\System32\Narrator.exe` is present; NVDA and JAWS
-are not. Narrator offers no speech transcript to capture, and NVDA's Speech
-Viewer - which renders spoken output as text a record could carry - would have
-to be installed first. That is where DL-084's screen-reader rule still stands
-unmet.
+The screen-reader pass does not run in this pass: `C:\Windows\System32\Narrator.exe`
+is the only screen reader the machine carries, and it offers no transcript to
+capture. The fourth pass below runs it under NVDA. What follows here is the
+layer beneath - the live regions and the strings that reach them - which is what
+turned up the defect the fourth pass then confirms aloud.
 
 What ran instead is the layer beneath it: the live regions a screen reader
 consumes, and the strings that reach them. Recorded here as a prerequisite
@@ -300,9 +299,90 @@ listener recorded an empty array, and the wizard was correctly unchanged. A real
 click into the pane restores it. A reading taken in that state looks exactly
 like a broken key binding.
 
-## What this record does not carry
+## Fourth pass: the screen reader, run
 
-No screen reader was run, for the reason given above: none capable of producing
-a capturable transcript is installed. The live regions, their politeness and the
-text each announcement carries are read from the page and recorded above; that
-assistive technology speaks them is still not evidenced.
+NVDA 2026.1.1 read the served wizard and spoke it. This closes DL-084's
+screen-reader rule, which the three earlier passes recorded as unmet.
+
+**Setup.** NVDA was fetched from
+`https://www.nvaccess.org/files/nvda/releases/2026.1.1/nvda_2026.1.1.exe`, its
+Authenticode signature checked before it was run - `Valid`,
+`CN=NV Access Limited`, issued by `GlobalSign GCC R45 CodeSigning CA 2020`,
+SHA-256 `6e0289eb5a3aa076eb97ea99c5d5465cb48b5ecc6a3257dc3d811f881a1747c9` - and
+unpacked with `--create-portable-silent` to `C:\codex\nvda\portable`. Nothing is
+installed system-wide: no `Program Files` entry, no service, no run key.
+`synth = silence` so it makes no sound, `loggingLevel = DEBUG` so every
+utterance lands in `%TEMP%\nvda.log` as a `Speaking [...]` line, and
+`allowUsageStats = False` with `askedAllowUsageStats = True` so its data-
+collection prompt neither appears nor sends.
+
+**NVDA cannot read the Claude Code browser pane.** Three real Tab presses into
+it produced one utterance - `'Claude finished the response'`, the host
+application's own notification - and nothing from the wizard. The pane is not an
+accessible window a screen reader can reach into. The pass therefore ran against
+a real Edge window at `http://localhost:8115`, driven over the Chrome DevTools
+Protocol: `Input.dispatchKeyEvent` for keys, so the page receives real key
+events, and `Runtime.evaluate` clicking a control by its own label, since the
+wizard rebuilds its controls on every render and a coordinate goes stale at
+once.
+
+Every line below is quoted from `nvda.log`.
+
+### Structure and control naming
+
+| Item | Specs fixes | NVDA spoke | Verdict |
+|---|---|---|---|
+| Page structure | a landmark a screen reader can enter | `'main landmark', 'Reconnect wizard'` | matches |
+| Step heading | the step names | `'Set up'` | matches |
+| Setup copy | the operator's own sentence | `'My playlists are broken: the collection they point at moved.'` | matches |
+| Collection control | a named button | `'CHOOSE COLLECTION FILE...', 'button'` | matches |
+| Scan-root control | a named button | `'ADD SCAN ROOT...', 'button'` | matches |
+| Tag cache field | a named, valued edit | `'Tag cache path', 'edit', '.traktor_nml_tagcache.json'` | matches |
+| Cache note | read in reading order | `'Scanning updates this cache file; it is written independently of whether the collection itself is written.'` | matches |
+| Filter chips | seven, each with its count | `'NEEDS REVIEW (1)'`, `'REFUTED (0)'`, `'RE-ENCODED (0)'`, `'NOT FOUND (1)'`, `'ACCEPTED (0)'`, `'REJECTED (0)'`, `'FOUND AUTOMATICALLY (1)'`, each `'button'` | matches |
+| Decision controls | the words Accept and Reject, never initials | `'ACCEPT', 'button'` and `'REJECT', 'button'` | matches |
+
+The decision-control row is the one Specs argues for by name: a screen reader
+has only "A button" and "R button" to announce if the row carries initials.
+`tests/test_gui_review_row_controls.py` has guarded the words since M-003 by
+reading app.py's source. This is the first reading of what a screen reader
+actually says about them.
+
+### The live regions, spoken
+
+| Announcement | Specs fixes | NVDA spoke | Verdict |
+|---|---|---|---|
+| Progress | `"4,212 of 12,542"`, polite, at most every 2 seconds | `'25 of 603 '` | matches |
+| Decision, keyboard route | `"Bar A Thym accepted - 458 of 1,238 done"`, as it happens | `'archangel.mp3 accepted - 1 of 1 done '` after a dispatched `a` | matches |
+| Decision, pointer route | the same, since Specs fixes the announcement on the decision rather than the input device | `'archangel.mp3 rejected - 1 of 1 done '` after clicking `REJECT` | matches |
+
+The third row is the one to keep. The pointer route announced nothing until
+`161414a`, and the defect was invisible to every source-reading guard: the row
+buttons applied the decision and re-rendered while reaching no live region. It
+was found by attempting this pass at the DOM level, fixed, and is now confirmed
+at the level that matters - a screen reader saying it out loud.
+
+### What this pass does not carry
+
+The confirm dialog's focus rules - traps focus, opens on the safe control,
+returns focus to its opener - are **not** verified here. Reaching the dialog
+needs an output path distinct from the input, and the Set up step holds that
+field; by the time the dialog was reachable the foreground window had moved off
+Edge, so NVDA was reading the host application instead. Those three rules stand
+as `docs/2026-08-28-w002-browser-record.md` left them, read from the DOM and
+from the maintainer's own trusted Escape keypress.
+
+No screenshot file is saved beside this record, for the reason the third pass
+gives: the driver returns a composited screenshot to the session rather than to
+a path, and `.venv` carries no headless capture library.
+
+One artifact worth carrying. NVDA speaks whatever holds the foreground, so a
+step driven while the window focus has moved reads as silence from the wizard
+and a wall of unrelated speech from whatever took focus. Two steps here did
+exactly that. A step that records no wizard utterance is a focus question first
+and a wizard question second. For the same reason `nvda.log` accumulates
+whatever is on screen, this session's own transcript included, which is worth
+knowing before the file is shared.
+
+No write was performed: the fixture hashes identical across all 604 files, the
+named output file does not exist, and `written.nml` is absent.
