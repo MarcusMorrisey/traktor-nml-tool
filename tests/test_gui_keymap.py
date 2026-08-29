@@ -400,3 +400,32 @@ def test_an_undocumented_noop_is_caught():
     documented = _NOOP_SATISFIED_BY_EXISTING_BEHAVIOUR | _NOOP_DEFERRED_UNIMPLEMENTED
     assert noop_actions != documented
     assert noop_actions ^ documented == {"toggle_detail"}
+
+
+# See traktor_nml/README.md's Design Decisions section for DL-089's
+# full statement.
+def test_jump_to_search_has_no_entry():
+    """Specs.dc.html:96's "Keyboard" section names "/" Jump to search;
+    Phase 1 has no search box for it to focus (DL-089), so ENTRIES
+    carries no "/" row and dispatching "/" resolves to nothing rather
+    than to an unannounced binding.
+
+    Mutation control: adding
+    keymap.Entry("/", (), keymap.SCOPE_TABLE, "jump_search", "Jump to
+    search") to ENTRIES makes the first assertion fail, since
+    any(entry.key == "/" ...) reads True.
+
+    Observed on the module as it stands: [entry.key for entry in
+    keymap.ENTRIES if entry.key == "/"] is [], and
+    keymap.dispatch("/", (), keymap.SCOPE_TABLE, row_count=9,
+    focused_index=4, candidate_count=9) returns None."""
+    assert [entry.key for entry in keymap.ENTRIES if entry.key == "/"] == []
+    action = keymap.dispatch(
+        "/",
+        (),
+        keymap.SCOPE_TABLE,
+        row_count=9,
+        focused_index=4,
+        candidate_count=9,
+    )
+    assert action is None

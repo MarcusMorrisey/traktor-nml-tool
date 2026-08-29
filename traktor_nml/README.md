@@ -665,6 +665,94 @@ statement of the same decision would only give it two copies to drift apart.
   as the reason. Putting the two-step in a plain function rather than
   inside the view gives the deliberately untested view a tested source
   of truth (DL-077).
+- `traktor_nml/gui/theme.py` holds every Specs colour, type size,
+  spacing step and radius, and emits the page stylesheet as a pure
+  string, so a hex or a pixel size is written once rather than
+  repeated at a call site - the drift DL-055 closes for the refutation
+  message, closed here by holding one definition. The module imports
+  no `nicegui`, so the pytest interpreter reads it directly (DL-078).
+  (`traktor_nml/gui/CLAUDE.md`'s file table names what `theme.py`,
+  `keymap.py` and `announce.py` each hold.)
+- The review table is hand-rolled `ui.row` rows per record rather
+  than `ui.aggrid`. aggrid claims the arrow keys, and Specs binds
+  Up/Down, Shift-Up/Down and 1-9 over exactly that table, so adopting
+  aggrid buys a grid and then spends the milestone fighting it back
+  for the contract that is the point of the milestone.
+  `file_picker.py`'s browser fallback dialog keeps its own aggrid use
+  and its own key handling, outside this scope (DL-079).
+- `traktor_nml/gui/keymap.py` is the single source for both the
+  rendered help panel and the live bindings, and `app.py` applies
+  actions from a dict table (`_ACTION_APPLIERS`) whose key set a guard
+  pins to `keymap.ACTION_NAMES`. Rendering the help panel from a
+  second, hand-written table rather than from `keymap.ENTRIES` lets
+  the two drift; a dict from action name to callable, rather than a
+  branch chain, leaves no branch an unlisted action falls through, and
+  the guard fails the suite instead of the operator (DL-080).
+- Keyboard dispatch is a pure function in `keymap.py` taking the key,
+  the modifiers, the active scope, the row count, the focused index
+  and the focused row's own candidate count, and returning an action;
+  `app.py` only applies the action it returns. `app.py` is untested at
+  runtime, so the arrow bounds, the Shift-extended ranges and the
+  digit-to-candidate mapping - arithmetic that needs no DOM - sit in
+  the nicegui-free module on the `_fs_nav.py` precedent (DL-081).
+- `ui.keyboard` is registered with `ignore=['input', 'select',
+  'textarea']`, dropping `'button'` from NiceGUI's default ignore list
+  of `['input', 'select', 'button', 'textarea']`. Every review row
+  carries A, R and U buttons, so focus rests on a button through
+  ordinary review work, and the default list swallows the review keys
+  at exactly that moment (DL-082).
+- Announcement text and its cadence are built by pure functions in a
+  nicegui-free module (`announce.py`); `app.py` owns only the two live
+  regions it pushes into, one polite and one assertive, and pushes
+  only the strings `announce.py` returns. Specs fixes both the wording
+  and the rate - progress at most every two seconds, each decision as
+  it happens, errors and completion assertive and naming the file
+  consequence in the first sentence - all computable with no browser
+  present (DL-083).
+- Every milestone ends with the wizard served over HTTP, driven in a
+  browser, and compared screen by screen against the artboard it
+  implements; the record written to `docs/` carries a matches or
+  differs verdict per named surface, and the milestone passes only
+  when every entry reads matches or the differs entry is carried into
+  this file as a recorded framework shortfall in the form DL-087
+  fixes. Every `gui/` guard reads source text or walks the module
+  graph rather than exercising a served page, and the served-page gate
+  that closed the keyboard and announcement milestones surfaced
+  defects no such guard saw, five of them present in that wave's
+  baseline commit. The verdict, not the written record alone, is the
+  pass condition (DL-084).
+- The token set is one dark theme; no light variant and no theme
+  switcher. All ten artboards paint the same `#0F1113` ground and
+  Specs states its contrast results against those surfaces; a light
+  variant is a second palette owing its own colour-blindness
+  simulation, design work Specs does not do (DL-085).
+- Specs' Focus ring, Accessibility rules and Announcements are applied
+  through a three-rung ladder - Quasar's own CSS variables and
+  constructor arguments first, an `add_head_html` rule at higher
+  specificity where Quasar's styling wins, and a recorded framework
+  shortfall under DL-087 where neither reaches - rather than assumed
+  to drop in. Quasar's `q-btn` sets its own min-height and paints
+  focus through a `.q-focus-helper` overlay, so Specs' 32px control
+  height and its 2px outline at 2px offset are the concrete collisions
+  this ladder resolves (DL-086).
+- A Specs rule the running framework refuses is recorded under the
+  "Framework shortfalls" heading below, never as a
+  Specs-versus-section-4 disagreement under DL-072; that heading
+  carries the recording form, the measured set barred from that route,
+  and DL-072's standing precedence (DL-087).
+- Where a rule Specs states in prose and a value the artboards render
+  disagree, the prose rule governs and `theme.py` carries it; the
+  divergence is recorded under the "Design-set divergences" heading
+  below, which carries that rule, the divergences recorded so far, and
+  how a browser record reads them (DL-088).
+- Specs.dc.html's "Keyboard" section names `/` Jump to search under
+  the Review table; Phase 1 has no search box for it to focus, so
+  `keymap.ENTRIES` carries no entry for `/` and `keymap.py`'s module
+  docstring states the omission by name rather than claiming one entry
+  per named key. `tests/test_gui_keymap.py`'s
+  `test_jump_to_search_has_no_entry` pins the omission executably
+  (DL-089). (`keymap.py`'s ENTRIES comment carries the same
+  cross-reference.)
 
 ## Invariants
 
@@ -739,3 +827,97 @@ statement of the same decision would only give it two copies to drift apart.
   loop leaves earlier group outputs written. Accepted because cross-file
   staging and commit is new machinery beyond a fix-only pass, and recorded
   here rather than left implied by the per-file atomicity claim (DL-022).
+
+## Framework shortfalls
+
+A Specs rule the running framework refuses is recorded here, under its
+own heading, separate from the Specs-versus-section-4 precedence
+statement DL-072 makes (DL-087). DL-072's precedence holds over this
+section: `Specs.dc.html` governs what the operator sees and presses,
+and a rule the framework refuses is a shortfall, not a resolved
+precedence question. An entry names the Specs rule, the exact Quasar
+selector or mechanic that won it, the rung-two `add_head_html`
+declaration that was tried and lost, and its rung on DL-086's ladder.
+
+**This section holds no entries.** The browser records in
+`docs/2026-08-27-m001-browser-record.md` and
+`docs/2026-08-28-w002-browser-record.md` carry a matches verdict on
+every surface they measure and no differs verdict at all. Each control
+that first read unringed came right at rung one of DL-086's ladder,
+through the framework's own mechanism rather than a stylesheet
+override. "Continue to write" and the write dialog's "Write" reach the
+page carrying no token class and computing 36px; attaching
+`.wizard-control` settles both. The review row's Accept, Reject and
+Undo buttons take `color=None` at the `ui.button` constructor, which
+is what stops Quasar's `!important` `.bg-primary` outranking the
+status tint class attached beside it. A shortfall entry requires a
+rung-two `add_head_html` declaration that was tried and lost, and no
+declaration reached rung two.
+
+Nothing is recorded here for the measured set DL-087 bars from this
+route - the ground, the five surfaces, the two borders, the
+foreground, the muted and secondary text greys, the three status hues,
+the action blue, any step of the type scale, the spacing steps or the
+radii, or any key in Specs' keyboard map.
+
+The evidence behind those verdicts is the value computed off the
+served page, quoted in each record beside the value the artboard
+fixes. Neither record names a screenshot and neither has one: the
+browser pane could not be displayed in the sessions that produced
+them, and the maintainer accepted computed values as the evidence for
+both. `docs/2026-08-28-w002-browser-record.md` states in its own terms
+that the keyboard drive-through and the screen-reader pass are
+archived to a later version by the same decision, and that the
+keyboard and announcement milestones' acceptance criteria are partly
+unmet in consequence.
+
+## Design-set divergences
+
+Where a rule `Specs.dc.html` states in prose and a value the artboards
+render disagree, the prose rule governs and `traktor_nml/gui/theme.py`
+carries it (DL-088); a browser record measures against the prose rule,
+so a surface matching the prose rule and differing from an artboard
+reads matches. Each record below is keyed by selector rather than by
+artboard, because `Review.dc.html` agrees with the control-height rule
+at two of its own selectors and differs at a third, which an
+artboard-level record cannot state. This section is distinct from
+"Framework shortfalls" above, which records a rule the framework
+refuses, and from DL-072, which resolves Specs against section 4 of
+`docs/nicegui-gui-analysis.md`.
+
+- **Control height.** Specs' "Accessibility rules" fix controls at
+  32px tall with 8px between them, every button on every screen.
+  `.btn` renders 32px in `Errors.dc.html`, `Outcomes.dc.html` and
+  `Review.dc.html` and 34px in `Cancelling.dc.html`,
+  `Confirm.dc.html`, `Main.dc.html`, `Results.dc.html`,
+  `Scanning.dc.html` and `Success.dc.html`; `.btn.sm` renders 32px
+  wherever it is defined, in `Main.dc.html`, `Review.dc.html` and
+  `Success.dc.html`; `.btn-pri` renders 34px in `Review.dc.html`,
+  which is the only artboard giving it a height of its own.
+  `theme.py`'s `CONTROL_HEIGHT` carries 32px.
+- **The gap between decision buttons.** The same rule fixes 8px
+  between controls. `Review.dc.html`'s `.dec` and `.decd` groups both
+  render a 6px gap. `theme.py` carries the 8px step as `SPACE_8` and
+  spaces the review row's decision buttons through
+  `.wizard-control-group`, and
+  `docs/2026-08-28-w002-browser-record.md` reads that 8px as matches
+  on the strength of the prose rule.
+- **The secondary text greys.** Specs names two secondary greys in its
+  own token table, `#A5ADB4` at `.dim` and `#8E979E` at `.faint`, and
+  requires secondary text to meet 4.5:1 against its own surface. The
+  artboards paint six further text greys beyond those two, two of them
+  inside `Specs.dc.html` itself. `theme.py` carries the two Specs
+  names as `TEXT_MUTED` and `TEXT_FAINT` and the six others as
+  `TEXT_SUBTLE_1` through `TEXT_SUBTLE_6`, so every grey the set
+  paints is named once and measurable against the contrast rule.
+- **The 10.5px chip.** Specs' "Accessibility rules" fix no text below
+  11px. `Specs.dc.html`'s own scope-fence aside styles the words
+  `build-playlist` inline at 10.5px - prose about a command outside
+  Phase 1, not a step of this wizard's type scale. `theme.py`'s type
+  scale carries the 11px floor, and
+  `tests/test_gui_theme.py`'s `_KNOWN_UNNAMED_FONT_SIZES` excludes
+  that one size by its exact value and reason rather than by a rule
+  that would swallow a future token under 11px.
+
+`traktor_nml/gui/theme.py`'s type-scale comment names the same 11px
+floor this section measures against.

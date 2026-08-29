@@ -1,6 +1,8 @@
 """The single source for the reconnect wizard's keyboard contract: one
-entry per key Specs.dc.html's "Keyboard" section names, feeding both
-the rendered help panel and the live ui.keyboard bindings (DL-080).
+entry per key Specs.dc.html's "Keyboard" section names except "/"
+Jump to search, which Phase 1 has no search box to bind (DL-089),
+feeding both the rendered help panel and the live ui.keyboard
+bindings (DL-080).
 Imports no nicegui.
 """
 
@@ -27,6 +29,8 @@ class Entry:
 # Specs.dc.html, "Keyboard": one row per key/scope pair. Digits 1-9
 # and Alt 1-7 each expand to one entry per digit so dispatch can match
 # a single pressed key rather than parsing a range at dispatch time.
+# tests/test_gui_keymap.py's test_jump_to_search_has_no_entry pins
+# the "/" omission (DL-089).
 ENTRIES: Tuple[Entry, ...] = (
     Entry("Tab", (), SCOPE_ANYWHERE, "focus_next", "Move through controls in reading order"),
     Entry("Tab", ("shift",), SCOPE_ANYWHERE, "focus_prev", "Move through controls in reading order"),
