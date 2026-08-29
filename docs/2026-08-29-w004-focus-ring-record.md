@@ -232,8 +232,77 @@ the dialog's own `Write` was measured. The dialog was dismissed through
 exist afterwards, and the fixture hashed identical across all 604 files.
 
 
+## Third pass: the screen-reader attempt, and what it found
+
+The screen-reader pass **was not run**, and the reason is the machine rather
+than the wizard. `C:\Windows\System32\Narrator.exe` is present; NVDA and JAWS
+are not. Narrator offers no speech transcript to capture, and NVDA's Speech
+Viewer - which renders spoken output as text a record could carry - would have
+to be installed first. That is where DL-084's screen-reader rule still stands
+unmet.
+
+What ran instead is the layer beneath it: the live regions a screen reader
+consumes, and the strings that reach them. Recorded here as a prerequisite
+check, not as the pass.
+
+| Item | Specs fixes | Read off the page | Verdict |
+|---|---|---|---|
+| Live regions present | one polite, one assertive | two `[aria-live]` elements, `role="status"`/`aria-live="polite"` and `role="alert"`/`aria-live="assertive"` | matches |
+| Both stay in the accessibility tree | announced, not hidden from AT | `display: block`, `visibility: visible`, `1x1px`, `position: absolute`, `overflow: hidden`, `clip-path: inset(50%)` | matches |
+| Progress wording | `"4,212 of 12,542"` | `"25 of 603"` in the polite region | matches |
+| Decision wording | `"Bar A Thym accepted - 458 of 1,238 done"` | `"archangel.mp3 accepted - 1 of 1 done"` in the polite region | matches |
+
+`display: none` or `visibility: hidden` would drop both regions out of the
+accessibility tree and silence every announcement while every source-reading
+guard stayed green. They are hidden the other way, so they are spoken.
+
+### What the attempt caught: a decision taken with the pointer announced nothing
+
+Specs fixes the announcement on the decision - "each decision as it happens" -
+not on the input device. Clicking the row's `Undo` button applied the decision
+and re-rendered: the chip counts moved to `ACCEPTED (1)` and the row redrew with
+its `UNDO` control. **Neither live region changed.** A real `a` keypress on the
+same row, through `_applier_accept`, produced
+`"archangel.mp3 accepted - 1 of 1 done"` in the polite region.
+
+The row's three buttons were constructed with
+`on_click=lambda k=key: (state.decisions.accept(k), render_all())`, reaching
+`state.decisions` directly and never `_announce_decision`. Only the four
+keyboard appliers announced. No guard over the row's labels, classes or colours
+could see it, and `tests/test_gui_announce.py` was green throughout: the
+announcement text and its cadence were always correct, and the gap was a call
+site that never reached them.
+
+`_decide_from_button` applies the decision, announces it and re-renders, and all
+three buttons are constructed with it. The row list is read **before** the
+decision is applied, the order the appliers already use: `_announce_decision`
+reads the track name and the position out of that list, and an accepted row
+leaves the Needs review filter, so a list read afterwards would announce the
+fallback key at a position of `len(rows)`.
+
+Re-served and driven, every route reaching the polite region with the
+pre-decision position:
+
+| Route | Read off the page |
+|---|---|
+| `Accept` button, pointer | `"archangel.mp3 accepted - 1 of 1 done"` |
+| `Reject` button, pointer | `"archangel.mp3 rejected - 1 of 1 done"` |
+| `Undo` button, pointer | `"archangel.mp3 undone - 1 of 1 done"` |
+| `u` key, trusted keypress | `"archangel.mp3 undone - 1 of 1 done"` |
+
+`tests/test_gui_review_row_controls.py::test_every_decision_button_announces_through_the_shared_path`
+pins the wiring, and its docstring records that a button wired straight to
+`state.decisions` is the defect it exists to catch.
+
+One measurement artifact worth carrying: a keypress delivered while the browser
+pane has lost keyboard focus reaches nothing at all - a `window` keydown
+listener recorded an empty array, and the wizard was correctly unchanged. A real
+click into the pane restores it. A reading taken in that state looks exactly
+like a broken key binding.
+
 ## What this record does not carry
 
-No screen reader was run. The live regions, their politeness and their text are
-read from the page in the earlier record; that assistive technology speaks them
-is still not evidenced.
+No screen reader was run, for the reason given above: none capable of producing
+a capturable transcript is installed. The live regions, their politeness and the
+text each announcement carries are read from the page and recorded above; that
+assistive technology speaks them is still not evidenced.

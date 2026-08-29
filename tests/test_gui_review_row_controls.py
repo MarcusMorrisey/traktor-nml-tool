@@ -114,3 +114,53 @@ def test_a_removed_undecided_branch_is_caught():
     mutated = source.replace("if decision == review_model.UNDECIDED:\n", "", 1)
     assert mutated != source, "fixture assumption stale: branch line not found"
     assert "if decision == review_model.UNDECIDED:" not in mutated
+
+
+def _decision_button_calls(source: str) -> dict:
+    """The on_click expression each of the three decision buttons is
+    constructed with, keyed by label."""
+    calls = {}
+    for label in ("Accept", "Reject", "Undo"):
+        marker = f'ui.button("{label}", on_click='
+        start = source.find(marker)
+        if start == -1:
+            continue
+        start += len(marker)
+        calls[label] = source[start:source.index(", color=None", start)]
+    return calls
+
+
+def test_every_decision_button_announces_through_the_shared_path():
+    """Specs fixes the announcement on the decision, not on the input
+    device - "each decision as it happens" - so a decision taken with
+    the pointer reaches the polite live region by the same path the
+    keyboard appliers use. Each of the three row buttons is constructed
+    with _decide_from_button, which applies the decision, calls
+    _announce_decision and re-renders.
+
+    A button wired straight to state.decisions is the defect this pins:
+    it applies the decision and re-renders, so the chip counts move and
+    the row redraws while nothing reaches either live region, and no
+    source-reading guard over labels, classes or colours can see it. It
+    was found by driving the served page, and the browser record
+    docs/2026-08-29-w004-focus-ring-record.md carries the reading.
+
+    Mutation control: restoring the direct form for Accept -
+    'lambda k=key: (state.decisions.accept(k), render_all())' - makes
+    _decision_button_calls return
+    'lambda k=key: (state.decisions.accept(k), render_all())' for
+    Accept, which carries no '_decide_from_button', so the first
+    assertion fails.
+
+    Observed on the module as it stands, the three on_click
+    expressions are 'lambda k=key: _decide_from_button(state, k,
+    "accepted", render_all)', '... "rejected" ...' and '... "undone"
+    ...'."""
+    calls = _decision_button_calls(_APP_PY.read_text(encoding="utf-8"))
+    assert sorted(calls) == ["Accept", "Reject", "Undo"]
+    for label, expression in calls.items():
+        assert "_decide_from_button" in expression, (label, expression)
+        assert "state.decisions." not in expression, (label, expression)
+    assert '"accepted"' in calls["Accept"]
+    assert '"rejected"' in calls["Reject"]
+    assert '"undone"' in calls["Undo"]

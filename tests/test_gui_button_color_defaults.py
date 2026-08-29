@@ -70,9 +70,9 @@ _EXPECTED_COLOR_BY_CALL = {
     '"Continue", on_click=go_to_scan': "None",
     'cancel_button = ui.button("Cancel"': "None",
     'start_button = ui.button("Start scan"': "None",
-    '"Accept", on_click=lambda k=key: (state.decisions.accept(k)': "None",
-    '"Reject", on_click=lambda k=key: (state.decisions.reject(k)': "None",
-    '"Undo", on_click=lambda k=key: (state.decisions.undo(k)': "None",
+    '"Accept", on_click=lambda k=key: _decide_from_button(state, k, "accepted"': "None",
+    '"Reject", on_click=lambda k=key: _decide_from_button(state, k, "rejected"': "None",
+    '"Undo", on_click=lambda k=key: _decide_from_button(state, k, "undone"': "None",
     'ui.button(filter_text,': "None",
     '"Continue to write", on_click=go_to_write': "None",
     'write_button = ui.button("Write output"': "None",
@@ -121,7 +121,7 @@ def test_a_dropped_colour_argument_is_caught():
     site, against the expected "None" (an explicit color=None
     argument) - two different things equality catches."""
     source = _APP_PY.read_text(encoding="utf-8")
-    anchor = '"Accept", on_click=lambda k=key: (state.decisions.accept(k)'
+    anchor = '"Accept", on_click=lambda k=key: _decide_from_button(state, k, "accepted"'
     start = source.index(anchor)
     end = start + _CALL_SPAN
     mutated_window = source[start:end].replace(", color=None", "", 1)

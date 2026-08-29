@@ -558,6 +558,36 @@ def _announce_decision(state: "_WizardPageState", key: str, decision: str, rows:
     state.polite_region.set_text(announce.decision_message(track_name, decision, position, len(rows)))
 
 
+# The WizardState method each decision name applies. A dict rather than a
+# branch chain, for the reason DL-080 gives for _ACTION_APPLIERS: there is
+# no branch an unnamed decision can fall through, so a name with no entry
+# raises here instead of silently deciding nothing.
+_BUTTON_DECISIONS = {
+    "accepted": lambda decisions, key: decisions.accept(key),
+    "rejected": lambda decisions, key: decisions.reject(key),
+    "undone": lambda decisions, key: decisions.undo(key),
+}
+
+
+def _decide_from_button(state: "_WizardPageState", key: str, decision: str, render_all) -> None:
+    """Applies a decision taken with the pointer and announces it, so a
+    row button reaches the polite live region by the same path
+    _applier_accept's keyboard route does - Specs fixes the
+    announcement on the decision, not on the input device
+    (Specs.dc.html, "Accessibility rules": each decision as it happens;
+    DL-083).
+
+    The row list is read before the decision is applied, the order the
+    appliers use: _announce_decision reads the track name and the
+    position out of it, and an accepted row leaves the Needs review
+    filter, so a list read afterwards would announce the fallback key
+    and a position of len(rows)."""
+    rows = _rows_for_filter(state, state.active_filter)
+    _BUTTON_DECISIONS[decision](state.decisions, key)
+    _announce_decision(state, key, decision, rows)
+    render_all()
+
+
 def _applier_move(state: "_WizardPageState", args: dict, render_all) -> None:
     state.focused_index = args["index"]
     render_all()
@@ -778,14 +808,14 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                         # any undo affordance at all.
                         with ui.row().classes("wizard-control-group"):
                             if decision == review_model.UNDECIDED:
-                                ui.button("Accept", on_click=lambda k=key: (state.decisions.accept(k), render_all()), color=None).props("dense").classes(
+                                ui.button("Accept", on_click=lambda k=key: _decide_from_button(state, k, "accepted", render_all), color=None).props("dense").classes(
                                     "wizard-control wizard-decision-control wizard-body-12 wizard-decision-accept"
                                 )
-                                ui.button("Reject", on_click=lambda k=key: (state.decisions.reject(k), render_all()), color=None).props("dense").classes(
+                                ui.button("Reject", on_click=lambda k=key: _decide_from_button(state, k, "rejected", render_all), color=None).props("dense").classes(
                                     "wizard-control wizard-decision-control wizard-body-12 wizard-tag-missing"
                                 )
                             else:
-                                ui.button("Undo", on_click=lambda k=key: (state.decisions.undo(k), render_all()), color=None).props("dense").classes(
+                                ui.button("Undo", on_click=lambda k=key: _decide_from_button(state, k, "undone", render_all), color=None).props("dense").classes(
                                     "wizard-control wizard-decision-control wizard-body-12"
                                 )
 
