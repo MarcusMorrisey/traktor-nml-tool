@@ -844,3 +844,51 @@ def test_a_planted_hash_comment_swallows_the_next_rule():
     assert ".wizard-dot" in mutated
     parsed_after = _parsed_wizard_selectors(mutated)
     assert "wizard-dot" not in parsed_after
+
+
+def _button_focus_ring_layers(sheet: str) -> list:
+    """The name of every layer whose block declares an !important
+    outline for .q-btn:focus-visible, read with tinycss2 rather than by
+    a regex over the emitted text."""
+    names = []
+    for rule in tinycss2.parse_stylesheet(sheet, skip_whitespace=True, skip_comments=True):
+        if rule.type != "at-rule" or rule.lower_at_keyword != "layer":
+            continue
+        layer = tinycss2.serialize(rule.prelude).strip()
+        for inner in tinycss2.parse_rule_list(rule.content, skip_whitespace=True, skip_comments=True):
+            if inner.type != "qualified-rule":
+                continue
+            if ".q-btn:focus-visible" not in tinycss2.serialize(inner.prelude):
+                continue
+            body = tinycss2.serialize(inner.content)
+            if "outline" in body and "!important" in body:
+                names.append(layer)
+    return names
+
+
+def test_button_focus_ring_declares_inside_quasars_own_layer():
+    """Specs' focus ring is never removed, and Quasar's q-btn carries
+    the no-outline class whose outline: 0 !important sits in a layer
+    Quasar names quasar_importants and orders last. For an !important
+    declaration the earlier layer wins, so the layer name is the whole
+    fix: re-opening quasar_importants reaches the control and any other
+    name does not.
+
+    This guard reads the emitted stylesheet and cannot see the cascade
+    that decides the question - the same blindness that let the
+    unlayered *:focus-visible rule read as matches while no button
+    painted a ring. The evidence is the served page, measured in
+    docs/2026-08-29-w004-focus-ring-record.md, and this pins the one
+    value that measurement turned on.
+
+    Mutation control: renaming the layer to a name declared after
+    Quasar's own - the case measured as losing on the served page -
+    makes _button_focus_ring_layers return ['wizard_overrides'] against
+    the ['quasar_importants'] asserted here, so the first assertion
+    fails. Dropping the layer wrapper entirely returns [].
+
+    Observed on the module as it stands: ['quasar_importants']."""
+    sheet = theme.page_stylesheet()
+    assert _button_focus_ring_layers(sheet) == ["quasar_importants"]
+    renamed = sheet.replace("@layer quasar_importants", "@layer wizard_overrides")
+    assert _button_focus_ring_layers(renamed) == ["wizard_overrides"]

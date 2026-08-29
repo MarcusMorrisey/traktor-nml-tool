@@ -186,6 +186,17 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    rather than one absorbing the other's job. */
 .wizard-decision-control {{ padding: 0 {SPACE_12}; }}
 *:focus-visible {{ outline: {FOCUS_RING}; outline-offset: {FOCUS_RING_OFFSET}; }}
+/* Quasar's q-btn carries the no-outline class, whose outline: 0
+   !important is declared inside a layer Quasar names quasar_importants
+   and orders last. For an !important declaration the earlier layer wins,
+   so an unlayered rule loses at every specificity and so does one in a
+   layer declared after it; a declaration re-opening Quasar's own layer
+   reaches the control. All four were measured on the served page
+   (docs/2026-08-29-w004-focus-ring-record.md). Specs' focus ring is
+   never removed, so this is where DL-086's rung two lands for it. */
+@layer quasar_importants {{
+  .q-btn:focus-visible {{ outline: {FOCUS_RING} !important; outline-offset: {FOCUS_RING_OFFSET} !important; }}
+}}
 @media (prefers-reduced-motion: reduce) {{
   .q-spinner, .q-linear-progress__model {{ animation: none !important; }}
 }}

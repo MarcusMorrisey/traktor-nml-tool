@@ -753,6 +753,18 @@ statement of the same decision would only give it two copies to drift apart.
   `test_jump_to_search_has_no_entry` pins the omission executably
   (DL-089). (`keymap.py`'s ENTRIES comment carries the same
   cross-reference.)
+- Specs' focus ring reaches a `q-btn` only from inside the layer
+  Quasar names `quasar_importants`, so `page_stylesheet()` keeps its
+  unlayered `*:focus-visible` rule for every other focusable element
+  and re-opens that layer for `.q-btn:focus-visible`. Quasar gives
+  every `q-btn` the `no-outline` class, whose `outline: 0 !important`
+  is declared in that layer, and the page orders it last; for an
+  `!important` declaration the earlier layer wins, so an unlayered
+  rule loses at every specificity and so does one in a layer declared
+  after it. Both were measured on the served page, with the layered
+  form the only `add_head_html` shape that paints the ring, so this is
+  where DL-086's rung two lands for the ring rather than a DL-087
+  shortfall (DL-090).
 
 ## Invariants
 
