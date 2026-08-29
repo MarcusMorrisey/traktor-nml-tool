@@ -12,6 +12,8 @@ import ast
 import re
 from pathlib import Path
 
+import tinycss2
+
 from traktor_nml.gui import theme
 
 _HEX_LITERAL = re.compile(r"#[0-9A-Fa-f]{6}\b")
@@ -316,6 +318,38 @@ def test_two_font_size_classes_on_one_call_is_caught():
     assert len(used) > 1
 
 
+# wizard-heading-lg is the one class this guard does not require app.py
+# to use: TYPE_23/wizard-heading-lg is restored byte-for-byte from the
+# baseline commit because Success.dc.html:48's .hero h1 measures 23px
+# and DL-078 keeps every measured type step theme.py names regardless
+# of current wiring, but no milestone in this plan builds a Success
+# step for that heading to attach to. Named here explicitly, one entry
+# at a time, rather than by a pattern (e.g. every wizard-heading-*)
+# that could let an unrelated, genuinely-forgotten class slip through
+# unnoticed under the same excuse.
+_KNOWN_UNATTACHED_CLASSES = {"wizard-heading-lg"}
+
+
+def test_every_wizard_class_reaches_app_py():
+    """The positive case test_a_withheld_class_is_caught's mutation control checks: every .wizard-* class page_stylesheet() defines, except _KNOWN_UNATTACHED_CLASSES's one documented entry, appears somewhere in app.py's source."""
+    source = _APP_PY.read_text(encoding="utf-8")
+    missing = [
+        name for name in _stylesheet_classes()
+        if name not in source and name not in _KNOWN_UNATTACHED_CLASSES
+    ]
+    assert missing == [], f"stylesheet defines a class app.py never uses: {missing}"
+
+
+def test_a_withheld_class_is_caught():
+    """Mutation: every occurrence of 'wizard-title' is stripped out of
+    a copy of app.py's real source. Observed: scanning the mutated
+    copy for the literal name, the way
+    test_every_wizard_class_reaches_app_py scans the real file, finds
+    zero occurrences."""
+    source = _APP_PY.read_text(encoding="utf-8").replace("wizard-title", "")
+    assert "wizard-title" not in source
+
+
 _DESIGN_SET = Path(__file__).resolve().parent.parent / "design" / "reconnect-wizard"
 _HEX_IN_DESIGN = re.compile(r"#[0-9A-Fa-f]{6}")
 
@@ -357,6 +391,76 @@ def test_a_colour_missing_from_theme_is_caught():
     without_ground = _theme_colours() - {theme.GROUND.upper()}
     unnamed = sorted(design - without_ground)
     assert unnamed == [theme.GROUND.upper()]
+
+
+_FONT_SIZE_PX = re.compile(r"font(?:-size)?:\s*(?:\d+\s+)?(\d+(?:\.\d+)?px)")
+
+
+def _design_set_font_sizes() -> set:
+    """Every px font-size the artboards specify, read from the design
+    set at test time rather than from a list transcribed into this
+    file - both a bare font-size: declaration and a size embedded in a
+    font: shorthand (theme.py's own TYPE_15/21/30/40 comment notes the
+    same shorthand exists), and an inline style="font-size:...px"
+    attribute alike, so a type step added to an artboard cannot pass
+    unnoticed the way TYPE_17 did."""
+    found = set()
+    for artboard in sorted(_DESIGN_SET.glob("*.dc.html")):
+        found.update(_FONT_SIZE_PX.findall(artboard.read_text(encoding="utf-8")))
+    return found
+
+
+def _theme_font_sizes() -> set:
+    return {
+        value
+        for name, value in vars(theme).items()
+        if name.isupper() and isinstance(value, str) and re.fullmatch(r"\d+(\.\d+)?px", value)
+    }
+
+
+def _unnamed_sizes(design: set, theme_sizes: set) -> list:
+    """The one place that decides which design-set sizes theme.py
+    fails to name; both the real guard and its mutation control call
+    this rather than each re-implementing the set difference."""
+    return sorted(design - theme_sizes, key=lambda s: float(s[:-2]))
+
+
+# 10.5px is the one design-set font-size this guard does not require a
+# theme.py token for: Specs.dc.html:277 uses it once, inline, to style
+# the literal words "build-playlist" inside a "not in Phase 1"
+# scope-fence aside - prose about a future, out-of-scope command, not
+# a step of this wizard's own type scale. Named here by its exact
+# value and reason, not by a rule like "ignore anything under 11px",
+# which would silently swallow a real, future token the same way.
+_KNOWN_UNNAMED_FONT_SIZES = {"10.5px"}
+
+
+def test_every_design_set_font_size_is_named_in_theme():
+    """Every font-size the design set specifies, except
+    _KNOWN_UNNAMED_FONT_SIZES's one documented entry, has a token in
+    theme.py - the type-scale equivalent of
+    test_every_design_set_colour_is_named_in_theme, whose absence let
+    TYPE_17 get deleted along with .wizard-heading-xs without any
+    guard catching that a type step the artboards use had gone
+    missing."""
+    design = _design_set_font_sizes()
+    assert design, "no font sizes read from the design set - check the glob"
+    unnamed = _unnamed_sizes(design, _theme_font_sizes() | _KNOWN_UNNAMED_FONT_SIZES)
+    assert unnamed == [], f"design set specifies a font-size theme.py does not name: {unnamed}"
+
+
+def test_a_font_size_missing_from_theme_is_caught():
+    """Mutation: a synthetic theme-sizes set with 30px removed is
+    compared against a synthetic design-sizes set of {12px, 30px} -
+    isolated from the real design set, so this stays a controlled
+    check of _unnamed_sizes' own arithmetic rather than depending on
+    whatever test_every_design_set_font_size_is_named_in_theme finds
+    against the real design set at the time this runs. Observed:
+    _unnamed_sizes reports ['30px'] as unnamed."""
+    design = {"12px", "30px"}
+    theme_sizes_without_30 = {"12px"}
+    unnamed = _unnamed_sizes(design, theme_sizes_without_30)
+    assert unnamed == ["30px"]
 
 
 
@@ -577,6 +681,77 @@ def test_text_tokens_without_a_derived_surface_clear_the_floor():
     assert below == [], f"unpaired text token below the floor on {lightest}: {below}"
 
 
+_TAG_ACTION_HEIGHT = re.compile(r"\.wizard-tag-action(?:-outline)?\s*\{([^}]*)\}")
+_HEIGHT_DECL = re.compile(r"(?<!min-)(?<!-)\bheight:\s*(\S+?);")
+
+
+def _tag_action_heights() -> dict:
+    """Every .wizard-tag-action(-outline) rule's own height:
+    declaration, read from the emitted stylesheet rather than
+    transcribed - both chip classes carry a real border on top of
+    .wizard-control's min-height, so an explicit height: is what
+    clamps the box to CONTROL_HEIGHT once that border and the dense
+    button's padding would otherwise push it taller (measured 34px on
+    the served page before this rule existed)."""
+    sheet = theme.page_stylesheet()
+    heights = {}
+    for selector in ("wizard-tag-action", "wizard-tag-action-outline"):
+        match = re.search(rf"\.{selector}\s*\{{([^}}]*)\}}", sheet)
+        assert match, f".{selector} rule not found in the stylesheet"
+        found = _HEIGHT_DECL.search(match.group(1))
+        heights[selector] = found.group(1) if found else None
+    return heights
+
+
+def test_filter_chip_classes_fix_control_height():
+    """Both filter-chip classes carry an explicit height: at
+    CONTROL_HEIGHT, not merely the inherited min-height: - a border on
+    top of dense padding otherwise grows the box past 32px regardless
+    of min-height, which only floors a box, never caps one."""
+    heights = _tag_action_heights()
+    assert heights == {
+        "wizard-tag-action": theme.CONTROL_HEIGHT,
+        "wizard-tag-action-outline": theme.CONTROL_HEIGHT,
+    }
+
+
+def test_a_missing_chip_height_declaration_is_caught():
+    """Mutation: the height: declaration is stripped from a copy of
+    the real .wizard-tag-action rule's body, standing in for the
+    regression this guard exists to catch. Observed: the same
+    _HEIGHT_DECL search test_filter_chip_classes_fix_control_height
+    uses finds no match against that stripped body."""
+    sheet = theme.page_stylesheet()
+    match = re.search(r"\.wizard-tag-action\s*\{([^}]*)\}", sheet)
+    stripped_body = match.group(1).replace(f"height: {theme.CONTROL_HEIGHT};", "")
+    assert _HEIGHT_DECL.search(stripped_body) is None
+
+
+def test_control_group_class_fixes_control_gap():
+    """.wizard-control-group carries CONTROL_GAP as its gap: -
+    app.py groups the Review row's A/R/U buttons under this class
+    instead of the row's own wider gap, so the 8px between them comes
+    from the same token the row controls' own height does, rather
+    than a bare Tailwind utility a future edit could drift from it."""
+    sheet = theme.page_stylesheet()
+    match = re.search(r"\.wizard-control-group\s*\{([^}]*)\}", sheet)
+    assert match, ".wizard-control-group rule not found in the stylesheet"
+    found = re.search(r"\bgap:\s*(\S+?);", match.group(1))
+    assert found is not None
+    assert found.group(1) == theme.CONTROL_GAP
+
+
+def test_a_missing_control_group_gap_is_caught():
+    """Mutation: the gap: declaration is stripped from a copy of the
+    real .wizard-control-group rule's body. Observed: the same gap:
+    search test_control_group_class_fixes_control_gap uses finds no
+    match against that stripped body."""
+    sheet = theme.page_stylesheet()
+    match = re.search(r"\.wizard-control-group\s*\{([^}]*)\}", sheet)
+    stripped_body = match.group(1).replace(f"gap: {theme.CONTROL_GAP};", "")
+    assert re.search(r"\bgap:\s*(\S+?);", stripped_body) is None
+
+
 def test_an_unpaired_token_below_the_floor_is_caught():
     """Mutation: a stand-in stylesheet paints .wizard-inactive in
     #6E767D, a grey under the floor, and the selection runs against
@@ -595,3 +770,77 @@ def test_an_unpaired_token_below_the_floor_is_caught():
     unpaired = sorted(painted - {fg for fg, _ in _derived_text_pairs()})
     assert planted.upper() in unpaired
     assert _contrast_ratio(planted, lightest) < 4.5
+
+
+# GUARD - page_stylesheet()'s emitted string is not the same thing as
+# the CSS a browser parses from it. A Python "# comment" line emitted
+# verbatim into the CSS string is not a CSS comment - "#" opens an ID
+# selector - so a real CSS parser reads the comment text as a
+# malformed selector and swallows the *next* rule as its own
+# declaration block: the rule's exact text is still present in the
+# string, and every guard above that greps the string as text (this
+# includes test_every_status_and_action_token_reaches_the_stylesheet
+# and test_every_wizard_class_reaches_app_py) cannot see that it never
+# reached the parsed stylesheet at all. Twelve such "#" lines, three
+# swallowed rules (wizard-decision-control, wizard-decision-accept,
+# wizard-body-12), were served this way before being converted to
+# CSS's own /* ... */ comment syntax.
+def _parsed_wizard_selectors(sheet: str) -> set:
+    """Every top-level .wizard-* class selector tinycss2 - a real CSS
+    parser, not a regex - actually parses as a qualified rule's own
+    prelude. A descendant or pseudo-class selector (e.g.
+    '.wizard-tag-found strong') is not a bare class selector and is
+    excluded, the same restriction _CLASS_RULE's own regex applies."""
+    selectors = set()
+    for rule in tinycss2.parse_stylesheet(sheet, skip_whitespace=True, skip_comments=True):
+        if rule.type != "qualified-rule":
+            continue
+        prelude = tinycss2.serialize(rule.prelude).strip()
+        for selector in prelude.split(","):
+            match = re.fullmatch(r"\.(wizard-[\w-]+)", selector.strip())
+            if match:
+                selectors.add(match.group(1))
+    return selectors
+
+
+def test_stylesheet_parses_with_no_css_errors():
+    """page_stylesheet()'s emitted string parses as valid CSS with
+    zero errors from tinycss2 - a real parser, not the string-level
+    reading every other guard in this file does."""
+    sheet = theme.page_stylesheet()
+    errors = [r for r in tinycss2.parse_stylesheet(sheet, skip_whitespace=True, skip_comments=True) if r.type == "error"]
+    assert errors == [], f"stylesheet failed to parse: {[e.message for e in errors]}"
+
+
+def test_every_wizard_class_the_text_finds_is_actually_parsed():
+    """Every top-level .wizard-* class _stylesheet_classes() finds by
+    reading the emitted string is also reachable as tinycss2's own
+    parsed selector - the direction no text-only guard in this file
+    can check, since a rule can be present in the string and absent
+    from the parsed stylesheet, which is exactly what happened to
+    wizard-decision-control, wizard-decision-accept and
+    wizard-body-12 here."""
+    sheet = theme.page_stylesheet()
+    text_classes = set(_stylesheet_classes())
+    parsed_classes = _parsed_wizard_selectors(sheet)
+    missing = sorted(text_classes - parsed_classes)
+    assert missing == [], f"class present in the stylesheet text but not parsed as a real rule: {missing}"
+
+
+def test_a_planted_hash_comment_swallows_the_next_rule():
+    """Mutation: a Python-style '# a stray python-style comment' line
+    - not CSS syntax - is planted immediately before a copy of the
+    real .wizard-dot rule's text, reproducing the exact defect twelve
+    such lines caused here. Observed: tinycss2 parses zero
+    wizard-dot selectors from the mutated sheet - the "#" line is read
+    as a malformed ID selector that swallows the following rule as its
+    own declaration block - while the substring '.wizard-dot' is still
+    present in the mutated string, the gap a text-only reading could
+    never see."""
+    sheet = theme.page_stylesheet()
+    anchor = ".wizard-dot { background:"
+    assert anchor in sheet, "fixture assumption stale: .wizard-dot rule not found"
+    mutated = sheet.replace(anchor, "# a stray python-style comment\n" + anchor, 1)
+    assert ".wizard-dot" in mutated
+    parsed_after = _parsed_wizard_selectors(mutated)
+    assert "wizard-dot" not in parsed_after

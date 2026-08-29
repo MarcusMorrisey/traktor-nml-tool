@@ -14,10 +14,21 @@ import pytest
 
 from traktor_nml import reconnect_run
 from traktor_nml.gui import wizard_state as wizard_state_module
-from traktor_nml.gui.wizard_state import WizardState, amended_result, apply, fingerprint_control_state, write_refusal
+from traktor_nml.gui.wizard_state import (
+    WizardState,
+    amended_result,
+    apply,
+    build_volume_map,
+    default_volume_identity,
+    fingerprint_control_state,
+    write_refusal,
+    write_refusal_sentence,
+)
+from traktor_nml.rewrite import output_collision_refusal
 from traktor_nml.model import EntryRecord, LocationParts
 from traktor_nml.reconnect_run import ReconnectResult
 from traktor_nml.review import CandidateView, RecordReview
+from traktor_nml.volumes import VolumeIdentityError, parse_volume_map, resolve_volume_identity
 
 
 def _record(file_name: str, volume: str = "Z:", volumeid: str = "Z:", dirv: str = "/:gone/:", source_path: Path | None = None) -> EntryRecord:
@@ -332,6 +343,51 @@ def test_write_refusal_reports_the_collision_reason(tmp_path: Path) -> None:
     assert write_refusal(same, tmp_path / "different.nml") is None
 
 
+def test_write_refusal_sentence_covers_the_real_token(tmp_path: Path) -> None:
+    """write_refusal_sentence names an operator-facing sentence, not
+    the bare diagnostic token, for the one refusal token
+    output_collision_refusal (rewrite.py) can actually return -
+    constructed here the same way write_refusal does at the write
+    core (two paths resolving to the same file), not transcribed as a
+    literal string, so a change to that token's spelling would show up
+    here too."""
+    same = tmp_path / "collection.nml"
+    token = output_collision_refusal(same, same)
+    assert token is not None
+    sentence = write_refusal_sentence(token)
+    assert sentence != token
+    assert "Output collection path" in sentence
+    assert "Set up" in sentence
+
+
+def test_an_unmapped_refusal_token_falls_back_rather_than_raising() -> None:
+    """A token _WRITE_REFUSAL_SENTENCES was never given a sentence for
+    still returns a visible string rather than raising - the Write
+    step's own render() must not crash if this mapping and
+    output_collision_refusal's real return values ever drift apart
+    despite the guard below."""
+    sentence = write_refusal_sentence("a_token_nobody_mapped")
+    assert sentence == "Write refused: a_token_nobody_mapped"
+
+
+def test_a_missing_sentence_for_the_real_token_is_caught(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mutation: wizard_state's real _WRITE_REFUSAL_SENTENCES dict is
+    patched to one with its only entry (output_must_differ_from_input)
+    removed, standing in for a forgotten mapping the day
+    output_collision_refusal gains a second token. Observed:
+    write_refusal_sentence, called with the same token
+    output_collision_refusal actually returns, falls back to
+    'Write refused: output_must_differ_from_input' instead of the real
+    operator sentence test_write_refusal_sentence_covers_the_real_token
+    checks for."""
+    same = tmp_path / "collection.nml"
+    token = output_collision_refusal(same, same)
+    monkeypatch.setattr(wizard_state_module, "_WRITE_REFUSAL_SENTENCES", {})
+    assert write_refusal_sentence(token) == f"Write refused: {token}"
+
+
 def test_amended_result_carries_everything_but_mapping() -> None:
     """amended_result over an empty decision set is equal field for
     field to the result passed in; over a decision set rejecting one
@@ -420,3 +476,95 @@ def test_fingerprint_control_state_negative_control_unconditional_probe_call(mon
     # The real implementation does not raise in this state.
     state = fingerprint_control_state()
     assert state.enabled is False
+
+
+def test_build_volume_map_shape_matches_parse_volume_map_and_resolves() -> None:
+    """build_volume_map's output feeds parse_volume_map (the same
+    function reconnect_run.py:159 calls with args.volume_map) without
+    reshaping, and the resulting mapping resolves a scan root through
+    resolve_volume_identity with no old-collection records to infer
+    from - the exact situation the wizard hits on every real reconnect,
+    since the mapping always wins when the root matches.
+
+    Run with scan_roots=[Path("C:/music")] and
+    entries=[("C:", "C:")]: build_volume_map returns
+    [["C:\\music", "C:", "C:"]] (observed), which parse_volume_map turns
+    into {"C:\\music": ("C:", "C:")}, and resolve_volume_identity(root,
+    [], that_map) returns ("C:", "C:") rather than raising, even though
+    old_records is empty and prefix inference alone would find nothing
+    to agree on.
+    """
+    root = Path("C:/music")
+    triples = build_volume_map([root], [("C:", "C:")])
+    assert triples == [[str(root), "C:", "C:"]]
+
+    resolved_map = parse_volume_map(triples)
+    assert resolved_map == {str(root): ("C:", "C:")}
+    assert resolve_volume_identity(root, [], resolved_map) == ("C:", "C:")
+
+
+def test_build_volume_map_omits_blank_pairs_and_returns_none_when_all_blank() -> None:
+    """A scan root whose VOLUME/VOLUMEID boxes were never filled in must
+    not reach parse_volume_map as an empty-string triple - that would
+    make resolve_volume_identity match and return ("", ""), a wrong
+    identity, instead of falling through to prefix inference or its
+    hard error.
+
+    Run with scan_roots=[Path("C:/music"), Path("D:/audio")] and
+    entries=[("C:", "C:"), ("", "")]: build_volume_map returns
+    [["C:\\music", "C:", "C:"]] (observed) - the second, blank pair is
+    dropped rather than sent as ["D:\\audio", "", ""].
+
+    Run again with both pairs blank
+    (entries=[("", ""), ("", "")]): build_volume_map returns None
+    (observed), not [] - matching parse_volume_map's own entries=None
+    default, so the wizard's args.volume_map is None exactly when the
+    operator supplied nothing, the same absence
+    test_absent_volume_map_and_ambiguous_prefix_is_hard_error
+    (tests/test_reconnect.py) exercises as a hard error.
+    """
+    music = Path("C:/music")
+    audio = Path("D:/audio")
+
+    partial = build_volume_map([music, audio], [("C:", "C:"), ("", "")])
+    assert partial == [[str(music), "C:", "C:"]]
+
+    all_blank = build_volume_map([music, audio], [("", ""), ("", "")])
+    assert all_blank is None
+
+
+def test_scan_root_without_a_mapping_raises_while_a_mapped_root_resolves() -> None:
+    """Same scan root, same (empty) old_records: with a volume_map entry
+    resolve_volume_identity resolves it; without one it raises - the
+    hard-error contract resolve_volume_identity's own docstring states
+    ("no observations ... raises, naming scan_root") and this wizard
+    hits on every real reconnect, since the premise is that the files
+    moved and no old record's decoded path sits under the scan root.
+
+    Run with root=Path("C:/music"), old_records=[]: resolve_volume_identity(
+    root, [], {"C:\\music": ("C:", "C:")}) returns ("C:", "C:")
+    (observed); resolve_volume_identity(root, [], None) raises
+    VolumeIdentityError with message
+    "volume_identity_ambiguous scan_root=C:/music observed_pairs=[]; pass --volume-map"
+    (observed).
+    """
+    root = Path("C:/music")
+    mapped = resolve_volume_identity(root, [], {str(root): ("C:", "C:")})
+    assert mapped == ("C:", "C:")
+
+    with pytest.raises(VolumeIdentityError, match=r"volume_identity_ambiguous scan_root=C:/music observed_pairs=\[\]"):
+        resolve_volume_identity(root, [], None)
+
+
+def test_default_volume_identity_uses_scan_roots_anchor() -> None:
+    """default_volume_identity's guess is the scan root's own filesystem
+    anchor, used for both VOLUME and VOLUMEID, trimmed of the trailing
+    separator Path.anchor carries on Windows - matching the VOLUME/
+    VOLUMEID convention tests/test_reconnect.py's own --volume-map
+    triples use (e.g. --volume-map <root> C: C:).
+
+    Run with scan_root=Path("C:/music"): default_volume_identity returns
+    ("C:", "C:") (observed) - Path("C:/music").anchor is "C:\\", and
+    rstrip("\\\\/") trims it to "C:".
+    """
+    assert default_volume_identity(Path("C:/music")) == ("C:", "C:")

@@ -139,11 +139,83 @@ def amended_result(result: ReconnectResult, decisions: WizardState) -> Reconnect
     return replace(result, mapping=apply(result, decisions))
 
 
+def default_volume_identity(scan_root: Path) -> tuple[str, str]:
+    """The Set up step's starting guess for one scan root's VOLUME and
+    VOLUMEID boxes: its filesystem anchor (e.g. "C:" on Windows, "/" on
+    POSIX) used for both fields, trimmed of the trailing separator
+    Path.anchor carries on Windows ("C:\\" -> "C:") so the guess matches
+    the VOLUME/VOLUMEID strings tests/test_reconnect.py's own
+    --volume-map triples use (e.g. --volume-map <root> C: C:), rather
+    than a value nothing else in this codebase writes. Falls back to the
+    untrimmed anchor when trimming empties it (a POSIX root's anchor is
+    just "/"), so a POSIX scan root still gets a non-blank guess."""
+    anchor = Path(scan_root).anchor
+    trimmed = anchor.rstrip("\\/")
+    value = trimmed or anchor
+    return (value, value)
+
+
+def build_volume_map(
+    scan_roots: list[Path], entries: list[tuple[str, str]]
+) -> Optional[list[list[str]]]:
+    """The Set up step's per-scan-root VOLUME/VOLUMEID box pairs turned
+    into the triple shape parse_volume_map (traktor_nml/volumes.py:83)
+    accepts: one [scan_root, volume, volumeid] list per scan_roots entry
+    whose paired box in entries (same order, zipped positionally) holds
+    a non-blank value in both fields. A pair left blank in either box is
+    omitted rather than sent as an empty-string triple, so
+    resolve_volume_identity falls through to its own prefix inference -
+    or its hard error - for that root instead of matching an empty
+    VOLUME/VOLUMEID that was never a real identity. Returns None, not
+    [], when no scan root produced an entry at all, matching
+    parse_volume_map's own entries=None default and reconnect_run's
+    args.volume_map contract (_build_args, traktor_nml/gui/app.py)."""
+    triples = [
+        [str(root), volume.strip(), volumeid.strip()]
+        for root, (volume, volumeid) in zip(scan_roots, entries)
+        if volume.strip() and volumeid.strip()
+    ]
+    return triples or None
+
+
 def write_refusal(input_path: Path, output_path: Path, extra_inputs: tuple[Path, ...] = ()) -> Optional[str]:
     """The Write control's inline reason, or None when the write is not
     refused - the same rule output_collision_refusal enforces at the
     write core, asked here before any work is done."""
     return output_collision_refusal(input_path, output_path, extra_inputs)
+
+
+# output_collision_refusal (rewrite.py) has exactly one non-None return
+# value - "output_must_differ_from_input", raised when output_path
+# resolves to input_path or to any path in extra_inputs; it never
+# returns any other string. Errors.dc.html names the same defect under
+# its own token, output_collides_with_input (a different literal than
+# this codebase's own token, so the two are cited as the same finding
+# rather than the same string), with the heading "That would overwrite
+# the collection you are repairing" and the fix "Choose another
+# file...". This dict is total over output_collision_refusal's actual
+# return values, not partial: a token this map does not name is a
+# programming error in this module, not a reachable operator-facing
+# state, which is what tests/test_gui_wizard_state.py's guard pins.
+_WRITE_REFUSAL_SENTENCES = {
+    "output_must_differ_from_input": (
+        "The output path is the same file this run reads from. "
+        "Set a different path in Output collection path, on Set up."
+    ),
+}
+
+
+def write_refusal_sentence(token: str) -> str:
+    """The operator-facing sentence for one write_refusal() token -
+    naming what is wrong and which control fixes it, rather than the
+    bare diagnostic token write_refusal() itself returns (which stays
+    unchanged, for a log line or a guard pinning the predicate's own
+    return value - this function only decides what the Write step
+    renders). Falls back to naming the raw token rather than raising,
+    so an unmapped token - which _WRITE_REFUSAL_SENTENCES' own guard
+    exists to prevent - degrades to a bare but visible label instead
+    of an unhandled exception breaking the Write step's render."""
+    return _WRITE_REFUSAL_SENTENCES.get(token, f"Write refused: {token}")
 
 
 @dataclass(frozen=True)

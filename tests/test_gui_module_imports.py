@@ -127,13 +127,14 @@ def _clear_app_bytecode_cache(app_path) -> None:
     importlib.invalidate_caches()
 
 
-def test_broken_volumeidentityerror_import_is_caught() -> None:
+def test_broken_reconnectresult_import_is_caught() -> None:
     """Negative control: temporarily rewrites app.py's source in place
-    to the actual bug this guard exists to catch - importing
-    VolumeIdentityError from ..rewrite instead of ..volumes - reads it
-    back into the module cache the same way the guard above does, and
-    records the specific ImportError observed before restoring the
-    file's original text (kept in memory, never via `git checkout`).
+    to the same shape of bug this guard exists to catch - importing
+    ReconnectResult from ..rewrite instead of ..reconnect_run, where no
+    such name exists - reads it back into the module cache the same way
+    the guard above does, and records the specific ImportError observed
+    before restoring the file's original text (kept in memory, never via
+    `git checkout`).
     """
     app_path = (
         __import__("pathlib").Path(__file__).parent.parent
@@ -141,10 +142,15 @@ def test_broken_volumeidentityerror_import_is_caught() -> None:
         / "gui"
         / "app.py"
     )
-    original_source = app_path.read_text(encoding="utf-8")
+    # newline="" on every leg of the round trip: app.py is 100% CRLF,
+    # and text mode without it reads the endings away and writes back
+    # os.linesep, which restores CRLF only on a host where os.linesep
+    # is CRLF. Reading and writing verbatim keeps the restore correct
+    # by construction rather than by host.
+    original_source = app_path.read_text(encoding="utf-8", newline="")
     broken_source = original_source.replace(
-        "from ..volumes import VolumeIdentityError",
-        "from ..rewrite import VolumeIdentityError",
+        "from ..reconnect_run import ReconnectResult",
+        "from ..rewrite import ReconnectResult",
         1,
     )
     assert broken_source != original_source, "expected import line not found in app.py"
@@ -152,15 +158,15 @@ def test_broken_volumeidentityerror_import_is_caught() -> None:
     _uninstall_framework_stubs_and_gui_modules()
     _install_nicegui_stub()
     try:
-        app_path.write_text(broken_source, encoding="utf-8")
+        app_path.write_text(broken_source, encoding="utf-8", newline="")
         _clear_app_bytecode_cache(app_path)
         _uninstall_framework_stubs_and_gui_modules()
         _install_nicegui_stub()
         with pytest.raises(ImportError) as excinfo:
             importlib.import_module("traktor_nml.gui.app")
-        assert "VolumeIdentityError" in str(excinfo.value)
+        assert "ReconnectResult" in str(excinfo.value)
         assert "traktor_nml.rewrite" in str(excinfo.value)
     finally:
-        app_path.write_text(original_source, encoding="utf-8")
+        app_path.write_text(original_source, encoding="utf-8", newline="")
         _clear_app_bytecode_cache(app_path)
         _uninstall_framework_stubs_and_gui_modules()

@@ -117,10 +117,19 @@ SPACE_4 = "4px"
 SPACE_8 = "8px"
 SPACE_9 = "9px"
 SPACE_10 = "10px"
+# Review.dc.html:35's .btn.sm padding (0 12px) - the row decision
+# controls' own padding, distinct from CONTROL_GAP's 8px between them.
+SPACE_12 = "12px"
+# Scanning.dc.html:53's .tile own padding (11px 12px) and internal gap
+# (5px, between its value and its key).
+SPACE_5 = "5px"
+SPACE_11 = "11px"
 RADIUS_SM = "4px"
 RADIUS_MD = "5px"
 RADIUS_LG = "6px"
 RADIUS_XL = "8px"
+# Scanning.dc.html:53's .tile own border-radius.
+RADIUS_7 = "7px"
 
 FONT_SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
 FONT_MONO = "'IBM Plex Mono', ui-monospace, Consolas, monospace"
@@ -138,6 +147,15 @@ FOCUS_RING_OFFSET = "2px"
 # the dense table buttons; where Quasar's own q-btn min-height wins
 # instead, the rung-two override and any surviving framework shortfall
 # are recorded under Framework shortfalls in traktor_nml/README.md (DL-087).
+# .wizard-control also carries white-space: nowrap - no .btn/.btn-pri
+# rule in the design set (Results.dc.html:39-40; Confirm.dc.html's own
+# copy of the same rule) sets an explicit width for a control, relying
+# instead on inline-flex's own shrink-to-fit sizing to keep a label on
+# one line; min-height alone cannot recover a label Quasar's own
+# flex-wrap: wrap on .q-btn__content has already wrapped onto a second
+# line once some narrower width forces it (measured 56.03px on a
+# two-word label against Specs' 32px), so this stops the wrap itself
+# instead.
 CONTROL_HEIGHT = "32px"
 CONTROL_GAP = SPACE_8
 
@@ -161,7 +179,12 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-status-missing {{ color: {STATUS_NOT_FOUND}; }}
 .wizard-action {{ color: {ACTION}; }}
 .wizard-kbd {{ font: 500 {TYPE_11}/1 {FONT_MONO}; background: {SURFACE_4}; border: 1px solid {BORDER_STRONG}; border-bottom-width: 2px; border-radius: {RADIUS_SM}; padding: 3px 5px; color: {TEXT}; }}
-.wizard-control {{ min-height: {CONTROL_HEIGHT}; margin-bottom: {CONTROL_GAP}; }}
+.wizard-control {{ min-height: {CONTROL_HEIGHT}; margin-bottom: {CONTROL_GAP}; white-space: nowrap; }}
+.wizard-control-group {{ display: flex; align-items: center; gap: {CONTROL_GAP}; }}
+/* Review.dc.html:35's .btn.sm padding (0 12px), distinct from
+   .wizard-control's own height/nowrap-only rule so the two compose
+   rather than one absorbing the other's job. */
+.wizard-decision-control {{ padding: 0 {SPACE_12}; }}
 *:focus-visible {{ outline: {FOCUS_RING}; outline-offset: {FOCUS_RING_OFFSET}; }}
 @media (prefers-reduced-motion: reduce) {{
   .q-spinner, .q-linear-progress__model {{ animation: none !important; }}
@@ -181,26 +204,45 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-dot {{ background: {NEUTRAL_INACTIVE}; }}
 .wizard-tag-found {{ background: {STATUS_FOUND_TINT_BG}; border: 1px solid {STATUS_FOUND_TINT_BORDER}; color: {STATUS_FOUND_TINT_TEXT}; }}
 .wizard-tag-found strong {{ color: {STATUS_FOUND_STRONG}; }}
+/* Review.dc.html:37's .btn-ok: the same background and border tokens
+   as wizard-tag-found's own tinted surface, but its text carries
+   STATUS_FOUND directly rather than STATUS_FOUND_TINT_TEXT - a button
+   reads at the brighter status hue Review.dc.html fixes for it, not
+   the softer tag-chip text weight wizard-tag-found's own text colour
+   is tuned for. Every value here is an existing constant; this is a
+   new combination of them, not a new one. */
+.wizard-decision-accept {{ background: {STATUS_FOUND_TINT_BG}; border: 1px solid {STATUS_FOUND_TINT_BORDER}; color: {STATUS_FOUND}; }}
 .wizard-tag-review {{ background: {STATUS_NEEDS_REVIEW_TINT_BG}; border: 1px solid {STATUS_NEEDS_REVIEW_STRONG}; }}
 .wizard-tag-review.alt {{ background: {STATUS_NEEDS_REVIEW_TINT_BG_ALT}; }}
 .wizard-tag-review strong {{ color: {STATUS_NEEDS_REVIEW}; }}
 .wizard-tag-missing {{ background: {STATUS_NOT_FOUND_TINT_BG}; border: 1px solid {STATUS_NOT_FOUND_STRONG}; color: {STATUS_NOT_FOUND_TINT_TEXT}; }}
 .wizard-tag-missing strong {{ color: {STATUS_NOT_FOUND}; }}
-.wizard-tag-action {{ background: {ACTION_TINT_BG}; border: 1px solid {ACTION_TINT_BORDER}; color: {ACTION_TINT_TEXT}; }}
+.wizard-tag-action {{ background: {ACTION_TINT_BG}; border: 1px solid {ACTION_TINT_BORDER}; color: {ACTION_TINT_TEXT}; box-sizing: border-box; height: {CONTROL_HEIGHT}; }}
 .wizard-tag-action.alt {{ background: {ACTION_TINT_BG_ALT}; border-color: {ACTION_TINT_BORDER_ALT}; color: {ACTION_TINT_TEXT_ALT}; }}
 .wizard-tag-action strong {{ color: {ACTION_STRONG}; }}
 .wizard-panel {{ background: {SURFACE_4}; border: 1px solid {BORDER_SUBTLE_4}; border-radius: {RADIUS_MD}; padding: {SPACE_9} {SPACE_10}; }}
+/* Scanning.dc.html:52's .tiles: a three-column grid, 10px apart
+   (SPACE_10, already this module's own token). */
+.wizard-tiles {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: {SPACE_10}; }}
+/* Scanning.dc.html:53's .tile: SURFACE_1 and BORDER already name
+   this exact background and border - #14171A and #2A2E32 - for
+   other surfaces in this module; this is a new combination of
+   them, not a new colour. */
+.wizard-tile {{ border: 1px solid {BORDER}; border-radius: {RADIUS_7}; background: {SURFACE_1}; padding: {SPACE_11} {SPACE_12}; display: flex; flex-direction: column; gap: {SPACE_5}; }}
 .wizard-note {{ font-size: {TYPE_12_5}; padding: {SPACE_2} {SPACE_4}; border-left: {SPACE_1} solid {BORDER_SUBTLE_1}; }}
 .wizard-hd-alt {{ border-bottom: 1px solid {BORDER_SUBTLE_2}; }}
 .wizard-sec-alt {{ border: 1px solid {BORDER_SUBTLE_3}; border-radius: {RADIUS_LG}; }}
 .wizard-hairline {{ border-top: 1px solid {BORDER_SUBTLE_8}; }}
-.wizard-tag-action-outline {{ border: 1px solid {BORDER_SUBTLE_9}; }}
+.wizard-tag-action-outline {{ border: 1px solid {BORDER_SUBTLE_9}; box-sizing: border-box; height: {CONTROL_HEIGHT}; }}
 .wizard-heading-lg {{ font-size: {TYPE_23}; }}
 .wizard-display {{ font-size: {TYPE_30}; }}
 .wizard-display-xl {{ font-size: {TYPE_40}; }}
 .wizard-heading-sm {{ font-size: {TYPE_16}; }}
 .wizard-heading-xs {{ font-size: {TYPE_17}; }}
 .wizard-body-11 {{ font-size: {TYPE_11}; }}
+/* Review.dc.html:35's .btn.sm font-size - the row decision controls'
+   own type, distinct from wizard-body-12-5 which nothing here uses. */
+.wizard-body-12 {{ font-size: {TYPE_12}; }}
 .wizard-body-11-5 {{ font-size: {TYPE_11_5}; }}
 .wizard-body-12-5 {{ font-size: {TYPE_12_5}; }}
 .wizard-body-13 {{ font-size: {TYPE_13}; }}
