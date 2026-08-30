@@ -139,6 +139,21 @@ def amended_result(result: ReconnectResult, decisions: WizardState) -> Reconnect
     return replace(result, mapping=apply(result, decisions))
 
 
+def default_output_name(old_input: Optional[Path]) -> str:
+    """The filename the Set up step's output control appends to a chosen
+    directory: the input collection's own stem with "-reconnected" before
+    its suffix (collection.nml -> collection-reconnected.nml), so the
+    suggestion never equals the input and write_refusal's
+    output_must_differ_from_input cannot be reached by accepting it
+    unedited.
+
+    Falls back to "collection-reconnected.nml" when no collection is
+    chosen yet, since the control is reachable before one is."""
+    if old_input is None or not old_input.name:
+        return "collection-reconnected.nml"
+    return f"{old_input.stem}-reconnected{old_input.suffix}"
+
+
 def default_volume_identity(scan_root: Path) -> tuple[str, str]:
     """The Set up step's starting guess for one scan root's VOLUME and
     VOLUMEID boxes: its filesystem anchor (e.g. "C:" on Windows, "/" on

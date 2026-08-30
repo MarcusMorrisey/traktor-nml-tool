@@ -210,6 +210,14 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         # .btn, not .btn-pri, so this control is deliberately not primary.
         ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-label")
 
+        # Main.dc.html:105's .card-t (13px/600) for the section this
+        # control belongs to. The button label below names a concept
+        # from the CLI's own --scan-root flag rather than anything the
+        # operator has; the artboard's heading is what says what the
+        # folders are for. (Naming that label here in full would break
+        # tests/test_gui_button_color_defaults.py, which anchors on the
+        # first occurrence of the literal string.)
+        ui.label("Where your music is now").classes("wizard-body-13 font-semibold")
         scan_roots_list = ui.column().classes("gap-1")
         scan_roots_holder: list[Path] = []
         # One (volume_input, volumeid_input) pair per scan_roots_holder
@@ -261,6 +269,13 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         # principle argues against a second blue button competing with
         # this step's own "Continue".
         ui.button("Add scan root...", on_click=add_scan_root, color=None).classes("wizard-control")
+        # Main.dc.html:125's .meta (12px, TEXT_FAINT). Answers the
+        # question the control itself raises - these folders are read,
+        # nothing in them is written - which no other copy on this step
+        # states.
+        ui.label(
+            "These folders are read, never modified. Add the drive your music moved to."
+        ).classes("wizard-body-12 wizard-faint")
 
         cache_input = ui.input(
             "Tag cache path", value=".traktor_nml_tagcache.json"
@@ -278,6 +293,33 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
             ui.label(control.reason or "").classes("wizard-body-11-5 wizard-dim")
 
         output_input = ui.input("Output collection path").classes("w-full")
+
+        async def choose_output() -> None:
+            """Fills output_input from a chosen directory, keeping the
+            typed path authoritative - the input stays editable and
+            go_to_scan keeps reading it, so this control is a
+            convenience over typing rather than a second source of
+            truth.
+
+            Picks a directory rather than a file because the output is a
+            path being named, not an existing file to open: the
+            LocalFilePicker fallback can only select entries that
+            already exist, so a file pick could not name a new one. The
+            filename is appended here and stays editable.
+            """
+            directory = await pick_file_or_folder(directories_only=True)
+            if directory is None:
+                return
+            typed = Path(output_input.value) if output_input.value else None
+            name = (
+                typed.name if typed is not None and typed.name
+                else wizard_state.default_output_name(old_input_holder["path"])
+            )
+            output_input.value = str(directory / name)
+
+        # Matches "Choose collection file..." above: a plain .btn with
+        # color=None (DL-086 rung one), not primary.
+        ui.button("Choose output folder...", on_click=choose_output, color=None).classes("wizard-control wizard-label")
 
         def go_to_scan() -> None:
             if old_input_holder["path"] is None or not scan_roots_holder:
