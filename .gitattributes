@@ -1,3 +1,21 @@
+# Byte-for-byte, every path. This tree is deliberately not uniform: 320
+# files are LF, 100 are CRLF and three are mixed, and each of those is
+# load-bearing somewhere. traktor_nml/gui/app.py is wholly CRLF and
+# tests/test_gui_line_endings.py asserts it. The patch sets under
+# docs/plans/*/scratch/ are CRLF because that is what they were captured
+# from, and a rewritten one produces phantom rejects when reapplied.
+#
+# Without this, a clone on a stock Windows git - core.autocrlf=true is the
+# installer's default - normalises the CRLF files to LF in the index on the
+# next commit and checks the LF files out as CRLF, silently and across the
+# whole tree. Nothing in the suite would catch it except app.py's own guard,
+# and by then the damage is committed.
+#
+# The two sibling repositories carry the same line for the same reason.
+* -text
+
 # The parity oracle is pinned by SHA-256 over these exact bytes; git must
-# not rewrite its line endings on checkout or commit.
+# not rewrite its line endings on checkout or commit. Kept explicit even
+# though `* -text` above covers it: the pin is what the SHA-256 protects,
+# and a future narrowing of that glob must not silently unpin it.
 tests/baselines/manifest.json -text
