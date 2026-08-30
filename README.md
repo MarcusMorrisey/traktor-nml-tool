@@ -10,6 +10,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
   - against a newer collection covering the same tracks (`rewrite-from-collection-compare`), or
   - against the actual files on disk, scanning one or more directories and matching by audio tags and optionally acoustic fingerprints (`rewrite-from-reconnect`).
 - **Merge** additional `.nml` files into a base collection (`splice`), or **partition** one collection into several outputs by playlist (`split`).
+- **Reconstruct playlists** in a base collection from the same-named playlists in an older one (`splice --reconstruct-playlists`), for a collection whose playlists survive by name while their contents do not.
 - **Build a playlist** from an external plain-text track list, matched against a base collection (`build-playlist`). Outputs a self-contained single-playlist NML by default; use `--full-collection` to retain the source collection.
 - **Discover candidate files** for an external track list across one or more folders (`discover-tracks`); writes a review CSV and never modifies an NML.
 - **Discover collection candidates** for an external track list with the same relaxed scoring (`discover-collection-tracks`); writes a review CSV and never modifies an NML.
@@ -17,6 +18,14 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 Every command previews before writing, refuses to overwrite any of its own inputs, and reports ambiguous or dangling matches explicitly (via stats and CSV export) rather than silently guessing.
 
 Matching also **refutes** a candidate whose `FILESIZE` or `PLAYTIME_FLOAT` contradicts the collection entry, and reports how many it withdrew as `refuted=N` — distinct from `unmatched`, so "found it and declined" never looks like "file is gone". Those tolerances are calibrated against one real library; if they reject files you know are correct, `--no-refute` turns the check off. Both the counter and the flag appear on the five commands that compare records carrying a size and a duration: `preview-compare`, `scan-compare-candidates`, `rewrite-from-collection-compare`, `scan-reconnect-candidates` and `rewrite-from-reconnect`. A run using the flag warns on stderr, because a candidate the collection's own numbers contradict can then win a match.
+
+### Reconstructing playlists
+
+`splice --reconstruct-playlists` targets a base collection whose playlists carry their names without their contents, with an older collection holding those contents. A base playlist is rebuilt only when its contents differ from the same-named incoming ones, compared as an ordered sequence of track identities rather than as entry counts, so `[one, two]` against `[two, three]` is a difference and a reordering is too.
+
+A rebuilt playlist keeps base's own node, UUID and folder position; its entries become base's own in their existing order, followed by every incoming entry not already among them, folded across each `--input` file in the order given and deduplicated. A playlist whose contents already match is left untouched and its incoming copy is not imported. Without the flag, a same-named incoming playlist is imported beside base's as `"<name> (2)"`, which is the default for every existing invocation.
+
+Two situations abort the run with nothing written, rather than resolving by document order: a playlist `NAME` appearing more than once inside a single file, and an incoming entry whose track identity matches more than one entry in base. Both are reported through the same `--conflict-report` CSV as a merge conflict. Track identity is resolved through the same cascade the merge itself uses, so a base and an older collection referring to one track at different paths still pair up.
 
 `build-playlist` is deliberately not in that list even though it runs the same cascade: a plain-text track list carries no size or duration, so there is nothing for the check to contradict and it can never fire. A flag there would do nothing.
 

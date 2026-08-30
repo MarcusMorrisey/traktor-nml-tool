@@ -308,7 +308,10 @@ statement of the same decision would only give it two copies to drift apart.
   collision with an existing playlist takes the same deterministic
   `"<name> (2)"` suffix `playlists.py` already applies to imported
   playlists, so playlist naming/UUID policy has one spelling across both
-  entry points (DL-029).
+  entry points (DL-029). That suffix governs playlists being imported
+  beside base's own; `splice --reconstruct-playlists` fills a matched
+  base playlist in place instead, which is why the base node keeps its
+  own UUID there and no fresh one is minted (DL-093, DL-095).
 - `build-playlist`'s insertion point defaults to the root `FOLDER`'s
   `SUBNODES`, or an existing folder named by `--target-folder`; a named
   folder absent from the base aborts rather than being created, since a
@@ -368,6 +371,9 @@ statement of the same decision would only give it two copies to drift apart.
   `ENTRY`/`PRIMARYKEY` elements rather than being deduplicated, since a
   Traktor `PLAYLIST` is an ordered list of references and the operator's
   input order and repetition are taken as authoritative (DL-037).
+  `splice --reconstruct-playlists` deduplicates instead, because a track
+  reached twice while folding two documents together is an artefact of
+  the fold rather than anything an operator wrote (DL-103).
 - A base document `build-playlist` is given with no `PLAYLISTS` section,
   root `FOLDER`, or `SUBNODES` element at all aborts with a
   `no_root_subnodes` error rather than synthesizing the missing
@@ -765,6 +771,71 @@ statement of the same decision would only give it two copies to drift apart.
   form the only `add_head_html` shape that paints the ring, so this is
   where DL-086's rung two lands for the ring rather than a DL-087
   shortfall (DL-090).
+- `splice --reconstruct-playlists` decides whether to rebuild a base
+  playlist by comparing its redirected `PRIMARYKEY` sequence against the
+  same-named incoming side's own ordered union, not by comparing entry
+  counts and not against the merged result. Counts cannot separate
+  `[one, two]` from `[two, three]`, and the merged sequence puts base's
+  keys first, so it cannot differ from base whenever both sides hold the
+  same tracks - an ordering difference would be unreachable through
+  either. Comparing against the incoming union reaches both (DL-091).
+- Every incoming playlist carrying the matched name is folded in, across
+  every `--input` file, in the order the inputs are given. A first-match
+  rule would silently drop the rest, and the operator naming several
+  inputs is asking for all of them; folding in input order makes the
+  result a function of the command line rather than of document order
+  (DL-092).
+- A name that matched a base playlist is excluded from playlist import
+  whether or not it needed rebuilding, so no `"<name> (2)"` copy
+  accompanies it. A duplicate beside a reconstructed list holds a subset
+  of what base already carries, and a duplicate beside an identical list
+  holds exactly what base already carries; neither is content the
+  operator asked to add (DL-093).
+- An incoming `PRIMARYKEY` whose identity group holds more than one base
+  record aborts the whole write with the ambiguity reported, since no
+  single base key is the right redirect target and folding it in would
+  guess which base track the entry meant. `_resolve_conflicts` returns
+  those keys as a named element of its result rather than raising: the
+  merge itself is unaffected and only reconstruction treats them as
+  fatal (DL-094, DL-100).
+- Reconstruction is opt-in behind `--reconstruct-playlists`, and the
+  `"<name> (2)"` rename stays the default. Reconstruction changes the
+  shape of an existing caller's output rather than adding to it, so
+  defaulting it on would rewrite results for invocations that never
+  asked for it (DL-095).
+- The base source text is rewritten in memory and re-parsed before any
+  span is consumed, keeping reconstruction on the byte-span assembly path
+  DL-007 separates from attribute patching. Replacements are applied
+  end-first so each span offset stays valid against the text it was
+  measured in, and every byte outside a rebuilt `PLAYLIST` element is
+  still copied verbatim (DL-096, DL-102).
+- Playlist name matching is exact and case-sensitive. Traktor treats two
+  names differing only in case as distinct playlists, so a casefolded
+  lookup would rebuild one from the other and leave the same track
+  reachable through both (DL-098).
+- A `NAME` occurring more than once within one document, on either side,
+  aborts with nothing written rather than resolving by document order.
+  Counting is per contribution rather than across them: one name
+  appearing in several `--input` files is the fold DL-092 asks for, while
+  the same name twice inside one file offers no single playlist to
+  reconstruct or to reconstruct from (DL-098).
+- The `SORTING_INFO` entry belonging to a skipped incoming playlist is
+  discarded, since base's own entry already governs the surviving node
+  and a second entry for one name would describe a playlist the output
+  does not contain (DL-099).
+- A `PRIMARYKEY` with no `old_to_new_key` mapping passes through
+  redirection as its own raw value. Absent from the map means no other
+  input claimed that identity, so the key already is the only name for
+  it - not that it is unknown (DL-101).
+- Reconstruction deduplicates on the redirected key while `build-playlist`
+  keeps duplicates under DL-037. The two differ in what a repetition is:
+  a repeated track-list line is the operator's own authored input, and a
+  track reached twice while folding two documents together is an artefact
+  of the fold, which no operator wrote (DL-103).
+- The renamed-playlist count is taken per surviving output fragment
+  rather than from the import result's own rename map, which also counts
+  a rename applied to a playlist that is then skipped as matched - a
+  rename the output does not contain and the operator cannot see (DL-097).
 
 ## Invariants
 
