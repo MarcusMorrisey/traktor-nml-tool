@@ -180,7 +180,7 @@ def edits_for(facts: dict) -> list[tuple[str, str, str]]:
     """
     edits: list[tuple[str, str, str]] = []
     rows = (
-        ("wizard head", r"traktor-nml-tool` \| `", "wizard_head", r"the wizard \|"),
+        ("wizard head", r"traktor-nml-tool` \| `", "wizard_head", r"the wizard,"),
         ("plan head", r"traktor-nml-tool-plan` \| `", "plan_head", r"the plan,"),
         ("gate head", r"traktor-nml-tool-gate` \| `", "gate_head", r"the gate,"),
     )
