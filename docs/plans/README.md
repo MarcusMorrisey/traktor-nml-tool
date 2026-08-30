@@ -16,9 +16,18 @@ milestone is shaped the way it is once its diffs are committed.
 | `2026-08-27-reconnect-phase1` | The Phase 1 reconnect subcommands |
 | `2026-08-29-playlist-reconstruction` | `splice --reconstruct-playlists` and the `/reconstruct` wizard route (DL-091..DL-103) |
 
-The reconnect wizard's own plan is not here: it lives in its own repository at
-`C:/codex/traktor-nml-tool-plan`, which holds the milestone diffs themselves
-and a `plan.json.VERIFIED-GOOD` snapshot, and is large enough to warrant that.
+The reconnect wizard's own plan is not here: it lives in the sibling
+`traktor-nml-tool-plan` repository (see [DEVELOPING.md](../../DEVELOPING.md#the-layout)),
+which holds the milestone diffs themselves and a `plan.json.VERIFIED-GOOD`
+snapshot, and is large enough to warrant that. **That repository is frozen at
+the tag `plan-final-w004` and takes no new plans**; this directory is the
+scheme going forward.
+
+The difference is why only one of them needs machinery. A plan here carries no
+`code_changes` - the newest, `2026-08-29-playlist-reconstruction`, has none and
+no waves - so there is nothing to replay and no byte-identity to protect. The
+wizard plan does carry them, and its `verify_frozen.py` checks that its
+snapshot and its baseline commits still hold.
 
 ## What is in each directory
 
