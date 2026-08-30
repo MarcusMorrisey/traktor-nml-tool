@@ -19,6 +19,11 @@ one of its numbers is not.
 Run with --check to report drift and write nothing; the exit code is 1 when
 anything is stale, so a hook or a CI step can use it.
 
+The wizard repository is this file's own tree - tools/../ - and the plan
+repository, the gate repository and the handoff are its siblings.
+TRAKTOR_NML_TOOL_PLAN, TRAKTOR_NML_TOOL_GATE and TRAKTOR_WIZARD_HANDOFF
+each override one of the three for a tree that sits somewhere else.
+
 The suite is run under the interpreter that runs this script, and that must
 be the SYSTEM interpreter rather than .venv: .venv carries extra packages and
 reports a different skip count. A system interpreter carrying nicegui or
@@ -32,15 +37,39 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import io
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
-WIZARD = Path("C:/codex/traktor-nml-tool")
-PLAN = Path("C:/codex/traktor-nml-tool-plan")
-GATE = Path("C:/codex/traktor-nml-tool-gate")
-HANDOFF = Path("C:/codex/CONTINUE-traktor-wizard.md")
+# The four locations this reads, resolved rather than named: an environment
+# override, else the layout this machine uses - the three repositories as
+# siblings, the handoff beside them. Resolving them is what lets the script
+# run from a clone anywhere and from a second working tree here.
+#
+# WIZARD is not overridable: this file lives in it, so tools/../ is the only
+# tree it can be describing, and an override would let the script rewrite one
+# repository's facts from another's.
+WIZARD = Path(__file__).resolve().parent.parent
+_SIBLINGS = WIZARD.parent
+
+
+def _sibling(env: str, name: str) -> Path:
+    """A repository beside WIZARD, or wherever `env` points instead.
+
+    Nothing is checked here. A path that is absent or is not a repository is
+    reported by the reader that needs it - `gather` collects each fact
+    independently so a missing plan repository still leaves the suite count
+    refreshable - and a check here would turn that into a hard exit.
+    """
+    override = os.environ.get(env)
+    return Path(override).expanduser().resolve() if override else _SIBLINGS / name
+
+
+PLAN = _sibling("TRAKTOR_NML_TOOL_PLAN", "traktor-nml-tool-plan")
+GATE = _sibling("TRAKTOR_NML_TOOL_GATE", "traktor-nml-tool-gate")
+HANDOFF = _sibling("TRAKTOR_WIZARD_HANDOFF", "CONTINUE-traktor-wizard.md")
 APP_PY = WIZARD / "traktor_nml" / "gui" / "app.py"
 DECISION_LOG = WIZARD / "traktor_nml" / "README.md"
 
