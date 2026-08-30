@@ -95,9 +95,21 @@ each is load-bearing somewhere.
 - `tests/baselines/manifest.json` is pinned by SHA-256 over its exact bytes.
 
 `.gitattributes` sets `* -text`, so git stores and checks out bytes unchanged. Without it a
-clone on a stock Windows git — `core.autocrlf=true` is the installer's default — normalises
-the CRLF files to LF in the index on the next commit and checks the LF files out as CRLF,
-across the whole tree at once. Both sibling repositories carry the same line.
+clone on a stock Windows git — `core.autocrlf=true` is the installer's default — checks the
+LF files out as CRLF. Measured by cloning this repository at each commit with that setting:
+
+| | worktree `README.md` | index | `git status` |
+|---|---|---|---|
+| without `* -text` | 132 CRLF | 152 LF | clean |
+| with `* -text` | 152 LF | 152 LF | clean |
+
+The conversion happens and `git status` reports nothing, which is the point — it is invisible
+to the one command anyone would run, and every tool reading bytes rather than lines then sees
+a file that is not what the repository holds. Both sibling repositories carry the same line.
+
+The index-normalisation half of the usual autocrlf description is not repeated here because
+it did not reproduce on this tree: staging a CRLF file under `core.autocrlf=true` left it
+`i/crlf` either way.
 
 When editing, read and write with `newline=''` so the file keeps its own endings. An
 exact-match edit that "cannot find" its anchor is usually this.

@@ -6,10 +6,15 @@
 # from, and a rewritten one produces phantom rejects when reapplied.
 #
 # Without this, a clone on a stock Windows git - core.autocrlf=true is the
-# installer's default - normalises the CRLF files to LF in the index on the
-# next commit and checks the LF files out as CRLF, silently and across the
-# whole tree. Nothing in the suite would catch it except app.py's own guard,
-# and by then the damage is committed.
+# installer's default - checks the LF files out as CRLF. Measured on this
+# tree at b63054a: README.md arrives in the worktree as 132 CRLF where the
+# index holds 152 LF, and `git status` reports it clean, so the conversion is
+# invisible to the one command anyone would run. Every tool reading bytes
+# rather than lines then sees a file that is not what the repository holds.
+#
+# Not claimed here, because it did not reproduce: staging a CRLF file under
+# core.autocrlf=true left it i/crlf in the index either way, with this line
+# and without it.
 #
 # The two sibling repositories carry the same line for the same reason.
 * -text
