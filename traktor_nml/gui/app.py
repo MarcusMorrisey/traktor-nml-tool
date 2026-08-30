@@ -47,6 +47,9 @@ from ..reconnect_render import (
     render_scan_reconnect_candidates,
 )
 from ..reconnect_run import ReconnectResult
+from ..confidence import MatchConfidence
+from ..rewrite import read_and_parse_source, write_bytes_atomically
+from ..splice import assemble_output
 from . import review_model
 # theme.py is the only source for a colour or size literal in this module (DL-078).
 from . import wizard_state
@@ -148,6 +151,18 @@ def _rows_for_filter(state: _WizardPageState, filter_key: str):
     return rows
 
 
+def _page_chrome() -> None:
+    """The colour, dark-mode and stylesheet preamble every page in this
+    module applies. Shared so a second route cannot drift from the
+    wizard's own theme (DL-078, DL-085)."""
+    # Quasar's primary set carries theme.ACTION; dark/dark-page are fed
+    # from the ground and surface tokens so Quasar's own dark components
+    # land on the measured surfaces rather than a framework default.
+    ui.colors(primary=theme.ACTION, dark=theme.SURFACE_2, dark_page=theme.GROUND)
+    ui.dark_mode(True)
+    ui.add_head_html(f"<style>{theme.page_stylesheet()}</style>")
+
+
 def build_wizard() -> None:
     """Registers the wizard's single page at '/'. Called from
     __main__.py; kept separate from ui.run() so a test importing this
@@ -165,15 +180,15 @@ def build_wizard() -> None:
         assertive = ui.label("").props('role="alert" aria-live="assertive"').classes("sr-only")
         return polite, assertive
 
+    _build_reconstruct_page()
+
     @ui.page("/")
     def index() -> None:
         # Quasar's primary set carries theme.ACTION; dark/dark-page are
         # fed from the ground and surface tokens so Quasar's own dark
         # components land on the measured surfaces rather than a
         # framework default (DL-078, DL-085).
-        ui.colors(primary=theme.ACTION, dark=theme.SURFACE_2, dark_page=theme.GROUND)
-        ui.dark_mode(True)
-        ui.add_head_html(f"<style>{theme.page_stylesheet()}</style>")
+        _page_chrome()
 
         state = _WizardPageState()
 
@@ -187,6 +202,7 @@ def build_wizard() -> None:
                 _build_scan_step(state, stepper)
                 _build_review_step(state, stepper)
                 _build_write_step(state, stepper)
+            ui.link("Reconstruct playlists from another collection", "/reconstruct")
 
 
 def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
@@ -1192,3 +1208,181 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         state.step_refreshers.append(render)
 
         render()
+
+def _build_reconstruct_page() -> None:
+    """Registers the playlist-reconstruction screen at '/reconstruct'.
+
+    Its own route rather than a step in the reconnect stepper: the two
+    operations share no pipeline. Reconnection scans a disk and reviews
+    per-track matches, while reconstruction reads a second collection and
+    resolves whole playlists, so a step wedged into that stepper would sit
+    in every reconnect run with nothing to contribute and would inherit
+    run_scan's own reset of state.decisions. The theme, the control tokens
+    and the file picker are shared; the flow is not.
+    """
+
+    @ui.page("/reconstruct")
+    def reconstruct() -> None:
+        _page_chrome()
+
+        base_holder: dict = {"path": None}
+        source_holder: list = []
+        result_holder: dict = {"result": None, "base_bytes": None}
+
+        with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
+            ui.label("Reconstruct playlists").classes("text-xl font-semibold")
+            ui.label(
+                "My playlists kept their names but lost their contents; an older "
+                "collection still has them."
+            )
+
+            ui.label("The collection to repair").classes("wizard-body-13 font-semibold")
+            base_display = ui.label("No collection selected").classes(
+                "font-mono wizard-body-15 wizard-subtle-1"
+            )
+
+            async def choose_base() -> None:
+                path = await pick_file_or_folder(directories_only=False)
+                if path is not None:
+                    base_holder["path"] = path
+                    base_display.set_text(str(path))
+
+            ui.button("Choose collection file...", on_click=choose_base, color=None).classes(
+                "wizard-control wizard-label"
+            )
+
+            ui.label("Collections to take playlists from").classes(
+                "wizard-body-13 font-semibold"
+            )
+            source_list = ui.column().classes("gap-1")
+
+            async def add_source() -> None:
+                path = await pick_file_or_folder(directories_only=False)
+                if path is None:
+                    return
+                source_holder.append(path)
+                with source_list:
+                    ui.label(str(path)).classes("font-mono wizard-body-13 wizard-subtle-1")
+
+            ui.button("Add source collection...", on_click=add_source, color=None).classes(
+                "wizard-control"
+            )
+            ui.label(
+                "These are read, never modified. Several are folded in the order added."
+            ).classes("wizard-body-12 wizard-faint")
+
+            output_input = ui.input("Output collection path").classes("w-full")
+
+            async def choose_output() -> None:
+                directory = await pick_file_or_folder(directories_only=True)
+                if directory is None:
+                    return
+                typed = Path(output_input.value) if output_input.value else None
+                name = (
+                    typed.name if typed is not None and typed.name
+                    else wizard_state.default_output_name(base_holder["path"])
+                )
+                output_input.value = str(directory / name)
+
+            ui.button("Choose output folder...", on_click=choose_output, color=None).classes(
+                "wizard-control wizard-label"
+            )
+
+            report = ui.column().classes("w-full gap-1")
+
+            def _load():
+                """Reads and parses the chosen files, returning
+                (base_bytes, base_root, contributions) or None with the
+                reason already notified."""
+                base_path = base_holder["path"]
+                if base_path is None or not source_holder:
+                    ui.notify(
+                        "Choose a collection to repair and at least one source",
+                        type="warning",
+                    )
+                    return None
+                base_result = read_and_parse_source(base_path)
+                if base_result.error is not None:
+                    ui.notify(base_result.error, type="negative")
+                    return None
+                contributions = []
+                for path in source_holder:
+                    loaded = read_and_parse_source(path)
+                    if loaded.error is not None:
+                        ui.notify(loaded.error, type="negative")
+                        return None
+                    contributions.append((loaded.source_bytes.decode("utf-8"), loaded.root))
+                return base_result.source_bytes, base_result.root, contributions
+
+            async def preview() -> None:
+                """Runs the same assemble_output call the CLI makes, with
+                reconstruct=True, and renders what it reports. Nothing is
+                written here: the run is the preview, so the write below
+                cannot disagree with what this shows."""
+                loaded = await run.io_bound(_load)
+                if loaded is None:
+                    return
+                base_bytes, base_root, contributions = loaded
+                result = await run.io_bound(
+                    assemble_output,
+                    base_bytes.decode("utf-8"), base_root, contributions,
+                    MatchConfidence.STRICT, None, True,
+                )
+                result_holder["result"] = result
+                result_holder["base_bytes"] = base_bytes
+                report.clear()
+                with report:
+                    if result.errors:
+                        # An ambiguity abort is a step-level failure: the
+                        # reasons are shown and no output is offered, matching
+                        # the CLI's own abort-with-nothing-written (DL-094,
+                        # DL-098).
+                        ui.label("Nothing was written.").classes(
+                            "wizard-body-13 font-semibold"
+                        )
+                        for error in result.errors:
+                            ui.label(error).classes("font-mono wizard-body-12 text-warning")
+                        return
+                    rebuilt = result.stats.get("reconstructed_playlists") or {}
+                    if not rebuilt:
+                        ui.label(
+                            "Every matched playlist already holds these contents."
+                        ).classes("wizard-body-13")
+                        return
+                    count = len(rebuilt)
+                    ui.label(
+                        f"{count} playlist would be rebuilt:" if count == 1
+                        else f"{count} playlists would be rebuilt:"
+                    ).classes("wizard-body-13 font-semibold")
+                    for name, count in rebuilt.items():
+                        ui.label(f"{name} - {count} entries").classes(
+                            "font-mono wizard-body-13 wizard-subtle-1"
+                        )
+
+            ui.button("Preview", on_click=preview, color=None).classes("wizard-control")
+
+            async def write_output() -> None:
+                result = result_holder["result"]
+                if result is None or result.output is None:
+                    ui.notify("Preview first", type="warning")
+                    return
+                if not output_input.value:
+                    ui.notify("Choose an output path", type="warning")
+                    return
+                output_path = Path(output_input.value)
+                if output_path.resolve() in {
+                    Path(base_holder["path"]).resolve(),
+                    *(Path(p).resolve() for p in source_holder),
+                }:
+                    ui.notify(
+                        "The output path must differ from every input", type="negative"
+                    )
+                    return
+                await run.io_bound(
+                    write_bytes_atomically, output_path, result.output.encode("utf-8")
+                )
+                ui.notify(f"Written to {output_path}", type="positive")
+
+            ui.button("Write output", on_click=write_output, color=None).classes(
+                "wizard-control wizard-control-primary"
+            )

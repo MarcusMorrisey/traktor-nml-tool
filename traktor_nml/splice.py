@@ -211,6 +211,7 @@ def assemble_output(
         "sorting_info_dropped": [],
         "playlists_reconstructed": 0,
         "playlists_skipped_reconstructed": 0,
+        "reconstructed_playlists": {},
     }
 
     if unresolved:
@@ -229,7 +230,7 @@ def assemble_output(
     # and folder position. Runs here because old_to_new_key exists by this
     # line and no builder call has consumed a span yet, so rewriting
     # base_source and re-parsing is still free (DL-096).
-    reconstructed: set[str] = set()
+    reconstructed: dict[str, int] = {}
     matched: set[str] = set()
     if reconstruct:
         base_nodes_by_name: dict[str, list] = {}
@@ -316,7 +317,7 @@ def assemble_output(
             rebuilt.attrib["ENTRIES"] = str(len(merged))
             span = span_indexes[0].span_of(playlist_elem)
             replacements.append((span.start, span.end, ET.tostring(rebuilt, encoding="unicode")))
-            reconstructed.add(name)
+            reconstructed[name] = len(merged)
             matched.add(name)
 
         if ambiguous_hits:
@@ -333,6 +334,10 @@ def assemble_output(
         if replacements:
             base_root = parse_xml_bytes(base_source.encode("utf-8"))
     stats["playlists_reconstructed"] = len(reconstructed)
+    # Names and resulting entry counts, so a caller can report which
+    # playlists a run rebuilt without recomputing the comparison the
+    # pre-pass already made.
+    stats["reconstructed_playlists"] = dict(sorted(reconstructed.items()))
 
     output = base_source
     collection_span = find_element_span(output, "COLLECTION")
