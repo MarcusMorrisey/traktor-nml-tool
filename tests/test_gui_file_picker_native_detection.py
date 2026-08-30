@@ -8,10 +8,13 @@ window - the LocalFilePicker fallback class existed but was never
 reachable in that configuration. Fails silently: no dialog, no
 exception, no notification.
 
-pick_file_or_folder now defaults `native=None` ("detect") and decides
-by reading webview.windows itself - the same attribute pick_file/
-pick_folder already consult - so there is exactly one place in the
-codebase that decides what "native" means.
+pick_file_or_folder defaults `native=None` ("detect") and decides
+through native_window(), so there is exactly one place in the codebase
+that decides what "native" means. That helper reads
+app.native.main_window: NiceGUI builds its pywebview window in a
+separate spawned process, so webview.windows is empty in the server
+process under ui.run(native=True) as well as under an HTTP serve, and
+cannot distinguish them.
 
 This suite runs on an interpreter with no nicegui/pywebview installed
 (docs/nicegui-gui-analysis.md #5), so it follows
@@ -62,11 +65,17 @@ class _FakeUi:
         return MagicMock()
 
 
-def _install_stubs(windows: list) -> None:
+def _install_stubs(windows: list, main_window=None) -> None:
     nicegui_module = types.ModuleType("nicegui")
     nicegui_module.ui = _FakeUi()
     nicegui_module.run = MagicMock()
-    nicegui_module.app = MagicMock()
+    # app.native.main_window is the detection signal, so it is a real
+    # object with a real attribute rather than a MagicMock: every
+    # attribute of a MagicMock is itself a truthy MagicMock, which would
+    # make "no native window" indistinguishable from "native window" and
+    # so make this suite unable to fail.
+    app_module = types.SimpleNamespace(native=types.SimpleNamespace(main_window=main_window))
+    nicegui_module.app = app_module
     nicegui_module.events = MagicMock()
     sys.modules["nicegui"] = nicegui_module
 
@@ -79,6 +88,66 @@ def _install_stubs(windows: list) -> None:
 def _uninstall_stubs_and_module() -> None:
     for name in ("nicegui", "webview", _MODULE_NAME):
         sys.modules.pop(name, None)
+
+
+class _FakeWindowProxy:
+    """Stands in for nicegui.native.native.WindowProxy: create_file_dialog
+    is a coroutine there, because the real one marshals the call to the
+    process that owns the window."""
+
+    def __init__(self, result) -> None:
+        self._result = result
+        self.calls: list = []
+
+    async def create_file_dialog(self, dialog_type=None, **kwargs):
+        self.calls.append((dialog_type, kwargs))
+        return self._result
+
+
+def test_window_in_another_process_still_routes_to_the_native_dialog() -> None:
+    """NiceGUI builds its pywebview window in a separate spawned process
+    (nicegui/native/native_mode.py: SPAWN_CONTEXT.Process), so
+    webview.windows is empty in the server process even under
+    ui.run(native=True). Detection must therefore read
+    app.native.main_window, which that process does hold.
+
+    Observed to fail against the actual bug: with `bool(webview.windows)`
+    as the detection expression and the stubs below - windows=[] and a
+    WindowProxy present, which is exactly the running native app - the
+    call routed to LocalFilePicker and returned
+    Path('/fallback/chosen'), so a native run got the in-page filesystem
+    browser and pywebview's own dialog was unreachable in every
+    configuration. With the fixed expression the same stubs reach the
+    proxy and return Path('/native/chosen').
+    """
+    _uninstall_stubs_and_module()
+    window = _FakeWindowProxy(result=("/native/chosen",))
+    _install_stubs(windows=[], main_window=window)
+    try:
+        file_picker_module = importlib.import_module(_MODULE_NAME)
+
+        constructed: list = []
+
+        class _FakeLocalFilePicker:
+            def __init__(self, *args, **kwargs) -> None:
+                constructed.append((args, kwargs))
+
+            def __await__(self):
+                async def _resolve():
+                    return ["/fallback/chosen"]
+
+                return _resolve().__await__()
+
+        file_picker_module.LocalFilePicker = _FakeLocalFilePicker
+
+        result = asyncio.run(
+            file_picker_module.pick_file_or_folder(directories_only=True)
+        )
+        assert result == Path("/native/chosen")
+        assert window.calls, "the window proxy's create_file_dialog was never awaited"
+        assert not constructed, "a native window must not reach the LocalFilePicker fallback"
+    finally:
+        _uninstall_stubs_and_module()
 
 
 def test_no_native_window_routes_to_local_file_picker_fallback() -> None:

@@ -14,8 +14,18 @@ call, so this module falls back to NiceGUI's local_file_picker component
 pattern, a small ui.dialog listing the server's own filesystem.
 
 pick_file_or_folder detects which of those two situations applies by
-checking webview.windows, rather than trusting a caller-supplied flag -
-so app.py never has to know or assert whether it is running natively.
+reading nicegui.app.native.main_window, rather than trusting a
+caller-supplied flag - so app.py never has to know or assert whether it
+is running natively.
+
+That attribute is the signal because NiceGUI runs pywebview in a
+separate spawned process (nicegui/native/native_mode.py builds its
+window inside SPAWN_CONTEXT.Process), so `webview.windows` is empty in
+the server process that handles the click no matter whether a native
+window exists. What the server process holds instead is
+app.native.main_window, a WindowProxy whose create_file_dialog
+(nicegui/native/native.py) marshals the call across that process
+boundary and is awaitable rather than blocking.
 """
 
 from __future__ import annotations
@@ -29,13 +39,22 @@ from nicegui import app, events, ui
 from ._fs_nav import DRIVE_LIST, entries_for, list_drive_roots, resolve_target
 
 
-def pick_file(*, start_dir: Optional[Path] = None) -> Optional[Path]:
+def native_window():
+    """The WindowProxy for the pywebview window, or None when the app is
+    served over HTTP with no native window behind it.
+
+    The single place this module decides what "native" means. Reads
+    nicegui.app.native.main_window rather than webview.windows: the
+    window is built in a separate spawned process, so webview.windows is
+    empty here in both configurations and cannot tell them apart."""
+    return getattr(app.native, "main_window", None)
+
+
+async def pick_file(window, *, start_dir: Optional[Path] = None) -> Optional[Path]:
     """One existing file, chosen through pywebview's native dialog in
-    native mode."""
-    windows = webview.windows
-    if not windows:
-        return None
-    result = windows[0].create_file_dialog(
+    native mode. Awaits `window`, a WindowProxy, because the dialog it
+    opens lives in the window's own process."""
+    result = await window.create_file_dialog(
         webview.FileDialog.OPEN,
         directory=str(start_dir) if start_dir is not None else "",
         allow_multiple=False,
@@ -45,13 +64,11 @@ def pick_file(*, start_dir: Optional[Path] = None) -> Optional[Path]:
     return Path(result[0])
 
 
-def pick_folder(*, start_dir: Optional[Path] = None) -> Optional[Path]:
+async def pick_folder(window, *, start_dir: Optional[Path] = None) -> Optional[Path]:
     """One existing directory, chosen through pywebview's native
-    dialog in native mode."""
-    windows = webview.windows
-    if not windows:
-        return None
-    result = windows[0].create_file_dialog(
+    dialog in native mode. Awaits `window` for the same reason
+    pick_file does."""
+    result = await window.create_file_dialog(
         webview.FileDialog.FOLDER,
         directory=str(start_dir) if start_dir is not None else "",
     )
@@ -139,24 +156,25 @@ class LocalFilePicker(ui.dialog):
 async def pick_file_or_folder(*, native: Optional[bool] = None, start_dir: Optional[Path] = None,
                                directories_only: bool = False) -> Optional[Path]:
     """The one entry point app.py calls: native mode reaches pywebview's
-    create_file_dialog directly, otherwise a LocalFilePicker dialog is
-    shown and awaited.
+    create_file_dialog through the window proxy, otherwise a
+    LocalFilePicker dialog is shown and awaited.
 
-    `native` defaults to None, meaning "detect" - this is the single
-    place that decides what native means, so callers (app.py) never
-    hardcode it. Detection reads `webview.windows`, the same source
-    pick_file/pick_folder themselves consult: a pywebview window exists
-    only once ui.run(native=True) has created one, so an empty list
-    means the app is being served over HTTP with no native window to
-    host a dialog in, and the LocalFilePicker fallback is used instead.
+    `native` defaults to None, meaning "detect" - callers (app.py) never
+    hardcode it, and native_window() is the one place that decides.
+    A None window means the app is being served over HTTP with no native
+    window to host a dialog in, and the LocalFilePicker fallback is used
+    instead.
     """
+    window = native_window()
     if native is None:
-        native = bool(webview.windows)
+        native = window is not None
     if native:
-        if not webview.windows:
+        if window is None:
             ui.notify("No native file dialog is available", type="negative")
             return None
-        return pick_folder(start_dir=start_dir) if directories_only else pick_file(start_dir=start_dir)
+        if directories_only:
+            return await pick_folder(window, start_dir=start_dir)
+        return await pick_file(window, start_dir=start_dir)
     picker = LocalFilePicker(str(start_dir) if start_dir is not None else ".", directories_only=directories_only)
     result = await picker
     if not result:
