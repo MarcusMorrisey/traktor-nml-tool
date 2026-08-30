@@ -54,7 +54,8 @@ def _handle_splice(args: argparse.Namespace) -> int:
     confidence = parse_match_confidence(args.match_confidence) if args.match_confidence else MatchConfidence.STRICT
 
     result = assemble_output(
-        base_bytes.decode("utf-8"), base_root, contributions, confidence, on_conflict=args.on_conflict
+        base_bytes.decode("utf-8"), base_root, contributions, confidence,
+        on_conflict=args.on_conflict, reconstruct=args.reconstruct_playlists,
     )
 
     for key, value in result.stats.items():
@@ -92,6 +93,12 @@ def register(subparsers, handlers: dict) -> None:
     parser.add_argument("--input", action="append", dest="input", required=True, type=Path)
     parser.add_argument("--on-conflict", choices=["keep-first", "keep-last"], default=None)
     parser.add_argument("--match-confidence", choices=[level.value for level in MatchConfidence], default=None)
+    parser.add_argument(
+        "--reconstruct-playlists", action="store_true",
+        help="Rebuild a base playlist in place from same-named playlists in the inputs when their "
+             "contents differ, instead of importing a renamed copy beside it. The base playlist keeps "
+             "its own node, UUID and folder position.",
+    )
     parser.add_argument("--conflict-report", type=Path)
     parser.add_argument("--dry-run", action="store_true", help="Skip the write to the NML output file. Any report or CSV side file this command writes is still written.")
     handlers["splice"] = _handle_splice

@@ -126,6 +126,45 @@ def available_playlist_name(requested_name: str, existing_names: set[str]) -> st
     return final_name
 
 
+def redirected_playlist_keys(node, old_to_new_key: dict) -> list:
+    """A playlist NODE's PRIMARYKEY values in document order, each mapped
+    through old_to_new_key so both sides of a comparison name identity the
+    same way base does.
+
+    A key with no mapping passes through as its own raw value (DL-101):
+    absent from old_to_new_key means no other input claimed that identity,
+    so the key already is the only name for it - not that it is unknown.
+    """
+    keys = []
+    for pk in node_primary_keys(node):
+        raw = pk.attrib.get("KEY", "")
+        keys.append(old_to_new_key.get(raw, raw))
+    return keys
+
+
+def merged_playlist_entries(base_node, incoming_nodes, old_to_new_key: dict) -> list:
+    """The reconstructed key sequence for one base playlist: base's own
+    redirected keys in their existing order, then every key from each node
+    in incoming_nodes not already present, folded in the order given.
+
+    Base leads so a partially filled list keeps the order the operator
+    already has, and an empty base yields the incoming order exactly.
+    Deduplication is on the redirected key, so one track reached through
+    two source keys collapses to the single entry base resolves - unlike
+    build-playlist's DL-037 duplicate policy, where two identical lines are
+    the operator's own authored input rather than an artefact of folding
+    two documents together (DL-103).
+    """
+    keys = redirected_playlist_keys(base_node, old_to_new_key)
+    seen = set(keys)
+    for node in incoming_nodes:
+        for key in redirected_playlist_keys(node, old_to_new_key):
+            if key not in seen:
+                seen.add(key)
+                keys.append(key)
+    return keys
+
+
 def import_playlists(
     source_text: str,
     non_base_root: ET.Element,

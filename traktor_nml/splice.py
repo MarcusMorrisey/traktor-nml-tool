@@ -25,8 +25,15 @@ from typing import Optional
 from .confidence import MatchConfidence
 from .matching import record_keys
 from .model import EntryRecord, collection_entries, collection_records
-from .playlists import find_playlist_nodes, import_playlists, node_primary_keys
+from .playlists import (
+    find_playlist_nodes,
+    import_playlists,
+    merged_playlist_entries,
+    node_primary_keys,
+    redirected_playlist_keys,
+)
 from .spans import OutputBuilder, SpanIndex, find_element_span
+from .xmlio import ET, parse_xml_bytes
 from .xmlio import ET
 
 _TRACKED_ATTRS = ("artist", "title", "album", "filesize", "playtime_float", "bitrate")
@@ -99,8 +106,17 @@ def group_identities(
 
 def _resolve_conflicts(
     groups: dict[int, list[tuple[int, EntryRecord]]], on_conflict: Optional[str]
-) -> tuple[dict[str, str], list[ConflictRow], bool, list[tuple[int, EntryRecord]]]:
-    """Return (old_to_new_key, conflict_rows, unresolved, new_entries).
+) -> tuple[dict[str, str], list[ConflictRow], bool, list[tuple[int, EntryRecord]], set[str]]:
+    """Return (old_to_new_key, conflict_rows, unresolved, new_entries,
+    ambiguous_keys).
+
+    ambiguous_keys holds every non-base primary key whose identity group
+    carries more than one base record: no single base key is the right
+    redirect target for it, so a reconstruction that folded it in would be
+    guessing which base track the entry meant (DL-094, DL-100). The merge
+    itself is unaffected - these keys still redirect to the winner for
+    collection purposes - so the set is returned rather than raised, and
+    only the reconstruction path treats it as fatal.
 
     new_entries lists (input_idx, record) for exactly the records that must
     be added to the merged COLLECTION: the sole record of a single-input
@@ -111,6 +127,7 @@ def _resolve_conflicts(
     old_to_new_key: dict[str, str] = {}
     conflict_rows: list[ConflictRow] = []
     new_entries: list[tuple[int, EntryRecord]] = []
+    ambiguous_keys: set[str] = set()
     unresolved = False
 
     for key, members in groups.items():
@@ -129,7 +146,12 @@ def _resolve_conflicts(
             conflict_rows.append(ConflictRow(str(key), ",".join(divergent_attrs), "unresolved"))
             continue
 
-        base_member = next(((idx, r) for idx, r in members if idx == 0), None)
+        base_members = [(idx, r) for idx, r in members if idx == 0]
+        if len(base_members) > 1:
+            for idx, record in members:
+                if idx != 0:
+                    ambiguous_keys.add(record.primary_key)
+        base_member = base_members[0] if base_members else None
         if base_member is not None:
             winner_idx, winner = base_member
         else:
@@ -145,7 +167,7 @@ def _resolve_conflicts(
         if divergent_attrs:
             conflict_rows.append(ConflictRow(str(key), ",".join(divergent_attrs), on_conflict or "unresolved"))
 
-    return old_to_new_key, conflict_rows, unresolved, new_entries
+    return old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys
 
 
 def _entry_span_text(source_text: str, span_index: SpanIndex, record: EntryRecord) -> str:
@@ -158,6 +180,7 @@ def assemble_output(
     contributions: list[tuple[str, ET.Element]],
     confidence: MatchConfidence,
     on_conflict: Optional[str] = None,
+    reconstruct: bool = False,
 ) -> SpliceResult:
     """Merge every contribution into base_source: build cross-input
     identity groups, resolve conflicts (aborting with zero output on any
@@ -174,7 +197,9 @@ def assemble_output(
     span_indexes = [SpanIndex(sources[i], inputs[i]) for i in range(len(inputs))]
 
     groups = group_identities(records_by_input, confidence)
-    old_to_new_key, conflict_rows, unresolved, new_entries_records = _resolve_conflicts(groups, on_conflict)
+    old_to_new_key, conflict_rows, unresolved, new_entries_records, ambiguous_keys = _resolve_conflicts(
+        groups, on_conflict
+    )
 
     stats = {
         "inputs_merged": len(contributions),
@@ -184,6 +209,8 @@ def assemble_output(
         "playlists_imported": 0,
         "playlists_renamed": 0,
         "sorting_info_dropped": [],
+        "playlists_reconstructed": 0,
+        "playlists_skipped_reconstructed": 0,
     }
 
     if unresolved:
@@ -195,6 +222,117 @@ def assemble_output(
         _entry_span_text(sources[idx], span_indexes[idx], record) for idx, record in new_entries_records
     ]
     stats["collection_entries_added"] = len(new_entry_texts)
+
+    # Reconstruction pre-pass: a base playlist whose redirected key
+    # sequence differs from the same-named incoming ones is rebuilt in
+    # place from the union of all of them, keeping base's own NODE, UUID
+    # and folder position. Runs here because old_to_new_key exists by this
+    # line and no builder call has consumed a span yet, so rewriting
+    # base_source and re-parsing is still free (DL-096).
+    reconstructed: set[str] = set()
+    matched: set[str] = set()
+    if reconstruct:
+        base_nodes_by_name: dict[str, list] = {}
+        for node in find_playlist_nodes(base_root):
+            base_nodes_by_name.setdefault(node.attrib.get("NAME", ""), []).append(node)
+        incoming_by_name: dict[str, list] = {}
+        incoming_dupes: set[str] = set()
+        for _, root in contributions:
+            names_here: dict[str, int] = {}
+            for node in find_playlist_nodes(root):
+                name = node.attrib.get("NAME", "")
+                incoming_by_name.setdefault(name, []).append(node)
+                names_here[name] = names_here.get(name, 0) + 1
+            # Counted per contribution, not across them: one name appearing
+            # in several --input files is the fold DL-092 asks for, while
+            # the same name twice inside one file has no single playlist to
+            # reconstruct from (DL-098).
+            incoming_dupes |= {n for n, count in names_here.items() if count > 1}
+
+        # A NAME occurring more than once on either side has no single
+        # playlist to reconstruct or to reconstruct from, so it aborts
+        # rather than picking one by document order (DL-098). Matching is
+        # exact and case-sensitive, so names differing only in case are
+        # distinct playlists and never pair up.
+        duplicate_names = sorted(
+            {name for name, nodes in base_nodes_by_name.items() if len(nodes) > 1 and name in incoming_by_name}
+            | {name for name in incoming_dupes if name in base_nodes_by_name}
+        )
+        if duplicate_names:
+            conflict_rows.extend(
+                ConflictRow(name, "playlist_name", "ambiguous") for name in duplicate_names
+            )
+            return SpliceResult(
+                output=None, stats=stats, conflict_rows=conflict_rows,
+                errors=[f"ambiguous_playlist_name playlist={name}" for name in duplicate_names],
+            )
+
+        replacements: list[tuple[int, int, str]] = []
+        ambiguous_hits: list[tuple[str, str]] = []
+        for name, base_nodes in base_nodes_by_name.items():
+            incoming_nodes = incoming_by_name.get(name)
+            if not incoming_nodes:
+                continue
+            base_node = base_nodes[0]
+            base_keys = redirected_playlist_keys(base_node, old_to_new_key)
+            # Compared against the incoming side's own ordered union rather
+            # than against the merged result: merging puts base first, so a
+            # merged sequence can never differ from base whenever the two
+            # hold the same tracks, and an ordering difference would be
+            # structurally invisible (DL-091).
+            incoming_keys: list = []
+            for node in incoming_nodes:
+                for key in redirected_playlist_keys(node, old_to_new_key):
+                    if key not in incoming_keys:
+                        incoming_keys.append(key)
+            if base_keys == incoming_keys:
+                # Identical ordered contents: base's bytes stay untouched,
+                # and the incoming copy is dropped rather than imported -
+                # a '<name> (2)' holding exactly what base already holds is
+                # the duplicate reconstruction exists to prevent, so a
+                # matched name is skipped whether or not it needed
+                # rebuilding (DL-093).
+                matched.add(name)
+                continue
+            merged = merged_playlist_entries(base_node, incoming_nodes, old_to_new_key)
+
+            for node in incoming_nodes:
+                for pk in node_primary_keys(node):
+                    raw = pk.attrib.get("KEY", "")
+                    if raw in ambiguous_keys:
+                        ambiguous_hits.append((name, raw))
+            if ambiguous_hits:
+                continue
+
+            playlist_elem = base_node.find("PLAYLIST")
+            if playlist_elem is None:
+                continue
+            rebuilt = ET.fromstring(ET.tostring(playlist_elem))
+            for child in list(rebuilt):
+                rebuilt.remove(child)
+            for key in merged:
+                entry = ET.SubElement(rebuilt, "ENTRY")
+                ET.SubElement(entry, "PRIMARYKEY", {"TYPE": "TRACK", "KEY": key})
+            rebuilt.attrib["ENTRIES"] = str(len(merged))
+            span = span_indexes[0].span_of(playlist_elem)
+            replacements.append((span.start, span.end, ET.tostring(rebuilt, encoding="unicode")))
+            reconstructed.add(name)
+            matched.add(name)
+
+        if ambiguous_hits:
+            conflict_rows.extend(
+                ConflictRow(key, "ambiguous_redirect", "ambiguous") for _, key in ambiguous_hits
+            )
+            return SpliceResult(
+                output=None, stats=stats, conflict_rows=conflict_rows,
+                errors=[f"ambiguous_redirect playlist={name} key={key}" for name, key in ambiguous_hits],
+            )
+
+        for start_at, end_at, fragment in sorted(replacements, reverse=True):
+            base_source = base_source[:start_at] + fragment + base_source[end_at:]
+        if replacements:
+            base_root = parse_xml_bytes(base_source.encode("utf-8"))
+    stats["playlists_reconstructed"] = len(reconstructed)
 
     output = base_source
     collection_span = find_element_span(output, "COLLECTION")
@@ -210,22 +348,41 @@ def assemble_output(
 
     # Import every non-base playlist as a flattened child of the base root folder.
     existing_names = {node.attrib.get("NAME", "") for node in find_playlist_nodes(base_root)}
+    # A reconstructed name is skipped below rather than renamed, so it
+    # is left out of the in-use set the rename rule consults.
+    existing_names -= matched
     playlist_fragments: list[str] = []
     sorting_info_fragments: list[str] = []
     sorting_info_dropped: list[str] = []
     unresolved_refs: list[tuple[str, str]] = []
     renamed_count = 0
+    skipped_reconstructed = 0
     for contribution_idx, (source_text, root) in enumerate(contributions, start=1):
         result = import_playlists(
             source_text, root, old_to_new_key, existing_names, span_indexes[contribution_idx]
         )
         for imported in result.playlists:
+            # A reconstructed playlist already carries this incoming one's
+            # entries inside base's own node, so importing it as well would
+            # append the '<name> (2)' duplicate reconstruction exists to
+            # avoid (DL-093). Its SORTING_INFO goes with it: base's own
+            # entry for that name already governs the surviving node
+            # (DL-099).
+            if imported.original_name in matched:
+                skipped_reconstructed += 1
+                continue
             playlist_fragments.append(imported.fragment)
+            if imported.final_name != imported.original_name:
+                # Counted per surviving fragment rather than from
+                # result.renamed, which also counts a rename applied to a
+                # playlist that is then skipped as matched - a rename the
+                # output does not contain and the operator cannot see.
+                renamed_count += 1
         sorting_info_fragments.extend(result.sorting_info)
         sorting_info_dropped.extend(result.dropped_sorting_info)
-        renamed_count += len(result.renamed)
     stats["playlists_imported"] = len(playlist_fragments)
     stats["playlists_renamed"] = renamed_count
+    stats["playlists_skipped_reconstructed"] = skipped_reconstructed
     stats["sorting_info_dropped"] = list(sorting_info_dropped)
 
     subnodes_span = find_element_span(output, "SUBNODES")
