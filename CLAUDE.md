@@ -27,6 +27,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `docs/`        | Retained planning material and development context | Looking up why a past design decision was made         |
 | `design/`      | Design briefs and canvas sources for the unimplemented GUI | Working on the GUI's visual or interaction design       |
 | `spike/`       | Time-boxed experiments and what they found; not part of the build | Deciding whether a packaging or deployment approach was already tried |
+| `tools/`       | Maintenance scripts that act on files outside the package, kept out of `traktor_nml/` so nothing importable depends on them | Refreshing the handoff document, or adding another repository-level chore |
 
 ## Build
 
