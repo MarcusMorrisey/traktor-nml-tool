@@ -1,0 +1,23 @@
+--- a/traktor_nml/playlists.py
++++ b/traktor_nml/playlists.py
+@@ -9,5 +9,10 @@
+ the winner's key. A same-name collision gets a deterministic "<name> (2)"
+ rename with a freshly generated UUID - never the source UUID, which would
+ create a duplicate within the output file.
++
++Traktor's tolerance of that fresh UUID on a renamed/imported playlist is
++confirmed only by manual Traktor import/open validation, not by this test
++suite (R-004, DL-008); the regenerated UUID is an accepted, unverified risk
++until that manual check is repeated for a given output.
+ """
+
+@@ -19,6 +24,10 @@
+ @dataclass
+ class ImportedPlaylist:
++    """is_verbatim=False marks a fragment that was re-serialised because
++    at least one of its PRIMARYKEY values was redirected or its NAME was
++    renamed for a collision; the source span is otherwise copied
++    unchanged."""
+     fragment: str  # verbatim span text or a re-serialised replacement
+     is_verbatim: bool
+     original_name: str

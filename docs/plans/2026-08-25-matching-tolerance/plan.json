@@ -1,0 +1,794 @@
+{
+  "plan_id": "e9278741-cefd-4c9c-8199-e9ee8d5333c8",
+  "created_at": "2026-08-25T19:47:09.096409",
+  "frozen_at": null,
+  "overview": {
+    "problem": "The parity oracle in tests/baselines/manifest.json covers 8 invocations across 7 subcommands and reaches neither scan-reconnect-candidates nor rewrite-from-reconnect, the two commands the first shared-core refactor touches. The oracle is also unpinned: a regeneration that rewrites the recorded contract leaves no trace a reviewer can check.",
+    "approach": "A sibling recon/ fixture tree feeds six reconnect cases spanning matched, ambiguous, dangling, dry-run and writing forms. Byte comparison relaxes only where the run directory unavoidably leaks into rewritten LOCATION bytes, through an opt-in normalise_run_root field backed by one shared substitution helper that regenerate.py and the parity test both import. A SHA-256 constant in tests/test_parity_baseline.py pins the manifest's bytes, a meta-test proves the pin bites on a one-character mutation, and an annotated parity-baseline-v1 tag marks the commit. The fingerprint tier stays unpinned, recorded as a gap for a reviewed parity-baseline-v2 re-tag."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-001",
+        "version": 1,
+        "decision": "Reconnect fixture NMLs and their audio stubs live in a sibling recon/ tree built by build_reconnect_fixtures(), never under corpus/",
+        "reasoning": "compare_cmd.py:95 enumerates a scan root with a recursive nml glob -> any extra .nml under corpus/ counts toward the stored scan-compare-candidates case -> a probe moved candidates_scanned from 6 to 7 -> reconnect fixtures under corpus/ diff a pre-existing baseline entry, while a sibling tree leaves all 8 stored cases byte-identical"
+      },
+      {
+        "id": "DL-002",
+        "version": 1,
+        "decision": "Every reconnect baseline case passes --volume-map and --match-confidence filename explicitly",
+        "reasoning": "resolve_volume_identity infers identity from a scan root that prefixes the old records' decoded dirs -> the recon/ scan root is not such a prefix and raises VolumeIdentityError; separately each fixture .mp3 is 16 zero bytes with no readable tags -> the tag-derived confidence tiers cannot fire -> filename_size is the only tier that produces a match, so both flags are pinned in argv rather than left to inference"
+      },
+      {
+        "id": "DL-003",
+        "version": 1,
+        "decision": "Run-root normalisation is opt-in per case via a normalise_run_root manifest field, and the substitution lives in one helper module imported by both regenerate.py and the parity test",
+        "reasoning": "rewrite-from-reconnect writing a real match embeds the per-run temp dir in the output NML's LOCATION DIR -> those bytes compare unequal across runs, yet dropping the case leaves the rewritten LOCATION unpinned, which is exactly what the renderer split can break -> substituting the resolved run root with a fixed RUN_ROOT token in both native and Traktor-encoded forms makes the case comparable; opt-in keeps every other case provably strict, and a single helper keeps the writer and the reader from drifting into different substitutions"
+      },
+      {
+        "id": "DL-004",
+        "version": 1,
+        "decision": "The dangling-match rewrite-from-reconnect case is written and compared with zero substitutions",
+        "reasoning": "an unmatched record's LOCATION passes through untouched -> its output NML contains no run-root path -> the case is reproducible as-is -> one written-file case is compared with absolute byte-exactness, proving the oracle does not depend on normalisation to pass"
+      },
+      {
+        "id": "DL-005",
+        "version": 1,
+        "decision": "The fingerprint-tier case is absent from parity-baseline-v1 and the gap is recorded as an explicit unpinned tier",
+        "reasoning": "HAS_ACOUSTID gates on importing the acoustid Python module rather than on the fpcalc binary -> a stub fpcalc on PATH cannot light the tier, and pyacoustid is not importable here -> captured stdout would differ on a machine that has the module -> the case is machine-dependent; adding pyacoustid and mutagen as test dependencies to close it costs the oracle its machine-independence, so the tier stays unpinned until the direct-Popen commit adds it under a reviewed parity-baseline-v2 re-tag"
+      },
+      {
+        "id": "DL-006",
+        "version": 1,
+        "decision": "PARITY_BASELINE_SHA256 in tests/test_parity_baseline.py is the sole authoritative pin; no tag commit-SHA constant is recorded",
+        "reasoning": "the hash constant is checkable by plain pytest with no git dependency -> a tag-SHA constant is unverifiable without git and becomes documentation pytest cannot enforce -> recording it creates a second pin that rots silently; the tag-resolves-to-recorded-SHA assertion belongs with the CI workflow, and this repo carries no CI config"
+      },
+      {
+        "id": "DL-007",
+        "version": 1,
+        "decision": "_OUTPUT_ARG_INDEX carries an entry mapping rewrite-from-reconnect to argv index 2",
+        "reasoning": "_output_paths consults that mapping to decide which argument names a written file -> a command absent from the mapping counts as read-only -> rewrite-from-reconnect writes its NML to argv[2], so without the entry the writing forms pin stdout alone and the written bytes escape the oracle"
+      },
+      {
+        "id": "DL-008",
+        "version": 1,
+        "decision": "index_scan_roots statistics stay out of the reconnect cases' stdout, so tag-cache mtime variability never reaches the oracle",
+        "reasoning": "_run_reconnection calls index_scan_roots without a stats dict -> cache_hits, cache_misses and files_seen are never printed -> the tag cache keyed on path|size|mtime varies per run without touching any compared byte -> the reconnect cases need no cache suppression flag"
+      },
+      {
+        "id": "DL-009",
+        "version": 1,
+        "decision": "build_reconnect_fixtures is called from regenerate.py and from tests/conftest.py's fixture_corpus",
+        "reasoning": "the parity test materialises its inputs through fixture_corpus while regenerate.py builds its own tree -> the reconnect cases read recon/ paths in both -> both call sites build the same tree from the same fixed literals, so a case runs identically under regeneration and under pytest"
+      },
+      {
+        "id": "DL-010",
+        "version": 1,
+        "decision": "The lxml backend is a pinned precondition of the parity oracle rather than a variable it tolerates: regenerate.py refuses to run and both parity test modules refuse to compare when HAS_LXML is False",
+        "reasoning": "xmlio.py:16-25 selects lxml or stdlib ET at import time and write_traktor_xml serialises differently on each branch while rewrite.py:433 write_nml_safely takes a different code path per branch (mutate_tree pre-seeds four zeroed stats keys the lxml path never emits) -> the writing cases in DL-003/DL-004 would record a different stdout stats shape and different output bytes on a stdlib-only machine -> the manifest would be valid only on the capture machine -> since README declares lxml a required install (mutagen and pyacoustid optional), the backend is not genuinely variable and can be pinned at zero dependency cost by asserting it at both the writer and the reader, converting a silent machine-dependence into a loud precondition failure"
+      },
+      {
+        "id": "DL-011",
+        "version": 1,
+        "decision": "The machine-dependence standard DL-005 applies to the fingerprint tier is applied identically to the lxml-dependent writing cases; the two resolve differently only because their dependency status differs",
+        "reasoning": "both HAS_ACOUSTID and HAS_LXML are import-time capability flags whose value changes captured stdout -> the standard is that no baseline entry may depend on an unpinned machine capability -> acoustid is optional per README so pinning it would mean adding a test dependency the oracle is meant to avoid and the tier is therefore dropped (DL-005) -> lxml is already a required install so pinning it adds nothing and the writing cases are therefore kept under an explicit HAS_LXML precondition (DL-010) -> both outcomes discharge the same standard rather than waiving it for the writing cases"
+      },
+      {
+        "id": "DL-012",
+        "version": 1,
+        "decision": "The parity-baseline-* tag guard ships as a repo-tracked hook script at tests/hooks/pre-push with a documented one-line install step and a pytest check that the script exists and rejects a tag-move refspec",
+        "reasoning": ".git/hooks is untracked so a mitigation living only there is unreviewable and unenforceable -> a prose-only mitigation in R-004 has nothing a reviewer or CI can check -> tracking the script under tests/hooks/ makes its refusal logic reviewable in the diff and lets a unit test drive it with a tag-delete and a tag-move refspec on stdin and assert a non-zero exit -> the install step stays manual because git cannot self-install hooks and the pytest hash constant remains the authoritative pin regardless of whether the hook is installed"
+      },
+      {
+        "id": "DL-013",
+        "version": 1,
+        "decision": "Scan-root enumeration order needs no new pinning: diskscan.py:103 already iterates sorted(Path(root).rglob(\"*\")), so candidate order is deterministic across filesystems and platforms. Determinism risk 3 is closed by verification rather than by mitigation, and the sort becomes a recorded precondition of every reconnect baseline case.",
+        "reasoning": "The ambiguous reconnect case has multiple candidates in different subdirectories whose stdout order would vary if enumeration followed raw filesystem order -> traktor_nml/diskscan.py:103 wraps rglob in sorted() before the audio-extension filter and the resolved-duplicate skip -> ordering therefore derives from the path strings alone and not from directory entry order -> no manifest field or argv change is needed; instead the sort itself is load-bearing production behaviour that the baseline silently depends on, so it is documented in regenerate.py where a future reviewer will see it while touching the cases."
+      },
+      {
+        "id": "DL-014",
+        "version": 1,
+        "decision": "rewrite-from-reconnect keeps its ambiguous-match form as a fourth baseline case; it runs with --csv so the ambiguity report is pinned as an output_files entry alongside the rewritten NML; and because that CSV records candidate paths under the run directory the case carries normalise_run_root, making two normalised entries in parity-baseline-v1 rather than one.",
+        "reasoning": "planning_context.constraints and task_spec require an ambiguous-match form and the earlier case list dropped it with no rationale -> the ambiguity path is exactly where the shared-core refactor changes reporting shape (the renderer split rewrites how unresolved candidates are printed) so it is the highest-value form to pin -> its distinguishing output is the CSV rather than the NML (an ambiguous entry is reported and left unrewritten) so the case is only meaningful with --csv and the CSV recorded as an output file -> the CSV lists absolute candidate paths under the per-run temp directory so byte-exactness is impossible without the DL-003 run-root substitution -> accept a second normalise_run_root entry and restate the count in M-001 acceptance rather than dropping the form or pinning a CSV that cannot reproduce."
+      },
+      {
+        "id": "DL-015",
+        "version": 1,
+        "decision": "PARITY_BASELINE_SHA256 may only move together with a reviewed regeneration and a new parity-baseline-vN tag; the rule is stated as an invariant in the plan / in tests/baselines/manifest.schema.md / in tests/baselines/CLAUDE.md and is repeated verbatim in the guard's assertion failure message.",
+        "reasoning": "The guard as designed is defeated by a two-line edit: regenerate manifest.json and paste the new digest -> that is precisely the regenerate-to-go-green anti-pattern the oracle exists to prevent (rejected_alternatives entry 3) and no technical control can stop it because both files are ordinary tracked text -> the only available control is making the rule unmissable at the moment of violation - the failing assertion the editor is staring at - and legible at the moment of review -> the message must name both halves of the gate ('reviewed regeneration + new parity-baseline-vN tag') because naming regeneration alone reads as an instruction to regenerate."
+      },
+      {
+        "id": "DL-016",
+        "version": 1,
+        "decision": "tests/baselines/CLAUDE.md states the required CI check in prose - CI must run tests/test_parity_baseline.py; and any job that diffs manifest.json against parity-baseline-v1 must also assert that tag still resolves to its recorded commit SHA - without authoring any workflow file.",
+        "reasoning": "task_spec puts CI workflow authoring out of scope but permits stating the required check -> the tag carries no server-side protection (R-004) so a moved tag silently moves any comparison anchored to it -> a rule that lives only in this session's context dies with the session and the future author of the first workflow has no way to learn it -> writing it as prose in the directory doc the workflow author will read satisfies the requirement without creating the workflow."
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Place the reconnect fixture NMLs under corpus/ alongside the existing fixtures",
+        "rejection_reason": "A probe showed candidates_scanned moving from 6 to 7 in the stored scan-compare-candidates case, which diffs a pre-existing baseline entry the change is required to leave untouched.",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Light up the fingerprint tier with a stub fpcalc binary on PATH, as docs/nicegui-gui-analysis.md 3.1 suggests",
+        "rejection_reason": "HAS_ACOUSTID gates on importing the acoustid Python module, not on the binary, so a stub fpcalc leaves the tier dark; the doc's premise does not hold.",
+        "decision_ref": "DL-005"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Add pyacoustid and mutagen as test dependencies so the fingerprint tier can be baselined now",
+        "rejection_reason": "The oracle's machine-independence and freedom from third-party deps outweigh covering an optional tier one commit early.",
+        "decision_ref": "DL-005"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Normalise the run root in every case unconditionally",
+        "rejection_reason": "Blanket substitution weakens the seven strict cases to prove nothing about absolute byte-exactness; opt-in confines the relaxation to the one case that needs it.",
+        "decision_ref": "DL-003"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Skip the writing form that produces a real match and baseline only the dry-run and dangling forms",
+        "rejection_reason": "The rewritten LOCATION bytes are the ones the renderer split can break; leaving them unpinned defeats the purpose of task 0.",
+        "decision_ref": "DL-003"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Record the parity-baseline-v1 commit SHA as a second constant next to PARITY_BASELINE_SHA256",
+        "rejection_reason": "pytest cannot check it without a git dependency, so it is documentation masquerading as a pin, and the SHA does not exist until the commit is made.",
+        "decision_ref": "DL-006"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "Gate the baseline in CI with git diff --exit-code on manifest.json",
+        "rejection_reason": "It passes on any commit that regenerated and committed the baseline, which is precisely the case the guard exists to catch.",
+        "decision_ref": "DL-006"
+      },
+      {
+        "id": "RA-008",
+        "alternative": "Commit the reconnect cases after the shared-core refactor lands",
+        "rejection_reason": "An oracle captured after the change it polices records the changed behaviour, not the behaviour being preserved.",
+        "decision_ref": "DL-003"
+      }
+    ],
+    "constraints": [
+      "No file under traktor_nml/ changes: this commit is test, fixture and documentation only",
+      "Regenerating manifest.json leaves the 8 pre-existing entries byte-identical",
+      "Every added case is deterministic across runs, machines and temp directories",
+      "Cases cover scan-reconnect-candidates and rewrite-from-reconnect in dry-run, writing, ambiguous-match and dangling-match forms",
+      "tests/test_parity_baseline.py runs under plain pytest with no git dependency",
+      "A meta-test proves the hash guard fails on a one-character manifest mutation",
+      "An annotated parity-baseline-v1 tag points at the resulting commit and is pushed",
+      "pytest tests/ -q passes"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "Any .nml added under corpus/ perturbs the stored scan-compare-candidates case, since compare_cmd.py enumerates scan roots with a recursive nml glob.",
+        "mitigation": "Reconnect fixtures live in a sibling recon/ tree; audio stubs under corpus/audio/ were probed and leave the case unchanged.",
+        "anchor": "traktor_nml/commands/compare_cmd.py:L95",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "R-002",
+        "risk": "rewrite-from-reconnect writing a real match embeds the run's absolute temp directory in the output NML's LOCATION DIR, since location_from_disk_path strips only the anchor.",
+        "mitigation": "The matched writing case carries normalise_run_root; both regenerate.py and the parity test substitute the RUN_ROOT token through the shared helper before comparing.",
+        "anchor": "traktor_nml/reconnect.py:location_from_disk_path",
+        "decision_ref": "DL-003"
+      },
+      {
+        "id": "R-003",
+        "risk": "A --fingerprint case captured where pyacoustid is absent produces different stdout on a machine where it imports, making the entry machine-dependent.",
+        "mitigation": "The tier stays out of parity-baseline-v1 and the gap is stated in tests/baselines/CLAUDE.md and docs/nicegui-gui-analysis.md 3.1 as work for a reviewed parity-baseline-v2 re-tag.",
+        "anchor": "traktor_nml/fingerprint.py:_compute_fingerprint",
+        "decision_ref": "DL-005"
+      },
+      {
+        "id": "R-004",
+        "risk": "The parity-baseline-v1 tag carries no server-side protection: GitHub rulesets need Pro or a public repo and the legacy tag-protection API is gone.",
+        "mitigation": "tests/hooks/pre-push (CI-M-003-004) is tracked in the repo and refuses any push that deletes or moves a parity-baseline-* tag; test_pre_push_hook_refuses_to_move_or_delete_a_parity_baseline_tag (CI-M-003-005) drives it with delete/move/new-tag/branch refspecs, and M-003's acceptance criteria require both the script and the documented install step. The authoritative pin remains the pytest hash constant, which is independent of the tag.",
+        "anchor": "tests/hooks/pre-push",
+        "decision_ref": "DL-006"
+      },
+      {
+        "id": "R-005",
+        "risk": "Normalisation applied to the wrong scope masks a genuine regression in the rewritten LOCATION bytes.",
+        "mitigation": "A meta-test mutates a non-run-root byte of the normalised case's expected output and asserts the comparison still fails.",
+        "anchor": null,
+        "decision_ref": "DL-003"
+      },
+      {
+        "id": "R-006",
+        "risk": "xmlio.py selects lxml or stdlib ET at import time; write_traktor_xml serialises differently per branch and rewrite.py:433 write_nml_safely runs a different code path whose mutate_tree pre-seeds four zeroed stats keys, so a manifest captured with lxml present mismatches on a stdlib-only machine and would read as a tool regression.",
+        "mitigation": "CI-M-001-009 makes regenerate.py exit non-zero before writing the manifest when HAS_LXML is False, and CI-M-001-010 fails tests/test_baseline_parity.py at import with an lxml-precondition reason; M-001's acceptance criteria require both to be exercised with HAS_LXML forced False. README already declares lxml a required install so nothing new is depended on.",
+        "anchor": "traktor_nml/rewrite.py:L433",
+        "decision_ref": "DL-010"
+      },
+      {
+        "id": "R-007",
+        "risk": "Determinism risk 3 from context.json: scan-root indexing order could depend on filesystem enumeration order, which would make the multi-candidate ambiguous case's stdout and CSV row order machine-dependent.",
+        "mitigation": "CLOSED BY VERIFICATION - traktor_nml/diskscan.py:103 iterates sorted(Path(root).rglob(\"*\")), so order derives from path strings alone. CI-M-001-011 records the dependence in regenerate.py: any future change to that sort invalidates every reconnect baseline case.",
+        "anchor": "traktor_nml/diskscan.py:L103",
+        "decision_ref": "DL-013"
+      }
+    ]
+  },
+  "invisible_knowledge": {
+    "system": "manifest.json is the tool's behavioural contract for a fixed argv list: exit code, stdout and every written file's bytes. regenerate.py writes it, tests/test_baseline_parity.py reads it, tests/test_parity_baseline.py hashes it. The oracle's authority rests on predating the change it polices, so it is captured before the shared-core refactor rather than after.",
+    "invariants": [
+      "Regenerating manifest.json is correct only for a deliberate, reviewed behaviour change, never to make a failing test pass (DL-002/DL-011 in the project's own decision log)",
+      "The oracle predates the change it polices",
+      "The tag cache is written even under --dry-run by design, being a scan speedup rather than command output",
+      "A manifest entry without normalise_run_root is compared with zero substitutions",
+      "New .nml fixtures stay out of corpus/, which doubles as a scan root for the compare cases",
+      "The parity oracle is captured and compared under the lxml backend only; a stdlib-ET environment fails the precondition loudly rather than producing or comparing manifest bytes (DL-010)",
+      "No baseline entry may depend on an unpinned machine capability: a capability that is a required install is pinned (lxml), one that is optional is excluded (acoustid) (DL-011)",
+      "PARITY_BASELINE_SHA256 moves only alongside a reviewed regeneration AND a new parity-baseline-vN tag; editing the constant to match a regenerated manifest is the regenerate-to-go-green defect the oracle exists to detect (DL-015). The rule is stated in tests/baselines/manifest.schema.md, in tests/baselines/CLAUDE.md, and verbatim in the guard's assertion failure message, which names both halves so it cannot read as an instruction to regenerate.",
+      "Candidate enumeration order is deterministic because traktor_nml/diskscan.py:103 iterates sorted(Path(root).rglob(\"*\")); every reconnect baseline case (stdout ordering and ambiguity-CSV row order) depends on that sort, so changing or removing it is a production behaviour change invalidating all reconnect baselines (DL-013).",
+      "Any CI job that diffs manifest.json against the parity-baseline-v1 tag must also assert the tag still resolves to its recorded commit SHA; the tag is only hook-protected, so a moved tag moves the comparison with it (DL-016)."
+    ],
+    "tradeoffs": [
+      "parity-baseline-v1 carries no server-side protection on this repo; the compensating control is a tracked tests/hooks/pre-push script (manually installed, driven by a test) refusing to move or delete parity-baseline-* tags, and the pytest hash constant is the authoritative pin",
+      "One writing case trades absolute byte-exactness for reproducibility via run-root normalisation, while the dangling writing case retains absolute byte-exactness so the oracle's strictness stays demonstrable",
+      "The fingerprint tier stays uncovered rather than pulling pyacoustid and mutagen into the test dependencies"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 3,
+      "number": 1,
+      "name": "Reconnect fixtures and deterministic baseline cases",
+      "files": [
+        "tests/fixtures/build_fixtures.py",
+        "tests/conftest.py",
+        "tests/baselines/run_root.py",
+        "tests/baselines/regenerate.py",
+        "tests/baselines/manifest.json",
+        "tests/test_baseline_parity.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "scan-reconnect-candidates is pinned in matched / ambiguous / dangling forms",
+        "rewrite-from-reconnect is pinned in dry-run / matched-writing / ambiguous-writing / dangling-writing forms",
+        "The ambiguous rewrite-from-reconnect case runs with --csv and pins the ambiguity report as an output_files entry beside the NML",
+        "The matched writing case records the rewritten LOCATION bytes under run-root normalisation",
+        "The dangling writing case records its NML bytes with zero substitutions",
+        "The 8 pre-existing manifest entries serialise unchanged",
+        "The lxml backend is a checked precondition at both the regenerator and the parity reader",
+        "Scan-root enumeration order is recorded in regenerate.py as a precondition supplied by the sorted rglob at traktor_nml/diskscan.py:103"
+      ],
+      "acceptance_criteria": [
+        "python -m tests.baselines.regenerate run twice produces byte-identical manifest.json",
+        "The manifest diff touches appended entries only and the 8 pre-existing entries are untouched",
+        "Exactly two manifest entries carry normalise_run_root: the matched-writing NML case and the ambiguous-writing CSV case",
+        "The ambiguous rewrite-from-reconnect entry lists both the rewritten NML and the ambiguity CSV under output_files",
+        "pytest tests/test_baseline_parity.py -q passes against a fresh temp directory",
+        "The non-run-root mutation meta-test fails the comparison as asserted",
+        "With HAS_LXML forced False the regenerator exits non-zero without writing manifest.json and the parity module reports its lxml precondition rather than a byte mismatch"
+      ],
+      "tests": [
+        "Parity: tests/test_baseline_parity.py parametrised over all 15 manifest entries asserting exit code / stdout / written bytes",
+        "Meta: a non-run-root byte mutation of a normalised case still fails the comparison",
+        "Determinism: two regenerations into different temp directories yield identical manifest bytes",
+        "Ambiguity: the ambiguous rewrite-from-reconnect case asserts both output files including the CSV candidate ordering that diskscan's sorted rglob fixes"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "tests/fixtures/build_fixtures.py",
+          "function": "build_reconnect_fixtures",
+          "behavior": "Writes a recon/ tree from fixed literal strings under a caller-supplied directory: simple.nml holding one COLLECTION ENTRY whose LOCATION names a stale path, ambiguous.nml holding one ENTRY whose filename matches two stubs in different subdirectories, dangling.nml holding one ENTRY whose filename matches nothing on disk, and a recon/audio tree of 16-zero-byte .mp3 stubs whose sizes match the FILESIZE attributes the filename_size tier compares. Two calls against an empty directory produce byte-identical output.",
+          "decision_refs": [
+            "DL-001",
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 1,
+          "file": "tests/conftest.py",
+          "function": "fixture_corpus",
+          "behavior": "Materialises the reconnect tree beside the corpus tree in tmp_path, so a manifest case naming recon/ paths resolves under pytest exactly as it does under regeneration.",
+          "decision_refs": [
+            "DL-009"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 1,
+          "file": "tests/baselines/run_root.py",
+          "function": "normalise_run_root",
+          "behavior": "Substitutes a fixed RUN_ROOT token for every form the run directory takes in captured output: the native absolute path, its forward-slash form, and the Traktor-encoded anchor-stripped form whose separators read slash-colon. The longest form substitutes first, so a shorter form cannot consume a prefix of a longer one. A bytes companion decodes UTF-8, substitutes, and re-encodes, leaving line endings intact.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 2,
+          "file": "tests/baselines/regenerate.py",
+          "function": "CASES",
+          "behavior": "Carries seven reconnect invocations beyond the eight pre-existing ones: scan-reconnect-candidates over simple.nml, ambiguous.nml and dangling.nml, each writing its own --csv under out/; rewrite-from-reconnect over simple.nml under --dry-run; rewrite-from-reconnect over simple.nml writing its NML; rewrite-from-reconnect over ambiguous.nml writing its NML AND naming --csv out/ambiguous_reconnect.csv, so the ambiguity report is captured as an output_files entry beside the NML and the ambiguous form required by the constraints is pinned rather than dropped; and rewrite-from-reconnect over dangling.nml writing its NML. Every reconnect invocation names --scan-root recon/audio, --volume-map, and --match-confidence filename. The ambiguous writing case is listed in the module's normalise-run-root set because its CSV records candidate paths under the run directory.",
+          "decision_refs": [
+            "DL-002",
+            "DL-003",
+            "DL-013",
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-001-005",
+          "version": 2,
+          "file": "tests/baselines/regenerate.py",
+          "function": "_OUTPUT_ARG_INDEX",
+          "behavior": "Maps rewrite-from-reconnect to argv index 2 alongside the rewrite and rewrite-from-collection-compare entries, so _output_paths captures the NML each writing form produces. For an invocation that also names --csv, the path following that flag is captured as a second output_files entry, so the ambiguous writing case records both the rewritten NML and the ambiguity CSV rather than the NML alone.",
+          "decision_refs": [
+            "DL-007",
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-001-006",
+          "version": 1,
+          "file": "tests/baselines/regenerate.py",
+          "function": "regenerate",
+          "behavior": "Builds the reconnect tree beside the corpus tree in the target directory, and for a case listed in the module's normalise-run-root set writes stdout and every captured output file through the run-root substitution before recording them, emitting a normalise_run_root field on that entry alone. An entry for a case outside the set carries no such field, so the eight pre-existing entries serialise unchanged.",
+          "decision_refs": [
+            "DL-003",
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-001-007",
+          "version": 2,
+          "file": "tests/test_baseline_parity.py",
+          "function": "test_baseline_invocation_matches_stored_bytes",
+          "behavior": "Applies the shared run-root substitution to the captured stdout and to each written file's bytes when the case carries normalise_run_root - covering both the matched-writing NML case and the ambiguous-writing case whose CSV records candidate paths - and compares verbatim otherwise, holding a case without the field to absolute byte-exactness.",
+          "decision_refs": [
+            "DL-003",
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-001-008",
+          "version": 1,
+          "file": "tests/test_baseline_parity.py",
+          "function": "test_normalised_case_still_detects_a_non_run_root_byte_change",
+          "behavior": "Corrupts one byte of the normalised writing case's stored output outside any run-root span and asserts the comparison the parity test makes still fails, proving the substitution relaxes only the run directory.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-009",
+          "version": 1,
+          "file": "tests/baselines/regenerate.py",
+          "function": "main",
+          "behavior": "Refuses to regenerate when traktor_nml.xmlio.HAS_LXML is False: exits non-zero before touching manifest.json with a message naming lxml as a required install and stating that a stdlib-ET capture would record a different stats-key set and a different serialised byte stream for the rewrite-from-reconnect writing cases. This makes the backend a checked precondition of the recorded contract rather than an unrecorded property of the capture machine.",
+          "decision_refs": [
+            "DL-010",
+            "DL-011"
+          ]
+        },
+        {
+          "id": "CI-M-001-010",
+          "version": 1,
+          "file": "tests/test_baseline_parity.py",
+          "function": "module-level lxml precondition",
+          "behavior": "Reads HAS_LXML from traktor_nml.xmlio at import and fails the module with an explicit reason when it is False rather than letting the writing cases mismatch as if the tool had regressed. The reason names lxml as a required install and points at the regenerate guard so a stdlib-only environment cannot be mistaken for a parity failure or silently pass.",
+          "decision_refs": [
+            "DL-010",
+            "DL-011"
+          ]
+        },
+        {
+          "id": "CI-M-001-011",
+          "version": 1,
+          "file": "tests/baselines/regenerate.py",
+          "function": null,
+          "behavior": "A module-level comment beside the reconnect entries in CASES records that every reconnect baseline depends on traktor_nml/diskscan.py:103 iterating sorted(Path(root).rglob(\"*\")): candidate order in stdout and in the ambiguity CSV is that sort's order and nothing else. It states that removing or altering that sort is a production behaviour change which invalidates every reconnect baseline case, so it demands a reviewed regeneration and a new parity-baseline-vN tag rather than a quiet re-capture. This closes Determinism risk 3 by verified fact rather than by mitigation.",
+          "decision_refs": [
+            "DL-013"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-001-001",
+          "version": 1,
+          "intent_ref": "CI-M-001-001",
+          "file": "tests/fixtures/build_fixtures.py",
+          "diff": "--- a/tests/fixtures/build_fixtures.py\n+++ b/tests/fixtures/build_fixtures.py\n@@ -50,6 +50,11 @@ ALL_FIXTURES = (\n     FIXTURE_PLAYLIST_TREE,\n     FIXTURE_SETS_SECTION,\n )\n\n+# Reconnect fixtures live in a sibling recon/ tree, never under corpus/:\n+# compare_cmd.py's recursive nml glob over a --scan-root would otherwise\n+# count an added .nml toward the stored scan-compare-candidates case (DL-001).\n+FIXTURE_RECON_SIMPLE = \"simple.nml\"\n+FIXTURE_RECON_AMBIGUOUS = \"ambiguous.nml\"\n+FIXTURE_RECON_DANGLING = \"dangling.nml\"\n\n def _wrap(collection_entries: str, playlists: str = \"\", sorting_info: str = \"\", sets: str = \"\") -> str:\n     return (\n@@ -124,6 +129,29 @@ def _sets_section() -> str:\n     sets = '<SET NAME=\"RemixSet1\"></SET>'\n     return _wrap(entry, sets=sets)\n\n\n+def _recon_simple() -> str:\n+    # FILESIZE=\"16\" matches the 16-zero-byte audio stub build_reconnect_fixtures\n+    # writes for this filename, so the filename_size tier (the only tier a\n+    # tagless stub can reach) resolves a single unambiguous candidate (DL-002).\n+    entries = _entry(\"Aphex Twin\", \"Xtal\", \"C:\", \"/:Stale/:Path/:\", \"track_simple.mp3\", size=\"16\")\n+    return _wrap(entries)\n+\n+\n+def _recon_ambiguous() -> str:\n+    # Same filename_size key as two stub files build_reconnect_fixtures writes\n+    # under different recon/audio subdirectories, so the candidate-side index\n+    # bucket holds two entries and the record resolves ambiguous rather than\n+    # matched.\n+    entries = _entry(\"Aphex Twin\", \"Xtal\", \"C:\", \"/:Stale/:Path/:\", \"track_ambiguous.mp3\", size=\"16\")\n+    return _wrap(entries)\n+\n+\n+def _recon_dangling() -> str:\n+    # No stub of this name exists anywhere under recon/audio, so the record\n+    # resolves unmatched rather than ambiguous or matched.\n+    entries = _entry(\"Aphex Twin\", \"Xtal\", \"C:\", \"/:Stale/:Path/:\", \"track_dangling.mp3\", size=\"16\")\n+    return _wrap(entries)\n+\n+\n _BUILDERS = {\n     FIXTURE_MOVED_PATHS: _moved_paths,\n     FIXTURE_RENAMED_FILE: _renamed_file,\n@@ -157,6 +185,32 @@ def build_fixtures(target_dir: Path) -> list[Path]:\n\n     return written\n\n\n+def build_reconnect_fixtures(target_dir: Path) -> list[Path]:\n+    \\\"\\\"\\\"Write a recon/ tree (simple/ambiguous/dangling NMLs plus their audio\n+    stubs) under target_dir, kept as a sibling of corpus/ rather than nested\n+    inside it (DL-001).\n+\n+    Deterministic: calling this twice against an empty directory produces\n+    byte-identical files.\n+    \\\"\\\"\\\"\n+    recon_dir = target_dir / \"recon\"\n+    recon_dir.mkdir(parents=True, exist_ok=True)\n+    written: list[Path] = []\n+\n+    for name, builder in (\n+        (FIXTURE_RECON_SIMPLE, _recon_simple),\n+        (FIXTURE_RECON_AMBIGUOUS, _recon_ambiguous),\n+        (FIXTURE_RECON_DANGLING, _recon_dangling),\n+    ):\n+        path = recon_dir / name\n+        path.write_text(builder(), encoding=\"utf-8\", newline=\"\")\n+        written.append(path)\n+\n+    audio_dir = recon_dir / \"audio\"\n+    for sub, stub_name in (\n+        (\"simple\", \"track_simple.mp3\"),\n+        (\"a\", \"track_ambiguous.mp3\"),\n+        (\"b\", \"track_ambiguous.mp3\"),\n+    ):\n+        stub_path = audio_dir / sub / stub_name\n+        stub_path.parent.mkdir(parents=True, exist_ok=True)\n+        stub_path.write_bytes(b\"\\x00\" * 16)\n+        written.append(stub_path)\n+\n+    return written\n+\n+\n if __name__ == \"__main__\":\n     import sys\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-002",
+          "version": 1,
+          "intent_ref": "CI-M-001-002",
+          "file": "tests/conftest.py",
+          "diff": "--- a/tests/conftest.py\n+++ b/tests/conftest.py\n@@ -10,7 +10,7 @@ import pytest\n\n-from tests.fixtures.build_fixtures import build_fixtures\n+from tests.fixtures.build_fixtures import build_fixtures, build_reconnect_fixtures\n\n\n @dataclass\n@@ -49,6 +49,10 @@ def run_tool(argv: list[str], cwd: Path) -> RunResult:\n @pytest.fixture\n def fixture_corpus(tmp_path: Path) -> Path:\n     \\\"\\\"\\\"Materialise the deterministic fixture corpus once per test into\n     tmp_path, so tests read real files rather than in-memory strings.\\\"\\\"\\\"\n     corpus_dir = tmp_path / \"corpus\"\n     build_fixtures(corpus_dir)\n+    # Sibling to corpus_dir, never nested inside it, so a reconnect NML never\n+    # counts toward compare_cmd.py's recursive nml glob over a --scan-root\n+    # (DL-001); regenerate.py builds the same tree from the same call so a\n+    # case runs identically under regeneration and under pytest (DL-009).\n+    build_reconnect_fixtures(tmp_path)\n     return corpus_dir\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-003",
+          "version": 1,
+          "intent_ref": "CI-M-001-003",
+          "file": "tests/baselines/run_root.py",
+          "diff": "--- /dev/null\n+++ b/tests/baselines/run_root.py\n@@ -0,0 +1,49 @@\n+\"\"\"Shared substitution helper for the opt-in run-root normalisation.\n+\n+rewrite-from-reconnect writing a real match embeds the per-run temp\n+directory in the output NML's LOCATION DIR: location_from_disk_path\n+strips only the resolved candidate path's own anchor (the drive letter\n+or POSIX root), never the caller's scan root, so every intermediate path\n+segment between the volume root and wherever the fixture corpus happens\n+to live for this run ends up in the rewritten DIR (DL-003). Those bytes\n+compare unequal across runs, machines and temp directories even though\n+nothing about the tool's behaviour changed.\n+\n+This module is the single definition of what RUN_ROOT_TOKEN replaces,\n+imported by both tests/baselines/regenerate.py (the writer) and\n+tests/test_baseline_parity.py (the reader), so the two can never drift\n+into different substitutions.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+from pathlib import Path\n+\n+from traktor_nml.model import encode_traktor_dir\n+\n+RUN_ROOT_TOKEN = \"RUN_ROOT\"\n+\n+\n+def _run_root_forms(run_root: Path) -> list[str]:\n+    \"\"\"Every textual form run_root can take in captured output: the native\n+    absolute path, its forward-slash form, and the Traktor-encoded\n+    anchor-stripped form location_from_disk_path actually writes into a\n+    LOCATION's DIR. Longest first, so a shorter form (the anchor-stripped\n+    encoding) can never consume a prefix of a longer one (the native path)\n+    during substitution.\n+    \"\"\"\n+    resolved = run_root.resolve()\n+    native = str(resolved)\n+    forward = native.replace(\"\\\\\", \"/\")\n+    anchor = resolved.anchor\n+    relative = resolved.relative_to(anchor) if anchor else resolved\n+    relative_str = str(relative)\n+    encoded = \"/:\" if relative_str in (\"\", \".\") else encode_traktor_dir(relative_str)\n+    return sorted({native, forward, encoded}, key=len, reverse=True)\n+\n+\n+def normalise_run_root(text: str, run_root: Path) -> str:\n+    \"\"\"Substitute RUN_ROOT_TOKEN for every form run_root takes in text.\"\"\"\n+    for form in _run_root_forms(run_root):\n+        if form:\n+            text = text.replace(form, RUN_ROOT_TOKEN)\n+    return text\n+\n+\n+def normalise_run_root_bytes(data: bytes, run_root: Path) -> bytes:\n+    \"\"\"Bytes companion to normalise_run_root: decodes UTF-8, substitutes,\n+    and re-encodes, leaving line endings intact since the substitution\n+    itself never touches a line-ending byte.\"\"\"\n+    return normalise_run_root(data.decode(\"utf-8\"), run_root).encode(\"utf-8\")\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-004",
+          "version": 1,
+          "intent_ref": "CI-M-001-004",
+          "file": "tests/baselines/regenerate.py",
+          "diff": "--- a/tests/baselines/regenerate.py\n+++ b/tests/baselines/regenerate.py\n@@ -25,7 +25,19 @@ MANIFEST_PATH = Path(__file__).parent / \"manifest.json\"\n\n-CASES: list[list[str]] = [\n+_MATCHED_WRITING_CASE = [\n+    \"rewrite-from-reconnect\", \"recon/simple.nml\", \"out/simple_reconnect_write.nml\",\n+    \"--scan-root\", \"recon/audio\", \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+    \"--match-confidence\", \"filename\",\n+]\n+_AMBIGUOUS_WRITING_CASE = [\n+    \"rewrite-from-reconnect\", \"recon/ambiguous.nml\", \"out/ambiguous_reconnect_write.nml\",\n+    \"--csv\", \"out/ambiguous_reconnect.csv\",\n+    \"--scan-root\", \"recon/audio\", \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+    \"--match-confidence\", \"filename\",\n+]\n+\n+CASES: list[list[str]] = [\n     [\"inspect\", \"corpus/moved_paths.nml\", \"--limit\", \"5\"],\n     [\"inspect\", \"corpus/playlist_tree.nml\", \"--limit\", \"5\", \"--csv\", \"out/inspect.csv\"],\n     [\"encode-dir\", r\"C:\\Music\\Foo\"],\n@@ -44,7 +56,37 @@ CASES: list[list[str]] = [\n         \"corpus/renamed_file.nml\", \"corpus/renamed_file.nml\", \"out/compare_out.nml\",\n         \"--allow-artist-title-only\",\n     ],\n+    # Every reconnect case below names --volume-map explicitly: the recon/\n+    # scan root is not a prefix of any old record's decoded path, so\n+    # resolve_volume_identity's inference would raise VolumeIdentityError\n+    # (DL-002). Each also names --match-confidence filename: the fixture\n+    # audio stubs carry no readable tags, so filename_size is the only tier\n+    # that can produce a match (DL-002).\n+    [\"scan-reconnect-candidates\", \"recon/simple.nml\",\n+     \"--scan-root\", \"recon/audio\", \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+     \"--match-confidence\", \"filename\", \"--csv\", \"out/simple_reconnect_scan.csv\"],\n+    [\"scan-reconnect-candidates\", \"recon/ambiguous.nml\",\n+     \"--scan-root\", \"recon/audio\", \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+     \"--match-confidence\", \"filename\", \"--csv\", \"out/ambiguous_reconnect_scan.csv\"],\n+    [\"scan-reconnect-candidates\", \"recon/dangling.nml\",\n+     \"--scan-root\", \"recon/audio\", \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+     \"--match-confidence\", \"filename\", \"--csv\", \"out/dangling_reconnect_scan.csv\"],\n+    [\"rewrite-from-reconnect\", \"recon/simple.nml\", \"out/simple_reconnect_dry.nml\", \"--dry-run\",\n+     \"--scan-root\", \"recon/audio\", \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+     \"--match-confidence\", \"filename\"],\n+    _MATCHED_WRITING_CASE,\n+    _AMBIGUOUS_WRITING_CASE,\n+    [\"rewrite-from-reconnect\", \"recon/dangling.nml\", \"out/dangling_reconnect_write.nml\",\n+     \"--scan-root\", \"recon/audio\", \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+     \"--match-confidence\", \"filename\"],\n ]\n+\n+# The matched-writing case's rewritten LOCATION and the ambiguous-writing\n+# case's ambiguity CSV both carry the run-root normalisation (DL-003/DL-014);\n+# tracked by object identity rather than by re-deriving argv equality.\n+_NORMALISE_RUN_ROOT_CASES = {id(_MATCHED_WRITING_CASE), id(_AMBIGUOUS_WRITING_CASE)}\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-005",
+          "version": 1,
+          "intent_ref": "CI-M-001-005",
+          "file": "tests/baselines/regenerate.py",
+          "diff": "--- a/tests/baselines/regenerate.py\n+++ b/tests/baselines/regenerate.py\n@@ -49,6 +49,10 @@ CASES: list[list[str]] = [\n _OUTPUT_ARG_INDEX = {\n     \"rewrite\": 2,\n     \"rewrite-from-collection-compare\": 3,\n+    # rewrite-from-reconnect's own argv shape (old_input, output, ...) puts\n+    # its written NML at the same index as \"rewrite\" - a --csv flag present\n+    # in the same invocation is captured separately, above, by _output_paths'\n+    # own --csv branch (DL-007/DL-014).\n+    \"rewrite-from-reconnect\": 2,\n }\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-006",
+          "version": 1,
+          "intent_ref": "CI-M-001-006",
+          "file": "tests/baselines/regenerate.py",
+          "diff": "--- a/tests/baselines/regenerate.py\n+++ b/tests/baselines/regenerate.py\n@@ -21,7 +21,8 @@ import os\n from pathlib import Path\n\n-from tests.fixtures.build_fixtures import build_fixtures\n+from tests.fixtures.build_fixtures import build_fixtures, build_reconnect_fixtures\n+from tests.baselines.run_root import normalise_run_root, normalise_run_root_bytes\n\n MANIFEST_PATH = Path(__file__).parent / \"manifest.json\"\n@@ -71,7 +72,8 @@ def regenerate(target_dir: Path) -> list[dict]:\n     from traktor_nml.cli import main\n\n     build_fixtures(target_dir / \"corpus\")\n+    build_reconnect_fixtures(target_dir)\n     (target_dir / \"out\").mkdir(exist_ok=True)\n\n     manifest = []\n     old_cwd = Path.cwd()\n     os.chdir(target_dir)\n     try:\n         for argv in CASES:\n             stdout = io.StringIO()\n             stderr = io.StringIO()\n             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):\n                 try:\n                     exit_code = main(argv)\n                 except SystemExit as exc:\n                     exit_code = 0 if exc.code is None else int(exc.code)\n+            # Only the matched-writing and ambiguous-writing reconnect cases\n+            # carry the run-root token substitution; every other entry - the\n+            # eight pre-existing ones included - is recorded verbatim, so\n+            # regenerating over an unmodified tool leaves them byte-identical\n+            # (DL-003/DL-004).\n+            normalise = id(argv) in _NORMALISE_RUN_ROOT_CASES\n+            stdout_value = stdout.getvalue()\n+            if normalise:\n+                stdout_value = normalise_run_root(stdout_value, target_dir)\n             entry = {\n                 \"argv\": argv,\n                 \"exit_code\": exit_code,\n-                \"stdout\": stdout.getvalue(),\n+                \"stdout\": stdout_value,\n                 \"stderr\": stderr.getvalue(),\n                 \"output_files\": {},\n             }\n+            if normalise:\n+                entry[\"normalise_run_root\"] = True\n             for rel_path in _output_paths(argv):\n                 path = target_dir / rel_path\n                 if path.exists():\n-                    entry[\"output_files\"][rel_path] = base64.b64encode(path.read_bytes()).decode(\"ascii\")\n+                    data = path.read_bytes()\n+                    if normalise:\n+                        data = normalise_run_root_bytes(data, target_dir)\n+                    entry[\"output_files\"][rel_path] = base64.b64encode(data).decode(\"ascii\")\n             manifest.append(entry)\n     finally:\n         os.chdir(old_cwd)\n     return manifest\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-007",
+          "version": 1,
+          "intent_ref": "CI-M-001-007",
+          "file": "tests/test_baseline_parity.py",
+          "diff": "--- a/tests/test_baseline_parity.py\n+++ b/tests/test_baseline_parity.py\n@@ -30,14 +30,22 @@ def _load_manifest() -> list[dict]:\n @pytest.mark.parametrize(\"case\", _load_manifest(), ids=lambda c: \" \".join(c[\"argv\"]))\n def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Path, tmp_path: Path) -> None:\n     \"\"\"Re-runs one recorded invocation against the fixture corpus and\n     compares exit code, stdout and every written file's bytes against the\n     manifest's stored values (DL-011).\"\"\"\n     (tmp_path / \"out\").mkdir(exist_ok=True)\n     result = run_tool(case[\"argv\"], cwd=tmp_path)\n\n+    # A case carrying normalise_run_root stores its stdout/bytes with the\n+    # capture run's own directory already substituted for RUN_ROOT_TOKEN;\n+    # the freshly observed value is substituted the same way (against this\n+    # test's own tmp_path) before comparing, rather than comparing raw\n+    # absolute paths that can never agree across two different runs\n+    # (DL-003).\n+    stdout = result.stdout\n+    if case.get(\"normalise_run_root\"):\n+        stdout = normalise_run_root(stdout, tmp_path)\n+\n     assert result.exit_code == case[\"exit_code\"]\n-    assert result.stdout == case[\"stdout\"]\n+    assert stdout == case[\"stdout\"]\n\n     for rel_path, expected_b64 in case[\"output_files\"].items():\n         written = (tmp_path / rel_path).read_bytes()\n+        if case.get(\"normalise_run_root\"):\n+            written = normalise_run_root_bytes(written, tmp_path)\n         assert written == base64.b64decode(expected_b64), f\"output mismatch for {rel_path}\"\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-008",
+          "version": 1,
+          "intent_ref": "CI-M-001-008",
+          "file": "tests/test_baseline_parity.py",
+          "diff": "--- a/tests/test_baseline_parity.py\n+++ b/tests/test_baseline_parity.py\n@@ -43,6 +43,27 @@ def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Path, tmp_path: Path) -> None:\n         assert written == base64.b64decode(expected_b64), f\"output mismatch for {rel_path}\"\n\n\n+def test_normalised_case_still_detects_a_non_run_root_byte_change(fixture_corpus: Path, tmp_path: Path) -> None:\n+    \"\"\"Corrupting a non-run-root byte of the normalised writing case's stored\n+    output must still fail the comparison test_baseline_invocation_matches_\n+    stored_bytes makes, proving the run-root substitution relaxes only the\n+    run directory and nothing else (R-005).\"\"\"\n+    manifest = _load_manifest()\n+    case = next(c for c in manifest if c.get(\"normalise_run_root\") and c[\"output_files\"])\n+    (tmp_path / \"out\").mkdir(exist_ok=True)\n+    run_tool(case[\"argv\"], cwd=tmp_path)\n+\n+    rel_path, expected_b64 = next(iter(case[\"output_files\"].items()))\n+    expected_bytes = base64.b64decode(expected_b64)\n+    # The document always ends in the literal \"</NML>\" closing tag, never\n+    # inside a substituted RUN_ROOT_TOKEN span, so corrupting the final byte\n+    # cannot land inside the relaxed run-root region.\n+    corrupted = expected_bytes[:-1] + (b\"X\" if not expected_bytes.endswith(b\"X\") else b\"Y\")\n+\n+    written = (tmp_path / rel_path).read_bytes()\n+    written = normalise_run_root_bytes(written, tmp_path)\n+\n+    with pytest.raises(AssertionError):\n+        assert written == corrupted\n+\n+\n def test_deliberate_one_character_edit_fails_parity(fixture_corpus: Path, tmp_path: Path) -> None:\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-009",
+          "version": 1,
+          "intent_ref": "CI-M-001-009",
+          "file": "tests/baselines/regenerate.py",
+          "diff": "--- a/tests/baselines/regenerate.py\n+++ b/tests/baselines/regenerate.py\n@@ -17,6 +17,7 @@ import base64\n import contextlib\n import io\n import json\n import os\n+import sys\n from pathlib import Path\n@@ -103,10 +104,29 @@ def regenerate(target_dir: Path) -> list[dict]:\n     return manifest\n\n\n-if __name__ == \"__main__\":\n+def main() -> int:\n+    from traktor_nml.xmlio import HAS_LXML\n+\n+    if not HAS_LXML:\n+        # xmlio.py selects lxml or stdlib ET at import time; write_traktor_xml\n+        # serialises differently per branch and rewrite.py:433's mutate_tree\n+        # pre-seeds a different stats-key set on the stdlib path - a manifest\n+        # captured here would record bytes valid only on this machine, since\n+        # README already declares lxml a required install (DL-010).\n+        print(\n+            \"lxml_required: regenerate refuses to run without lxml installed\",\n+            file=sys.stderr,\n+        )\n+        return 1\n+\n     import tempfile\n\n     with tempfile.TemporaryDirectory() as tmp:\n         manifest = regenerate(Path(tmp))\n     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))\n     print(f\"wrote {MANIFEST_PATH}\")\n+    return 0\n+\n+\n+if __name__ == \"__main__\":\n+    sys.exit(main())\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-010",
+          "version": 1,
+          "intent_ref": "CI-M-001-010",
+          "file": "tests/test_baseline_parity.py",
+          "diff": "--- a/tests/test_baseline_parity.py\n+++ b/tests/test_baseline_parity.py\n@@ -10,11 +10,23 @@ import base64\n import json\n from pathlib import Path\n\n import pytest\n\n from tests.conftest import run_tool\n+from tests.baselines.run_root import normalise_run_root, normalise_run_root_bytes\n+from traktor_nml.xmlio import HAS_LXML\n+\n+if not HAS_LXML:\n+    # manifest.json was captured under the lxml backend only: xmlio.py\n+    # selects lxml or stdlib ET at import time and write_traktor_xml\n+    # serialises differently per branch, while rewrite.py:433's mutate_tree\n+    # pre-seeds a different stats-key set on the stdlib path - comparing here\n+    # would read as a tool regression rather than the genuine environment gap\n+    # it is (DL-010).\n+    pytest.skip(\n+        \"parity baseline requires lxml (README declares it a required install)\",\n+        allow_module_level=True,\n+    )\n\n BASELINE_MANIFEST = Path(__file__).parent / \"baselines\" / \"manifest.json\"\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-011",
+          "version": 1,
+          "intent_ref": "CI-M-001-011",
+          "file": "tests/baselines/regenerate.py",
+          "diff": "--- a/tests/baselines/regenerate.py\n+++ b/tests/baselines/regenerate.py\n@@ -84,3 +84,8 @@ CASES: list[list[str]] = [\n # The matched-writing case's rewritten LOCATION and the ambiguous-writing\n # case's ambiguity CSV both carry the run-root normalisation (DL-003/DL-014);\n # tracked by object identity rather than by re-deriving argv equality.\n _NORMALISE_RUN_ROOT_CASES = {id(_MATCHED_WRITING_CASE), id(_AMBIGUOUS_WRITING_CASE)}\n+\n+# Every reconnect case above depends on traktor_nml/diskscan.py:103 iterating\n+# sorted(Path(root).rglob(\"*\")): candidate order in stdout and in the\n+# ambiguity CSV is that sort's order and nothing else. Removing or altering\n+# that sort is a production behaviour change invalidating every reconnect\n+# case here, and demands a reviewed regeneration and a new parity-baseline-vN\n+# tag rather than a quiet re-capture (DL-013).\n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "Tamper-evident manifest hash guard",
+      "files": [
+        "tests/test_parity_baseline.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "A SHA-256 constant pins manifest.json's bytes",
+        "The guard runs under plain pytest with no git dependency",
+        "The hash-and-compare step is a single helper taking a manifest path so the guard and the meta-test exercise identical code",
+        "PARITY_BASELINE_SHA256 may only move alongside a reviewed regeneration and a new parity-baseline-vN tag; the guard's assertion failure message states that rule naming both halves",
+        "A meta-test proves a one-character on-disk manifest mutation fails the guard"
+      ],
+      "acceptance_criteria": [
+        "pytest tests/test_parity_baseline.py -q passes against the committed manifest",
+        "Altering one character of manifest.json on disk makes test_manifest_matches_pinned_hash fail",
+        "The meta-test copies the manifest to tmp_path / mutates one character on disk / and drives the guard's own comparison against that copy",
+        "The guard's failure message contains the words 'reviewed regeneration' and 'new parity-baseline-vN tag'",
+        "The module imports nothing from git and starts no subprocess"
+      ],
+      "tests": [
+        "Guard: hash of manifest.json equals PARITY_BASELINE_SHA256 via the shared helper",
+        "Meta: an on-disk one-character mutation of a tmp_path copy makes the shared helper raise"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 1,
+          "file": "tests/test_parity_baseline.py",
+          "function": "PARITY_BASELINE_SHA256",
+          "behavior": "Holds the hex SHA-256 of tests/baselines/manifest.json's bytes as the authoritative pin on the oracle's contents.",
+          "decision_refs": [
+            "DL-006"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 2,
+          "file": "tests/test_parity_baseline.py",
+          "function": "test_manifest_matches_pinned_hash",
+          "behavior": "Exposes the hash-and-compare step as a helper taking the manifest path - _assert_manifest_matches(path) - which reads the file's bytes, hashes them, and asserts equality with PARITY_BASELINE_SHA256. test_manifest_matches_pinned_hash calls it with the committed tests/baselines/manifest.json path, so the guard's real comparison is a single definition that the meta-test can drive against any path. The assertion failure message states that manifest.json no longer matches its pin and that the constant may only move alongside a reviewed regeneration and a new parity-baseline-vN tag - naming both halves so the message cannot read as an instruction to regenerate. Reads only the filesystem: no git import and no subprocess.",
+          "decision_refs": [
+            "DL-006",
+            "DL-015"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 2,
+          "file": "tests/test_parity_baseline.py",
+          "function": "test_one_character_manifest_mutation_fails_the_guard",
+          "behavior": "Copies tests/baselines/manifest.json into tmp_path, mutates exactly one character of the copy ON DISK, and invokes the same _assert_manifest_matches helper against the mutated copy, asserting it raises. Because the helper is the identical code path test_manifest_matches_pinned_hash runs, the acceptance criterion's literal wording - a one-character on-disk mutation makes that named test fail - is what the meta-test verifies, rather than an in-memory comparison of two strings. The committed manifest is never written to.",
+          "decision_refs": [
+            "DL-006",
+            "DL-015"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-002-001",
+          "version": 1,
+          "intent_ref": "CI-M-002-001",
+          "file": "tests/test_parity_baseline.py",
+          "diff": "--- /dev/null\n+++ b/tests/test_parity_baseline.py\n@@ -0,0 +1,18 @@\n+\"\"\"Tamper-evident guard on tests/baselines/manifest.json's recorded bytes.\n+\n+manifest.json is the parity oracle's contract (see tests/test_baseline_parity.py).\n+Regenerating it is correct only for a deliberate, reviewed behavior change;\n+editing PARITY_BASELINE_SHA256 to match a regenerated manifest without that\n+review is the regenerate-to-go-green defect the oracle exists to detect\n+(DL-015).\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+import hashlib\n+from pathlib import Path\n+\n+import pytest\n+\n+BASELINE_MANIFEST = Path(__file__).parent / \"baselines\" / \"manifest.json\"\n+\n+PARITY_BASELINE_SHA256 = \"0\" * 64  # set from the parity-baseline-v1 regeneration run\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-002",
+          "version": 1,
+          "intent_ref": "CI-M-002-002",
+          "file": "tests/test_parity_baseline.py",
+          "diff": "--- a/tests/test_parity_baseline.py\n+++ b/tests/test_parity_baseline.py\n@@ -16,3 +16,17 @@ BASELINE_MANIFEST = Path(__file__).parent / \"baselines\" / \"manifest.json\"\n\n PARITY_BASELINE_SHA256 = \"0\" * 64  # set from the parity-baseline-v1 regeneration run\n+\n+\n+def _assert_manifest_matches(path: Path) -> None:\n+    \"\"\"Reads path's bytes, hashes them, and asserts equality with\n+    PARITY_BASELINE_SHA256 - the single comparison both the guard and its\n+    meta-test exercise, so they can never drift into two different checks.\"\"\"\n+    digest = hashlib.sha256(path.read_bytes()).hexdigest()\n+    assert digest == PARITY_BASELINE_SHA256, (\n+        f\"{path} no longer matches PARITY_BASELINE_SHA256. \"\n+        \"PARITY_BASELINE_SHA256 may only move alongside a reviewed \"\n+        \"regeneration and a new parity-baseline-vN tag.\"\n+    )\n+\n+\n+def test_manifest_matches_pinned_hash() -> None:\n+    _assert_manifest_matches(BASELINE_MANIFEST)\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-003",
+          "version": 1,
+          "intent_ref": "CI-M-002-003",
+          "file": "tests/test_parity_baseline.py",
+          "diff": "--- a/tests/test_parity_baseline.py\n+++ b/tests/test_parity_baseline.py\n@@ -30,3 +30,17 @@ def test_manifest_matches_pinned_hash() -> None:\n     _assert_manifest_matches(BASELINE_MANIFEST)\n+\n+\n+def test_one_character_manifest_mutation_fails_the_guard(tmp_path: Path) -> None:\n+    \"\"\"Copies manifest.json to tmp_path, mutates one character on disk, and\n+    drives _assert_manifest_matches - the identical code path\n+    test_manifest_matches_pinned_hash runs - against the mutated copy,\n+    proving the guard bites on a real on-disk change rather than an\n+    in-memory string comparison. The committed manifest is never written\n+    to.\"\"\"\n+    import shutil\n+\n+    mutated = tmp_path / \"manifest.json\"\n+    shutil.copyfile(BASELINE_MANIFEST, mutated)\n+    data = bytearray(mutated.read_bytes())\n+    data[0] ^= 0x01\n+    mutated.write_bytes(bytes(data))\n+\n+    with pytest.raises(AssertionError):\n+        _assert_manifest_matches(mutated)\n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 3,
+      "number": 3,
+      "name": "Baseline documentation and parity-baseline-v1 tag",
+      "files": [
+        "tests/baselines/manifest.schema.md",
+        "tests/baselines/CLAUDE.md",
+        "docs/nicegui-gui-analysis.md",
+        "tests/hooks/pre-push",
+        "tests/test_parity_baseline.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "The normalisation rule and its opt-in field are documented in the manifest schema",
+        "The unpinned fingerprint tier and the pinned lxml precondition are stated in the baselines directory doc and in the analysis doc",
+        "manifest.schema.md and tests/baselines/CLAUDE.md both state that PARITY_BASELINE_SHA256 moves only alongside a reviewed regeneration and a new parity-baseline-vN tag",
+        "tests/baselines/CLAUDE.md states the required CI check in prose: CI must run tests/test_parity_baseline.py; and any job diffing manifest.json against parity-baseline-v1 must also assert that tag still resolves to its recorded commit SHA",
+        "The parity-baseline-* tag guard exists as a tracked hook script with a documented install step and a test that drives it",
+        "An annotated parity-baseline-v1 tag points at the commit carrying M-001 and M-002"
+      ],
+      "acceptance_criteria": [
+        "manifest.schema.md describes normalise_run_root / its default absence / the zero-substitution rule",
+        "manifest.schema.md and tests/baselines/CLAUDE.md both carry the reviewed-regeneration-plus-new-tag rule for PARITY_BASELINE_SHA256",
+        "tests/baselines/CLAUDE.md lists the run-root helper / the lxml precondition / the fingerprint gap / the pre-push hook install command",
+        "tests/baselines/CLAUDE.md states the required CI check and the tag-resolves-to-recorded-SHA rule and records that SHA beside it",
+        "docs/nicegui-gui-analysis.md section 3.1 states the fingerprint tier as unpinned pending parity-baseline-v2",
+        "tests/hooks/pre-push exists in the tree and exits non-zero for a parity-baseline-v1 delete refspec and for a move refspec while passing a new-tag and a branch refspec",
+        "git tag -a parity-baseline-v1 resolves to the commit and is pushed"
+      ],
+      "tests": [
+        "Hook: tests/test_parity_baseline.py drives tests/hooks/pre-push with delete / move / new-tag / branch refspecs",
+        "No automated test: documentation wording and tag creation are verified by reading the diff and resolving the tag"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 2,
+          "file": "tests/baselines/manifest.schema.md",
+          "function": null,
+          "behavior": "Describes normalise_run_root as an optional per-entry boolean: present and true on an entry whose recorded output embeds the run directory (the matched-writing NML and the ambiguous-writing CSV), absent everywhere else, and states that an entry lacking the field is compared with zero substitutions. Names the shared helper as the single definition of what the token replaces. Adds a rule paragraph on the pin itself: PARITY_BASELINE_SHA256 in tests/test_parity_baseline.py may only be recomputed as part of a reviewed regeneration that also creates a new parity-baseline-vN tag; editing the constant to match a regenerated manifest without that review is the regenerate-to-go-green defect the oracle exists to detect.",
+          "decision_refs": [
+            "DL-003",
+            "DL-015"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 2,
+          "file": "tests/baselines/CLAUDE.md",
+          "function": null,
+          "behavior": "Carries a row for the run-root helper module beside the manifest, schema and regenerate rows, and states the fingerprint tier as an unpinned gap closed by a reviewed parity-baseline-v2 re-tag. Adds a rules section stating that PARITY_BASELINE_SHA256 moves only alongside a reviewed regeneration and a new parity-baseline-vN tag - the same wording the guard's failure message uses - and repeating that the scan-root sort at traktor_nml/diskscan.py:103 is a precondition of every reconnect case.",
+          "decision_refs": [
+            "DL-005",
+            "DL-010",
+            "DL-012",
+            "DL-015"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "version": 1,
+          "file": "docs/nicegui-gui-analysis.md",
+          "function": null,
+          "behavior": "Section 3.1 records that the fingerprint tier is unpinned in parity-baseline-v1 because HAS_ACOUSTID gates on the acoustid module rather than the fpcalc binary, and that the direct-Popen commit in section 2 adds the tier under a reviewed parity-baseline-v2 re-tag.",
+          "decision_refs": [
+            "DL-005"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "version": 1,
+          "file": "tests/hooks/pre-push",
+          "function": null,
+          "behavior": "A repo-tracked pre-push hook script that reads refspecs on stdin and exits non-zero for any push touching a refs/tags/parity-baseline-* ref that is a delete (all-zero local SHA) or a move (existing remote SHA differing from the local one), printing the offending tag and the reason. A push creating a new parity-baseline-* tag or touching any other ref passes through. The script is installed manually by copying it to .git/hooks/pre-push, git being unable to self-install hooks.",
+          "decision_refs": [
+            "DL-012"
+          ]
+        },
+        {
+          "id": "CI-M-003-005",
+          "version": 1,
+          "file": "tests/test_parity_baseline.py",
+          "function": "test_pre_push_hook_refuses_to_move_or_delete_a_parity_baseline_tag",
+          "behavior": "Runs tests/hooks/pre-push with a tag-delete refspec and with a tag-move refspec on stdin and asserts a non-zero exit for each, then asserts a zero exit for a new-tag refspec and for an ordinary branch refspec. Skips rather than fails where no POSIX shell is available so the suite stays green on a bare Windows checkout while the script itself stays reviewable in the diff.",
+          "decision_refs": [
+            "DL-012"
+          ]
+        },
+        {
+          "id": "CI-M-003-006",
+          "version": 1,
+          "file": "tests/baselines/CLAUDE.md",
+          "function": null,
+          "behavior": "States the required CI check in prose for whoever authors the repo's first workflow - no workflow file is created here. Two sentences: CI must run tests/test_parity_baseline.py so the manifest pin is checked on every push; and any job that diffs manifest.json against the parity-baseline-v1 tag must ALSO assert that the tag still resolves to its recorded commit SHA - recorded in this doc beside the rule - because the tag has no server-side protection (only the tests/hooks/pre-push script) and a moved tag moves the comparison with it, turning the diff green against the wrong baseline.",
+          "decision_refs": [
+            "DL-006",
+            "DL-016"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-003-001",
+          "version": 1,
+          "intent_ref": "CI-M-003-001",
+          "file": "tests/baselines/manifest.schema.md",
+          "diff": "--- a/tests/baselines/manifest.schema.md\n+++ b/tests/baselines/manifest.schema.md\n@@ -5,6 +5,7 @@\n - `argv`: argument list passed to `traktor_nml.cli.main`\n - `exit_code`, `stdout`, `stderr`: expected process output\n - `output_files`: relative path -> base64-encoded expected file bytes\n+- `normalise_run_root` (optional, boolean): present and `true` only on a case whose recorded stdout/output bytes embed the per-run temp directory (the matched-writing NML case and the ambiguous-writing CSV case); an entry lacking this field is compared with zero substitutions. `tests/baselines/run_root.py` is the single definition of what the substitution replaces, imported by both `regenerate.py` and `tests/test_baseline_parity.py`.\n\n manifest.json records the tool's output contract for this fixed set of\n invocations: every case here must keep passing byte-for-byte. Regenerating\n@@ -14,3 +15,7 @@ it encodes.\n\n This file itself holds no comments (JSON has none) - this document is\n its comment.\n+\n+`PARITY_BASELINE_SHA256` in `tests/test_parity_baseline.py` pins this file's\n+bytes. It may only be recomputed as part of a reviewed regeneration that also\n+creates a new `parity-baseline-vN` tag; editing the constant to match a\n+regenerated manifest without that review is the regenerate-to-go-green defect\n+this oracle exists to detect.\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-002",
+          "version": 1,
+          "intent_ref": "CI-M-003-002",
+          "file": "tests/baselines/CLAUDE.md",
+          "diff": "--- a/tests/baselines/CLAUDE.md\n+++ b/tests/baselines/CLAUDE.md\n@@ -8,6 +8,7 @@\n | `manifest.json`       | Golden CLI-invocation baseline (argv, exit code, stdout/stderr, output file bytes) | Never edit directly - regenerate via `regenerate.py` |\n | `manifest.schema.md`  | Field-by-field description of `manifest.json`'s schema and its regeneration invariant | Understanding a manifest entry's shape, or when regeneration is/isn't appropriate |\n | `regenerate.py`       | Regenerates `manifest.json` from the current tool: `python -m tests.baselines.regenerate` | Deliberately updating the baseline after a reviewed behavior change |\n+| `run_root.py`         | Shared run-root token substitution used by both `regenerate.py` and `tests/test_baseline_parity.py` for the two `normalise_run_root` cases | Understanding or changing what the substitution replaces |\n\n ## Regenerate\n\n@@ -16,3 +17,15 @@ python -m tests.baselines.regenerate\n ```\n\n Only run after a deliberate, reviewed behavior change - never to make a failing test pass (see `manifest.schema.md`).\n+\n+## Rules\n+\n+`PARITY_BASELINE_SHA256` (in `tests/test_parity_baseline.py`) moves only\n+alongside a reviewed regeneration and a new `parity-baseline-vN` tag; editing\n+the constant to match a regenerated manifest without that review is the\n+regenerate-to-go-green defect the oracle exists to detect.\n+\n+The fingerprint tier is an unpinned gap in `parity-baseline-v1`: `HAS_ACOUSTID`\n+gates on the `acoustid` module rather than the `fpcalc` binary, so it stays out\n+until a reviewed `parity-baseline-v2` re-tag adds it as a test dependency.\n+\n+Every reconnect case's candidate order (stdout and the ambiguity CSV) depends\n+on `traktor_nml/diskscan.py:103` iterating `sorted(Path(root).rglob(\"*\"))`;\n+changing or removing that sort is a production behaviour change invalidating\n+every reconnect baseline case.\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-003",
+          "version": 1,
+          "intent_ref": "CI-M-003-003",
+          "file": "docs/nicegui-gui-analysis.md",
+          "diff": "--- a/docs/nicegui-gui-analysis.md\n+++ b/docs/nicegui-gui-analysis.md\n@@ -145,9 +145,11 @@ root, each in a `--dry-run` and a writing form, plus one run with an ambiguous\n    match and one with a dangling match so the ambiguity/dangling reporting paths\n    are pinned. Commit this **before** the refactor branch diverges.\n-   Include one case that exercises the fingerprint tier against a fixture with a\n-   stub `fpcalc` on PATH, so the §2 direct-`Popen` change is covered by the oracle\n-   rather than only by unit tests.\n+   The fingerprint tier is **not** included in this baseline: `HAS_ACOUSTID`\n+   gates on importing the `acoustid` Python module rather than on the `fpcalc`\n+   binary, so a stub `fpcalc` on PATH cannot light the tier, and adding\n+   `pyacoustid` as a test dependency to close the gap now would cost the\n+   oracle its machine-independence one commit early. The tier stays unpinned\n+   pending a reviewed `parity-baseline-v2` re-tag alongside the §2\n+   direct-`Popen` change.\n 2. **`manifest.json` must not be regenerated for the duration of the refactor.**\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-004",
+          "version": 1,
+          "intent_ref": "CI-M-003-004",
+          "file": "tests/hooks/pre-push",
+          "diff": "--- /dev/null\n+++ b/tests/hooks/pre-push\n@@ -0,0 +1,29 @@\n+#!/bin/sh\n+# Refuses to push a delete or a move of any refs/tags/parity-baseline-* ref.\n+#\n+# GitHub rulesets need Pro or a public repo and the legacy tag-protection API\n+# has been removed, so this hook is the only available control - a speed\n+# bump local to one clone, not a control against a determined push\n+# (bypassable with --no-verify). The authoritative pin remains\n+# PARITY_BASELINE_SHA256 in tests/test_parity_baseline.py, which does not\n+# depend on this hook or on the tag at all.\n+#\n+# Install (git cannot self-install hooks):\n+#   cp tests/hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push\n+\n+zero=\"0000000000000000000000000000000000000000\"\n+status=0\n+\n+while read local_ref local_sha remote_ref remote_sha; do\n+    case \"$remote_ref\" in\n+        refs/tags/parity-baseline-*)\n+            if [ \"$local_sha\" = \"$zero\" ]; then\n+                echo \"refusing to delete protected tag: $remote_ref\" >&2\n+                status=1\n+            elif [ \"$remote_sha\" != \"$zero\" ] && [ \"$remote_sha\" != \"$local_sha\" ]; then\n+                echo \"refusing to move protected tag: $remote_ref\" >&2\n+                status=1\n+            fi\n+            ;;\n+    esac\n+done\n+\n+exit $status\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-005",
+          "version": 1,
+          "intent_ref": "CI-M-003-005",
+          "file": "tests/test_parity_baseline.py",
+          "diff": "--- a/tests/test_parity_baseline.py\n+++ b/tests/test_parity_baseline.py\n@@ -30,3 +30,33 @@ def test_one_character_manifest_mutation_fails_the_guard(tmp_path: Path) -> None:\n\n     with pytest.raises(AssertionError):\n         _assert_manifest_matches(mutated)\n+\n+\n+def test_pre_push_hook_refuses_to_move_or_delete_a_parity_baseline_tag() -> None:\n+    \"\"\"Drives tests/hooks/pre-push with delete/move/new-tag/branch refspecs\n+    on stdin and asserts its exit code for each - the same refusal logic a\n+    developer's manually-installed .git/hooks/pre-push runs against a real\n+    push (see tests/baselines/CLAUDE.md for the install step). Skips rather\n+    than fails where no POSIX shell is available, so the suite stays green\n+    on a bare Windows checkout while the script itself stays reviewable in\n+    the diff.\"\"\"\n+    import shutil\n+    import subprocess\n+\n+    shell = shutil.which(\"sh\")\n+    if shell is None:\n+        pytest.skip(\"no POSIX shell available to drive tests/hooks/pre-push\")\n+\n+    hook = Path(__file__).parent / \"hooks\" / \"pre-push\"\n+    zero = \"0\" * 40\n+    old_sha = \"1\" * 40\n+    new_sha = \"2\" * 40\n+\n+    def _run(refspec: str) -> int:\n+        result = subprocess.run([shell, str(hook)], input=refspec, capture_output=True, text=True)\n+        return result.returncode\n+\n+    assert _run(f\"refs/heads/main {zero} refs/tags/parity-baseline-v1 {old_sha}\\n\") != 0\n+    assert _run(f\"refs/tags/parity-baseline-v1 {new_sha} refs/tags/parity-baseline-v1 {old_sha}\\n\") != 0\n+    assert _run(f\"refs/tags/parity-baseline-v2 {new_sha} refs/tags/parity-baseline-v2 {zero}\\n\") == 0\n+    assert _run(f\"refs/heads/main {new_sha} refs/heads/main {old_sha}\\n\") == 0\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-006",
+          "version": 1,
+          "intent_ref": "CI-M-003-006",
+          "file": "tests/baselines/CLAUDE.md",
+          "diff": "--- a/tests/baselines/CLAUDE.md\n+++ b/tests/baselines/CLAUDE.md\n@@ -29,3 +29,10 @@ Every reconnect case's candidate order (stdout and the ambiguity CSV) depends\n on `traktor_nml/diskscan.py:103` iterating `sorted(Path(root).rglob(\"*\"))`;\n changing or removing that sort is a production behaviour change invalidating\n every reconnect baseline case.\n+\n+## CI\n+\n+This repo carries no CI workflow today. Whoever authors the first one: CI must\n+run `tests/test_parity_baseline.py` so the manifest pin is checked on every\n+push. Any job that diffs `manifest.json` against the `parity-baseline-v1` tag\n+must ALSO assert that tag still resolves to its recorded commit SHA - the tag\n+carries no server-side protection (only `tests/hooks/pre-push`), so a moved\n+tag would silently move the comparison with it.\n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "id": "W-001",
+      "milestones": [
+        "M-001"
+      ]
+    },
+    {
+      "id": "W-002",
+      "milestones": [
+        "M-002",
+        "M-003"
+      ]
+    }
+  ],
+  "diagram_graphs": [],
+  "readme_entries": []
+}

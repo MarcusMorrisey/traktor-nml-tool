@@ -1,0 +1,62 @@
+--- a/traktor_nml/fingerprint.py
++++ b/traktor_nml/fingerprint.py
+@@ -32,6 +32,7 @@
+ 
+ from .matching import AMBIGUOUS, KeyProvider
+ from .model import EntryRecord
++from .volumes import local_path_for_location
+ from .tagcache import TagCache
+ 
+ # Availability is probed once here, at import time, rather than per call:
+@@ -96,14 +97,23 @@ def _cached_fingerprint(path: Path, cache: TagCache) -> Optional[tuple[float,
+ 
+ 
+ def old_side_fingerprint(
+-    record: EntryRecord, cache: TagCache, stats: dict[str, int]
++    record: EntryRecord,
++    cache: TagCache,
++    stats: dict[str, int],
++    known_mounts: dict[tuple[str, str], list[Path]],
+ ) -> Optional[tuple[float, str]]:
+-    """Fingerprint a collection record only when its recorded location
+-    resolves to a readable file at scan time; count the unresolvable case
+-    so its absence is visible in the statistics rather than silent."""
++    """Fingerprint a collection record only when its recorded location
++    resolves, through volume reattachment, to a readable file at scan
++    time; count the unresolvable case so its absence is visible in the
++    statistics rather than silent. known_mounts maps (VOLUME, VOLUMEID) to
++    the mount anchors this run has established explicitly (see
++    volumes.local_path_for_location) - an unknown volume pair or an
++    ambiguous anchor is deliberately counted as unavailable rather than
++    guessed, the same explicitness rule that already governs the
++    candidate side."""
+     stats.setdefault("fingerprint_unavailable_old_side", 0)
+-    path = Path(str(record.location.decoded_path))
+-    if not path.is_file():
++    path = local_path_for_location(record.location, known_mounts)
++    if path is None:
+         stats["fingerprint_unavailable_old_side"] += 1
+         return None
+     result = _cached_fingerprint(path, cache)
+@@ -150,7 +159,12 @@ def _cluster_candidates(
+     return {cid: str(find(cid)) for cid in candidate_fps}
+ 
+ 
+-def fingerprint_key_provider(cache: TagCache, candidates: list[EntryRecord], stats: dict[str, int]) -> KeyProvider:
++def fingerprint_key_provider(
++    cache: TagCache,
++    candidates: list[EntryRecord],
++    stats: dict[str, int],
++    known_mounts: dict[tuple[str, str], list[Path]],
++) -> KeyProvider:
+     """Supply a top-tier match key for an old record when a fingerprint
+     exists for both it and at least one candidate, their durations agree
+     within tolerance, and similarity clears the match threshold. The
+@@ -185,6 +199,6 @@ def fingerprint_key_provider(cache: TagCache, candidates: list[EntryRecord], s
+             return (cluster_key[id(record)],) if id(record) in cluster_key else None
+ 
+-        old_fp = old_side_fingerprint(record, cache, stats)
++        old_fp = old_side_fingerprint(record, cache, stats, known_mounts)
+         if old_fp is None:
+             return None
+         old_duration, old_value = old_fp

@@ -1,0 +1,504 @@
+{
+  "plan_id": "cf126224-2b0a-4e27-b3dd-738b4c64e442",
+  "created_at": "2026-08-30T02:42:40.985710",
+  "frozen_at": null,
+  "overview": {
+    "problem": "splice fills a diverging base playlist in place from the union with a same-named source playlist, instead of appending a renamed '<name> (2)' duplicate.",
+    "approach": "Keep the uncommitted base_source-rewrite pre-pass in splice.assemble_output; replace the count trigger with a redirected-key content comparison; add an ambiguity pre-check that aborts DL-008-style; return reconstructed names so import_playlists excludes them; opt-in CLI flag; GUI wizard step after the CLI lands."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-091",
+        "version": 2,
+        "decision": "Trigger reconstruction on the ordered redirected-key sequence of a base playlist differing from the same-named incoming one; the order-sensitivity of that comparison is a user decision",
+        "reasoning": "The ENTRIES attribute and the entry count are the values reconstruction recalculates -> a count trigger both trusts the value under repair and misses A,B vs B,C -> comparison reads PRIMARYKEY children and redirects each through old_to_new_key so both sides name one identity -> the user was asked whether order should count and chose ordered comparison, so a reordered but otherwise identical playlist counts as differing and triggers a combine that rewrites the node into base's order first followed by incoming extras, leaving membership identical and order deterministic"
+      },
+      {
+        "id": "DL-092",
+        "version": 1,
+        "decision": "Fold every incoming playlist carrying the matched name, across all contributions, in --input order",
+        "reasoning": "Two source NMLs can each hold a fragment of one playlist -> first-match-wins would silently drop the rest -> the union is folded contribution by contribution in --input order, deduplicated on the redirected key, so no source contributes nothing"
+      },
+      {
+        "id": "DL-093",
+        "version": 1,
+        "decision": "A reconstructed playlist name is excluded from playlist import, so no <name> (2) duplicate accompanies it",
+        "reasoning": "import_playlists appends every incoming playlist and available_playlist_name renames on collision -> a filled base playlist would be shadowed by a redundant renamed copy carrying the same tracks -> assemble_output passes the set of reconstructed names to import_playlists, which skips a node whose name is in that set, and its SORTING_INFO with it"
+      },
+      {
+        "id": "DL-094",
+        "version": 1,
+        "decision": "An incoming PRIMARYKEY whose identity group holds more than one base record aborts the whole write and is reported",
+        "reasoning": "_resolve_conflicts picks one winner per group, so with two base records in a group the redirect target is arbitrary -> a reconstruction built on an arbitrary target writes a plausible but wrong playlist -> the check runs before any span is rewritten and returns SpliceResult(output=None) with the rows still written to the conflict report, matching DL-008 abort-plus-report rather than inventing a second failure shape"
+      },
+      {
+        "id": "DL-095",
+        "version": 1,
+        "decision": "Reconstruction is opt-in behind --reconstruct-playlists; the <name> (2) rename stays the default",
+        "reasoning": "DL-029 states the rename as the universal collision rule and existing operators rely on it -> making reconstruction default would silently rewrite playlists an operator asked only to merge -> the flag makes the departure explicit at the call site and keeps the two trigger positions at exactly two"
+      },
+      {
+        "id": "DL-096",
+        "version": 1,
+        "decision": "Reconstruction stays on the byte-span path: base_source is rewritten in memory and re-parsed before assembly",
+        "reasoning": "DL-007 forbids mixing span assembly with attribute-patching writes inside one command, and base SUBNODES is transplanted as a verbatim span -> replacing a PLAYLIST element inside that span has no path through the builder -> the pre-pass applies replacements end-first so each measured offset stays valid, then re-parses base_root, leaving the existing assembly untouched; base keeps its own NODE, UUID and folder position"
+      },
+      {
+        "id": "DL-097",
+        "version": 2,
+        "decision": "playlist_entry_count is removed with the count trigger",
+        "reasoning": "Its only caller is the count comparison -> content comparison replaces that comparison -> keeping it would leave dead code carrying a rationale for a rule the module does not apply"
+      },
+      {
+        "id": "DL-098",
+        "version": 1,
+        "decision": "Playlist name matching is exact and case-sensitive; a NAME occurring more than once on either side aborts as ambiguous; a base name matching no incoming playlist and a matched incoming playlist holding zero entries are both left untouched",
+        "reasoning": "Traktor stores playlist names as literal strings and folders allow one name to repeat in two places -> choosing which of two same-named base nodes receives the fill, or which of two same-named incoming nodes contributes, would be the same arbitrary guess DL-094 refuses for keys -> a duplicate name on either side is reported and aborts before any span is rewritten, while a base name with no incoming match and an incoming match with no PRIMARYKEY children both produce an empty union delta and are skipped as unchanged with playlists_reconstructed unincremented"
+      },
+      {
+        "id": "DL-099",
+        "version": 1,
+        "decision": "The SORTING_INFO entry belonging to a skipped reconstructed playlist is discarded and counted as neither imported nor dropped",
+        "reasoning": "A SORTING_INFO entry is keyed by the node path of the fragment that import would have created -> skipping the fragment means that path never exists, so a retained entry would name a node that is not in the file -> counting it as dropped would report data loss that did not happen, because base's own node keeps its own SORTING_INFO, so the entry is discarded silently and the counters continue to describe playlists only"
+      },
+      {
+        "id": "DL-100",
+        "version": 1,
+        "decision": "_resolve_conflicts returns the ambiguous non-base keys as an additional named element of its result, and every existing caller is enumerated and updated at the call site",
+        "reasoning": "assemble_output in traktor_nml/splice.py is the production caller, with further uses in tests/test_splice.py -> widening a returned tuple silently breaks any site that unpacks it positionally -> the callers are enumerated by grep before the shape changes and each is updated in the same change, so the wider shape never reaches an unadapted site"
+      },
+      {
+        "id": "DL-101",
+        "version": 1,
+        "decision": "A PRIMARYKEY with no old_to_new_key mapping passes through redirected_playlist_keys as its raw key",
+        "reasoning": "old_to_new_key holds only keys a conflict resolution actually redirected -> base's own keys and source keys that already name a shared identity legitimately have no entry, so dropping or erroring on an absent mapping would discard valid entries and turn the normal case into a failure -> the raw key is carried through unchanged, and a key that genuinely names nothing in the merged collection still reaches assemble_output's existing unresolved_reference abort, which stays the single place that failure is reported"
+      },
+      {
+        "id": "DL-102",
+        "version": 1,
+        "decision": "The base_source rewrite is a byte-level splice on the original bytes and the re-parse reads those same bytes, so per-file line endings and encoding survive unchanged",
+        "reasoning": "base_source is the file's original byte string, read with newline='' so no terminator was translated on the way in -> applying span replacements end-first substitutes only the bytes of the replaced PLAYLIST elements and leaves every other byte including its line terminator untouched -> the re-serialised playlist elements are emitted with the terminator that dominates base_source, so a CRLF base stays CRLF, and xmlio.parse_xml_bytes re-parses the resulting byte string directly with no decode-and-reencode round trip"
+      },
+      {
+        "id": "DL-103",
+        "version": 1,
+        "decision": "Reconstruction deduplicates on the redirected key while build-playlist keeps duplicates under DL-037",
+        "reasoning": "DL-037 keeps duplicates because a Traktor PLAYLIST is an ordered list of references and the operator authored the repeated tracklist lines -> a repetition produced by folding two documents that each list the same track is an artefact of the merge, not authored input -> reconstruction dedupes, and each decision-log entry states which of the two situations it governs so neither reads as the universal rule"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "splice as-is, with no reconstruction",
+        "rejection_reason": "Measured: base MySet stays ENTRIES=0 and a second 'MySet (2)' carrying the tracks is appended, exit code 0. It fills nothing and reports success.",
+        "decision_ref": "DL-091"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "build-playlist",
+        "rejection_reason": "It takes an external 'Artist - Title' text tracklist and cannot read playlists out of a source NML at all.",
+        "decision_ref": "DL-091"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "rewrite-from-collection-compare",
+        "rejection_reason": "It repairs locations and PRIMARYKEYs on entries that already exist, so it has nothing to put into an empty playlist.",
+        "decision_ref": "DL-091"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "count-based trigger ENTRIES(base) < ENTRIES(incoming)",
+        "rejection_reason": "Superseded: it misses same-count content divergence such as A,B versus B,C.",
+        "decision_ref": "DL-091"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "count-based trigger ENTRIES(base) != ENTRIES(incoming)",
+        "rejection_reason": "Implemented and measured, then superseded by content comparison. Strictly dominated, because ENTRIES is the value reconstruction recalculates, so the trigger trusts the value under repair. Removed together with playlist_entry_count.",
+        "decision_ref": "DL-097"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "fill only when the base playlist is empty",
+        "rejection_reason": "Rejected by the user in favour of combining whenever contents differ.",
+        "decision_ref": "DL-091"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "a text pre-pass running before old_to_new_key exists",
+        "rejection_reason": "Impossible: the redirect map is required before keys from the two sides can be compared or merged at all.",
+        "decision_ref": "DL-096"
+      },
+      {
+        "id": "RA-008",
+        "alternative": "element-wise SUBNODES assembly instead of the base_source rewrite",
+        "rejection_reason": "Base's SUBNODES is transplanted as a verbatim source byte span; element-wise assembly would re-serialise fragments that no rename or redirect touched.",
+        "decision_ref": "DL-096"
+      },
+      {
+        "id": "RA-009",
+        "alternative": "a separate second pass or a separate command applying the fill",
+        "rejection_reason": "It would mix byte-span assembly with attribute-patching writes, which DL-007 forbids within one command.",
+        "decision_ref": "DL-096"
+      }
+    ],
+    "constraints": [
+      "MUST: the base file is never rewritten in place; output is a separate full copy (the base_source rewrite is in memory only).",
+      "MUST: preserve each file's own line endings; traktor_nml/gui/app.py is 100% CRLF (1194 CRLF, 0 bare LF), every other module/test/doc is LF; read and write with newline=''.",
+      "MUST: run the suite under the SYSTEM interpreter, not .venv; the system interpreter must stay free of nicegui and webview.",
+      "MUST NOT: regress the 7 existing tests in tests/test_splice.py or the wider suite (currently 407 passed, 3 skipped).",
+      "MUST: never restore a file with git checkout - copy aside and restore from the copy.",
+      "MUST NOT: write into or delete build/ or dist/.",
+      "MUST: every guard constructs its broken scenario in executable code, and its docstring records the specific mutation and the specific observed output - run it, read the value, then write it.",
+      "MUST: documentation describes code as it stands - no 'previously', 'used to', 'now does', 'no longer'.",
+      "MUST: any change touching traktor_nml/gui/ requires a DL-084 served-page gate run from C:/codex/traktor-nml-tool-gate before it lands.",
+      "MUST: trigger on playlist CONTENT difference (redirected PRIMARYKEY sequence), not entry counts.",
+      "MUST: combining is the union of both sides, deduplicated on the redirected key, base's own entries first in their existing order.",
+      "MUST: ambiguity is checked BEFORE combining and aborts with a report, following DL-008.",
+      "MUST: a reconstructed playlist is not also appended as an imported renamed duplicate.",
+      "MUST: the base playlist keeps its own NODE, UUID and folder position when filled.",
+      "SHOULD: exactly two trigger positions (rename default, reconstruct-on-content-difference); the count-based mode is removed.",
+      "SHOULD: a new decision-log entry records why the renamed-duplicate rule is not universal, since DL-029 states it as the rule.",
+      "ARCHITECT STATE: decision log lives in traktor_nml/README.md prose bullets; DL high-water mark was DL-090, new ids start at DL-091.",
+      "ARCHITECT STATE: repo C:/codex/traktor-nml-tool; uncommitted traktor_nml/splice.py and traktor_nml/playlists.py; assemble_output already carries reconstruct=False plus a pre-pass at lines ~206-246 and splice_cmd.py does not yet pass it; playlists.py holds uncommitted merged_playlist_entries and playlist_entry_count; assemble_output line ~261 builds existing_names from base playlist names before import_playlists appends every incoming playlist, which is where reconstructed names must be excluded; tests/test_splice.py drives the CLI through tests.conftest.run_tool with helpers _nml/_entry/_playlist/_playlist_no_uuid."
+    ],
+    "risks": [
+      {
+        "id": "RK-001",
+        "risk": "Rewriting base_source in memory and re-parsing it mid-assembly can invalidate every span offset measured earlier.",
+        "mitigation": "Replacements are applied end-first so each earlier offset stays valid; base_root is re-parsed only when at least one replacement was made; guards assert base UUID and folder position survive.",
+        "anchor": null,
+        "decision_ref": "DL-096"
+      },
+      {
+        "id": "RK-002",
+        "risk": "The in-memory rewrite could silently normalise line endings or re-encode the document, violating the per-file line-ending rule.",
+        "mitigation": "The rewrite is a byte-level splice on the original bytes and the re-parse reads those same bytes; a per-file line-ending check is a milestone acceptance criterion.",
+        "anchor": null,
+        "decision_ref": "DL-102"
+      },
+      {
+        "id": "RK-003",
+        "risk": "Traktor's tolerance of a playlist carrying a UUID other than the one it shipped with is confirmed only by manual import (package log R-004), not by the test suite.",
+        "mitigation": "Base's node is filled in place and keeps its own UUID and folder position, so no second unverified case is opened.",
+        "anchor": null,
+        "decision_ref": "DL-096"
+      },
+      {
+        "id": "RK-004",
+        "risk": "Any change under traktor_nml/gui/ can break the served page in ways the suite does not see, and app.py is 100% CRLF that an editor may silently convert.",
+        "mitigation": "M-003 requires a DL-084 served-page gate run from C:/codex/traktor-nml-tool-gate plus a CRLF and bare-LF count check before the change lands.",
+        "anchor": null,
+        "decision_ref": "DL-095"
+      },
+      {
+        "id": "RK-005",
+        "risk": "Widening the _resolve_conflicts return shape can break callers that unpack it positionally.",
+        "mitigation": "The added value is a named element rather than an appended positional item, and callers are enumerated by grep and updated in the same change.",
+        "anchor": null,
+        "decision_ref": "DL-100"
+      },
+      {
+        "id": "RK-006",
+        "risk": "The change touches the shared splice path, so the 7 splice guards and the wider 407-passed/3-skipped suite can regress.",
+        "mitigation": "Both are milestone acceptance criteria, and the suite is run under the SYSTEM interpreter rather than .venv so the measured baseline is comparable.",
+        "anchor": null,
+        "decision_ref": "DL-091"
+      },
+      {
+        "id": "RK-007",
+        "risk": "Reconstruction departs from the DL-029 rename that existing operators rely on, so making it universal would silently rewrite playlists an operator asked only to merge.",
+        "mitigation": "It stays behind --reconstruct-playlists, with a guard asserting the flag-absent path reproduces the rename default.",
+        "anchor": null,
+        "decision_ref": "DL-095"
+      },
+      {
+        "id": "RK-008",
+        "risk": "An arbitrary redirect target, or an arbitrary choice among same-named playlists, would write a plausible but wrong playlist that no later check catches.",
+        "mitigation": "The ambiguity and duplicate-name gates run before any span is rewritten and abort the whole write with the offending rows reported, following the DL-008 abort-plus-report convention.",
+        "anchor": null,
+        "decision_ref": "DL-094"
+      }
+    ],
+    "decision_id_start": 91
+  },
+  "invisible_knowledge": {
+    "system": "The critical real-world case driving this tool is the user's own: playlists in the current collection are blank while a previous collection holds their contents, and path repair matters because the two collections reference the same tracks at different locations - so filling a base playlist from an older source, with keys redirected to base's identities, is the primary path rather than an edge case. splice merges a base NML with further NMLs: base is authoritative for its own COLLECTION and playlists and its bytes are never rewritten; track identity across inputs uses record_keys tier ordering cascaded through union-find. Playlist import APPENDS each incoming playlist into base's root SUBNODES as a fragment while base's SUBNODES span is otherwise copied verbatim, so filling a base playlist means replacing a span inside that verbatim region - which the existing assembly has no path for, hence the base_source rewrite and re-parse. 'Ambiguous' is already a first-class outcome in matching.py:match_records (a tier matching more than one candidate), and that vocabulary is the one the new check follows.",
+    "invariants": [
+      "DL-007: byte-span assembly (splice, split) and attribute-patching writes (rewrite, reconnect) must never mix within one command. splice is span-assembly, so reconstruction stays on the span path and must not route through write_nml_safely.",
+      "DL-008: an unresolved conflict aborts the whole write and the report is written either way. The ambiguity check reproduces that shape rather than inventing a second failure mode.",
+      "Fragments that no rename or redirect touched are transplanted as verbatim source byte spans; only renamed playlists and redirected PRIMARYKEY values are re-serialised. A reconstructed playlist is necessarily re-serialised, and nothing else may become so.",
+      "The ENTRIES attribute on a PLAYLIST is the value a reconstruction recalculates, so it must never be trusted as the input to deciding whether to reconstruct.",
+      "DL-029 (a same-name collision takes a deterministic '<name> (2)' rename with a freshly generated UUID, because two PLAYLIST elements sharing one UUID within a file is invalid) is one of the two policies reconstruction departs from: for a matched name it fills base's node in place instead, which is why it needs its own decision-log entry.",
+      "DL-037 (build-playlist keeps duplicate entries from duplicate input lines, because a Traktor PLAYLIST is an ordered list of references and the operator authored those lines) is the second policy reconstruction departs from: it dedupes, because duplication produced by merging two documents is an artefact rather than authored input. Each policy must state why it differs from the other.",
+      "An incoming PRIMARYKEY with no old_to_new_key entry and no base counterpart already becomes an unresolved_reference that assemble_output aborts on at the end; that remains the single place the failure is reported."
+    ],
+    "tradeoffs": [
+      "R-004: Traktor's tolerance of a playlist carrying a UUID other than the one it shipped with is confirmed only by manual Traktor import, not by the test suite. Filling base's node in place keeps base's own UUID and so avoids opening a second unverified case - that is the reason the fill is in-place rather than a replace-the-node approach.",
+      "Ordered comparison (the user's decision) makes a pure reorder count as differing and rewrites the node into base's order first, which costs an unnecessary re-serialisation of that playlist in exchange for a deterministic single-valued output order.",
+      "Reconstruction stays opt-in behind a flag: operators keep the DL-029 rename they rely on, at the cost of the repair not happening unless it is asked for."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 2,
+      "number": 1,
+      "name": "Content-triggered playlist reconstruction in splice",
+      "files": [
+        "traktor_nml/playlists.py",
+        "traktor_nml/splice.py",
+        "traktor_nml/commands/splice_cmd.py",
+        "tests/test_splice.py"
+      ],
+      "flags": [],
+      "requirements": [],
+      "acceptance_criteria": [
+        "the seven existing guards in tests/test_splice.py pass unchanged",
+        "the full suite under the SYSTEM interpreter reports at least 407 passed with 3 skipped and no new failures",
+        "a base playlist whose redirected key sequence differs is filled in place keeping its own NODE UUID and folder position and the output carries no renamed duplicate of that name",
+        "identical ordered contents leave the base playlist bytes untouched and report playlists_reconstructed=0",
+        "an ambiguous redirect or a duplicate playlist NAME on either side exits 2 with no output file written and a conflict-report row present",
+        "every base input file is byte-identical before and after each run",
+        "output line endings match the base file's own so CRLF or LF is preserved per file",
+        "playlist_entry_count is absent from traktor_nml/playlists.py with no remaining reference"
+      ],
+      "tests": [
+        "tests/test_splice.py empty base playlist filled from same-named source",
+        "tests/test_splice.py same-count divergent contents union to base-first order",
+        "tests/test_splice.py identical ordered contents untouched",
+        "tests/test_splice.py reordered playlist rewritten to base-first order",
+        "tests/test_splice.py two inputs folded in input order",
+        "tests/test_splice.py unmatched base name untouched",
+        "tests/test_splice.py empty incoming match untouched",
+        "tests/test_splice.py duplicate base NAME aborts as ambiguous",
+        "tests/test_splice.py duplicate incoming NAME aborts as ambiguous",
+        "tests/test_splice.py names differing only in case treated as distinct",
+        "tests/test_splice.py ambiguous incoming key aborts with exit 2 and a conflict-report row",
+        "tests/test_splice.py flag absent reproduces the rename default",
+        "full suite run under the SYSTEM interpreter"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 2,
+          "file": "traktor_nml/playlists.py",
+          "function": null,
+          "behavior": "redirected_playlist_keys(node, old_to_new_key) returns the ordered list of PRIMARYKEY KEY values of a playlist NODE, each mapped through old_to_new_key when a mapping exists and carried through as its raw key when no mapping exists, so an absent mapping is neither dropped nor an error and a key naming nothing in the merged collection still reaches assemble_output's existing unresolved_reference abort unchanged. merged_playlist_entries(base_node, incoming_nodes, old_to_new_key) accepts a sequence of incoming nodes rather than one, folds them in the order given, and returns base keys in their existing order followed by every redirected incoming key not already present, deduplicated on the redirected key because a repeat here is a merge artefact rather than the authored input DL-037 preserves. playlist_entry_count is absent and no reference to it remains.",
+          "decision_refs": [
+            "DL-091",
+            "DL-092",
+            "DL-097",
+            "DL-101",
+            "DL-103"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 2,
+          "file": "traktor_nml/playlists.py",
+          "function": null,
+          "behavior": "import_playlists takes a set of names to skip and omits any playlist NODE whose NAME is in that set. The SORTING_INFO entry for that node path is discarded with it and counted as neither imported nor dropped, because the path it names is never created and base's own node keeps its own SORTING_INFO, so no data is actually lost. Names it does import continue through available_playlist_name unchanged.",
+          "decision_refs": [
+            "DL-093",
+            "DL-099"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 2,
+          "file": "traktor_nml/splice.py",
+          "function": null,
+          "behavior": "_resolve_conflicts additionally returns, for each group holding more than one base-input record, the non-base primary keys mapped out of that group, so callers can tell an arbitrary redirect target from a settled one. The added value is a named element of the result rather than an appended positional item, and every existing caller is enumerated by grep first: assemble_output in traktor_nml/splice.py and the direct uses in tests/test_splice.py are updated in the same change.",
+          "decision_refs": [
+            "DL-094",
+            "DL-100"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 2,
+          "file": "traktor_nml/splice.py",
+          "function": null,
+          "behavior": "assemble_output gains a reconstruction pre-pass gated on reconstruct=True, sequenced as separately verifiable steps. (1) Match: for each base playlist NODE, collect every incoming playlist NODE whose NAME matches exactly and case-sensitively, across all contributions in --input order. (2) Degenerate cases: a base NAME occurring more than once in base, or a NAME occurring more than once among the incoming candidates, is an ambiguous-name abort; a base NAME matching zero incoming nodes, and a matched incoming node with zero PRIMARYKEY children, are both skipped as unchanged without incrementing playlists_reconstructed. (3) Compare: skip when the base redirected key sequence equals the folded incoming sequence as ordered sequences. (4) Ambiguity gate: before any span rewrite occurs, if any key of a candidate playlist is an ambiguous redirect, return SpliceResult(output=None) with errors [ambiguous_playlist_keys] and a ConflictRow per offending key; the same shape covers the ambiguous-name abort. (5) Rebuild: replace the base PLAYLIST element children from merged_playlist_entries and set its ENTRIES attribute to the resulting length, keeping base's NODE, UUID and folder position. (6) Record the reconstructed name. (7) Rewrite: apply the collected replacements to base_source end-first so each measured offset stays valid. (8) Re-parse base_root through xmlio.parse_xml_bytes only when at least one replacement was made. (9) Thread the reconstructed names to import_playlists as the skip set, and report stats with playlists_reconstructed set and playlists_imported and playlists_renamed excluding those names. Steps 1 through 4 read only and complete before step 7 touches a byte.",
+          "decision_refs": [
+            "DL-091",
+            "DL-092",
+            "DL-093",
+            "DL-094",
+            "DL-096",
+            "DL-098",
+            "DL-102"
+          ]
+        },
+        {
+          "id": "CI-M-001-005",
+          "version": 1,
+          "file": "traktor_nml/commands/splice_cmd.py",
+          "function": null,
+          "behavior": "A --reconstruct-playlists store_true flag whose value is forwarded to assemble_output as reconstruct. Without it splice behaves as the rename default. The ambiguity abort prints its errors to stderr with splice_aborted=true and exits 2, and its rows reach --conflict-report through the existing _write_conflict_report path.",
+          "decision_refs": [
+            "DL-094",
+            "DL-095"
+          ]
+        },
+        {
+          "id": "CI-M-001-006",
+          "version": 2,
+          "file": "tests/test_splice.py",
+          "function": null,
+          "behavior": "CLI-level guards through tests.conftest.run_tool over _nml/_entry/_playlist fixtures: an empty base playlist filled from a same-named source with no renamed duplicate in the output; same-count divergent contents A,B vs B,C yielding A,B,C in the base node with base UUID and folder position intact; identical contents in identical order left untouched with playlists_reconstructed=0; a reordered playlist rewritten to base-first order; two --input files each holding part of one playlist folded in --input order; a base playlist whose name matches no incoming playlist left untouched; a matched incoming playlist with zero entries left untouched; two base playlists sharing one NAME in different folders aborting as ambiguous with no output file; two incoming playlists sharing one NAME aborting the same way; names differing only in case treated as distinct; an ambiguous incoming key aborting with exit 2, no output file and a conflict-report row; the flag absent reproducing the rename default; the base input file byte-identical after every run. Each guard docstring records the specific mutation applied and the specific output observed when the guard was run against it.",
+          "decision_refs": [
+            "DL-091",
+            "DL-092",
+            "DL-093",
+            "DL-094",
+            "DL-095",
+            "DL-098"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "Decision log and command documentation",
+      "files": [
+        "traktor_nml/README.md",
+        "traktor_nml/commands/CLAUDE.md",
+        "README.md"
+      ],
+      "flags": [],
+      "requirements": [],
+      "acceptance_criteria": [
+        "traktor_nml/README.md carries DL-091 through DL-103 each with a premise-to-conclusion reasoning chain",
+        "the DL-029 bullet states the rename governs imported playlists while reconstruction fills a matched name in place",
+        "the DL-037 bullet and the reconstruction dedupe bullet each state why their policy differs from the other",
+        "traktor_nml/commands/CLAUDE.md splice row names the reconstruct flag and the ambiguity abort",
+        "the top-level README splice section documents the flag the content trigger the union order and the abort",
+        "no sentence added anywhere uses previously or used to or now does or no longer",
+        "each edited file keeps its own line endings"
+      ],
+      "tests": [
+        "read-through of the documentation diff against the no-temporal-narration rule",
+        "grep of the diff for the four banned temporal phrases returning no hits",
+        "line-ending check on each edited documentation file"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 2,
+          "file": "traktor_nml/README.md",
+          "function": null,
+          "behavior": "Decision-log bullets DL-091 through DL-103 recording the content trigger and its user-chosen order sensitivity, the multi-source union, the import exclusion, the ambiguity abort, the opt-in flag, the span-path constraint, the degenerate name-match rules, the SORTING_INFO accounting, the _resolve_conflicts shape change, the unmapped-key pass-through and the line-ending-preserving rewrite. Beside DL-029 it states that the renamed-duplicate rule governs imported playlists while a name matched under reconstruction is filled in place. The dedupe bullet states its contrast with DL-037 explicitly: build-playlist keeps duplicates because the operator authored the repeated lines, reconstruction dedupes because a repeat there is an artefact of folding two documents, and the DL-037 bullet is amended to name the same boundary so neither reads as the universal rule.",
+          "decision_refs": [
+            "DL-091",
+            "DL-092",
+            "DL-093",
+            "DL-094",
+            "DL-095",
+            "DL-096",
+            "DL-097",
+            "DL-098",
+            "DL-099",
+            "DL-100",
+            "DL-101",
+            "DL-102",
+            "DL-103"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "function": null,
+          "behavior": "The splice row names --reconstruct-playlists and the ambiguity abort among the command outcomes.",
+          "decision_refs": [
+            "DL-095"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "README.md",
+          "function": null,
+          "behavior": "The splice usage section documents --reconstruct-playlists, the content-difference trigger, the union-with-base-order-first result, and the ambiguity abort.",
+          "decision_refs": [
+            "DL-091",
+            "DL-095"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "Reconstruction step in the wizard",
+      "files": [
+        "traktor_nml/gui/app.py"
+      ],
+      "flags": [],
+      "requirements": [],
+      "acceptance_criteria": [
+        "a DL-084 served-page gate run from C:/codex/traktor-nml-tool-gate passes before the change lands",
+        "traktor_nml/gui/app.py measures 100% CRLF with zero bare LF after the edit",
+        "the wizard step writes a separate output file and never rewrites the chosen base",
+        "an ambiguity abort surfaces as a step-level failure with no file written",
+        "the wizard reuses the same assemble_output call the CLI makes with reconstruct=True rather than a parallel code path",
+        "the SYSTEM interpreter stays free of nicegui and webview and the full suite still passes there"
+      ],
+      "tests": [
+        "DL-084 served-page gate run from C:/codex/traktor-nml-tool-gate",
+        "CRLF and bare-LF count check on traktor_nml/gui/app.py",
+        "full suite run under the SYSTEM interpreter"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 1,
+          "file": "traktor_nml/gui/app.py",
+          "function": null,
+          "behavior": "A wizard step offering reconstruction over a chosen base and one or more source NMLs: it lists the playlists whose contents differ, shows the entry count each would reach, and writes a separate output file through the same assemble_output call the CLI makes with reconstruct=True, reporting an ambiguity abort as a step-level failure without writing. The file stays 100% CRLF, and the change lands only after a DL-084 served-page gate run from C:/codex/traktor-nml-tool-gate.",
+          "decision_refs": [
+            "DL-094",
+            "DL-095",
+            "DL-096"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [],
+  "diagram_graphs": [],
+  "readme_entries": []
+}

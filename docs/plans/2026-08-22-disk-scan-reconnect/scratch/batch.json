@@ -1,0 +1,6 @@
+[
+  {"method": "set-doc-diff", "params": {"change": "CC-M-005-001", "version": 5, "content_file": "C:/Users/marcu/AppData/Local/Temp/planner-uty4cay7/fix_fingerprint.diff"}, "id": 1},
+  {"method": "set-doc-diff", "params": {"change": "CC-M-006-001", "version": 5, "content_file": "C:/Users/marcu/AppData/Local/Temp/planner-uty4cay7/fix_spans.diff"}, "id": 2},
+  {"method": "set-doc-diff", "params": {"change": "CC-M-007-003", "version": 4, "content_file": "C:/Users/marcu/AppData/Local/Temp/planner-uty4cay7/fix_playlists.diff"}, "id": 3},
+  {"method": "set-doc-diff", "params": {"change": "CC-M-001-008", "version": 3, "content_file": "C:/Users/marcu/AppData/Local/Temp/planner-uty4cay7/fix_manifest_schema.diff"}, "id": 4}
+]

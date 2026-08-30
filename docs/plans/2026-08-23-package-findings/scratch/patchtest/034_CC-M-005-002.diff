@@ -1,0 +1,44 @@
+--- a/traktor_nml/split.py
++++ b/traktor_nml/split.py
+@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
+ from typing import Literal, Optional
+ 
+ from .model import collection_records
+ from .playlists import find_playlist_nodes, find_sorting_info, node_primary_keys, playlist_paths
+-from .spans import element_span_by_identity, find_element_span, recalculate_count_attr
++from .spans import SpanIndex, find_element_span, recalculate_count_attr
+ from .xmlio import ET
+ 
+ DanglingPolicy = Literal["exclude", "pull-in", "fail"]
+@@ -117,26 +117,28 @@ def _replace_children(fragment: str, tag_name: str, count_attr: str, children:
+ 
+ 
+ def build_output(
+-    source_text: str, root: ET.Element, playlist_names: list[str], policy: DanglingPolicy
++    source_text: str, root: ET.Element, playlist_names: list[str], policy: DanglingPolicy, span_index: SpanIndex
+ ) -> SplitOutcome:
+     selection = select_entries(root, playlist_names)
+     stats: dict[str, object] = {
+         "playlists_requested": len(playlist_names),
+         "playlists_dropped": list(selection.playlist_dropped),
+         "playlists_unknown": list(selection.unknown_playlists),
+     }
+ 
+-    final_keys, dropped_refs, errors = apply_dangling_policy(root, selection.kept_keys, policy)
++    final_keys, dropped_refs, errors = apply_dangling_policy(
++        root, selection.kept_keys, policy, selection.resolved_nodes
++    )
+     if errors:
+         return SplitOutcome(output=None, stats=stats, errors=errors)
+ 
+     kept_records = [r for r in collection_records(root) if r.primary_key in final_keys]
+     try:
+         # Each ENTRY's span is located by its own parsed element (identity),
+         # not by searching source text for its FILE attribute value - that
+         # search breaks on duplicate basenames (common across a real corpus)
+         # and on XML-escaped characters, since the parsed attribute value is
+         # unescaped text while the source bytes are not.
+-        kept_entry_texts = [element_span_by_identity(source_text, root, r.entry).text(source_text) for r in kept_records]
++        kept_entry_texts = [span_index.span_of(r.entry).text(source_text) for r in kept_records]
+     except ValueError as exc:
+         return SplitOutcome(output=None, stats=stats, errors=[f"collection_entry_span_not_found: {exc}"])

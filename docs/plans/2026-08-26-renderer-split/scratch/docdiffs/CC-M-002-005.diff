@@ -1,0 +1,12 @@
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -197,6 +197,9 @@ def scan_reconnect_candidates(
+     Writes the ambiguity CSV when args.csv is set, after
+     run_reconnection has returned, and records the written path on the
+     result rather than printing it. Writes to neither stream.
+     """
++    # Both typed failures below map to the same exit-2 key=value shape
++    # the pre-split handler printed; the renderer, not this function,
++    # decides how they reach stdout/stderr (ref: DL-001).
+     try:
+         old_tree = parse_xml(args.old_input)

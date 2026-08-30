@@ -1,0 +1,27 @@
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -30,3 +30,21 @@ def emit(rendered: RenderedOutput) -> int:
+     for line in rendered.stderr_lines:
+         print(line, file=sys.stderr)
+     return rendered.exit_code
++
++
++def render_scan_reconnect_candidates(
++    result: ScanReconnectResult, args: argparse.Namespace
++) -> RenderedOutput:
++    if result.error is not None:
++        return RenderedOutput([], [result.error], 2)
++
++    reconnect = result.result
++    stdout_lines = [f"reconnectable={len(reconnect.mapping)}"]
++    for key, value in reconnect.stats.items():
++        stdout_lines.append(f"{key}={value}")
++    if result.csv_path is not None:
++        stdout_lines.append(f"csv_written={result.csv_path.as_posix()}")
++
++    stderr_lines = list(reconnect.warnings)
++    refutation_line = refutation_disabled_line(args)
++    if refutation_line is not None:
++        stderr_lines.append(refutation_line)
++
++    return RenderedOutput(stdout_lines, stderr_lines, 0)

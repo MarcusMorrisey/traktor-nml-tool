@@ -1,0 +1,730 @@
+==== CC-M-001-001 | C:\codex\general_tasks\tests\fixtures\build_fixtures.py ====
+--- a/tests/fixtures/build_fixtures.py
++++ b/tests/fixtures/build_fixtures.py
+@@ -20,6 +20,8 @@
+
+ def _entry(artist, title, volume, dirv, filename, size="4096", time="180.0", bitrate="320", album=None, extra_attrs=""):
++    """Render one COLLECTION ENTRY as a literal string so every fixture
++    byte is fixed at authoring time and regeneration is byte-identical."""
+     album_elem = f'<ALBUM TITLE="{album}"></ALBUM>' if album else ""
+     return (
+         f'<ENTRY MODIFIED_DATE="2024/1/1" MODIFIED_TIME="0" AUDIO_ID="" '
+@@ -32,6 +34,8 @@
+
+
+ def _primarykey_entry(entry_type, volume, dirv, filename):
++    """Render a playlist ENTRY/PRIMARYKEY pair whose KEY is the flattened
++    VOLUME+DIR+FILE concatenation every PRIMARYKEY in this schema uses."""
+     key = f"{volume}{dirv}{filename}"
+     return f'<ENTRY><PRIMARYKEY TYPE="{entry_type}" KEY="{key}"></PRIMARYKEY></ENTRY>\n'
+
+==== CC-M-001-002 | C:\codex\general_tasks\tests\conftest.py ====
+--- a/tests/conftest.py
++++ b/tests/conftest.py
+@@ -76,6 +76,10 @@
+ @dataclass
+ class RunResult:
++    """Captures exit code and captured stdout/stderr from one in-process
++    CLI invocation, since every guarantee in this suite is stated over a
++    printed stats line or written file, not an internal function's return
++    value (DL-011)."""
+     exit_code: int
+     stdout: str
+     stderr: str
+@@ -105,6 +109,8 @@
+
+ @pytest.fixture
+ def fixture_corpus(tmp_path: Path) -> Path:
++    """Materialise the deterministic fixture corpus once per test into
++    tmp_path, so tests read real files rather than in-memory strings."""
+     corpus_dir = tmp_path / "corpus"
+     build_fixtures(corpus_dir)
+     return corpus_dir
+
+==== CC-M-001-003 | C:\codex\general_tasks\pytest.ini ====
+--- a/pytest.ini
++++ b/pytest.ini
+@@ -1,2 +1,4 @@
++# Scopes collection to tests/ so pytest never walks the historical
++# single-file tool or its on-disk NML fixtures at the repository root.
+ [pytest]
+ testpaths = tests
+
+==== CC-M-001-004 | C:\codex\general_tasks\tests\__init__.py ====
+--- a/tests/__init__.py
++++ b/tests/__init__.py
+@@ -0,0 +1 @@
++# Package marker: makes conftest.py and the test modules importable as
++# tests.* (tests.fixtures.build_fixtures, tests.baselines.regenerate).
+
+==== CC-M-001-005 | C:\codex\general_tasks\tests\fixtures\__init__.py ====
+--- a/tests/fixtures/__init__.py
++++ b/tests/fixtures/__init__.py
+@@ -0,0 +1 @@
++# Package marker: exposes build_fixtures as tests.fixtures.build_fixtures
++# for both conftest.py and tests/baselines/regenerate.py.
+
+==== CC-M-001-006 | C:\codex\general_tasks\tests\test_baseline_parity.py ====
+--- a/tests/test_baseline_parity.py
++++ b/tests/test_baseline_parity.py
+@@ -22,6 +22,9 @@
+
+
+ def _load_manifest() -> list[dict]:
++    """Load the byte-level golden baseline captured from the unmodified
++    tool before any refactor edit began (DL-002); every later milestone
++    must keep every case in this manifest passing unchanged."""
+     return json.loads(BASELINE_MANIFEST.read_text(encoding="utf-8"))
+
+
+@@ -30,6 +33,9 @@
+ @pytest.mark.parametrize("case", _load_manifest(), ids=lambda c: " ".join(c["argv"]))
+ def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Path, tmp_path: Path) -> None:
++    """Re-runs one recorded invocation against the fixture corpus and
++    compares exit code, stdout and every written file's bytes against the
++    manifest's stored values (DL-011)."""
+     (tmp_path / "out").mkdir(exist_ok=True)
+     result = run_tool(case["argv"], cwd=tmp_path)
+ 
+==== CC-M-001-007 | C:\codex\general_tasks\tests\baselines\__init__.py ====
+--- a/tests/baselines/__init__.py
++++ b/tests/baselines/__init__.py
+@@ -0,0 +1 @@
++# Package marker: exposes manifest.json and regenerate.py as
++# tests.baselines.* for test_baseline_parity.py's import path.
+
+==== CC-M-001-008 | C:\codex\general_tasks\tests\baselines\manifest.json ====
+--- /dev/null
++++ b/tests/baselines/manifest.schema.md
+@@ -0,0 +1,17 @@
++# tests/baselines/manifest.json
++
++JSON array of recorded CLI invocations, one object per case:
++
++- `argv`: argument list passed to `traktor_nml.cli.main`
++- `exit_code`, `stdout`, `stderr`: expected process output
++- `output_files`: relative path -> base64-encoded expected file bytes
++
++Captured from the unmodified, pre-extraction tool (DL-002): this
++repository is not a git working tree and had no test suite, so there was
++no other way to reconstruct pre-refactor output once the file changed.
++Every milestone after the capture must keep every case here passing
++byte-for-byte; regenerating this file is only correct against an
++unmodified tool or a deliberate, reviewed behavior change (see
++regenerate.py's module docstring for the regeneration command).
++
++This file itself holds no comments (JSON has none) - this document is
++its comment.
+
+==== CC-M-001-009 | C:\codex\general_tasks\tests\baselines\regenerate.py ====
+--- a/tests/baselines/regenerate.py
++++ b/tests/baselines/regenerate.py
+@@ -28,6 +28,10 @@
+
+
+ def _output_paths(argv: list) -> list:
++    """Return the output file path(s) argv writes, using
++    _OUTPUT_ARG_INDEX to find the destination argument for commands that
++    write files; a command absent from that mapping is read-only and
++    produces no output file to capture."""
+
+==== CC-M-002-001 | C:\codex\general_tasks\traktor_nml\model.py ====
+--- a/traktor_nml/model.py
++++ b/traktor_nml/model.py
+@@ -22,6 +22,10 @@
+
+     def apply(self, loc: LocationParts) -> LocationParts:
++        """Rewrite loc under this rule: keep the suffix of dir_value past
++        old_dir_prefix, graft it onto new_dir_prefix under new_volume, and
++        fall back to new_volume for VOLUMEID when new_volumeid was not
++        given explicitly."""
+         suffix = loc.dir_value[len(self.old_dir_prefix):]
+         return LocationParts(
+             volume=self.new_volume,
+
+==== CC-M-002-002 | C:\codex\general_tasks\traktor_nml\rewrite.py ====
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -32,6 +32,10 @@
+
+     location_stat: str
++    """Stats-dict key incremented once per LOCATION this resolver
++    actually rewrites - a rule-based resolver and a compare-based
++    resolver each name their own key, so print_stats_and_samples reports
++    the correct label for whichever strategy produced this resolver."""
+
+     def locate(self, old_loc: LocationParts) -> tuple[LocationParts, bool]: ...
+
+==== CC-M-002-003 | C:\codex\general_tasks\traktor_nml\rewrite.py ====
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -174,6 +174,10 @@
+
+
+ def rewrite_nml(root: ET.Element, rules: list, dry_run: bool) -> dict[str, int]:
++    """Apply rule-based rewriting: rewrite each collection LOCATION whose
++    old value matches a rule, record the old-to-new PRIMARYKEY
++    substitution for every changed collection location, then redirect
++    every non-collection PRIMARYKEY/LOCATION through the same rules via
++    the shared cascade in process_non_collection_entries."""
+     stats = _empty_rule_stats()
+     coll = collection_entries(root)
+     old_to_new_key: dict[str, str] = {}
+@@ -197,6 +201,11 @@
+ def rewrite_from_collection_compare(
+     old_root: ET.Element, new_root: ET.Element, dry_run: bool, confidence: MatchConfidence,
+     key_providers: list[KeyProvider] = (),
+ ) -> tuple[dict[str, int], list[tuple[str, str, str, str]]]:
++    """Apply compare-based rewriting: match old collection records
++    against a newer collection's records via the tiered cascade, rewrite
++    each matched collection LOCATION whose attributes actually changed,
++    then redirect every non-collection reference through the resulting
++    old-to-new mapping via the shared cascade."""
+     old_records = collection_records(old_root)
+     new_records = collection_records(new_root)
+
+==== CC-M-002-004 | C:\codex\general_tasks\traktor_nml\textpatch.py ====
+--- a/traktor_nml/textpatch.py
++++ b/traktor_nml/textpatch.py
+@@ -20,6 +20,9 @@
+
+
+ def _xml_escape_attr(value: str) -> str:
++    """Escape a replacement value the same way lxml/ET escape attribute
++    text on serialisation, so a substituted value stays valid XML without
++    ever re-running a full serialiser over the untouched surrounding text."""
+     return (
+         value.replace("&", "&amp;")
+         .replace("<", "&lt;")
+
+==== CC-M-002-005 | C:\codex\general_tasks\traktor_nml\xmlio.py ====
+--- a/traktor_nml/xmlio.py
++++ b/traktor_nml/xmlio.py
+@@ -23,6 +23,9 @@
+
+
+ def parse_xml(path: Path):
++    """Parse path via whichever backend xmlio selected at import time,
++    keeping blank-text and CDATA handling identical between the lxml
++    default and the stdlib fallback."""
+     if HAS_LXML:
+         parser = ET.XMLParser(remove_blank_text=False, strip_cdata=False, recover=False)
+         return ET.parse(str(path), parser)
+
+==== CC-M-002-006 | C:\codex\general_tasks\traktor_nml\cli.py ====
+--- a/traktor_nml/cli.py
++++ b/traktor_nml/cli.py
+@@ -34,6 +34,9 @@
+
+ def build_parser() -> tuple[argparse.ArgumentParser, dict]:
++    """Build the top-level parser by asking every discovered command
++    module to register its own subparser and handler, so this function
++    never lists a subcommand by name (DL-003)."""
+     parser = argparse.ArgumentParser(description=__doc__)
+     subparsers = parser.add_subparsers(dest="command", required=True)
+     handlers: dict = {}
+
+==== CC-M-002-007 | C:\codex\general_tasks\traktor_nml\__init__.py ====
+--- a/traktor_nml/__init__.py
++++ b/traktor_nml/__init__.py
+@@ -8,4 +8,6 @@
+ from __future__ import annotations
+
++# Only cli is part of the public import surface; traktor_nml.commands.*
++# modules are discovered internally (DL-003), never imported by name
++# from outside this package.
+ __all__ = ["cli"]
+
+==== CC-M-002-008 | C:\codex\general_tasks\traktor_nml\commands\__init__.py ====
+--- a/traktor_nml/commands/__init__.py
++++ b/traktor_nml/commands/__init__.py
+@@ -14,6 +14,9 @@
+
+
+ def iter_command_modules() -> list[ModuleType]:
++    """Import and return every non-underscore-prefixed module in this
++    package, sorted by name so subcommand registration order is
++    deterministic across runs regardless of filesystem directory order."""
+     modules = []
+     for info in sorted(pkgutil.iter_modules(__path__), key=lambda m: m.name):
+         if info.name.startswith("_"):
+
+==== CC-M-002-009 | C:\codex\general_tasks\traktor_nml\commands\inspect_cmd.py ====
+--- a/traktor_nml/commands/inspect_cmd.py
++++ b/traktor_nml/commands/inspect_cmd.py
+@@ -16,6 +16,9 @@
+
+
+ def inspect_nml(root, limit: int, csv_path: Path | None) -> int:
++    """Print collection/playlist counts and up to limit sample rows, then
++    optionally write every row (not just the printed sample) to csv_path
++    via the shared location_rows/csv.DictWriter pattern."""
+     coll_entries = collection_entries(root)
+     playlist_refs = playlist_entries(root)
+     all_doc_entries = all_entries(root)
+
+==== CC-M-002-010 | C:\codex\general_tasks\traktor_nml\commands\rewrite_cmd.py ====
+--- a/traktor_nml/commands/rewrite_cmd.py
++++ b/traktor_nml/commands/rewrite_cmd.py
+@@ -24,6 +24,9 @@
+
+
+ def build_rules(args: argparse.Namespace) -> list[RewriteRule]:
++    """Build the RewriteRule list from the repeatable --rule and
++    --rule-with-volumeid arguments, in the order given on the command
++    line."""
+     rules: list[RewriteRule] = []
+
+     if getattr(args, "rule", None):
+
+==== CC-M-002-011 | C:\codex\general_tasks\traktor_nml\commands\compare_cmd.py ====
+--- a/traktor_nml/commands/compare_cmd.py
++++ b/traktor_nml/commands/compare_cmd.py
+@@ -19,6 +19,9 @@
+
+
+ def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
++    """Resolve the effective MatchConfidence: an explicit
++    --match-confidence always wins; otherwise --allow-artist-title-only
++    selects loose and its absence selects strict (DL-010)."""
+     if getattr(args, "match_confidence", None):
+         return parse_match_confidence(args.match_confidence)
+     return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
+
+==== CC-M-002-012 | C:\codex\general_tasks\tests\test_cli_contract.py ====
+--- a/tests/test_cli_contract.py
++++ b/tests/test_cli_contract.py
+@@ -28,6 +28,9 @@
+
+ def test_allow_artist_title_only_matches_loose_confidence(fixture_corpus: Path, tmp_path: Path) -> None:
++    """Byte-identical stdout between the two invocations confirms
++    --allow-artist-title-only remains a pure alias for
++    --match-confidence loose (DL-010)."""
+     legacy = run_tool(
+         ["preview-compare", str(fixture_corpus / "duplicate_rips.nml"), str(fixture_corpus / "duplicate_rips.nml"),
+          "--allow-artist-title-only"],
+
+==== CC-M-002-013 | C:\codex\general_tasks\traktor_nml\confidence.py ====
+--- a/traktor_nml/confidence.py
++++ b/traktor_nml/confidence.py
+@@ -20,6 +20,10 @@
+
+     @classmethod
+     def from_legacy_flag(cls, allow_artist_title_only: bool) -> "MatchConfidence":
++        """Legacy boolean entry point: preserves --allow-artist-title-only's
++        original meaning (loose) so existing invocations behave
++        identically after the boolean is replaced by this ordered enum
++        (DL-010)."""
+         return cls.LOOSE if allow_artist_title_only else cls.STRICT
+
+     def admits(self, tier_name: str) -> bool:
+
+==== CC-M-002-014 | C:\codex\general_tasks\traktor_nml\matching.py ====
+--- a/traktor_nml/matching.py
++++ b/traktor_nml/matching.py
+@@ -18,6 +18,9 @@
+
+
+ _BASE_STAT_TIERS: tuple[str, ...] = (
++    # Fixed tier ordering used to initialise per-tier match-count stats
++    # keys before matching runs, so a zero-count tier still prints
++    # alongside tiers that matched; injected key providers (DL-006) add
++    # their own tier names to the printed stats without editing this tuple.
+     "audio_id",
+     "artist_title_size_time",
+
+==== CC-M-002-015 | C:\codex\general_tasks\traktor_nml_tool.py ====
+--- a/traktor_nml_tool.py
++++ b/traktor_nml_tool.py
+@@ -13,4 +13,6 @@
+
+-This is a thin argv-forwarding shim over the traktor_nml package (DL-001).
++This is a thin argv-forwarding shim over the traktor_nml package (DL-001):
++every subcommand, the write-strategy split (attribute patching vs.
++byte-span assembly) and the subcommand-discovery mechanism live in
++traktor_nml/, not here - see traktor_nml.cli's own module docstring.
+
+==== CC-M-002-016 | traktor_nml/README.md ====
+--- /dev/null
++++ b/traktor_nml/README.md
+@@ -0,0 +1,50 @@
++# traktor_nml
++
++Inspect, rewrite, reconnect, splice and split Traktor NML collection files.
++
++## Overview
++
++traktor_nml_tool.py is a thin argv-forwarding shim over this package
++(DL-001): the original single 1290-line file would have exceeded every
++structural threshold once disk-scan reconnection and splice/split were
++added, and would have forced every milestone to edit the same file.
++
++## Architecture
++
++Two write mechanisms coexist and never mix within one command:
++
++- Attribute patching (`textpatch.py`, used by `rewrite.py`/`reconnect.py`):
++  substitutes attribute values inside opening tags located in the raw
++  source text. Every other byte of the source is preserved exactly.
++- Byte-span assembly (`spans.py`, used by `splice.py`/`split.py`):
++  concatenates verbatim source byte ranges, re-serialising only the
++  specific fragments a rename or PRIMARYKEY redirect actually changes
++  (DL-007) - `textpatch.py` has no concept of element extent, so
++  structural insert/remove could not go through it without falling back
++  to a full, format-losing serialisation.
++
++`commands/` holds one module per subcommand; `cli.py` discovers them by
++iterating the package rather than listing them, so adding a subcommand
++never requires editing `cli.py` (DL-003).
++
++## Design Decisions
++
++- `matching.py`'s cascade accepts injected key providers; `fingerprint.py`
++  supplies one behind an availability guard, so the core matching path
++  never becomes import-guard-laden for a native chromaprint dependency
++  most environments lack (DL-006).
++- `--match-confidence` is one ordered enum (strict/loose/filename) rather
++  than a second boolean flag, because disk-scan matching's filename-only
++  tier and tag-based matching's artist-title-only tier are really one
++  cascade, not two independent knobs (DL-010).
++
++## Invariants
++
++- Every write command builds its complete output in memory and validates
++  it before any file handle opens; a failure partway through conflict
++  resolution or reference redirection leaves every output path untouched
++  (DL-012).
++- `reconnect.py`'s one-to-one assignment guarantee (DL-004) and
++  `volumes.py`'s explicit-VOLUME/VOLUMEID requirement (DL-005) are both
++  enforced as post-passes over the shared matching cascade, which itself
++  stays unaware either invariant is being layered on top of it.
+
+==== CC-M-003-001 | C:\codex\general_tasks\traktor_nml\diskscan.py ====
+--- a/traktor_nml/diskscan.py
++++ b/traktor_nml/diskscan.py
+@@ -18,6 +18,9 @@
+
+
+ def _has_audio_extension(path: Path) -> bool:
++    """Extension check only - does not open or validate the file, so a
++    renamed non-audio file with an audio-like extension is still indexed
++    as a candidate and left to fail later at the tag-read stage."""
+     name = path.name.lower()
+     return any(name.endswith(ext) for ext in AUDIO_EXTENSIONS)
+
+==== CC-M-003-002 | C:\codex\general_tasks\tests\test_diskscan.py ====
+--- a/tests/test_diskscan.py
++++ b/tests/test_diskscan.py
+@@ -10,6 +10,9 @@
+
+
+ def _make_files(root: Path, names: list[str]) -> None:
++    """Create root and empty placeholder files of a fixed size, standing
++    in for real audio files since these tests exercise path/size/mtime
++    identity, not audio content."""
+     root.mkdir(parents=True, exist_ok=True)
+     for name in names:
+         (root / name).write_bytes(b"\x00" * 32)
+
+==== CC-M-003-003 | C:\codex\general_tasks\traktor_nml\tagcache.py ====
+--- a/traktor_nml/tagcache.py
++++ b/traktor_nml/tagcache.py
+@@ -22,6 +22,9 @@
+
+     @staticmethod
+     def key(path: Path, size: int, mtime: float) -> str:
++        """Combine path, size and mtime so a file overwritten in place
++        (same path, different bytes) misses the cache even though its
++        path alone is unchanged."""
+         return f"{path.resolve()}|{size}|{int(mtime)}"
+
+     def attempted(self, path: Path, size: int, mtime: float) -> bool:
+
+==== CC-M-004-001 | C:\codex\general_tasks\traktor_nml\reconnect.py ====
+--- a/traktor_nml/reconnect.py
++++ b/traktor_nml/reconnect.py
+@@ -10,6 +10,10 @@
+ (DL-004). The returned mapping is therefore strictly one-to-one.
+ """
+
++# DL-004 is enforced purely as a post-match inversion pass; match_records
++# itself is unmodified and unaware that a one-to-one guarantee is being
++# layered on top of its own plain old-to-new mapping.
++
+ from __future__ import annotations
+
+ from pathlib import Path
+
+==== CC-M-004-002 | C:\codex\general_tasks\traktor_nml\volumes.py ====
+--- a/traktor_nml/volumes.py
++++ b/traktor_nml/volumes.py
+@@ -8,6 +8,10 @@
+ single distinct VOLUME/VOLUMEID pair; every other case is a hard error.
+ """
+
++# parse_volume_map (the --volume-map argparse handler) and
++# resolve_volume_identity share the same Path-normalisation step
++# (DL-005), so a map entry authored with any separator style still
++# matches scan_root at lookup time.
++
+ from __future__ import annotations
+
+ from pathlib import Path
+
+==== CC-M-004-003 | C:\codex\general_tasks\traktor_nml\reconnect.py ====
+--- a/traktor_nml/reconnect.py
++++ b/traktor_nml/reconnect.py
+@@ -49,6 +49,12 @@
+ def resolve_reconnection(
+     old_records: list[EntryRecord],
+     candidates: list[EntryRecord],
+     confidence: MatchConfidence,
+     key_providers: list[KeyProvider] = (),
+ ) -> tuple[dict[str, EntryRecord], dict[str, int], list[dict[str, str]]]:
++    """Match old_records against candidates via the shared cascade, then
++    invert the resulting mapping to find and drop destination collisions
++    - candidates claimed by more than one old record - reclassifying
++    their claimants out of the one-to-one mapping and re-deriving each
++    affected tier's match count so matched_<tier> totals stay consistent
++    with the final matched count (DL-004)."""
+     # Built once and reused both for match_records' own lookup and for the
+
+==== CC-M-004-004 | C:\codex\general_tasks\traktor_nml\commands\reconnect_cmd.py ====
+--- a/traktor_nml/commands/reconnect_cmd.py
++++ b/traktor_nml/commands/reconnect_cmd.py
+@@ -63,6 +63,9 @@
+     key_providers = []
+     fingerprint_stats: dict[str, int] = {}
+     if getattr(args, "fingerprint", False):
++        # Off by default (DL-006): pyacoustid/fpcalc may be absent, and
++        # the matching cascade behaves identically with an empty
++        # key_providers list.
+         key_providers.append(fingerprint_key_provider(cache, candidates, fingerprint_stats))
+
+     mapping, st
+
+==== CC-M-004-005 | C:\codex\general_tasks\tests\test_reconnect.py ====
+--- a/tests/test_reconnect.py
++++ b/tests/test_reconnect.py
+@@ -12,6 +12,9 @@
+
+
+ def _entry(artist, title, volume, dirv, filename, size="16", time="1.0"):
++    """Minimal COLLECTION ENTRY carrying only the attributes the
++    file/size/time match tiers need; PLAYLISTS/SETS/INDEXING are always
++    present but empty so the tool's other schema assumptions still hold."""
+     return (
+         f'<ENTRY TITLE="{title}" ARTIST="{artist}" AUDIO_ID="">'
+         f'<LOCATION DIR="{dirv}" FILE="{filename}" VOLUME="{volume}" VOLUMEID="{volume}"></LOCATION>'
+
+==== CC-M-005-001 | C:\codex\general_tasks\traktor_nml\fingerprint.py ====
+--- a/traktor_nml/fingerprint.py
++++ b/traktor_nml/fingerprint.py
+@@ -13,6 +13,10 @@
+ review only, never auto-accepted.
+ """
+
++# HAS_ACOUSTID gates every entry point in this module, including ones
++# that do not mention it by name below, so importing this module never
++# requires the fpcalc binary to be installed.
++
+ from __future__ import annotations
+
+ from pathlib import Path
+
+==== CC-M-005-002 | C:\codex\general_tasks\traktor_nml\fingerprint.py ====
+--- a/traktor_nml/fingerprint.py
++++ b/traktor_nml/fingerprint.py
+@@ -158,6 +158,10 @@
+     cluster_key = _cluster_candidates(candidate_fps, stats) if HAS_ACOUSTID else {}
+
+     def provide(record: EntryRecord) -> Optional[tuple[str, ...]]:
++        """Per-record key: routes a candidate-side record to its
++        fingerprint cluster's shared key, and an old-side record to that
++        winning cluster only when duration and similarity both clear this
++        provider's thresholds (DL-013)."""
+         if not HAS_ACOUSTID:
+             return None
+ 
+==== CC-M-005-003 | C:\codex\general_tasks\tests\test_fingerprint.py ====
+--- a/tests/test_fingerprint.py
++++ b/tests/test_fingerprint.py
+@@ -22,6 +22,9 @@
+
+
+ def _candidate(path: Path) -> EntryRecord:
++    """Disk-derived EntryRecord stub: entry=None marks the candidate side
++    the same way diskscan.index_scan_roots does, so match_records treats
++    it identically to a real scanned file."""
+     return EntryRecord(
+         entry=None, artist="", title="", audio_id="", filesize="", playtime_float="", bitrate="", album="",
+         file_name=path.name,
+
+==== CC-M-006-001 | C:\codex\general_tasks\traktor_nml\spans.py ====
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -13,6 +13,11 @@
+ command.
+ """
+
++# The scanner below treats comments, CDATA sections and processing
++# instructions as opaque tokens specifically so a literal '<' or '>'
++# permitted inside one of them never desynchronises the depth count
++# element_span relies on (DL-007).
++
+ from __future__ import annotations
+
+ import re
+
+==== CC-M-006-002 | C:\codex\general_tasks\traktor_nml\spans.py ====
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -140,10 +140,16 @@
+     def add_verbatim(self, text: str) -> None:
++        """Append text with no patching or re-serialisation - used for
++        the untouched bytes surrounding every span this builder
++        assembles."""
+         self._pieces.append(text)
+
+     def add_span(self, source: str, span: Span, attr_patches: dict[str, str] | None = None) -> None:
++        """Copy span's source bytes verbatim, patching only the
++        attributes named in attr_patches on its own opening tag (e.g. a
++        PRIMARYKEY redirect) via the same substitution primitive
++        textpatch.py uses."""
+         text = span.text(source)
+         if attr_patches:
+             text = _patch_opening_tag_attrs(text, attr_patches)
+
+==== CC-M-006-003 | C:\codex\general_tasks\tests\test_spans.py ====
+--- a/tests/test_spans.py
++++ b/tests/test_spans.py
+@@ -37,6 +37,8 @@
+
+ def test_recalculate_count_attr_rewrites_only_the_named_attribute() -> None:
++    """Only COUNT changes; the two child <A/> elements and every other
++    byte of the container's own opening tag are untouched."""
+     fragment = '<SUBNODES COUNT="3"><A/><A/></SUBNODES>'
+     rewritten = recalculate_count_attr(fragment, "SUBNODES", "COUNT", 2)
+     assert rewritten == '<SUBNODES COUNT="2"><A/><A/></SUBNODES>'
+
+==== CC-M-007-001 | C:\codex\general_tasks\traktor_nml\splice.py ====
+--- a/traktor_nml/splice.py
++++ b/traktor_nml/splice.py
+@@ -25,6 +25,10 @@
+ @dataclass
+ class SpliceResult:
++    """output is None exactly when errors is non-empty - an abort with
++    nothing written (extending DL-012's validate-before-write invariant
++    to a multi-input merge); conflict_rows is populated on every run
++    regardless of outcome, even a clean one (DL-008)."""
+     output: Optional[str]
+     stats: dict[str, int]
+     conflict_rows: list[ConflictRow]
+
+==== CC-M-007-002 | C:\codex\general_tasks\traktor_nml\splice.py ====
+--- a/traktor_nml/splice.py
++++ b/traktor_nml/splice.py
+@@ -150,6 +150,11 @@
+     on_conflict: Optional[str] = None,
+ ) -> SpliceResult:
++    """Merge every contribution into base_source: build cross-input
++    identity groups, resolve conflicts (aborting with zero output on any
++    unresolved one), transplant surviving collection entries as verbatim
++    spans, then hand off to playlist import for the PLAYLISTS tree
++    (DL-007, DL-008)."""
+     inputs = [base_root] + [root for _, root in contributions]
+     sources = [base_source] + [text for text, _ in contributions]
+
+==== CC-M-007-003 | C:\codex\general_tasks\traktor_nml\playlists.py ====
+--- a/traktor_nml/playlists.py
++++ b/traktor_nml/playlists.py
+@@ -19,6 +19,10 @@
+ @dataclass
+ class ImportedPlaylist:
++    """is_verbatim=False marks a fragment that was re-serialised because
++    at least one of its PRIMARYKEY values was redirected or its NAME was
++    renamed for a collision; the source span is otherwise copied
++    unchanged."""
+     fragment: str  # verbatim span text or a re-serialised replacement
+     is_verbatim: bool
+     original_name: str
+
+==== CC-M-007-004 | C:\codex\general_tasks\traktor_nml\commands\splice_cmd.py ====
+--- a/traktor_nml/commands/splice_cmd.py
++++ b/traktor_nml/commands/splice_cmd.py
+@@ -23,6 +23,8 @@
+ def _handle_splice(args: argparse.Namespace) -> int:
++    # Refuses output == any input path (the tool's existing dry-run
++    # convention, extended here to every splice input, not just base).
+     if args.output.resolve() in {args.base.resolve(), *(p.resolve() for p in args.input)}:
+         print("output_must_differ_from_input", file=sys.stderr)
+         return 2
+
+==== CC-M-007-005 | C:\codex\general_tasks\tests\test_splice.py ====
+--- a/tests/test_splice.py
++++ b/tests/test_splice.py
+@@ -10,6 +10,9 @@
+
+
+ def _nml(entries_xml: str, entries_count: int, playlists_xml: str) -> str:
++    """Minimal NML wrapper whose SUBNODES COUNT is derived by counting
++    literal '<NODE' occurrences in playlists_xml, so a caller only ever
++    authors the inner playlist XML once."""
+     return (
+         '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n'
+         '<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD>'
+
+==== CC-M-008-001 | C:\codex\general_tasks\traktor_nml\split.py ====
+--- a/traktor_nml/split.py
++++ b/traktor_nml/split.py
+@@ -21,6 +21,10 @@
+ @dataclass
+ class SelectionResult:
++    """playlist_partial's (name, kept, total) records the partial-
++    retention detail DL-009 requires reporting, distinct from
++    playlist_dropped's fully-empty case - a playlist never silently loses
++    entries without one of the two being reported."""
+     kept_keys: set[str]
+     playlist_dropped: list[str] = field(default_factory=list)
+     playlist_partial: list[tuple[str, int, int]] = field(default_factory=list)  # (name, kept, total)
+
+==== CC-M-008-002 | C:\codex\general_tasks\traktor_nml\split.py ====
+--- a/traktor_nml/split.py
++++ b/traktor_nml/split.py
+@@ -67,6 +67,11 @@
+     fail reports every offending reference as an error and adds nothing.
+     """
++    # exclude is split's default (DL-009): pull-in would duplicate a
++    # track across outputs and reintroduce the divergence splice exists
++    # to resolve; fail is available for callers that would rather refuse
++    # outright than silently narrow a playlist.
+     valid_collection_keys = {r.primary_key for r in collection_records(root)}
+     dropped_refs: list[tuple[str, str]] = []
+     errors: list[str] = []
+
+==== CC-M-008-003 | C:\codex\general_tasks\traktor_nml\commands\split_cmd.py ====
+--- a/traktor_nml/commands/split_cmd.py
++++ b/traktor_nml/commands/split_cmd.py
+@@ -10,6 +10,10 @@
+
+
+ def _parse_groups(raw_groups: list[list[str]] | None) -> list[tuple[Path, list[str]]]:
++    """Parse repeated --group PATH NAMES entries into (output_path,
++    playlist_names) pairs; NAMES is comma-separated, and an empty segment
++    (e.g. a trailing comma) is dropped rather than producing a blank
++    playlist name to look up."""
+     groups = []
+     for output_path, names_csv in raw_groups or []:
+         names = [name for name in names_csv.split(",") if name]
+
+==== CC-M-008-004 | C:\codex\general_tasks\tests\test_split.py ====
+--- a/tests/test_split.py
++++ b/tests/test_split.py
+@@ -21,6 +21,9 @@
+
+
+ def _key(filename: str) -> str:
++    """Compute the flattened VOLUME+DIR+FILE PRIMARYKEY these fixtures'
++    playlists reference, matching the schema's own KEY derivation
++    exactly."""
+     return "C:" + "/:Music/:" + filename

@@ -1,0 +1,193 @@
+{
+  "phase": "plan-code",
+  "iteration": 5,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every code_change diff has a well-formed hunk header whose -/+ line counts match its body, and every context/removed line matches the real file at C:\\codex\\general_tasks",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-015",
+      "check": "The traktor_nml_tool.py shim diff (@@ -1,1290 +1,19 @@) replays cleanly against the 1290-line source file",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every decision_ref in code_intents and change comments resolves to a decision in planning_context.decisions",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Every code_intent has a corresponding code_change and every code_change references a real intent",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "No two code_changes in one milestone create the same file from /dev/null (applying both would duplicate or fail)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "traktor_nml/reconnect.py:location_from_disk_path",
+      "check": "The disk path is made volume-relative before encoding, so DIR excludes the volume/drive prefix the way real LOCATION DIR values do",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 4,
+      "note": "Re-verified directly against the current code_change diff text in plan.json (CC-M-004-001). The prior FAIL (version 3) described location_from_disk_path stripping args.scan_roots ('mount_root') instead of the volume's true root; that is no longer what the code does. The current implementation computes anchor = path.anchor (the path's own drive-letter/POSIX-root, e.g. 'D:\\\\' or '/') and does path.parent.relative_to(anchor) - it never touches scan_root at all; scan_root is only used by the caller (reconnect_cmd.py:_run_reconnection/_root_and_identity_for_path) to look up the resolved VOLUME/VOLUMEID identity, not to compute DIR. Confirmed with pathlib on Windows: Path('D:/Music/Techno/artist/track.mp3').anchor == 'D:\\\\', and parent.relative_to(anchor) == 'Music\\\\Techno\\\\artist' - the full volume-relative path including the 'Music/Techno' segments between the true volume root and the scan root, matching the docstring's stated intent and encode_traktor_dir's round-trip with decode_traktor_dir. candidate.source_path is always produced via Path.resolve() in diskscan.py, so it is always absolute and anchor is never empty in practice. The stale finding no longer applies to this diff."
+    },
+    {
+      "id": "qa-006",
+      "scope": "traktor_nml/volumes.py:resolve_volume_identity",
+      "check": "An explicit --volume-map entry is found for the scan root regardless of separator/Path normalisation, and never falls through to inference",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "traktor_nml/volumes.py:resolve_volume_identity",
+      "check": "Prefix comparison between scan_root and record.location.decoded_path is on comparable path spaces and on component boundaries",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "traktor_nml/fingerprint.py:fingerprint_key_provider",
+      "check": "Several candidates clearing the fingerprint match threshold are reported as ambiguous, never silently collapsed to one winner",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 5,
+      "note": "Re-verified end-to-end against the current diffs. The v4 FAIL finding (dead-code wiring gap) is now stale: CC-M-004-004 (v4) in commands/reconnect_cmd.py imports fingerprint_key_provider, adds a real `--fingerprint` argparse flag on add_reconnect_args, and in _run_reconnection constructs `key_providers = [fingerprint_key_provider(cache, candidates, fingerprint_stats)] if getattr(args, 'fingerprint', False) else []` then calls `resolve_reconnection(old_records, candidates, confidence, key_providers)` - a real CLI flag now reaches a real provider construction. resolve_reconnection's signature (reconnect.py CC-M-004-003 v3) is `resolve_reconnection(old_records, candidates, confidence, key_providers: list[KeyProvider] = ())`, matching the call exactly. Inside, it calls build_new_indexes/match_records (matching.py CC-M-002-014 v3) with key_providers threaded through; record_keys() calls provider.provide(record) and appends (tier_name, value) when non-None, and match_records checks `if key_value is AMBIGUOUS: ambiguous_here = True; break`, exactly mirroring how a >1-length tag-tier index bucket is treated. fingerprint_key_provider's provide() (fingerprint.py CC-M-005-002 v5) returns the AMBIGUOUS sentinel itself when winner_keys (distinct fingerprint clusters clearing MATCH_THRESHOLD) has >1 entry, and returns a normal single-element key tuple otherwise; candidates sharing one cluster key are also indexed together via build_new_indexes calling record_keys on candidate-side records (entry=None), so same-cluster multi-candidate cases surface as an ordinary >1-length index bucket instead. resolve_reconnection separately re-checks `value is AMBIGUOUS` when building ambiguity_rows, appending a per-record CSV row (artist/title/old_path/reason='ambiguous'). The full chain - CLI flag -> fingerprint_key_provider construction -> resolve_reconnection -> record_keys/match_records AMBIGUOUS handling -> ambiguity_rows CSV export - is coherent and complete in the current diff text; no gap remains at any link.",
+      "finding": null
+    },
+    {
+      "id": "qa-009",
+      "scope": "traktor_nml/fingerprint.py:_similarity",
+      "check": "The fingerprint comparison call is a real pyacoustid API, and a failure to compare is counted rather than returned as similarity 0.0",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "note": "Re-verified against CC-M-005-001/002 v3 in plan.json: _similarity now returns Optional[float] and returns None (not 0.0) on any decode/compare failure, incrementing stats['fingerprint_compare_errors'] first. Both call sites now explicitly guard on None before treating the value as a real similarity score: _cluster_candidates unions only 'if similarity is not None and similarity > MATCH_THRESHOLD', and fingerprint_key_provider's provide() does 'if similarity is None: continue' before the MATCH_THRESHOLD/NEAR_MATCH_THRESHOLD branches. A compare failure can therefore no longer be mistaken for a genuine zero-similarity result at any matching decision point. acoustid.compare_fingerprints(a,b) remains a real pyacoustid API (confirmed previously). Check passes."
+    },
+    {
+      "id": "qa-010",
+      "scope": "traktor_nml/splice.py:_entry_span_text",
+      "check": "A collection ENTRY span is located by the record's identity, not by the first document occurrence of its FILE attribute",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "traktor_nml/splice.py, traktor_nml/split.py",
+      "check": "Entry lookup by FILE handles XML-escaped attribute values (& and non-ASCII) present in the fixture corpus",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified directly against the code_change diff text in plan.json (CC-M-007-001/CC-M-007-002 for splice.py, CC-M-008-001/CC-M-008-002 for split.py), not the filesystem. The prior FAIL note described a raw-text search on record.file_name that no longer exists in the diffs: both files only entry-lookup mechanism is element_span_by_identity(source_text, root, record.entry) (spans.py, CC-M-006-001), which locates a span by the elements tree position among same-tag elements in document order, not by searching source text for any attribute value. spans.py own docstring explicitly states this is chosen specifically to avoid breaking on duplicate FILE basenames and XML-escaped characters. split.py build_output (CC-M-008-002) additionally carries an inline comment stating the same rationale, and wraps the element_span_by_identity call in try/except ValueError, returning a SplitOutcome error rather than raising uncaught. Grepping both files full diff text confirms no reference to record.file_name and no str.index/str.find call keyed on a FILE/file_name value anywhere in the entry-lookup path. The MUST invariant this check protects (never silently mis-locate/fail on escaped or duplicate FILE values) is satisfied because the lookup mechanism does not depend on FILE at all; the check premise (lookup is by FILE) does not match the current implementation, so the check is moot rather than violated.",
+      "version": 3
+    },
+    {
+      "id": "qa-012",
+      "scope": "traktor_nml/split.py:build_output",
+      "check": "A partially-retained playlist is re-emitted preserving PRIMARYKEY TYPE (STEM vs TRACK), original ENTRY attributes, and XML-escaping of NAME/KEY",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "traktor_nml/split.py:build_output",
+      "check": "The verbatim playlist NODE span is located deterministically, and a node that cannot be located is reported rather than emitted as empty text",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-014",
+      "scope": "traktor_nml/spans.py:_TOKEN_RE",
+      "check": "The tag scanner treats quoted attribute values as opaque, as CI-M-006-001 states",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-015",
+      "scope": "traktor_nml/spans.py:OutputBuilder",
+      "check": "OutputBuilder recalculates COLLECTION ENTRIES, PLAYLIST ENTRIES and SUBNODES COUNT from what was assembled, as CI-M-006-002 states",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "version": 2,
+      "finding": "CI-M-006-002 was re-worded to describe add_counted_span as a generic opt-in per-container primitive (\"a caller opts into for any container it rebuilds - COLLECTION ENTRIES and the root SUBNODES COUNT in splice.py, and PLAYLIST ENTRIES and SUBNODES COUNT in split.py\"), correcting the prior overclaim that OutputBuilder itself recalculates every playlist count. The splice.py half of this new claim checks out: CC-M-007-002 assemble_output calls builder.add_counted_span(...) for COLLECTION/ENTRIES and for the root SUBNODES/COUNT. But the split.py half is still inaccurate: split.py never imports or calls OutputBuilder or add_counted_span at all (CC-M-008-001/002 import only element_span_by_identity, find_element_span, recalculate_count_attr from .spans - no OutputBuilder). build_output recalculates COLLECTION ENTRIES and the root SUBNODES COUNT via a local free function _replace_children(), which calls recalculate_count_attr() directly and manually finds/replaces the tag body by string slicing - not via OutputBuilder.add_counted_span. And PLAYLIST ENTRIES on a partially-kept playlist is recalculated by a third, different mechanism again: a cloned ElementTree node has entries removed in-place and playlist_elem.attrib[\"ENTRIES\"] = str(len(surviving)) is set directly, then re-serialised with ET.tostring() - no string-level count-attr rewrite and no OutputBuilder involvement at all. So the corrected code_intent still misdescribes split.py: it claims split.py's PLAYLIST ENTRIES/SUBNODES COUNT recalculation goes through the add_counted_span primitive, but split.py recalculates those counts through two other, unrelated code paths (recalculate_count_attr via _replace_children, and direct ElementTree attribute assignment) and does not use OutputBuilder at all. The code itself (both mechanisms) is internally consistent and correct for what it does; the mismatch is that the intent narrative names the wrong primitive as the one split.py uses."
+    },
+    {
+      "id": "qa-016",
+      "scope": "traktor_nml/splice.py:group_identities",
+      "check": "Identity grouping applies the record_keys tier cascade rather than only the single highest-confidence key",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-017",
+      "scope": "traktor_nml/reconnect.py:resolve_reconnection",
+      "check": "Per-tier matched_* counters agree with the final matched total after destination collisions are withdrawn",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "note": "Fixed: resolve_reconnection now re-derives the winning tier for each withdrawn collision by finding the first key_name in record_keys() order whose indexes bucket equals [winner], and decrements matched_<tier> for it before setting stats['matched'] = len(final_mapping). Since match_records selects matched_by as the first tier with a length-1 bucket (same indexes object, same record_keys order), the re-derivation is guaranteed to find and decrement exactly the same tier match_records credited, for every collided key. Sum(matched_<tier>) after decrement = original sum - collided_count = original matched - collided_count = final matched. Invariant holds."
+    },
+    {
+      "id": "qa-018",
+      "scope": "traktor_nml/reconnect.py:resolve_reconnection",
+      "check": "The candidate index and the per-record key computation are built once, not recomputed after match_records",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-019",
+      "scope": "traktor_nml/rewrite.py:write_nml_safely",
+      "check": "The output file is written atomically (temp file plus replace) so a mid-write failure cannot leave a truncated file where an existing collection stood",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-020",
+      "scope": "traktor_nml/splice.py:assemble_output",
+      "check": "find_element_span results are None-guarded before use",
+      "status": "PASS",
+      "severity": "COULD"
+    },
+    {
+      "id": "qa-021",
+      "scope": "CC-M-001-004, CC-M-001-005, CC-M-001-007",
+      "check": "Empty-file diffs use a valid hunk header",
+      "status": "PASS",
+      "severity": "COULD"
+    },
+    {
+      "id": "qa-022",
+      "scope": "*",
+      "check": "Optional third-party imports (lxml, mutagen, acoustid) are guarded and every call site checks the guard flag",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-023",
+      "scope": "traktor_nml/matching.py:record_keys",
+      "check": "The tag-derived tier cascade preserves the pre-extraction tier ordering and gating",
+      "status": "PASS",
+      "severity": "SHOULD"
+    }
+  ]
+}

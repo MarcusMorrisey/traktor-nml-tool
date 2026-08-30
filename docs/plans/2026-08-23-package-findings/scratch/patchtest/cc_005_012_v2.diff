@@ -1,0 +1,13 @@
+--- a/tests/test_spans.py
++++ b/tests/test_spans.py
+@@ -1,4 +1,9 @@
+-"""Byte-span scanner: extent, nesting, escaping, and round-trip fidelity."""
++"""Byte-span scanner: extent, nesting, escaping, and round-trip fidelity.
++
++SpanIndex is the package's one element-to-span identity mechanism; the
++identity-location behavior it provides is asserted here directly against
++SpanIndex.span_of.
++"""
+ 
+ from __future__ import annotations
+ 

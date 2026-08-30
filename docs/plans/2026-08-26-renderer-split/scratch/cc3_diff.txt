@@ -1,0 +1,50 @@
+--- /dev/null
++++ b/tests/test_command_layer_printless.py
+@@ -0,0 +1,47 @@
++"""Guards the printless-command-layer boundary: reconnect_cmd.py holds no
++print call and writes to neither stream, all reconnect output living in
++reconnect_render.emit instead.
++"""
++
++from __future__ import annotations
++
++import ast
++from pathlib import Path
++
++RECONNECT_CMD = Path(__file__).parent.parent / "traktor_nml" / "commands" / "reconnect_cmd.py"
++
++
++def _violations(source: str) -> list[str]:
++    tree = ast.parse(source)
++    found = []
++    for node in ast.walk(tree):
++        if not isinstance(node, ast.Call):
++            continue
++        func = node.func
++        if isinstance(func, ast.Name) and func.id == "print":
++            found.append(f"print call at line {node.lineno}")
++        elif isinstance(func, ast.Attribute) and func.attr == "write":
++            value = func.value
++            if (
++                isinstance(value, ast.Attribute)
++                and isinstance(value.value, ast.Name)
++                and value.value.id == "sys"
++                and value.attr in ("stdout", "stderr")
++            ):
++                found.append(f"sys.{value.attr}.write at line {node.lineno}")
++    return found
++
++
++def test_reconnect_cmd_holds_no_print_call() -> None:
++    """Run against a copy of reconnect_cmd.py with a print reintroduced,
++    and it failed there before this guard was trusted."""
++    source = RECONNECT_CMD.read_text(encoding="utf-8")
++    assert _violations(source) == []
++
++
++def test_checker_detects_a_reintroduced_print() -> None:
++    """The other direction of the same guard: a synthetic module
++    containing a print call must be reported, so the checker is exercised
++    both ways rather than only proven never to fire."""
++    synthetic = "def handler(args):\n    print('leaked')\n    return 0\n"
++    assert _violations(synthetic) != []

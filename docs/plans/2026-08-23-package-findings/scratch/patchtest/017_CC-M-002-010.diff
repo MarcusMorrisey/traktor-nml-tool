@@ -1,0 +1,7 @@
+--- a/tests/CLAUDE.md
++++ b/tests/CLAUDE.md
+@@ -9,3 +9,4 @@
+ | `test_baseline_parity.py`| Byte-level parity oracle against `baselines/manifest.json`    | Changing any CLI subcommand's output, exit code, or written bytes |
+ | `test_cli_contract.py`   | Subcommand surface + `--allow-artist-title-only`/`--match-confidence` alias contract | Adding/renaming a subcommand, changing legacy-flag equivalence |
++| `test_compare.py`        | Compare-based rewrite input-protection and destination-collision tests | Changing `rewrite_from_collection_compare` or `compare_cmd.py`'s write path |
+ | `test_diskscan.py`       | Disk-scan candidate discovery tests                            | Changing `diskscan.py`                                        |

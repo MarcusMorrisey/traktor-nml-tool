@@ -1,0 +1,58 @@
+--- a/traktor_nml/splice.py
++++ b/traktor_nml/splice.py
+@@ -26,7 +26,7 @@ from .confidence import MatchConfidence
+ from .matching import record_keys
+ from .model import EntryRecord, collection_entries, collection_records
+ from .playlists import find_playlist_nodes, import_playlists, node_primary_keys
+-from .spans import OutputBuilder, element_span_by_identity, find_element_span
++from .spans import OutputBuilder, SpanIndex, find_element_span
+ from .xmlio import ET
+ 
+ _TRACKED_ATTRS = ("artist", "title", "album", "filesize", "playtime_float", "bitrate")
+@@ -148,8 +148,8 @@ def _resolve_conflicts(
+     return old_to_new_key, conflict_rows, unresolved, new_entries
+ 
+ 
+-def _entry_span_text(source_text: str, root: ET.Element, record: EntryRecord) -> str:
+-    return element_span_by_identity(source_text, root, record.entry).text(source_text)
++def _entry_span_text(source_text: str, span_index: SpanIndex, record: EntryRecord) -> str:
++    return span_index.span_of(record.entry).text(source_text)
+ 
+ 
+ def assemble_output(
+@@ -164,10 +164,15 @@ def assemble_output(
+     unresolved one), transplant surviving collection entries as verbatim
+     spans, then hand off to playlist import for the PLAYLISTS tree
+     (DL-007, DL-008)."""
+     inputs = [base_root] + [root for _, root in contributions]
+     sources = [base_source] + [text for text, _ in contributions]
+     records_by_input = [collection_records(root) for root in inputs]
+ 
++    # One SpanIndex per input source, built once here rather than once per
++    # entry or per playlist, so a merge scans each source once regardless
++    # of how many entries and playlists it contributes.
++    span_indexes = [SpanIndex(sources[i], inputs[i]) for i in range(len(inputs))]
++
+     groups = group_identities(records_by_input, confidence)
+     old_to_new_key, conflict_rows, unresolved, new_entries_records = _resolve_conflicts(groups, on_conflict)
+ 
+@@ -186,7 +191,7 @@ def assemble_output(
+     # New collection entries: transplant each winner's own ENTRY span from
+     # its originating input, verbatim (collection entries are never renamed).
+     new_entry_texts = [
+-        _entry_span_text(sources[idx], inputs[idx], record) for idx, record in new_entries_records
++        _entry_span_text(sources[idx], span_indexes[idx], record) for idx, record in new_entries_records
+     ]
+     stats["collection_entries_added"] = len(new_entry_texts)
+ 
+@@ -209,8 +214,8 @@ def assemble_output(
+     sorting_info_dropped: list[str] = []
+     unresolved_refs: list[tuple[str, str]] = []
+     renamed_count = 0
+-    for source_text, root in contributions:
+-        result = import_playlists(source_text, root, old_to_new_key, existing_names)
++    for contribution_idx, (source_text, root) in enumerate(contributions, start=1):
++        result = import_playlists(source_text, root, old_to_new_key, existing_names, span_indexes[contribution_idx])
+         for imported in result.playlists:
+             playlist_fragments.append(imported.fragment)
+         sorting_info_fragments.extend(result.sorting_info)

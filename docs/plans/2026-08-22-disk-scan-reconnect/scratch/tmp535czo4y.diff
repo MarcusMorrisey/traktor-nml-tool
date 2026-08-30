@@ -1,0 +1,5 @@
+--- /dev/null
++++ b/tests/__init__.py
+@@ -0,0 +1,2 @@
++# Package marker: makes conftest.py and the test modules importable as
++# tests.* (tests.fixtures.build_fixtures, tests.baselines.regenerate).

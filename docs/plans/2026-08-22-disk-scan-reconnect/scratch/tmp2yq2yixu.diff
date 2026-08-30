@@ -1,0 +1,13 @@
+--- a/traktor_nml/reconnect.py
++++ b/traktor_nml/reconnect.py
+@@ -10,6 +10,10 @@
+ (DL-004). The returned mapping is therefore strictly one-to-one.
+ """
+
++# DL-004 is enforced purely as a post-match inversion pass; match_records
++# is unaware that a one-to-one guarantee is layered on top of its plain
++# old-to-new mapping.
++
+ from __future__ import annotations
+
+ from pathlib import Path

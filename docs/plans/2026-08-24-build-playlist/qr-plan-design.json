@@ -1,0 +1,526 @@
+{
+  "phase": "plan-design",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "group_id": "parent-qa-001",
+      "check": "Every DL-NNN identifier cited anywhere in plan.json resolves unambiguously to either a plan-local decision (DL-024..DL-032) or to a pre-existing package-log entry. IMPORTANT: the package's design-decision log is DISTRIBUTED across the whole repository - module docstrings and inline comments in traktor_nml/*.py, traktor_nml/commands/*.py, the tests/ directory, and README.md. Resolve each cited id by grepping the entire repository (traktor_nml/, traktor_nml/commands/, tests/, README.md) for that id; a hit in any of those locations counts as resolved. Checking only README.md's 'Design Decisions' bullet section produces false-positive FAILs (e.g. DL-008 is documented in splice.py/playlists.py/commands/splice_cmd.py and DL-011 in tests/conftest.py and tests/test_baseline_parity.py, neither of which appears in README.md's bullet list).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "scope": "milestones[].code_intents[].decision_refs",
+      "check": "Every decision_refs entry across all 13 code_intents (CI-M-001-001..003, CI-M-002-001..006, CI-M-003-001..004) names a decision defined in planning_context.decisions (DL-024..DL-032). No decision_ref points to an undefined id.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "scope": "planning_context.constraints, planning_context.decisions",
+      "check": "Each DL id cited in plan prose as pre-existing package documentation (DL-003 in C-006, DL-007 in DL-028, DL-008 and DL-012 in DL-027, DL-010 in DL-032, DL-011 in C-008 and in M-002's test list, DL-012 in C-008) is found by a repository-wide grep for that id across traktor_nml/, traktor_nml/commands/, tests/, and README.md. Do not restrict the search to README.md's Design Decisions section - the log is distributed and several of these ids are documented only in .py modules or under tests/.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "scope": "planning_context.risks",
+      "check": "The plan defines its own R-004 (first-SUBNODES positional assumption) while DL-029 cites a pre-existing package 'R-004 manual-validation caveat'. Confirm the two R-namespaces are disambiguated in the plan text so a reader cannot mistake one for the other; resolve the cited pre-existing R-004 by grepping the whole repository, not README.md alone.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-002",
+      "scope": "planning_context.decisions",
+      "check": "No plan-local decision id (DL-024 through DL-032) collides with a DL id already in use anywhere in the repository. The pre-existing log is expected to run DL-001..DL-023; verify by repository-wide grep across traktor_nml/, traktor_nml/commands/, tests/, and README.md that no DL-024..DL-032 already exists.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decision-log",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "group_id": "parent-qa-003",
+      "check": "Every non-trivial design choice the approach depends on has a logged decision with rationale, not just an unexplained statement inside a code_intent behavior paragraph.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-003a",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "scope": "CI-M-002-004",
+      "check": "The unresolved report's content is decided somewhere: the row columns (line number, raw text, artist, title, kind) are named in CI-M-002-004, but no decision entry states the CSV dialect, header row, or file encoding. Flag if the report format is a non-trivial choice made with no logged rationale.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-003b",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "scope": "DL-027",
+      "check": "The exit code returned by the unresolved-line abort is decided. M-002 acceptance says the abort 'exits non-zero' while input errors 'exit 2'; if the abort also returns 2 (as CI-M-002-006 implies) that collapses two distinct failure classes onto one code with no logged rationale.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-003c",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "scope": "CI-M-002-003",
+      "check": "Behavior for a tracklist that yields zero resolved lines (empty file, all lines unparseable, or all unmatched under --allow-unmatched) is decided: either a PLAYLIST with ENTRIES=0 is written or the run aborts. No decision or acceptance criterion currently covers it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-003d",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "scope": "M-001",
+      "check": "M-001's test list asserts 'two identical tracklist lines resolve independently rather than collapsing onto one result', which means the output playlist carries duplicate ENTRY elements pointing at one track. That is a deliberate behavior with no logged decision.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-003e",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "scope": "CI-M-002-003",
+      "check": "Behavior for a base document with no PLAYLISTS section, no root FOLDER, or no SUBNODES element at all is decided. M-002 acceptance covers an empty root SUBNODES but not an absent one, and CI-M-002-003's default path assumes find_element_span locates a first SUBNODES.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-003f",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "scope": "DL-028",
+      "check": "The serialized fragment's textual form is decided against the surrounding document: ET.tostring's attribute quote character, empty-element short form, and whitespace/indentation must be stated as acceptable inside a document whose defining property (C-005 plus the byte-preservation acceptance criterion) is that every other byte is copied verbatim.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "group_id": "parent-qa-004",
+      "check": "Every policy default the plan establishes traces to a user-specified constraint or to a cited pre-existing package precedent, never to unstated reviewer or planner preference.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004",
+      "scope": "DL-027",
+      "check": "The abort-unless-overridden policy is backed by C-002 (user-specified: no silently partial output) and by the cited splice precedent; verify the cited splice policy ids resolve by repository-wide grep and that the cited behavior (report written on both paths) actually matches the existing splice command.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004",
+      "scope": "DL-032",
+      "check": "Fixing MatchConfidence.LOOSE with no --match-confidence flag is backed by C-001 (user-specified) plus the shared-ordered-enum precedent cited as DL-010, not by planner preference. Confirm the claim that every tier above artist_title is structurally unreachable for a record carrying only artist and title against record_keys in traktor_nml/matching.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-004c",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004",
+      "scope": "DL-030",
+      "check": "The refuse-to-create-a-missing-folder policy is backed by C-007's out-of-scope line and by the stated absence of verified SORTING_INFO/nesting schema knowledge, rather than by preference.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-004d",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004",
+      "scope": "DL-031",
+      "check": "The spaced-hyphen-only split policy is backed by the stated corpus reasoning (bare hyphens inside real artist and title text) with concrete examples, and no user instruction contradicts it. This is the one parsing policy with no user-specified constraint behind it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "group_id": "parent-qa-005",
+      "check": "Every architectural assumption the plan makes about existing code behavior cites the file it was read from, so a later reader can re-verify it without re-deriving it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-005a",
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005",
+      "scope": "DL-025",
+      "check": "The claim that match_records accepts a caller-supplied candidate index through an 'indexes' parameter is verified against traktor_nml/matching.py, so the one-index-build-per-run cost claim holds.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-005b",
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005",
+      "scope": "DL-025",
+      "check": "The claim that a single-record match_records call's returned stats dict distinguishes matched, unmatched and ambiguous for that one line is verified against traktor_nml/matching.py, since the entire per-line report design rests on it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-005c",
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005",
+      "scope": "DL-030",
+      "check": "The claim that add_counted_span recalculates COUNT on whichever SUBNODES span it is given (making root and named-folder targets the same primitive) is verified against traktor_nml/spans.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-005d",
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005",
+      "scope": "C-003",
+      "check": "The claim that rewrite.write_bytes_atomically is the package's temp-file-plus-os.replace commit primitive is verified against traktor_nml/rewrite.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "invisible_knowledge.tradeoffs",
+      "check": "The tradeoff entries claim the command offers 'no tie-break policy (newest, largest, first)' and that exact-equality matching 'never resolves a line onto a track the operator did not name'. matching.py contains _prefer_current_sync_copy, which collapses a Sync_/Sync_old duplicate candidate pair down to the single current copy BEFORE the ambiguity test runs, so a two-candidate artist_title hit can silently resolve to one track. Either the tradeoff text is wrong or this behavior must be captured as invisible knowledge and as a risk.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-invisible-knowledge",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "invisible_knowledge.invariants",
+      "check": "The cascade rule that a later, weaker tier resolving uniquely overrides an earlier tier's ambiguity (and that only a provider-returned AMBIGUOUS sentinel breaks the tier loop) appears in the plan only inside RA-003's rejection_reason. It is load-bearing for what the per-line unresolved report can and cannot report, and belongs in invisible_knowledge where a future maintainer will find it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-invisible-knowledge",
+      "version": 3
+    },
+    {
+      "id": "qa-012",
+      "scope": "CI-M-001-002",
+      "check": "CI-M-001-002 specifies an EntryRecord with 'an empty LocationParts'. match_records' success path reads record_label(old_record) and old_record.location.decoded_path when building its samples list. The intent must state that the placeholder location survives those reads, or cite where an equivalent placeholder already does so (diskscan.py).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-m001-tracklist",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "CI-M-002-002",
+      "check": "CI-M-002-002 routes import_playlists' existing collision handling through the new available_playlist_name helper, changing a shipped code path that splice depends on. No planning_context.risks entry covers the regression, and M-002's acceptance criteria test only the new build-playlist collision case, not that splice imports still rename identically.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-038",
+      "scope": "*",
+      "group_id": "umbrella",
+      "check": "Every scope reference used in this checklist names a milestone, decision, risk, constraint, rejected-alternative or code_intent id that actually exists in plan.json (INVALID_SCOPE_REF).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-006",
+      "scope": "planning_context.decisions",
+      "check": "Each of DL-024 through DL-032 states a premise, an implication and a conclusion rather than a bare assertion; flag any entry whose reasoning stops at a premise.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decision-log",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "planning_context.constraints",
+      "check": "Each of C-001 through C-008 is verifiable by at least one acceptance criterion or test line in M-001, M-002 or M-003; flag any constraint that no criterion would catch a violation of.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-risk-constraint-coverage",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "planning_context.risks",
+      "check": "Each of R-001 through R-005 has a mitigation that some milestone actually performs, rather than a restatement of the risk or an intention with no owner.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-risk-constraint-coverage",
+      "version": 3
+    },
+    {
+      "id": "qa-014",
+      "scope": "DL-029",
+      "check": "DL-029 states the collision suffix as the literal '<name> (2)' while CI-M-002-002 states 'the first free numbered-suffix variant starting at 2'. These diverge when '(2)' is itself already taken; one spelling must win.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "M-002",
+      "check": "C-001 requires matching.py and confidence.py stay unmodified, and M-001 carries a byte-identical acceptance criterion for them. M-002 also calls the cascade but carries no equivalent criterion, so a modification introduced in the later milestone would not be caught.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "CI-M-002-006",
+      "check": "CI-M-002-006 writes the unresolved report 'whether or not the run aborted' and separately skips the commit on dry-run. Whether a dry run writes the CSV file (as opposed to only printing rows) is unspecified, and M-002's dry-run acceptance criterion checks only that the output path is absent.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "M-002",
+      "check": "M-002's acceptance criteria mix 'exits non-zero' (unresolved abort) with 'exits 2' (xml_parse_error, input_not_found). State the abort's exact code so the criterion is a testable predicate.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "R-001",
+      "check": "R-001's mitigation is a manual Traktor open-and-inspect check before the command is treated as validated, but no milestone owns that gate and no acceptance criterion records it. A plan executed to completion would still leave R-001 unmitigated.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-risk-constraint-coverage",
+      "version": 3
+    },
+    {
+      "id": "qa-019",
+      "scope": "R-004",
+      "check": "R-004's default path relies on the root folder staying first in the PLAYLISTS tree, mitigated by parity with the existing merge path. No test in M-002 asserts the assumption or its failure mode when the root folder is not first.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-insertion-target",
+      "version": 2
+    },
+    {
+      "id": "qa-020",
+      "scope": "DL-030",
+      "check": "DL-030 resolves --target-folder by 'the FOLDER whose name equals the target'. Behavior when two FOLDERs in different branches of the PLAYLISTS tree share that name (first wins, abort as ambiguous, path syntax) is unspecified.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-insertion-target",
+      "version": 3
+    },
+    {
+      "id": "qa-021",
+      "scope": "CI-M-002-003",
+      "check": "assemble_output's behavior when the resolved key list is empty is unspecified: whether a PLAYLIST with ENTRIES=0 is synthesized and inserted, or the run aborts.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "CI-M-002-003",
+      "check": "assemble_output's error path when the base holds no SUBNODES span at all (no PLAYLISTS section) is unspecified; only target_folder_not_found and unresolved_tracks errors are named.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-023",
+      "scope": "CI-M-002-004",
+      "check": "BuildPlaylistResult names unresolved_rows fields and stats keys in prose. Verify the stats key set is stated precisely enough that M-002's 'stats lines report lines read, entries written and the final playlist name' criterion is testable against exact key=value output.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-024",
+      "scope": "DL-028",
+      "check": "DL-028 justifies ET.tostring by escaping alone. It does not address whether the serializer's output is byte-compatible with the surrounding NML document's conventions, which matters because the byte-preservation acceptance criterion covers everything outside the receiving SUBNODES but nothing inside it.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-025",
+      "scope": "M-001",
+      "check": "The duplicate-input-line behavior asserted in M-001's tests has no corresponding requirement or acceptance criterion at the M-002 level, so nothing states what the written playlist should contain for a tracklist naming one track twice.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m001-tracklist",
+      "version": 2
+    },
+    {
+      "id": "qa-026",
+      "scope": "M-003",
+      "check": "M-003 is documentation-only, sits alone in the last wave (W-003), and is the sole carrier of CI-M-003-004, which appends DL-024..DL-032 to the package's own log. A run stopping after M-002 leaves nine decisions existing only in plan.json. Verify the plan states this dependency, or that M-003 is not skippable.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m003-docs",
+      "version": 3
+    },
+    {
+      "id": "qa-032",
+      "scope": "DL-024",
+      "check": "The core-module-plus-thin-command precedent DL-024 cites holds for the existing write commands it names (splice.py with commands/splice_cmd.py, split.py with commands/split_cmd.py), and commands/CLAUDE.md documents that layering as claimed.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 3
+    },
+    {
+      "id": "qa-033",
+      "scope": "CI-M-001-001",
+      "check": "parse_tracklist's three outcomes (skipped, parsed, unparseable) are stated as mutually exclusive and jointly exhaustive over input lines, so the 'every input line appears in exactly one place' invariant holds - note that skipped blank and '#' lines appear in neither output list, which needs reconciling with that invariant.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m001-tracklist",
+      "version": 2
+    },
+    {
+      "id": "qa-034",
+      "scope": "CI-M-001-003",
+      "check": "match_records keys its returned mapping by old_record.primary_key, which is the empty string for a text-only tracklist record. CI-M-001-003 says 'the returned mapping holds the matched record' without stating how it is read back from an empty-string key; make the retrieval explicit.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m001-tracklist",
+      "version": 3
+    },
+    {
+      "id": "qa-035",
+      "scope": "CI-M-002-001",
+      "check": "synthesize_playlist_node sets ENTRIES to the key count. Under --allow-unmatched the key count is smaller than the input line count; confirm the plan states ENTRIES tracks keys written rather than lines read, consistently with M-002's 'ENTRIES matching what was written' criterion.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-036",
+      "scope": "CI-M-002-005",
+      "check": "The commands-package discovery contract that C-006 relies on (what register must expose for cli.py to pick the subcommand up with no cli.py edit) is cited from an existing command module rather than assumed.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-assembly",
+      "version": 2
+    },
+    {
+      "id": "qa-037",
+      "scope": "invisible_knowledge.system",
+      "check": "The system paragraph's claim that only the receiving SUBNODES opening tag and the insertion point differ between input and output is consistent with CI-M-002-003's assembly steps (verbatim prefix, add_counted_span, verbatim suffix) and with the byte-preservation acceptance criterion.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-invisible-knowledge",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "group_id": "umbrella",
+      "check": "One vocabulary is used throughout for the override flag (--allow-unmatched vs allow_unresolved vs 'the unmatched override'), for the collision suffix rule, and for abort-versus-error terminology, across decisions, code_intents, requirements and acceptance criteria.",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 3
+    },
+    {
+      "id": "qa-027",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "DL-026, DL-029 and DL-031 have no paired rejected_alternative, unlike the other six decisions. Confirm an alternative was genuinely considered for each, or that none existed.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-decision-log",
+      "version": 3
+    },
+    {
+      "id": "qa-028",
+      "scope": "DIAG-001",
+      "check": "Every DIAG-001 node has at least one incident edge (no ORPHAN_NODE), every edge source and target names a defined node (no INVALID_EDGE_REF), and the node labels name modules and functions the code_intents actually create.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-plan-object-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-029",
+      "scope": "readme_entries",
+      "check": "The nine readme_entries correspond one-to-one with DL-024 through DL-032, in that numeric order, each ending in its parenthesized DL id, matching what CI-M-003-004 will append.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-m003-docs",
+      "version": 2
+    },
+    {
+      "id": "qa-030",
+      "scope": "milestones",
+      "check": "All three milestones carry empty code_changes arrays and null/empty documentation blocks. Confirm this is intentional for a plan at design stage rather than an omission.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-plan-object-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-031",
+      "scope": "waves",
+      "check": "Every milestone id listed in waves W-001..W-003 resolves to a defined milestone, and every defined milestone appears in exactly one wave.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-plan-object-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-039",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "Every rejected_alternative's decision_ref (RA-001..RA-009) names a decision defined in planning_context.decisions.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-decision-log",
+      "version": 2
+    }
+  ]
+}

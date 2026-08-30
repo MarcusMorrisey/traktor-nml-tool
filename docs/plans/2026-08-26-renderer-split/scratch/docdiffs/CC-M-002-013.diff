@@ -1,0 +1,12 @@
+--- a/traktor_nml/commands/_shared_args.py
++++ b/traktor_nml/commands/_shared_args.py
+@@ -8,6 +8,10 @@ import argparse
+ import sys
+
+ from ..confidence import MatchConfidence, parse_match_confidence
++# Re-exported from shared_args.py rather than defined here: reconnect_run.py
++# and reconnect_render.py need these three names too, and commands/ is the
++# only side of that import boundary allowed to depend on the other (ref:
++# DL-007). This module keeps re-exporting them so compare_cmd.py and
++# reconnect_cmd.py's existing imports keep working unchanged.
+ from ..shared_args import refutation_disabled_line, resolve_confidence, should_refute

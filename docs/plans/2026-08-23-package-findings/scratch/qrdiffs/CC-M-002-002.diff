@@ -1,0 +1,25 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -20,6 +20,7 @@ from typing import Callable, Optional, Protocol
+
+ from .confidence import MatchConfidence
+-from .matching import KeyProvider, match_records
++from .matching import KeyProvider, build_new_indexes, match_records
++from .reconnect import enforce_one_to_one
+ from .model import (
+     EntryRecord,
+     ElemPatch,
+@@ -211,8 +212,12 @@ def rewrite_from_collection_compare(
+     then redirect every non-collection reference through the resulting
+     old-to-new mapping via the shared cascade."""
+     old_records = collection_records(old_root)
+     new_records = collection_records(new_root)
+-    mapping, match_stats, samples = match_records(old_records, new_records, confidence, key_providers)
++    indexes = build_new_indexes(new_records, confidence, key_providers)
++    mapping, match_stats, samples = match_records(old_records, new_records, confidence, key_providers, indexes=indexes)
++    mapping, match_stats, _collided = enforce_one_to_one(
++        mapping, match_stats, old_records, indexes, confidence, key_providers
++    )
+     stats = {**_empty_compare_stats(), **match_stats}
+     for record in old_records:
+         new_record = mapping.get(record.primary_key)

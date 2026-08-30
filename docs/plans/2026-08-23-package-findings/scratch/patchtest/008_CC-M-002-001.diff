@@ -1,0 +1,100 @@
+--- a/traktor_nml/reconnect.py
++++ b/traktor_nml/reconnect.py
+@@ -53,6 +53,54 @@ def location_from_disk_path(path: Path, volume: str, volumeid: str) -> Locatio
+     )
+ 
+ 
++def enforce_one_to_one(
++    mapping: dict[str, EntryRecord],
++    match_stats: dict[str, int],
++    old_records: list[EntryRecord],
++    indexes: dict[str, dict[tuple[str, ...], list[EntryRecord]]],
++    confidence: MatchConfidence,
++    key_providers: list[KeyProvider] = (),
++) -> tuple[dict[str, EntryRecord], dict[str, int], set[str]]:
++    """Invert mapping (a plain old-to-new mapping from match_records) to
++    find candidates claimed by more than one old record, drop every
++    claimant, re-derive each affected tier's match count, and return the
++    pruned mapping, the corrected stats (carrying destination_collisions
++    and matched), and the set of dropped old keys (DL-004).
++
++    This is the one shared implementation of the one-to-one guarantee:
++    resolve_reconnection and rewrite_from_collection_compare both call it
++    rather than each re-deriving their own inversion pass.
++    """
++    records_by_key = {record.primary_key: record for record in old_records}
++    dest_claimants: dict[int, list[str]] = {}
++    for old_key, candidate in mapping.items():
++        dest_claimants.setdefault(id(candidate), []).append(old_key)
++    collided_keys = {key for claimants in dest_claimants.values() if len(claimants) > 1 for key in claimants}
++
++    # A withdrawn destination collision was still counted under its match
++    # tier when match_records ran; re-derive that tier the same way
++    # match_records did (first tier whose index bucket holds exactly this
++    # one candidate) so matched_<tier> stays consistent with the final
++    # matched total instead of overcounting a match that was later undone.
++    stats = dict(match_stats)
++    for old_key in collided_keys:
++        record = records_by_key.get(old_key)
++        if record is None:
++            continue
++        winner = mapping[old_key]
++        for key_name, key_value in record_keys(record, confidence, key_providers):
++            if indexes.get(key_name, {}).get(key_value) == [winner]:
++                stat_name = f"matched_{key_name}"
++                if stat_name in stats:
++                    stats[stat_name] -= 1
++                break
++
++    final_mapping = {key: value for key, value in mapping.items() if key not in collided_keys}
++    stats["destination_collisions"] = len(collided_keys)
++    stats["matched"] = len(final_mapping)
++    return final_mapping, stats, collided_keys
++
++
+ def resolve_reconnection(
+     old_records: list[EntryRecord],
+     candidates: list[EntryRecord],
+@@ -73,32 +117,10 @@ def resolve_reconnection(
+     mapping, match_stats, _samples = match_records(
+         old_records, candidates, confidence, key_providers, indexes=indexes
+     )
+ 
+-    records_by_key = {record.primary_key: record for record in old_records}
+-    dest_claimants: dict[int, list[str]] = {}
+-    for old_key, candidate in mapping.items():
+-        dest_claimants.setdefault(id(candidate), []).append(old_key)
+-    collided_keys = {key for claimants in dest_claimants.values() if len(claimants) > 1 for key in claimants}
+-
+-    # A withdrawn destination collision was still counted under its match
+-    # tier when match_records ran; re-derive that tier the same way
+-    # match_records did (first tier whose index bucket holds exactly this
+-    # one candidate) so matched_<tier> stays consistent with the final
+-    # matched total instead of overcounting a match that was later undone.
+-    stats = dict(match_stats)
+-    for old_key in collided_keys:
+-        record = records_by_key.get(old_key)
+-        if record is None:
+-            continue
+-        winner = mapping[old_key]
+-        for key_name, key_value in record_keys(record, confidence, key_providers):
+-            if indexes.get(key_name, {}).get(key_value) == [winner]:
+-                stat_name = f"matched_{key_name}"
+-                if stat_name in stats:
+-                    stats[stat_name] -= 1
+-                break
+-
+-    final_mapping = {key: value for key, value in mapping.items() if key not in collided_keys}
++    final_mapping, stats, collided_keys = enforce_one_to_one(
++        mapping, match_stats, old_records, indexes, confidence, key_providers
++    )
+ 
+     ambiguity_rows: list[dict[str, str]] = []
+     for record in old_records:
+@@ -124,6 +149,4 @@ def resolve_reconnection(
+             }
+         )
+ 
+-    stats["destination_collisions"] = len(collided_keys)
+-    stats["matched"] = len(final_mapping)
+     return final_mapping, stats, ambiguity_rows

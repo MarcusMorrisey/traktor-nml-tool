@@ -1,0 +1,11 @@
+--- a/tests/test_cli_contract.py
++++ b/tests/test_cli_contract.py
+@@ -28,6 +28,9 @@
+
+ def test_allow_artist_title_only_matches_loose_confidence(fixture_corpus: Path, tmp_path: Path) -> None:
++    """Byte-identical stdout between the two invocations confirms
++    --allow-artist-title-only is a pure alias for --match-confidence
++    loose (DL-010)."""
+     legacy = run_tool(
+         ["preview-compare", str(fixture_corpus / "duplicate_rips.nml"), str(fixture_corpus / "duplicate_rips.nml"),
+          "--allow-artist-title-only"],

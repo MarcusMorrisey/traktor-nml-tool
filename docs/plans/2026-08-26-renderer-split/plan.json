@@ -1,0 +1,901 @@
+{
+  "plan_id": "73cb315e-2f2b-480f-a8c6-8e558f35f988",
+  "created_at": "2026-08-26T17:51:24.053098",
+  "frozen_at": null,
+  "overview": {
+    "problem": "Split stdout flattening out of the two reconnect subcommands so one structured ReconnectResult feeds both the CLI renderer and a future NiceGUI review table (docs/nicegui-gui-analysis.md section 5 step 2).",
+    "approach": "traktor_nml/reconnect_run.py holds a printless core returning ReconnectResult, traktor_nml/reconnect_render.py turns that result into buffered stdout lines, stderr lines and an exit code, and commands/reconnect_cmd.py shrinks to argparse wiring whose handlers emit the render of the core call. Because rewrite-from-reconnect's stdout is produced inside rewrite.write_nml_safely, that function splits into a printless plan_and_write_nml returning WriteOutcome plus a thin printing wrapper; the wrapper's other two callers keep byte-identical output and the parity manifest cases for them are what proves it. tests/baselines/manifest.json is not regenerated and PARITY_BASELINE_SHA256 does not move."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-001",
+        "version": 1,
+        "decision": "A printless core returns one typed result per reconnect command and a renderer turns that result into stdout lines, stderr lines and an exit code; the argparse handler is emit(render(core(args)))",
+        "reasoning": "Tier 1 GUI needs the mapping, stats and ambiguity rows mid-run and as objects -> a core that prints cannot serve it and a transcript parsed after the fact arrives too late -> the flattening moves behind a render boundary the CLI and the GUI both sit above"
+      },
+      {
+        "id": "DL-002",
+        "version": 2,
+        "decision": "write_nml_safely splits into a printless plan_and_write_nml returning WriteOutcome, with write_nml_safely retained as a thin printing wrapper over it",
+        "reasoning": "rewrite-from-reconnect stdout is produced inside write_nml_safely, not in the handler -> leaving it printing means the reconnect core still emits stdout and misses section 3.2 -> a reconnect-local write path would duplicate the read/parse/patch/write skeleton the package's own DL-019 in traktor_nml/README.md (splice_cmd/split_cmd read, parse and write through rewrite.py's helpers so both inherit its diagnostics and atomic write) exists to prevent - a package-log number, not this plan's DL-001, which is the printless-core/renderer decision -> extract once, keep the wrapper byte-identical, and let the manifest cases for rewrite and rewrite-from-collection-compare prove the extraction"
+      },
+      {
+        "id": "DL-003",
+        "version": 1,
+        "decision": "WriteOutcome carries stats as None when the run failed before stats were collected, and carries both stats and error when it failed after",
+        "reasoning": "on the lxml path stats print before apply_and_write, so a text_patch_error emits the full stats block on stdout and then the error on stderr -> a single error flag cannot reproduce that ordering -> the presence of stats is itself the signal, and output_must_differ_from_input, input_not_found and xml_parse_error carry stats=None because they occur before any stats exist"
+      },
+      {
+        "id": "DL-004",
+        "version": 1,
+        "decision": "The output_must_differ_from_input check stays at the top of plan_and_write_nml, ahead of parsing and ahead of the collect_patches/mutate_tree callback",
+        "reasoning": "the reconnect callback owns a 20-minute disk scan and writes the tag cache -> running it before the collision check would make a refused write cost a full scan -> the refusal must remain the first thing the function does, which also means a collision produces no ReconnectResult at all"
+      },
+      {
+        "id": "DL-005",
+        "version": 1,
+        "decision": "warn_refutation_disabled moves out of the reconnect core into the renderer, while the fingerprint_dependency_missing warning becomes a field on the result",
+        "reasoning": "the refutation warning is a pure function of argv and the fingerprint warning is derived from probing the run -> only the second is knowledge the core discovers -> argv-derived text belongs above the core boundary and run-derived text belongs on the result, and the renderer emits the fingerprint line before the refutation line to preserve stderr order"
+      },
+      {
+        "id": "DL-006",
+        "version": 1,
+        "decision": "The renderer returns buffered stdout and stderr line lists plus an exit code, and a single emit helper in the render module performs every print",
+        "reasoning": "section 3.2 asserts render_x(core_x(args)) equals the recorded stdout, which requires the renderer to be a value-returning function -> and the manifest captures stdout and stderr as separate streams, so buffering cannot reorder anything it observes -> commands/reconnect_cmd.py then contains no print call at all, making the anti-drift guard a grep rather than an AST walk"
+      },
+      {
+        "id": "DL-007",
+        "version": 1,
+        "decision": "The core and renderer live in traktor_nml/reconnect_run.py and traktor_nml/reconnect_render.py, not under commands/",
+        "reasoning": "commands/__init__.py imports every command module at CLI startup and commands/ is being reduced to argparse wiring -> a GUI importing the core through commands/ would drag every subparser with it -> the pair sits beside reconnect.py in the package root, and commands/ imports downward into it"
+      },
+      {
+        "id": "DL-008",
+        "version": 1,
+        "decision": "ScanCancelled, VolumeIdentityError and _FingerprintUnavailable propagate out of plan_and_write_nml unchanged; the reconnect core converts the latter two into typed errors on its result and lets ScanCancelled escape",
+        "reasoning": "a cancelled scan must never return partial results because a short candidate list reads as a mostly-missing collection -> catching it at the write shell would turn a refusal into a plausible wrong answer -> only the two errors that already map to a printed key=value line and exit 2 become data"
+      },
+      {
+        "id": "DL-009",
+        "version": 2,
+        "decision": "run_reconnection and both reconnect cores accept on_progress and cancel keyword arguments and forward them verbatim to index_scan_roots; both default to None and the argparse handlers pass neither",
+        "reasoning": "index_scan_roots (traktor_nml/diskscan.py:155) already accepts on_progress and cancel -> a core boundary that drops them forces a GUI to bypass the core and re-implement the pipeline to get live progress or a cancel token, which is exactly what DL-001 of this plan exists to prevent -> the parameters are threaded through the core with None defaults, so the CLI path is byte-identical while the GUI channel reaches the scan"
+      },
+      {
+        "id": "DL-010",
+        "version": 1,
+        "decision": "The refutation-disabled message has one definition: _shared_args.refutation_disabled_line() returns the text, warn_refutation_disabled prints what it returns, and reconnect_render appends what it returns",
+        "reasoning": "No manifest case sets --no-refute for either reconnect command -> a second copy of the literal in reconnect_render would drift from the one in _shared_args without any oracle noticing -> the renderer calls a text-producing helper and the existing printing wrapper becomes a caller of the same helper, so drift is impossible rather than merely detectable"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Leave write_nml_safely printing and give the reconnect core a seam only for the stats block",
+        "rejection_reason": "output_written and the stats block would still be emitted from inside the write shell, so the reconnect core would still write to stdout and rewrite-from-reconnect would miss section 3.2 rather than satisfying it",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Give rewrite-from-reconnect its own reconnect-local read/parse/patch/write path so write_nml_safely is untouched",
+        "rejection_reason": "it duplicates the skeleton write_nml_safely exists to prevent (the package's own DL-019 in traktor_nml/README.md (splice_cmd/split_cmd read, parse and write through rewrite.py's helpers so both inherit its diagnostics and atomic write); not this plan's DL-001), and a second copy of the collision refusal and the lxml/stdlib fork is exactly the drift the shared shell was built to stop",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Subprocess-scraping the CLI key=value stdout as the GUI's data source",
+        "rejection_reason": "Tier 1 needs structured data mid-run for live scan progress and an interactive ambiguous-match table; a parsed transcript exists only after the run finishes. It survives as the section 5 fallback only",
+        "decision_ref": "DL-001"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Renderers that print directly rather than returning line lists",
+        "rejection_reason": "section 3.2 asserts equality between a renderer's output and recorded stdout, which needs a value-returning function; a printing renderer forces every test through capsys and leaves print calls scattered across the layer",
+        "decision_ref": "DL-006"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Regenerating tests/baselines/manifest.json when a case diverges",
+        "rejection_reason": "the manifest is the behavioural contract, not a snapshot; a commit that needs it updated is by definition a behaviour change, which this split is not",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Placing the core and renderer under traktor_nml/commands/",
+        "rejection_reason": "commands/__init__.py imports every command module at CLI startup, so a GUI importing the core through commands/ drags every subparser with it",
+        "decision_ref": "DL-007"
+      }
+    ],
+    "constraints": [
+      "tests/baselines/manifest.json is not regenerated. Non-regeneration is the parity check (section 3.1 rule 2).",
+      "PARITY_BASELINE_SHA256 in tests/test_parity_baseline.py does not move. It is the authoritative pin asserted by pytest, independent of the parity-baseline tag.",
+      "stdout, stderr, exit codes and written output bytes stay identical for scan-reconnect-candidates, rewrite-from-reconnect, rewrite and rewrite-from-collection-compare. Typed errors keep exit code 2.",
+      "The CLI is fully usable at every commit on the refactor branch. Rollback is an ordered revert - M-003, then M-002, then M-001 - not a per-milestone one: M-002's rewrite_from_reconnect calls plan_and_write_nml, which M-001 introduces, so M-001 cannot be reverted while M-002 stands. Reverted in that order the whole change is still the single discrete 'revert the renderer split' step section 5 asks for.",
+      "No import from traktor_nml/gui/ appears in commands/ or cli.py, and no top-level nicegui import appears anywhere reachable from commands/__init__.py, which imports every command module at CLI startup.",
+      "Every new guard test is demonstrated failing when its invariant breaks, and the test says so - a guard only seen to pass is not a guard.",
+      "Matching, refutation and the confidence ladder are untouched; traktor_nml/reconnect.py keeps its current behaviour and signatures.",
+      "Other sessions commit to this repo in parallel; git fetch and check HEAD before committing.",
+      "A full scan-reconnect-candidates run against the real corpus takes about 20 minutes, so verification runs on the fixture corpus rather than the corpus."
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "The write-shell extraction touches rewrite and rewrite-from-collection-compare, which are not the subject of this step, so a mistake there breaks two working commands.",
+        "mitigation": "The manifest already holds cases for both. They run unaltered against an unregenerated manifest, so any drift in their stdout, stderr, exit code or output bytes fails the suite rather than shipping.",
+        "anchor": "traktor_nml/rewrite.py:L416-L467",
+        "decision_ref": "DL-002"
+      },
+      {
+        "id": "R-002",
+        "risk": "On the lxml path the stats block prints before apply_and_write, so a text_patch_error emits stats on stdout and then the error on stderr. Collapsing the outcome into a single error flag silently reorders that.",
+        "mitigation": "WriteOutcome carries stats and error together and stats is None only when no stats existed; tests/test_write_shell_split.py asserts the pairing and is shown failing when the order is inverted.",
+        "anchor": "traktor_nml/rewrite.py:L442-L450",
+        "decision_ref": "DL-003"
+      },
+      {
+        "id": "R-003",
+        "risk": "The fingerprint branch is the code that emits to stderr mid-core and is the one branch the parity oracle cannot prove unchanged - no manifest case passes --fingerprint, and the three fingerprint tests skip when pyacoustid and fpcalc are absent.",
+        "mitigation": "The equivalence module monkeypatches traktor_nml.reconnect_run.fingerprint_unavailable_reason to return a fixed reason, so the warn path is exercised without pyacoustid, fpcalc or chromaprint, asserting the reason reaches ReconnectResult.warnings and renders ahead of the refutation line. That stub replaces only the probe; the separate fingerprint_key_provider-is-None path, which raises _FingerprintUnavailable rather than warning, is left as the defensive import bound it and gets its own test that sets traktor_nml.reconnect_run.fingerprint_key_provider to None and asserts the raise. The two failure modes are therefore proved distinct rather than one masking the other. The documented manifest gap for the fingerprint tier stays open and is not closed by this work.",
+        "anchor": "traktor_nml/commands/reconnect_cmd.py:L145-L170",
+        "decision_ref": "DL-008"
+      },
+      {
+        "id": "R-004",
+        "risk": "Hoisting the reconnection out of the collect_patches callback to make the core easier to call would run a 20-minute scan and write the tag cache before the output-collision refusal fires.",
+        "mitigation": "The refusal stays the first statement of plan_and_write_nml and the reconnection stays inside the callback; a test asserts a colliding output path produces no ReconnectResult.",
+        "anchor": "traktor_nml/rewrite.py:L432-L434",
+        "decision_ref": "DL-004"
+      },
+      {
+        "id": "R-005",
+        "risk": "Buffering all output until the run ends means csv_written no longer appears while a long scan is still running, changing what a user watching a live run sees.",
+        "mitigation": "Accepted, and the live-feedback channel is reachable from the core: run_reconnection and both cores take on_progress and cancel and forward them to index_scan_roots (DL-009, CI-M-002-002), so a caller that wants progress while the scan runs has one that does not depend on print ordering. The manifest captures stdout and stderr as separate completed streams so parity is unaffected, and the CLI passes neither argument, keeping today's behaviour exactly.",
+        "anchor": "traktor_nml/commands/reconnect_cmd.py:L219-L275",
+        "decision_ref": "DL-006"
+      },
+      {
+        "id": "R-006",
+        "risk": "Two stderr emissions exist per run and their relative order is observable: the fingerprint dependency warning precedes the refutation-disabled warning.",
+        "mitigation": "Both renderers emit warnings in that fixed order and a unit test asserts it, because no manifest case sets both switches together.",
+        "anchor": "traktor_nml/commands/_shared_args.py:L65-L77",
+        "decision_ref": "DL-005"
+      },
+      {
+        "id": "R-007",
+        "risk": "Splitting run_reconnection could cause volume identities to be resolved twice, once for the fingerprint tier and once for LOCATION re-encoding.",
+        "mitigation": "Identity resolution stays a single up-front pass inside run_reconnection whose result both consumers read, and the mapping is a local of that one function.",
+        "anchor": "traktor_nml/commands/reconnect_cmd.py:L124-L127",
+        "decision_ref": "DL-001"
+      }
+    ]
+  },
+  "invisible_knowledge": {
+    "system": "The reconnect path runs in three layers. reconnect_run.py owns the pipeline and returns objects; reconnect_render.py owns every character that reaches a stream; commands/reconnect_cmd.py owns only argparse. rewrite.py's shared write shell splits the same way: plan_and_write_nml returns a WriteOutcome and write_nml_safely is the printing wrapper the other two write commands still call. The reason for the split is that a GUI review table needs the mapping and the ambiguity rows as objects while the run is still going, and a key=value transcript only exists once the run is over. The parity manifest is what makes the split safe: it is a behavioural contract, so the refactor is correct precisely when the manifest and its SHA pin do not have to change.",
+    "invariants": [
+      "The output-collision refusal is the first thing plan_and_write_nml does, ahead of parsing and ahead of the caller's callback, so a refused write never costs a 20-minute scan or a tag-cache write.",
+      "WriteOutcome.stats is None only when the attempt ended before any stats existed; a populated stats alongside a populated error means the stats block belongs on stdout ahead of the error on stderr.",
+      "A cancelled scan raises ScanCancelled rather than returning partial results, because a short candidate list is indistinguishable from a complete one and would report most of the collection as missing. Nothing on the core or write path catches it.",
+      "Volume identities are resolved once per run and reused by both the fingerprint key provider and the LOCATION re-encoding.",
+      "The tag cache and the ambiguity CSV are written even under --dry-run, because neither is the command's declared output.",
+      "stdout order for rewrite-from-reconnect is csv_written, then the stats and sample_matches block, then output_written. stderr order is the fingerprint dependency warning, then the refutation-disabled warning, then any error.",
+      "commands/reconnect_cmd.py contains no print call and no stream write at all; that is the form the anti-drift guard checks.",
+      "Argv-derived text (the refutation-disabled warning) is emitted by the renderer; run-derived text (the fingerprint dependency reason) travels on the result as data.",
+      "The full-suite baseline is 191 passed and 3 skipped, the 3 skips being the fingerprint tier (pyacoustid and fpcalc absent). Every acceptance criterion that says 'pytest passes' means that count: a test that silently disappears or newly skips fails the criterion as surely as a red test, so the counts are read off the pytest summary line, not just the exit code.",
+      "Two DL namespaces are in play and they never share a number. DL-001..DL-010 in this plan are plan-local decisions; traktor_nml/README.md's package decision log runs DL-001..DL-045 and is a separate sequence, where DL-001 is the argv-forwarding cli.py shim and DL-019 is the rule that commands read, parse and write through rewrite.py's shared helpers rather than carrying their own write path. Every reference in this plan to the package log is written as \"the package's own DL-NNN\" with traktor_nml/README.md named; a bare DL-NNN in this plan always means a plan-local decision. The single number this plan contributes to the package sequence is the new entry M-003 writes (DL-046 at planning time, re-read at HEAD), and that entry - because it lives inside the package log - cites package numbers bare and cites no plan-local number at all. Precedent: docs/2026-08-24-build-playlist-plan.md, which flags every package entry it cites as \"in the package's own log\"."
+    ],
+    "tradeoffs": [
+      "The write shell is refactored even though it serves three commands and only two of them are in scope, because the alternative was duplicating the read/parse/patch/write skeleton the package's own DL-019 in traktor_nml/README.md (splice_cmd/split_cmd read, parse and write through rewrite.py's helpers so both inherit its diagnostics and atomic write) exists to prevent (a package-log number; this plan's own DL-001 is the printless-core/renderer decision). The wider blast radius is paid for by the manifest cases for rewrite and rewrite-from-collection-compare, which prove the extraction rather than anyone asserting it.",
+      "Output is buffered until the run completes, trading live print feedback for a renderer that returns values and can be asserted against recorded stdout. Live feedback belongs to the on_progress callback instead.",
+      "The fingerprint branch gets unit tests with a stubbed probe rather than an oracle case, because adding a --fingerprint manifest case requires a reviewed re-tag. That documented gap stays open.",
+      "The four reconnect manifest cases all pass --match-confidence filename, so the strict, normal, loose, bare_name and bare_name_in_folder tiers are unproven by the oracle for these commands; the split touches none of that code, which is why the gap is tolerable here."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 3,
+      "number": 1,
+      "name": "Printless write shell",
+      "files": [
+        "traktor_nml/rewrite.py",
+        "tests/test_write_shell_split.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "plan_and_write_nml performs the read/parse/patch/write sequence and returns a WriteOutcome without writing to stdout or stderr;write_nml_safely is a printing wrapper whose output and exit codes are unchanged for rewrite and rewrite-from-collection-compare;the output-collision refusal remains the first action taken and precedes both parsing and the caller callback;exceptions raised inside collect_patches or mutate_tree propagate to the caller of plan_and_write_nml;format_stats_and_samples returns the stats and sample_matches block as lines and print_stats_and_samples prints exactly those lines"
+      ],
+      "acceptance_criteria": [
+        "pytest passes with tests/baselines/manifest.json unmodified and PARITY_BASELINE_SHA256 unchanged",
+        "and the run reports at least the baseline 191 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier)",
+        "so a test that silently disappears or newly skips fails this criterion as surely as a red test;the rewrite and rewrite-from-collection-compare manifest cases pass unaltered and are the proof of byte-identical stdout;a WriteOutcome from a text_patch_error carries populated stats and a non-empty error so the stats block precedes the error line;a WriteOutcome from an output collision carries stats of None;grep finds no print call inside plan_and_write_nml;the guard test fails when write_nml_safely emits the stats block after the error line;the stats and sample_matches block has one definition that both the printing wrapper and the reconnect renderer call"
+      ],
+      "tests": [
+        "tests/test_write_shell_split.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "traktor_nml/rewrite.py",
+          "function": "WriteOutcome",
+          "behavior": "A frozen dataclass describing one attempt at the read/parse/patch/write sequence. Fields: stats (dict of str to int, or None when the attempt ended before any stats existed), samples (the sample-match tuples, or None), error (the key=value text destined for stderr, or None), written_path (the Path actually written, or None on a dry run or a failure) and exit_code (0 or 2). stats being None rather than empty is the signal that no stats block belongs in the output at all, which is what separates an output collision from a run that collected stats and then failed to write.",
+          "decision_refs": [
+            "DL-002",
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 1,
+          "file": "traktor_nml/rewrite.py",
+          "function": "plan_and_write_nml",
+          "behavior": "Takes the same parameters as the printing wrapper (input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs) and returns a WriteOutcome. It resolves the output against input_path and extra_inputs first and returns the output_must_differ_from_input outcome with stats of None before touching the filesystem or the callbacks. On the lxml path it reads and parses, returns the read error as an outcome with stats of None, otherwise calls collect_patches, keeps the returned stats and samples on the outcome, and when not dry_run applies the patches and records written_path; a UnicodeDecodeError or ValueError from apply_and_write becomes the text_patch_error outcome with the collected stats still populated. The stdlib path maps FileNotFoundError and XML_PARSE_ERROR to their outcomes, calls mutate_tree, and writes through write_traktor_xml when not dry_run. It performs no I/O to stdout or stderr and catches nothing raised by the two callables.",
+          "decision_refs": [
+            "DL-002",
+            "DL-003",
+            "DL-004",
+            "DL-008"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 1,
+          "file": "traktor_nml/rewrite.py",
+          "function": "write_nml_safely",
+          "behavior": "Delegates to plan_and_write_nml and turns the outcome into the same stream writes it made when it owned the sequence: print_stats_and_samples when stats is not None, then the error to stderr when error is not None, then the output_written line to stdout when written_path is set, returning exit_code. Its signature, its docstring contract and its byte-level output for rewrite_cmd and compare_cmd are unchanged.",
+          "decision_refs": [
+            "DL-002",
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 1,
+          "file": "tests/test_write_shell_split.py",
+          "function": null,
+          "behavior": "Unit tests over plan_and_write_nml that cover what the manifest cannot reach. An output-collision case asserts stats is None and exit_code is 2. A text_patch_error case (a collect_patches returning a patch that apply_text_patches rejects) asserts stats is populated alongside the error, and a companion assertion demonstrates that rendering the error before the stats produces output the recorded ordering rejects, so the ordering guard is one that has been seen to fail. A callback-raises case asserts a RuntimeError from collect_patches leaves plan_and_write_nml and reaches the caller. A no-output case asserts no captured stdout or stderr for every outcome the function can return. Each test names in its docstring the invariant it breaks to prove it guards.",
+          "decision_refs": [
+            "DL-003",
+            "DL-004",
+            "DL-008"
+          ]
+        },
+        {
+          "id": "CI-M-001-005",
+          "version": 1,
+          "file": "traktor_nml/rewrite.py",
+          "function": "format_stats_and_samples",
+          "behavior": "Returns the stats and sample_matches block as a list of lines: one key=value line per stats entry in insertion order, then the sample_matches header and the label, matched_by, before and after lines for each of the first limit samples. print_stats_and_samples prints exactly these lines and nothing else, so one definition of the block serves both the printing wrapper and reconnect_render.render_rewrite_from_reconnect, which composes the same block into its buffered stdout without restating the format.",
+          "decision_refs": [
+            "DL-002",
+            "DL-006"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-001-001",
+          "version": 7,
+          "intent_ref": "CI-M-001-001",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -392,6 +392,25 @@ def apply_and_write(source_bytes: bytes, patches: list[ElemPatch], output: Path)\n     write_bytes_atomically(output, patched.encode(\"utf-8\"))\n \n \n+@dataclass(frozen=True)\n+class WriteOutcome:\n+    \"\"\"One attempt at the read/parse/patch/write sequence, returned\n+    rather than printed so a caller other than the CLI - the reconnect\n+    renderer, a future GUI - can read it as data.\n+\n+    stats is None rather than empty when the attempt ended before any\n+    stats existed - the signal that separates an output collision, which\n+    has no stats block at all, from a run that collected stats and then\n+    failed to write.\n+    \"\"\"\n+\n+    stats: Optional[dict[str, int]]\n+    samples: Optional[list[tuple[str, str, str, str]]]\n+    error: Optional[str]\n+    written_path: Optional[Path]\n+    exit_code: int\n+\n+\n def print_stats_and_samples(\n     stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10\n ) -> None:",
+          "doc_diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -406,8 +406,13 @@ class WriteOutcome:\n     failed to write.\n     \"\"\"\n \n     stats: Optional[dict[str, int]]\n     samples: Optional[list[tuple[str, str, str, str]]]\n+    # error and written_path are never both non-None: a run either fails\n+    # (error set) or writes (written_path set), and a dry run and a\n+    # collision both leave both fields None.\n     error: Optional[str]\n     written_path: Optional[Path]\n+    # 0 on success, 2 on any of the four typed failures: input_not_found,\n+    # xml_parse_error, output_must_differ_from_input, or text_patch_error.\n     exit_code: int\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-002",
+          "version": 6,
+          "intent_ref": "CI-M-001-005",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -411,18 +411,29 @@ class WriteOutcome:\n     exit_code: int\n \n \n-def print_stats_and_samples(\n+def format_stats_and_samples(\n     stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10\n-) -> None:\n-    for key, value in stats.items():\n-        print(f\"{key}={value}\")\n+) -> list[str]:\n+    \"\"\"The stats and sample_matches block as lines rather than prints, so\n+    print_stats_and_samples and reconnect_render.render_rewrite_from_reconnect\n+    compose the same block into their own output instead of each\n+    restating its format.\"\"\"\n+    lines = [f\"{key}={value}\" for key, value in stats.items()]\n     if samples:\n-        print(\"sample_matches:\")\n+        lines.append(\"sample_matches:\")\n         for label, before, after, matched_by in samples[:limit]:\n-            print(f\"- {label}\")\n-            print(f\"  matched_by={matched_by}\")\n-            print(f\"  before={before}\")\n-            print(f\"  after={after}\")\n+            lines.append(f\"- {label}\")\n+            lines.append(f\"  matched_by={matched_by}\")\n+            lines.append(f\"  before={before}\")\n+            lines.append(f\"  after={after}\")\n+    return lines\n+\n+\n+def print_stats_and_samples(\n+    stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10\n+) -> None:\n+    for line in format_stats_and_samples(stats, samples, limit):\n+        print(line)\n \n \n # Callables a caller of write_nml_safely supplies:",
+          "doc_diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -418,6 +418,9 @@ def format_stats_and_samples(\n     lines = [f\"{key}={value}\" for key, value in stats.items()]\n     if samples:\n         lines.append(\"sample_matches:\")\n+        # limit applies only to sample_matches, never to the stats block\n+        # above it: both callers of format_stats_and_samples print the\n+        # full stats block and only ever truncate sample_matches.\n         for label, before, after, matched_by in samples[:limit]:\n             lines.append(f\"- {label}\")\n             lines.append(f\"  matched_by={matched_by}\")\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-003",
+          "version": 6,
+          "intent_ref": "CI-M-001-002",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -443,6 +443,55 @@ CollectPatchesFn = Callable[[ET.Element], tuple[list[ElemPatch], dict[str, int],\n MutateTreeFn = Callable[[ET.Element, bool], tuple[dict[str, int], list]]\n \n \n+def plan_and_write_nml(\n+    input_path: Path,\n+    output_path: Path,\n+    dry_run: bool,\n+    collect_patches: CollectPatchesFn,\n+    mutate_tree: MutateTreeFn,\n+    extra_inputs: tuple[Path, ...] = (),\n+) -> WriteOutcome:\n+    \"\"\"Read, parse, patch, and write once, returning a WriteOutcome\n+    rather than printing. Resolves output_path against\n+    input_path and extra_inputs before touching the filesystem or either\n+    callback, so the output-collision refusal precedes both parsing and\n+    the caller's own collect_patches/mutate_tree. Raises nothing\n+    collect_patches or mutate_tree themselves raise; only\n+    FileNotFoundError, the XML parse error, and the two write-time\n+    exceptions apply_and_write can raise are caught and folded into the\n+    outcome.\n+    \"\"\"\n+    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:\n+        return WriteOutcome(None, None, \"output_must_differ_from_input\", None, 2)\n+\n+    if HAS_LXML:\n+        read_result = read_and_parse_source(input_path)\n+        if read_result.error is not None:\n+            return WriteOutcome(None, None, read_result.error, None, 2)\n+        source_bytes, root = read_result.source_bytes, read_result.root\n+        patches, stats, samples = collect_patches(root)\n+        if not dry_run:\n+            try:\n+                apply_and_write(source_bytes, patches, output_path)\n+            except (UnicodeDecodeError, ValueError) as exc:\n+                return WriteOutcome(stats, samples, f\"text_patch_error={exc}\", None, 2)\n+            return WriteOutcome(stats, samples, None, output_path, 0)\n+        return WriteOutcome(stats, samples, None, None, 0)\n+\n+    try:\n+        tree = parse_xml(input_path)\n+    except FileNotFoundError:\n+        return WriteOutcome(None, None, f\"input_not_found={input_path.as_posix()}\", None, 2)\n+    except XML_PARSE_ERROR as exc:\n+        return WriteOutcome(None, None, f\"xml_parse_error={input_path.as_posix()}: {exc}\", None, 2)\n+    root = tree.getroot()\n+    stats, samples = mutate_tree(root, dry_run)\n+    if not dry_run:\n+        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)\n+        return WriteOutcome(stats, samples, None, output_path, 0)\n+    return WriteOutcome(stats, samples, None, None, 0)\n+\n+\n def write_nml_safely(\n     input_path: Path,\n     output_path: Path,",
+          "doc_diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -448,4 +448,8 @@ def plan_and_write_nml(\n     outcome.\n     \"\"\"\n     if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:\n+        # Checked before parsing and before either callback runs: the\n+        # reconnect callback owns a long disk scan, and running it ahead\n+        # of this refusal would make a refused write cost the whole scan\n+        # instead of returning immediately.\n         return WriteOutcome(None, None, \"output_must_differ_from_input\", None, 2)\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-004",
+          "version": 6,
+          "intent_ref": "CI-M-001-003",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -506,41 +506,17 @@ def write_nml_safely(\n     extra_inputs (existing tool convention). Both existing write commands\n     (rewrite, rewrite-from-collection-compare) are expressed as callers of\n     this helper, one supplying collect_patches for the lxml path and\n-    mutate_tree for the stdlib fallback.\n+    mutate_tree for the stdlib fallback. Delegates to plan_and_write_nml\n+    and turns the returned WriteOutcome into the same stream writes this\n+    function made when it owned the sequence directly.\n     \"\"\"\n-    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:\n-        print(\"output_must_differ_from_input\", file=sys.stderr)\n-        return 2\n-\n-    if HAS_LXML:\n-        read_result = read_and_parse_source(input_path)\n-        if read_result.error is not None:\n-            print(read_result.error, file=sys.stderr)\n-            return 2\n-        source_bytes, root = read_result.source_bytes, read_result.root\n-        patches, stats, samples = collect_patches(root)\n-        print_stats_and_samples(stats, samples)\n-        if not dry_run:\n-            try:\n-                apply_and_write(source_bytes, patches, output_path)\n-            except (UnicodeDecodeError, ValueError) as exc:\n-                print(f\"text_patch_error={exc}\", file=sys.stderr)\n-                return 2\n-            print(f\"output_written={output_path.as_posix()}\")\n-        return 0\n-\n-    try:\n-        tree = parse_xml(input_path)\n-    except FileNotFoundError:\n-        print(f\"input_not_found={input_path.as_posix()}\", file=sys.stderr)\n-        return 2\n-    except XML_PARSE_ERROR as exc:\n-        print(f\"xml_parse_error={input_path.as_posix()}: {exc}\", file=sys.stderr)\n-        return 2\n-    root = tree.getroot()\n-    stats, samples = mutate_tree(root, dry_run)\n-    print_stats_and_samples(stats, samples)\n-    if not dry_run:\n-        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)\n-        print(f\"output_written={output_path.as_posix()}\")\n-    return 0\n+    outcome = plan_and_write_nml(\n+        input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs\n+    )\n+    if outcome.stats is not None:\n+        print_stats_and_samples(outcome.stats, outcome.samples)\n+    if outcome.error is not None:\n+        print(outcome.error, file=sys.stderr)\n+    if outcome.written_path is not None:\n+        print(f\"output_written={outcome.written_path.as_posix()}\")\n+    return outcome.exit_code",
+          "doc_diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -519,6 +519,10 @@ def write_nml_safely(\n     outcome = plan_and_write_nml(\n         input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs\n     )\n+    # Prints in one fixed order: the stats/samples block when stats was\n+    # collected, then the error line when present, then output_written=\n+    # when a write happened. tests/baselines/manifest.json's recorded\n+    # reconnect cases are the oracle that pins this order byte-for-byte.\n     if outcome.stats is not None:\n         print_stats_and_samples(outcome.stats, outcome.samples)\n     if outcome.error is not None:\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-005",
+          "version": 7,
+          "intent_ref": "CI-M-001-004",
+          "file": "tests/test_write_shell_split.py",
+          "diff": "--- /dev/null\n+++ b/tests/test_write_shell_split.py\n@@ -0,0 +1,158 @@\n+\"\"\"Unit tests over plan_and_write_nml covering what the byte-parity\n+manifest cannot reach: the printless core's own outcomes rather than the\n+stream writes a caller layers on top of it.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+from pathlib import Path\n+\n+import pytest\n+\n+from traktor_nml.model import ElemPatch\n+from traktor_nml.rewrite import WriteOutcome, plan_and_write_nml, write_nml_safely\n+\n+\n+def _write_minimal_nml(path: Path) -> None:\n+    path.write_text(\n+        '<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\\n'\n+        '<NML VERSION=\"19\">\\n'\n+        '  <COLLECTION ENTRIES=\"0\">\\n'\n+        '  </COLLECTION>\\n'\n+        '</NML>\\n',\n+        encoding=\"utf-8\",\n+    )\n+\n+\n+def _no_op_collect(root):\n+    return [], {\"x\": 1}, []\n+\n+\n+def _no_op_mutate(root, dry_run):\n+    return {\"x\": 1}, []\n+\n+\n+def test_output_collision_carries_no_stats(tmp_path: Path) -> None:\n+    \"\"\"A collision refusal is a run that never reached collect_patches or\n+    mutate_tree at all, so stats being None (rather than an empty dict)\n+    is the signal there is no stats block to render. Negative case: a\n+    run that does reach collect_patches produces a populated dict, not\n+    None, so the two outcomes are distinguishable by type - proved here\n+    by running both against the same input and comparing them, rather\n+    than trusting the docstring that stats is None only for a collision.\"\"\"\n+    input_path = tmp_path / \"a.nml\"\n+    _write_minimal_nml(input_path)\n+\n+    collision = plan_and_write_nml(input_path, input_path, False, _no_op_collect, _no_op_mutate)\n+    completed = plan_and_write_nml(\n+        input_path, tmp_path / \"out.nml\", False, _no_op_collect, _no_op_mutate\n+    )\n+\n+    assert collision.stats is None\n+    assert collision.exit_code == 2\n+    assert collision.error == \"output_must_differ_from_input\"\n+\n+    # The negative case: had a collision instead produced {} rather than\n+    # None, it would be indistinguishable in kind from a completed run's\n+    # stats - this is what actually tells them apart.\n+    assert completed.stats is not None\n+    assert type(collision.stats) is not type(completed.stats)\n+\n+\n+def test_text_patch_error_keeps_the_stats_it_already_collected(tmp_path: Path) -> None:\n+    \"\"\"A patch whose original attributes cannot be located in the source\n+    text raises inside apply_and_write, after collect_patches already\n+    returned stats - the outcome must keep those stats rather than\n+    discarding them, or a caller that prints the stats block ahead of the\n+    error would have nothing to print. Negative case: a WriteOutcome\n+    built the way a prior draft built one for every write-time exception\n+    - WriteOutcome(None, None, error, None, 2), discarding the stats\n+    collect_patches had already returned - is constructed here from the\n+    same error and exit_code and shown to carry stats that differ from\n+    (and are less informative than) the real outcome's, which is what\n+    actually distinguishes the correct behaviour from the discarding one\n+    rather than only asserting the correct side.\n+    \"\"\"\n+    input_path = tmp_path / \"a.nml\"\n+    _write_minimal_nml(input_path)\n+    output_path = tmp_path / \"out.nml\"\n+\n+    bogus_patch = ElemPatch(\n+        sourceline=1,\n+        tag_name=\"LOCATION\",\n+        locator=((\"VOLUME\", \"does-not-exist\"),),\n+        changes=[(\"VOLUME\", \"does-not-exist\", \"X\")],\n+    )\n+\n+    def collect_patches(root):\n+        return [bogus_patch], {\"collection_locations_rewritten\": 1}, []\n+\n+    outcome = plan_and_write_nml(input_path, output_path, False, collect_patches, _no_op_mutate)\n+\n+    assert outcome.stats == {\"collection_locations_rewritten\": 1}\n+    assert outcome.error is not None and outcome.error.startswith(\"text_patch_error=\")\n+    assert outcome.written_path is None\n+    assert outcome.exit_code == 2\n+\n+    # The prior-draft outcome, rebuilt here from the real one's own error\n+    # and exit_code: had plan_and_write_nml discarded stats on every\n+    # write-time exception the way that draft did, this is exactly what\n+    # it would have returned instead. Demonstrating it lets the next\n+    # assertion catch the regression rather than only asserting the\n+    # collected-stats side of it.\n+    discarded_stats_outcome = WriteOutcome(None, None, outcome.error, None, outcome.exit_code)\n+\n+    assert discarded_stats_outcome.stats is None\n+    assert discarded_stats_outcome.stats != outcome.stats\n+\n+\n+def test_callback_exception_reaches_the_caller(tmp_path: Path) -> None:\n+    \"\"\"collect_patches/mutate_tree are the caller's own callables; a\n+    plain exception from either must propagate rather than being folded\n+    into a WriteOutcome, the way an input error is. Negative case: a\n+    write-time exception from apply_and_write (text_patch_error) is the\n+    contrasting behaviour - plan_and_write_nml folds that one into a\n+    WriteOutcome instead of raising, so the two failure classes are\n+    proved to be handled differently rather than everything simply\n+    propagating.\"\"\"\n+    input_path = tmp_path / \"a.nml\"\n+    _write_minimal_nml(input_path)\n+    output_path = tmp_path / \"out.nml\"\n+\n+    def collect_patches(root):\n+        raise RuntimeError(\"boom\")\n+\n+    with pytest.raises(RuntimeError, match=\"boom\"):\n+        plan_and_write_nml(input_path, output_path, False, collect_patches, _no_op_mutate)\n+\n+    bogus_patch = ElemPatch(1, \"LOCATION\", ((\"VOLUME\", \"nope\"),), [(\"VOLUME\", \"nope\", \"X\")])\n+    folded = plan_and_write_nml(\n+        input_path, output_path, False, lambda root: ([bogus_patch], {}, []), _no_op_mutate\n+    )\n+    assert folded.error is not None and folded.error.startswith(\"text_patch_error=\")\n+\n+\n+def test_no_outcome_writes_to_either_stream(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:\n+    \"\"\"plan_and_write_nml is printless for every outcome it can return:\n+    collision, write success, and write-time text_patch_error alike.\n+    Negative case: the printing wrapper write_nml_safely, run over the\n+    same collision input, does write to stderr - proving capsys is\n+    actually capturing output here rather than the silence above being\n+    an artifact of a misconfigured test.\"\"\"\n+    input_path = tmp_path / \"a.nml\"\n+    _write_minimal_nml(input_path)\n+\n+    plan_and_write_nml(input_path, input_path, False, _no_op_collect, _no_op_mutate)\n+    plan_and_write_nml(input_path, tmp_path / \"out1.nml\", False, _no_op_collect, _no_op_mutate)\n+\n+    bogus_patch = ElemPatch(1, \"LOCATION\", ((\"VOLUME\", \"nope\"),), [(\"VOLUME\", \"nope\", \"X\")])\n+    plan_and_write_nml(\n+        input_path, tmp_path / \"out2.nml\", False, lambda root: ([bogus_patch], {}, []), _no_op_mutate\n+    )\n+\n+    captured = capsys.readouterr()\n+    assert captured.out == \"\"\n+    assert captured.err == \"\"\n+\n+    write_nml_safely(input_path, input_path, False, _no_op_collect, _no_op_mutate)\n+    assert capsys.readouterr().err != \"\"\n",
+          "doc_diff": "--- a/tests/test_write_shell_split.py\n+++ b/tests/test_write_shell_split.py\n@@ -1,7 +1,19 @@\n \"\"\"Unit tests over plan_and_write_nml covering what the byte-parity\n manifest cannot reach: the printless core's own outcomes rather than the\n-stream writes a caller layers on top of it.\n+stream writes a caller layers on top of it. Of the four guards below,\n+only test_no_outcome_writes_to_either_stream carries a companion proof\n+in this file: it runs the printing wrapper write_nml_safely over the\n+same collision input and shows stderr is non-empty, which is what\n+rules out the printlessness assertions above it being an artifact of a\n+misconfigured capsys rather than real silence. The other three assert\n+what plan_and_write_nml returns on a collision, a write-time\n+text_patch_error, and a callback exception, without a comparable\n+proof here that the assertion would catch a broken implementation.\n \"\"\"\n\n from __future__ import annotations\n@@ -17,19 +29,29 @@ from traktor_nml.rewrite import WriteOutcome, plan_and_write_nml, write_nml_sa\n\n\n def _write_minimal_nml(path: Path) -> None:\n+    \"\"\"A COLLECTION with no entries - enough for plan_and_write_nml to\n+    parse and reach either callback; the tests below don't need entries,\n+    only a valid document to read, patch and (sometimes) write.\"\"\"\n     path.write_text(\n         '<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\\n'\n         '<NML VERSION=\"19\">\\n'\n         '  <COLLECTION ENTRIES=\"0\">\\n'\n         '  </COLLECTION>\\n'\n         '</NML>\\n',\n         encoding=\"utf-8\",\n     )\n\n\n def _no_op_collect(root):\n+    \"\"\"Minimal collect_patches returning fixed patches/stats/samples:\n+    isolates plan_and_write_nml's write-shell behaviour (collision\n+    refusal, write-time error handling, printlessness) from patch\n+    computation, which these tests are not exercising.\"\"\"\n     return [], {\"x\": 1}, []\n\n\n def _no_op_mutate(root, dry_run):\n+    \"\"\"Minimal mutate_tree returning fixed stats, ignoring dry_run:\n+    isolates the write shell the same way _no_op_collect does, for the\n+    stdlib-fallback path.\"\"\"\n     return {\"x\": 1}, []\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 6,
+      "number": 2,
+      "name": "Reconnect core and renderer",
+      "files": [
+        "traktor_nml/reconnect_run.py",
+        "traktor_nml/reconnect_render.py",
+        "traktor_nml/commands/reconnect_cmd.py",
+        "traktor_nml/commands/_shared_args.py",
+        "tests/test_reconnect_render_equivalence.py",
+        "tests/test_reconnect.py",
+        "traktor_nml/shared_args.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "scan_reconnect_candidates and rewrite_from_reconnect return typed results carrying mapping stats ambiguity rows old records warnings and typed errors;ScanReconnectResult and RewriteReconnectResult are defined dataclasses with stated field semantics not implicit tuples;neither core function writes to stdout or stderr;run_reconnection and both cores accept on_progress and cancel and forward them to index_scan_roots with None defaults;render functions accept a result and return buffered stdout lines stderr lines and an exit code;the refutation-disabled message text has exactly one definition in traktor_nml/shared_args.py and both the printing wrapper in commands/_shared_args.py and the renderer read it from there;neither reconnect_run.py nor reconnect_render.py imports anything from commands/;ReconnectResult is a frozen dataclass;a FpcalcSession opened for the fingerprint tier is terminated inside run_reconnection before it returns, on every path resolve_reconnection can take;the two argparse handlers consist of emit applied to render applied to core;volume identities are resolved once per run and reused by the fingerprint tier and the LOCATION re-encoding;ScanCancelled escapes the core rather than becoming a result field"
+      ],
+      "acceptance_criteria": [
+        "pytest passes with tests/baselines/manifest.json unmodified and PARITY_BASELINE_SHA256 unchanged",
+        "and the run reports at least the baseline 191 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier)",
+        "so a newly skipped or silently lost test fails this criterion;all four reconnect manifest cases pass unaltered;render applied to core produces stdout identical to each recorded reconnect case using the fixture_corpus inputs;stdout order for rewrite-from-reconnect is csv_written then the stats block then output_written;stderr order is the fingerprint dependency line then the refutation-disabled line;the typed failures input_not_found xml_parse_error volume_identity_error and fingerprint_unavailable each render to stderr and exit code 2;run_reconnection passes an on_progress callback through to index_scan_roots and a test asserts the callback fires",
+        "and a set cancel token raises ScanCancelled out of the core;grep finds the refutation-disabled message literal in exactly one file, traktor_nml/shared_args.py",
+        "traktor_nml/reconnect_run.py and traktor_nml/reconnect_render.py import nothing from traktor_nml/gui/ or traktor_nml/commands/, and import nicegui nowhere;the equivalence test fails when a stats key is dropped from the renderer;the whole of tests/test_reconnect.py passes and its fingerprint-diagnostic test patches a name the running code actually reads"
+      ],
+      "tests": [
+        "tests/test_reconnect_render_equivalence.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 2,
+          "file": "traktor_nml/reconnect_run.py",
+          "function": "ReconnectResult",
+          "behavior": "A frozen dataclass carrying everything one reconnection pass produced: mapping (primary key to winning EntryRecord), stats, ambiguity_rows, old_records, and warnings (the run-derived notices, currently the fingerprint dependency reason). It replaces the bare four-tuple and is the object a GUI review table reads directly.",
+          "decision_refs": [
+            "DL-001",
+            "DL-005"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 3,
+          "file": "traktor_nml/reconnect_run.py",
+          "function": "run_reconnection",
+          "behavior": "Signature run_reconnection(args, old_root, *, on_progress=None, cancel=None) -> ReconnectResult. on_progress and cancel are forwarded verbatim to index_scan_roots (traktor_nml/diskscan.py:155), which already accepts both; both default to None so the CLI path indexes exactly as it does today, and a GUI gets live indexing progress and a cancel token without bypassing the core. The pipeline is split across three helpers rather than inlined in one body: _resolve_volume_identities_and_mounts (one up-front resolution reused by both the fingerprint key provider and the LOCATION re-encoding), _build_fingerprint_tier (the optional FpcalcSession-owned key provider), and _reencode_winning_locations, so run_reconnection itself stays a short orchestration of collection_records, TagCache, index_scan_roots, the three helpers, resolve_reconnection and cache.flush. The FpcalcSession _build_fingerprint_tier opens is terminated in a try/finally around the resolve_reconnection call, because resolve_reconnection's fingerprint provide() closure is the last consumer of the session's fpcalc child; no session escapes run_reconnection. The two fingerprint failure modes stay distinct: fingerprint_key_provider being None still raises _FingerprintUnavailable, while a non-None fingerprint_unavailable_reason() is appended to warnings instead of being printed to stderr. warn_refutation_disabled is not called here. ScanCancelled propagates.",
+          "decision_refs": [
+            "DL-001",
+            "DL-005",
+            "DL-008",
+            "DL-009"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 2,
+          "file": "traktor_nml/reconnect_run.py",
+          "function": "scan_reconnect_candidates",
+          "behavior": "Signature scan_reconnect_candidates(args, *, on_progress=None, cancel=None) -> ScanReconnectResult; both keyword arguments are passed straight through to run_reconnection (DL-009). It parses the input NML and maps FileNotFoundError to the input_not_found line and XML_PARSE_ERROR to the xml_parse_error line, and maps VolumeIdentityError to the volume_identity_error line and _FingerprintUnavailable to the fingerprint_unavailable line, each in the exact text used today. It writes the ambiguity CSV when args.csv is set, after run_reconnection has returned, and records the written path on the result rather than printing it. It writes to neither stream.",
+          "decision_refs": [
+            "DL-001",
+            "DL-006",
+            "DL-008",
+            "DL-009"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 2,
+          "file": "traktor_nml/reconnect_run.py",
+          "function": "rewrite_from_reconnect",
+          "behavior": "Signature rewrite_from_reconnect(args, *, on_progress=None, cancel=None) -> RewriteReconnectResult; both keyword arguments reach run_reconnection through the callback (DL-009). It builds the collect_patches and mutate_tree callables exactly as they are built today, each running run_reconnection, merging apply stats under the reconnection stats in the same order, and writing the ambiguity CSV. A mutable holder dict with keys reconnect and csv_path, both initially None, is populated by the callback and read by the outer function after plan_and_write_nml returns. The write order inside the callback fixes the holder meaning in every case: run_reconnection returns first and the holder reconnect key is set immediately, then the CSV is written and csv_path is set. So (a) callback never ran, the output-collision refusal fired first: both keys stay None and RewriteReconnectResult carries reconnect None, csv_path None, the WriteOutcome from the collision, and error None. (b) callback ran and run_reconnection raised VolumeIdentityError or _FingerprintUnavailable: both keys are still None, because the raise precedes both assignments, and the outer function converts the exception into the typed error text with outcome None. There is no state in which csv_path is set while reconnect is None, and no partial ReconnectResult is ever stored. (c) callback ran to completion: both keys are populated. ScanCancelled escapes rather than becoming a field.",
+          "decision_refs": [
+            "DL-001",
+            "DL-002",
+            "DL-004",
+            "DL-008",
+            "DL-009"
+          ]
+        },
+        {
+          "id": "CI-M-002-005",
+          "version": 1,
+          "file": "traktor_nml/reconnect_render.py",
+          "function": "RenderedOutput",
+          "behavior": "A dataclass of stdout_lines, stderr_lines and exit_code, plus an emit function that writes stdout_lines to sys.stdout and stderr_lines to sys.stderr and returns exit_code. Every print in the reconnect path lives inside emit.",
+          "decision_refs": [
+            "DL-006"
+          ]
+        },
+        {
+          "id": "CI-M-002-006",
+          "version": 3,
+          "file": "traktor_nml/reconnect_render.py",
+          "function": "render_scan_reconnect_candidates",
+          "behavior": "Takes a ScanReconnectResult and the namespace and returns RenderedOutput. On a typed error the error text is the only stderr line and exit_code is 2. Otherwise stdout is the reconnectable count line followed by one key=value line per stats entry in insertion order and then the csv_written line when result.csv_path is set; stderr carries the fingerprint dependency warning from ReconnectResult.warnings first and the refutation-disabled line second, the latter obtained from shared_args.refutation_disabled_line(args) rather than from a literal in this module (DL-010).",
+          "decision_refs": [
+            "DL-001",
+            "DL-005",
+            "DL-006",
+            "DL-010"
+          ]
+        },
+        {
+          "id": "CI-M-002-007",
+          "version": 3,
+          "file": "traktor_nml/reconnect_render.py",
+          "function": "render_rewrite_from_reconnect",
+          "behavior": "Takes a RewriteReconnectResult and the namespace and returns RenderedOutput. stdout is the csv_written line when csv_path is set, then the stats and sample_matches block from rewrite.format_stats_and_samples when outcome.stats is not None, then the output_written line when outcome.written_path is set; stderr carries the fingerprint dependency warning, then the refutation-disabled line from shared_args.refutation_disabled_line(args) (DL-010), then outcome.error or the typed reconnection error. exit_code mirrors outcome.exit_code, or is 2 when the typed reconnection error is set and outcome is None.",
+          "decision_refs": [
+            "DL-001",
+            "DL-003",
+            "DL-005",
+            "DL-006",
+            "DL-010"
+          ]
+        },
+        {
+          "id": "CI-M-002-008",
+          "version": 2,
+          "file": "traktor_nml/commands/reconnect_cmd.py",
+          "function": null,
+          "behavior": "Holds argparse wiring only: add_reconnect_args, register, and two handlers each one expression that emits the render of the core call. The pipeline, the CSV write, the stats merging and every stream write live in reconnect_run and reconnect_render, which this module imports. The module contains no print call and no sys.stdout or sys.stderr write. The defensive fingerprint import block and the _FingerprintUnavailable exception move to reconnect_run alongside the code that raises them. Import side effect of that move: commands/__init__.py imports every command module at CLI startup, so the try/except around traktor_nml.fingerprint now executes transitively via commands/__init__.py -> reconnect_cmd.py -> reconnect_run.py instead of directly in reconnect_cmd.py. Startup cost and failure behaviour are unchanged because the block stays defensive and reconnect_run imports nothing heavier than reconnect_cmd already did; what changes is the owning module, which is why tests/test_reconnect.py must patch traktor_nml.reconnect_run.fingerprint_unavailable_reason (CI-M-002-010) and not the old name.",
+          "decision_refs": [
+            "DL-001",
+            "DL-006",
+            "DL-007"
+          ]
+        },
+        {
+          "id": "CI-M-002-009",
+          "version": 2,
+          "file": "tests/test_reconnect_render_equivalence.py",
+          "function": null,
+          "behavior": "The section 3.2 equality tests. For each of the four reconnect manifest cases it builds the same argv against the fixture_corpus inputs the manifest case uses, runs the renderer over the core result in-process, and asserts the joined stdout lines equal the recorded stdout of that case and the stderr lines equal its recorded stderr and the exit code equals its recorded exit code, reading the expectations from tests/baselines/manifest.json rather than restating them. A negative control drops one stats key inside the renderer and asserts the comparison fails, and the docstring records that this was observed. Unit tests cover what the oracle cannot reach: (a) monkeypatching traktor_nml.reconnect_run.fingerprint_unavailable_reason to return a fixed reason asserts that reason lands in ReconnectResult.warnings and renders to stderr ahead of the refutation line rather than being printed by the core - the stub replaces only that probe and leaves traktor_nml.reconnect_run.fingerprint_key_provider bound as the defensive import left it; (b) a separate test sets traktor_nml.reconnect_run.fingerprint_key_provider to None and asserts the core raises _FingerprintUnavailable, so the raise path is proved distinct from the warn path rather than being masked by the probe stub; (c) a no-refute run asserts the refutation line comes from the renderer via _shared_args.refutation_disabled_line; (d) an on_progress callback passed into the core is asserted to have fired at least once with a path from the scan, and a pre-set cancel token is asserted to raise ScanCancelled out of the core rather than yielding a partial result; (e) a run with the output path equal to the input asserts reconnection never started.",
+          "decision_refs": [
+            "DL-001",
+            "DL-004",
+            "DL-005",
+            "DL-006",
+            "DL-009",
+            "DL-010"
+          ]
+        },
+        {
+          "id": "CI-M-002-010",
+          "version": 1,
+          "file": "tests/test_reconnect.py",
+          "function": "test_fingerprint_flag_names_the_dependency_that_is_actually_missing",
+          "behavior": "The second monkeypatch target names traktor_nml.reconnect_run.fingerprint_unavailable_reason, the module-level alias the defensive fingerprint import binds and the probe the pipeline calls. run_tool invokes the CLI in-process, so this patch is load-bearing rather than decorative: patching a name the running code no longer reads leaves the real probe in place and the assertion on the fingerprint_dependency_missing stderr line then passes or fails by whatever the machine has installed. Every other assertion in the module is unchanged.",
+          "decision_refs": [
+            "DL-007"
+          ]
+        },
+        {
+          "id": "CI-M-002-011",
+          "version": 1,
+          "file": "traktor_nml/reconnect_run.py",
+          "function": "ScanReconnectResult",
+          "behavior": "A frozen dataclass carrying one scan-reconnect pass. Fields: result (the ReconnectResult, or None when the pass ended in a typed error), error (the exact key=value text destined for stderr - input_not_found, xml_parse_error, volume_identity_error or fingerprint_unavailable - or None), and csv_path (the Path of the ambiguity CSV, or None when --csv was not passed or the pass failed before the CSV was written). Exactly one of result and error is non-None; csv_path is non-None only alongside a non-None result, because the CSV is written after run_reconnection returns. The renderer reads nothing else, and a GUI reads result directly.",
+          "decision_refs": [
+            "DL-001",
+            "DL-006",
+            "DL-008"
+          ]
+        },
+        {
+          "id": "CI-M-002-012",
+          "version": 1,
+          "file": "traktor_nml/reconnect_run.py",
+          "function": "RewriteReconnectResult",
+          "behavior": "A frozen dataclass carrying one rewrite-from-reconnect pass. Fields: outcome (the WriteOutcome from plan_and_write_nml, or None when a typed reconnection error escaped the callback), reconnect (the ReconnectResult, or None per the holder rules in CI-M-002-004), csv_path (the ambiguity CSV Path, or None), and error (the typed reconnection error text for stderr - volume_identity_error or fingerprint_unavailable - or None). outcome and error are never both non-None: a WriteOutcome carries its own error field for write-path failures, and this error field is only for a failure that came out of the reconnection callback. csv_path is non-None only alongside a non-None reconnect. The renderer derives its exit code from outcome, or uses 2 when error is set.",
+          "decision_refs": [
+            "DL-001",
+            "DL-003",
+            "DL-006",
+            "DL-008"
+          ]
+        },
+        {
+          "id": "CI-M-002-013",
+          "version": 2,
+          "file": "traktor_nml/commands/_shared_args.py",
+          "function": "refutation_disabled_line",
+          "behavior": "warn_refutation_disabled keeps its signature, its docstring contract and its stderr side effect, but now delegates to shared_args.refutation_disabled_line (CI-M-002-014) for the message text, so its byte output for compare_cmd's three call sites and every other existing caller is unchanged. resolve_confidence, should_refute and refutation_disabled_line themselves move to traktor_nml/shared_args.py and are imported back into this module, which keeps compare_cmd.py and reconnect_cmd.py's own `from ._shared_args import resolve_confidence, should_refute` (and, for reconnect_cmd.py, warn_refutation_disabled) working unchanged. reconnect_render calls shared_args.refutation_disabled_line directly and appends the returned string to its buffered stderr lines rather than restating the literal; warn_refutation_disabled is never called on the reconnect path. shared_args.py is the single source of the message text: no manifest case sets --no-refute for either reconnect command, so a second copy of the literal would drift invisibly (DL-010).",
+          "decision_refs": [
+            "DL-005",
+            "DL-006",
+            "DL-010"
+          ]
+        },
+        {
+          "id": "CI-M-002-014",
+          "version": 1,
+          "file": "traktor_nml/shared_args.py",
+          "function": null,
+          "behavior": "resolve_confidence, should_refute and refutation_disabled_line, moved out of commands/_shared_args.py: all three are pure functions of an argparse.Namespace with no argparse registration or stream dependency of their own, and reconnect_run.py/reconnect_render.py need them without importing anything from commands/, which commands/__init__.py auto-imports at CLI startup and which reconnect_run/reconnect_render must sit below rather than beside (DL-007). commands/_shared_args.py imports the same three names from here and keeps add_confidence_args, add_no_refute_argument and warn_refutation_disabled, so every existing importer of the moved names (compare_cmd.py, reconnect_cmd.py) is unaffected.",
+          "decision_refs": [
+            "DL-007",
+            "DL-010"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-002-001",
+          "version": 4,
+          "intent_ref": "CI-M-002-001",
+          "file": "traktor_nml/reconnect_run.py",
+          "diff": "--- /dev/null\n+++ b/traktor_nml/reconnect_run.py\n@@ -0,0 +1,84 @@\n+\"\"\"Printless reconnection core: match an old collection's tracks against\n+disk-scan candidates and return typed results.\n+\n+commands/reconnect_cmd.py used to run this pipeline and print its own\n+stdout mid-run; a GUI review table needs the mapping and the ambiguity\n+rows as objects while a run is in progress, and a transcript parsed after\n+the fact arrives too late for that. run_reconnection returns a\n+ReconnectResult, and scan_reconnect_candidates/rewrite_from_reconnect wrap\n+it with the CSV write and the typed-error mapping each command needs,\n+also as results rather than prints. reconnect_render turns these into\n+buffered stdout/stderr lines and an exit code.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+import argparse\n+import csv\n+from dataclasses import dataclass, field\n+from pathlib import Path\n+from typing import Callable, Optional\n+\n+from .shared_args import resolve_confidence, should_refute\n+from .diskscan import index_scan_roots\n+from .model import EntryRecord, collection_records, loc_attr_changes, write_location_element\n+from .reconnect import location_from_disk_path, resolve_reconnection\n+from .rewrite import (\n+    CompareEntryResolver,\n+    WriteOutcome,\n+    _collect_compare_patches,\n+    plan_and_write_nml,\n+    process_non_collection_entries,\n+)\n+from .tagcache import TagCache\n+from .volumes import VolumeIdentityError, parse_volume_map, resolve_volume_identity\n+from .xmlio import XML_PARSE_ERROR, parse_xml\n+\n+try:\n+    # fingerprint.py is the M-005 acoustic-fingerprint key provider; it may\n+    # not exist yet when this module is developed concurrently with M-005.\n+    # Importing it defensively keeps every other subcommand (this module is\n+    # reachable from commands/__init__.py, which imports every command\n+    # module at CLI startup) working even when fingerprint.py, pyacoustid\n+    # and fpcalc are absent - --fingerprint simply becomes unavailable\n+    # until M-005 lands, rather than the whole CLI failing to import.\n+    from .fingerprint import (\n+        FPCALC_TIMEOUT_SECONDS,\n+        FpcalcSession,\n+        fingerprint_key_provider,\n+        fingerprint_unavailable_reason,\n+    )\n+except ImportError:  # pragma: no cover - fingerprint tier lands in M-005\n+    fingerprint_key_provider = None\n+    fingerprint_unavailable_reason = None\n+    FpcalcSession = None\n+    FPCALC_TIMEOUT_SECONDS = 30.0\n+\n+\n+class _FingerprintUnavailable(RuntimeError):\n+    pass\n+\n+\n+@dataclass(frozen=True)\n+class ReconnectResult:\n+    \"\"\"Everything one reconnection pass produced: the primary-key-to-\n+    winning-EntryRecord mapping, its stats, the rows a caller may export\n+    as an ambiguity CSV, the old records the mapping was matched against,\n+    and warnings - run-derived notices, currently the fingerprint\n+    dependency reason - that travel with the result instead of printing\n+    to stderr mid-pipeline. A GUI review table reads this\n+    directly.\"\"\"\n+\n+    mapping: dict[str, EntryRecord]\n+    stats: dict[str, int]\n+    ambiguity_rows: list[dict[str, str]]\n+    old_records: list[EntryRecord]\n+    warnings: list[str] = field(default_factory=list)\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -59,4 +59,9 @@ except ImportError:  # pragma: no cover - fingerprint tier lands in M-005\n \n \n class _FingerprintUnavailable(RuntimeError):\n+    \"\"\"--fingerprint was requested but fingerprint_key_provider is None -\n+    fingerprint.py itself wasn't importable, not merely one of its\n+    runtime dependencies missing. Distinct from the\n+    fingerprint_dependency_missing warning, which fires when the module\n+    imported fine but pyacoustid/fpcalc/chromaprint are not usable.\"\"\"\n     pass\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-002",
+          "version": 4,
+          "intent_ref": "CI-M-002-011",
+          "file": "traktor_nml/reconnect_run.py",
+          "diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -80,3 +80,14 @@ class ReconnectResult:\n     ambiguity_rows: list[dict[str, str]]\n     old_records: list[EntryRecord]\n     warnings: list[str] = field(default_factory=list)\n+\n+\n+@dataclass(frozen=True)\n+class ScanReconnectResult:\n+    \"\"\"One scan-reconnect-candidates pass. Exactly one of result and\n+    error is non-None; csv_path is non-None only alongside a non-None\n+    result, because the CSV is written after run_reconnection returns.\n+    \"\"\"\n+\n+    result: Optional[ReconnectResult]\n+    error: Optional[str]\n+    csv_path: Optional[Path]\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -95,7 +95,10 @@ class ScanReconnectResult:\n     error is non-None; csv_path is non-None only alongside a non-None\n     result, because the CSV is written after run_reconnection returns.\n     \"\"\"\n \n+    # error carries one of input_not_found=, xml_parse_error=,\n+    # volume_identity_error= or fingerprint_unavailable= - the same four\n+    # typed failures the renderer maps to exit code 2.\n     result: Optional[ReconnectResult]\n     error: Optional[str]\n     csv_path: Optional[Path]\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-003",
+          "version": 4,
+          "intent_ref": "CI-M-002-012",
+          "file": "traktor_nml/reconnect_run.py",
+          "diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -91,3 +91,17 @@ class ScanReconnectResult:\n     result: Optional[ReconnectResult]\n     error: Optional[str]\n     csv_path: Optional[Path]\n+\n+\n+@dataclass(frozen=True)\n+class RewriteReconnectResult:\n+    \"\"\"One rewrite-from-reconnect pass. outcome and error are never both\n+    non-None: a WriteOutcome carries its own error field for write-path\n+    failures, and this error field is only for a failure that came out of\n+    the reconnection callback before plan_and_write_nml could produce an\n+    outcome at all. csv_path is non-None only alongside a non-None\n+    reconnect.\n+    \"\"\"\n+\n+    outcome: Optional[WriteOutcome]\n+    reconnect: Optional[ReconnectResult]\n+    csv_path: Optional[Path]\n+    error: Optional[str]\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -101,7 +101,11 @@ class RewriteReconnectResult:\n     outcome could produce one at all. csv_path is non-None only alongside a non-None\n     reconnect.\n     \"\"\"\n \n+    # outcome is None only when error is set: a volume_identity_error or\n+    # fingerprint_unavailable raised out of the reconnection callback\n+    # before plan_and_write_nml's own WriteOutcome could be built, so\n+    # there is nothing to hold its error/exit_code fields instead.\n     outcome: Optional[WriteOutcome]\n     reconnect: Optional[ReconnectResult]\n     csv_path: Optional[Path]\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-004",
+          "version": 4,
+          "intent_ref": "CI-M-002-002",
+          "file": "traktor_nml/reconnect_run.py",
+          "diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -105,3 +105,150 @@ class RewriteReconnectResult:\n     reconnect: Optional[ReconnectResult]\n     csv_path: Optional[Path]\n     error: Optional[str]\n+\n+\n+def _resolve_volume_identities_and_mounts(\n+    args: argparse.Namespace, old_records: list[EntryRecord]\n+) -> tuple[dict[Path, tuple[str, str]], dict[tuple[str, str], list[Path]]]:\n+    \"\"\"Resolve each scan root's volume identity once, up front: both the\n+    fingerprint tier's old-side resolver and the candidate-side LOCATION\n+    re-encoding reuse the same resolved identities rather than resolving\n+    twice.\n+    \"\"\"\n+    volume_map = parse_volume_map(args.volume_map)\n+    volume_identities: dict[Path, tuple[str, str]] = {}\n+    for scan_root in args.scan_roots:\n+        volume_identities[Path(scan_root)] = resolve_volume_identity(scan_root, old_records, volume_map)\n+\n+    # known_mounts anchors each scan root at its own filesystem anchor (the\n+    # drive letter or POSIX root, e.g. \"C:\\\\\" or \"/\"), never at scan_root\n+    # itself - decoded_path is volume-relative (relative to the volume\n+    # root), not relative to an arbitrary scan-root subdirectory, so\n+    # anchoring at scan_root would reconstruct the wrong absolute path for\n+    # every record whose file sits outside that particular subdirectory.\n+    known_mounts: dict[tuple[str, str], list[Path]] = {}\n+    for scan_root, identity in volume_identities.items():\n+        anchor = Path(scan_root).anchor\n+        if anchor:\n+            known_mounts.setdefault(identity, []).append(Path(anchor))\n+    return volume_identities, known_mounts\n+\n+\n+def _build_fingerprint_tier(\n+    args: argparse.Namespace,\n+    cache: TagCache,\n+    candidates: list[EntryRecord],\n+    known_mounts: dict[tuple[str, str], list[Path]],\n+):\n+    \"\"\"Build the fingerprint key provider when --fingerprint is set, or\n+    return an empty tier when it is not. The returned session (or None)\n+    is the caller's to terminate once resolve_reconnection has finished\n+    with it - this function only opens it, because the fingerprint\n+    provider's provide() closure fingerprints old-side records lazily\n+    during matching, after this function has already returned.\n+    \"\"\"\n+    key_providers = []\n+    fingerprint_stats: dict[str, int] = {}\n+    warnings: list[str] = []\n+    if not getattr(args, \"fingerprint\", False):\n+        return key_providers, fingerprint_stats, warnings, None\n+\n+    if fingerprint_key_provider is None:\n+        raise _FingerprintUnavailable(\n+            \"fingerprint_key_provider unavailable (traktor_nml.fingerprint not installed)\"\n+        )\n+    unavailable = fingerprint_unavailable_reason()\n+    if unavailable is not None:\n+        # Every way this tier can be unusable degrades to matching\n+        # nothing, so an undiagnosed run looks exactly like one that\n+        # searched and found no candidates. The reason is named rather\n+        # than the dependency set listed, because the three pieces fail\n+        # independently and \"pyacoustid/fpcalc not available\" is wrong\n+        # advice when the missing piece is the chromaprint library and\n+        # both of those are installed.\n+        warnings.append(\n+            f\"fingerprint_dependency_missing={unavailable}; \"\n+            \"--fingerprint tier will find no matches\"\n+        )\n+    # The session owns the fpcalc child, so a per-file timeout is\n+    # enforceable and a caller can terminate one mid-fingerprint.\n+    fpcalc_session = FpcalcSession(timeout=getattr(args, \"fpcalc_timeout\", FPCALC_TIMEOUT_SECONDS))\n+    key_providers.append(\n+        fingerprint_key_provider(cache, candidates, fingerprint_stats, known_mounts, fpcalc_session)\n+    )\n+    return key_providers, fingerprint_stats, warnings, fpcalc_session\n+\n+\n+def _reencode_winning_locations(\n+    mapping: dict[str, EntryRecord], volume_identities: dict[Path, tuple[str, str]]\n+) -> None:\n+    \"\"\"Re-encode each winning candidate's real absolute path into a\n+    proper LOCATION using its scan root's resolved volume identity - the\n+    placeholder LocationParts a disk-scan candidate carries has no real\n+    VOLUME/VOLUMEID and is never written as-is.\n+    \"\"\"\n+    for candidate in mapping.values():\n+        if candidate.source_path is None:\n+            continue\n+        for scan_root, identity in volume_identities.items():\n+            try:\n+                candidate.source_path.relative_to(scan_root.resolve())\n+            except ValueError:\n+                continue\n+            candidate.location = location_from_disk_path(candidate.source_path, *identity)\n+            break\n+\n+\n+def run_reconnection(\n+    args: argparse.Namespace,\n+    old_root,\n+    *,\n+    on_progress: Optional[Callable[[int, int, Path], None]] = None,\n+    cancel=None,\n+) -> ReconnectResult:\n+    \"\"\"Run the whole reconnection pipeline and return a ReconnectResult.\n+\n+    on_progress and cancel are forwarded verbatim to index_scan_roots,\n+    which already accepts both; both default to None so the CLI path\n+    indexes exactly as it does without them, and a GUI gets live indexing\n+    progress and a cancel token without bypassing this core.\n+    ScanCancelled propagates rather than becoming a field on the result:\n+    a short candidate list is indistinguishable from a complete one, so a\n+    partial result would report most of the collection as missing - a\n+    wrong answer delivered confidently.\n+    \"\"\"\n+    old_records = collection_records(old_root)\n+    cache = TagCache(args.cache)\n+    candidates = index_scan_roots(\n+        args.scan_roots, cache, refresh_cache=args.refresh_cache,\n+        on_progress=on_progress, cancel=cancel,\n+    )\n+    confidence = resolve_confidence(args)\n+\n+    volume_identities, known_mounts = _resolve_volume_identities_and_mounts(args, old_records)\n+    key_providers, fingerprint_stats, warnings, fpcalc_session = _build_fingerprint_tier(\n+        args, cache, candidates, known_mounts\n+    )\n+    try:\n+        # fpcalc_session, when the fingerprint tier is active, is opened\n+        # by _build_fingerprint_tier above and its child process must not\n+        # outlive this function: resolve_reconnection is the last\n+        # consumer (its provide() closure fingerprints old-side records\n+        # lazily during matching), so the session is terminated here\n+        # regardless of how matching finishes.\n+        mapping, stats, ambiguity_rows = resolve_reconnection(\n+            old_records, candidates, confidence, key_providers,\n+            refute=should_refute(args),\n+        )\n+    finally:\n+        if fpcalc_session is not None:\n+            fpcalc_session.terminate()\n+    stats = {**fingerprint_stats, **stats}\n+\n+    _reencode_winning_locations(mapping, volume_identities)\n+\n+    cache.flush()\n+    return ReconnectResult(mapping, stats, ambiguity_rows, old_records, warnings)\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -113,5 +113,9 @@ def run_reconnection(\n     on_progress and cancel are forwarded verbatim to index_scan_roots,\n     which already accepts both; both default to None so the CLI path\n     indexes exactly as it does without them, and a GUI gets live indexing\n     progress and a cancel token without bypassing this core.\n+    Neither parameter has an in-repo caller yet - both argparse handlers\n+    pass neither - and that absence is intentional: this is the channel\n+    a future GUI review table is meant to call once it exists, not dead\n+    code to remove (DL-046).\n     ScanCancelled propagates rather than becoming a field on the result:\n@@ -119,6 +123,10 @@ def run_reconnection(\n     ScanCancelled propagates rather than becoming a field on the result:\n     a short candidate list is indistinguishable from a complete one, so a\n     partial result would report most of the collection as missing - a\n     wrong answer delivered confidently.\n     \"\"\"\n+    # Volume identities are resolved once here and reused by both the\n+    # fingerprint tier (_build_fingerprint_tier's known_mounts) and the\n+    # candidate-side LOCATION re-encoding below, so a core-boundary\n+    # redesign must not reintroduce a second resolution (ref: DL-046).\n     old_records = collection_records(old_root)\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-005",
+          "version": 4,
+          "intent_ref": "CI-M-002-003",
+          "file": "traktor_nml/reconnect_run.py",
+          "diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -192,3 +192,42 @@ def run_reconnection(\n+\n+\n+def _write_ambiguity_csv(rows: list[dict[str, str]], csv_path: Path) -> None:\n+    fieldnames = list(rows[0].keys()) if rows else [\"artist\", \"title\", \"old_path\", \"reason\"]\n+    with csv_path.open(\"w\", newline=\"\", encoding=\"utf-8\") as handle:\n+        writer = csv.DictWriter(handle, fieldnames=fieldnames)\n+        if rows:\n+            writer.writeheader()\n+            writer.writerows(rows)\n+\n+\n+def scan_reconnect_candidates(\n+    args: argparse.Namespace,\n+    *,\n+    on_progress: Optional[Callable[[int, int, Path], None]] = None,\n+    cancel=None,\n+) -> ScanReconnectResult:\n+    \"\"\"Run one scan-reconnect-candidates pass, printless.\n+\n+    on_progress and cancel pass straight through to run_reconnection.\n+    Writes the ambiguity CSV when args.csv is set, after\n+    run_reconnection has returned, and records the written path on the\n+    result rather than printing it. Writes to neither stream.\n+    \"\"\"\n+    try:\n+        old_tree = parse_xml(args.old_input)\n+    except FileNotFoundError:\n+        return ScanReconnectResult(None, f\"input_not_found={args.old_input.as_posix()}\", None)\n+    except XML_PARSE_ERROR as exc:\n+        return ScanReconnectResult(None, f\"xml_parse_error={args.old_input.as_posix()}: {exc}\", None)\n+\n+    try:\n+        result = run_reconnection(args, old_tree.getroot(), on_progress=on_progress, cancel=cancel)\n+    except VolumeIdentityError as exc:\n+        return ScanReconnectResult(None, f\"volume_identity_error={exc}\", None)\n+    except _FingerprintUnavailable as exc:\n+        return ScanReconnectResult(None, f\"fingerprint_unavailable={exc}\", None)\n+\n+    csv_path = None\n+    if args.csv is not None:\n+        _write_ambiguity_csv(result.ambiguity_rows, args.csv)\n+        csv_path = args.csv\n+    return ScanReconnectResult(result, None, csv_path)\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -197,6 +197,9 @@ def scan_reconnect_candidates(\n     Writes the ambiguity CSV when args.csv is set, after\n     run_reconnection has returned, and records the written path on the\n     result rather than printing it. Writes to neither stream.\n     \"\"\"\n+    # Both typed failures below are returned as an\n+    # error=<key>=<value> string; the renderer, not this function,\n+    # decides how they reach stdout/stderr and maps them to exit code 2.\n     try:\n         old_tree = parse_xml(args.old_input)\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-006",
+          "version": 4,
+          "intent_ref": "CI-M-002-004",
+          "file": "traktor_nml/reconnect_run.py",
+          "diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -233,3 +233,79 @@ def scan_reconnect_candidates(\n+\n+\n+def _apply_mapping_stdlib(\n+    old_root, old_records: list[EntryRecord], mapping: dict[str, EntryRecord], stats: dict[str, int], dry_run: bool\n+) -> None:\n+    for record in old_records:\n+        new_record = mapping.get(record.primary_key)\n+        if new_record is None:\n+            continue\n+        ch = loc_attr_changes(record.location, new_record.location)\n+        if ch:\n+            stats[\"collection_locations_rewritten\"] += 1\n+            if not dry_run:\n+                loc_elem = record.entry.find(\"LOCATION\")\n+                if loc_elem is not None:\n+                    write_location_element(loc_elem, new_record.location)\n+    resolver = CompareEntryResolver(mapping=mapping)\n+    process_non_collection_entries(\n+        old_root, {id(r.entry) for r in old_records}, resolver, stats, dry_run=dry_run\n+    )\n+\n+\n+def rewrite_from_reconnect(\n+    args: argparse.Namespace,\n+    *,\n+    on_progress: Optional[Callable[[int, int, Path], None]] = None,\n+    cancel=None,\n+) -> RewriteReconnectResult:\n+    \"\"\"Run one rewrite-from-reconnect pass, printless.\n+\n+    on_progress and cancel reach run_reconnection through the callback.\n+    A mutable holder dict with keys reconnect and csv_path,\n+    both initially None, is populated by the callback and read after\n+    plan_and_write_nml returns. The write order inside the callback fixes\n+    the holder's meaning in every case: run_reconnection returns first\n+    and the holder's reconnect key is set immediately, then the CSV is\n+    written and csv_path is set - so there is no state in which csv_path\n+    is set while reconnect is None, and no partial ReconnectResult is\n+    ever stored. ScanCancelled escapes rather than becoming a field.\n+    \"\"\"\n+    holder: dict[str, object] = {\"reconnect\": None, \"csv_path\": None}\n+\n+    def _collect_patches(old_root):\n+        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)\n+        holder[\"reconnect\"] = result\n+        patches, apply_stats = _collect_compare_patches(old_root, result.old_records, result.mapping)\n+        merged_stats = {**apply_stats, **result.stats}\n+        if args.csv is not None:\n+            _write_ambiguity_csv(result.ambiguity_rows, args.csv)\n+            holder[\"csv_path\"] = args.csv\n+        return patches, merged_stats, []\n+\n+    def mutate_tree(old_root, dry_run):\n+        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)\n+        holder[\"reconnect\"] = result\n+        merged_stats = {\n+            \"collection_locations_rewritten\": 0,\n+            \"other_locations_rewritten\": 0,\n+            \"primarykeys_updated_from_collection\": 0,\n+            \"primarykeys_unchanged\": 0,\n+            **result.stats,\n+        }\n+        _apply_mapping_stdlib(old_root, result.old_records, result.mapping, merged_stats, dry_run)\n+        if args.csv is not None:\n+            _write_ambiguity_csv(result.ambiguity_rows, args.csv)\n+            holder[\"csv_path\"] = args.csv\n+        return merged_stats, []\n+\n+    try:\n+        outcome = plan_and_write_nml(args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree)\n+    except VolumeIdentityError as exc:\n+        return RewriteReconnectResult(None, None, None, f\"volume_identity_error={exc}\")\n+    except _FingerprintUnavailable as exc:\n+        return RewriteReconnectResult(None, None, None, f\"fingerprint_unavailable={exc}\")\n+\n+    return RewriteReconnectResult(outcome, holder[\"reconnect\"], holder[\"csv_path\"], None)\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_run.py\n+++ b/traktor_nml/reconnect_run.py\n@@ -235,4 +235,11 @@ def scan_reconnect_candidates(\n def _apply_mapping_stdlib(\n     old_root, old_records: list[EntryRecord], mapping: dict[str, EntryRecord], stats: dict[str, int], dry_run: bool\n ) -> None:\n+    \"\"\"Both writers - this stdlib path and rewrite.py's compare-based\n+    lxml path - must share one PRIMARYKEY/entry-rewrite rule, so every\n+    non-collection entry here is handed to CompareEntryResolver, the same\n+    resolver rewrite.py uses. Each matched record's LOCATION is rewritten\n+    directly (rather than through the resolver) since a disk-scan match\n+    carries no compare-report entry of its own.\n+    \"\"\"\n     for record in old_records:\n@@ -271,3 +278,9 @@ def rewrite_from_reconnect(\n     ever stored. ScanCancelled escapes rather than becoming a field.\n+\n+    Both the tag cache (via run_reconnection's cache.flush()) and the\n+    ambiguity CSV are written on every call regardless of args.dry_run:\n+    dry_run governs only the final write_nml_safely/plan_and_write_nml\n+    step, and neither the cache nor the CSV is this command's declared\n+    output.\n     \"\"\"\n     holder: dict[str, object] = {\"reconnect\": None, \"csv_path\": None}\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-007",
+          "version": 3,
+          "intent_ref": "CI-M-002-005",
+          "file": "traktor_nml/reconnect_render.py",
+          "diff": "--- /dev/null\n+++ b/traktor_nml/reconnect_render.py\n@@ -0,0 +1,31 @@\n+\"\"\"Every character the reconnect commands put on stdout or stderr.\n+\n+reconnect_run.py returns typed results rather than printing; this module\n+turns a result into buffered stdout lines, stderr lines and an exit code,\n+and emit is the one function that actually writes to a stream.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+import argparse\n+import sys\n+from dataclasses import dataclass\n+\n+from . import rewrite\n+from .reconnect_run import RewriteReconnectResult, ScanReconnectResult\n+from .shared_args import refutation_disabled_line\n+\n+\n+@dataclass\n+class RenderedOutput:\n+    \"\"\"Buffered stdout lines, stderr lines and an exit code. emit is the\n+    one function that writes them to sys.stdout/sys.stderr, so every\n+    print on the reconnect path lives inside it rather than scattered\n+    across the pipeline.\"\"\"\n+\n+    stdout_lines: list[str]\n+    stderr_lines: list[str]\n+    exit_code: int\n+\n+\n+def emit(rendered: RenderedOutput) -> int:\n+    for line in rendered.stdout_lines:\n+        print(line)\n+    for line in rendered.stderr_lines:\n+        print(line, file=sys.stderr)\n+    return rendered.exit_code\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_render.py\n+++ b/traktor_nml/reconnect_render.py\n@@ -27,6 +27,9 @@ class RenderedOutput:\n     print on the reconnect path lives inside it rather than scattered\n     across the pipeline.\"\"\"\n\n+    # Two separate lists rather than one interleaved stream: the parity\n+    # manifest records stdout and stderr independently, and buffering\n+    # them separately means this module cannot reorder what it observes.\n     stdout_lines: list[str]\n     stderr_lines: list[str]\n     exit_code: int\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-008",
+          "version": 3,
+          "intent_ref": "CI-M-002-006",
+          "file": "traktor_nml/reconnect_render.py",
+          "diff": "--- a/traktor_nml/reconnect_render.py\n+++ b/traktor_nml/reconnect_render.py\n@@ -30,3 +30,21 @@ def emit(rendered: RenderedOutput) -> int:\n     for line in rendered.stderr_lines:\n         print(line, file=sys.stderr)\n     return rendered.exit_code\n+\n+\n+def render_scan_reconnect_candidates(\n+    result: ScanReconnectResult, args: argparse.Namespace\n+) -> RenderedOutput:\n+    if result.error is not None:\n+        return RenderedOutput([], [result.error], 2)\n+\n+    reconnect = result.result\n+    stdout_lines = [f\"reconnectable={len(reconnect.mapping)}\"]\n+    for key, value in reconnect.stats.items():\n+        stdout_lines.append(f\"{key}={value}\")\n+    if result.csv_path is not None:\n+        stdout_lines.append(f\"csv_written={result.csv_path.as_posix()}\")\n+\n+    stderr_lines = list(reconnect.warnings)\n+    refutation_line = refutation_disabled_line(args)\n+    if refutation_line is not None:\n+        stderr_lines.append(refutation_line)\n+\n+    return RenderedOutput(stdout_lines, stderr_lines, 0)\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_render.py\n+++ b/traktor_nml/reconnect_render.py\n@@ -34,5 +34,14 @@ def emit(rendered: RenderedOutput) -> int:\n def render_scan_reconnect_candidates(\n     result: ScanReconnectResult, args: argparse.Namespace\n ) -> RenderedOutput:\n+    \"\"\"Produces stdout as reconnectable=<count> followed by the stats\n+    block in mapping order, then csv_written=<path> only when a CSV was\n+    written; stderr as the run's own warnings followed by the\n+    refutation-disabled line when refutation is off. tests/baselines/\n+    manifest.json's recorded scan-reconnect-candidates cases are the\n+    oracle for this exact ordering. An error on the result short-\n+    circuits to a single stderr line and exit code 2, since no\n+    ReconnectResult exists yet.\n+    \"\"\"\n     if result.error is not None:\n         return RenderedOutput([], [result.error], 2)\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-009",
+          "version": 4,
+          "intent_ref": "CI-M-002-007",
+          "file": "traktor_nml/reconnect_render.py",
+          "diff": "--- a/traktor_nml/reconnect_render.py\n+++ b/traktor_nml/reconnect_render.py\n@@ -48,3 +48,26 @@ def render_scan_reconnect_candidates(\n     return RenderedOutput(stdout_lines, stderr_lines, 0)\n+\n+\n+def render_rewrite_from_reconnect(\n+    result: RewriteReconnectResult, args: argparse.Namespace\n+) -> RenderedOutput:\n+    stdout_lines: list[str] = []\n+    if result.csv_path is not None:\n+        stdout_lines.append(f\"csv_written={result.csv_path.as_posix()}\")\n+\n+    outcome = result.outcome\n+    if outcome is not None and outcome.stats is not None:\n+        stdout_lines.extend(rewrite.format_stats_and_samples(outcome.stats, outcome.samples))\n+    if outcome is not None and outcome.written_path is not None:\n+        stdout_lines.append(f\"output_written={outcome.written_path.as_posix()}\")\n+\n+    stderr_lines: list[str] = []\n+    if result.reconnect is not None:\n+        # warn_refutation_disabled in the pre-split core only ran after\n+        # volume-identity resolution and the fingerprint check both\n+        # succeeded, i.e. only on a run that reached matching - gating on\n+        # result.reconnect (populated only once run_reconnection returns)\n+        # reproduces that: an output collision or a volume_identity_error/\n+        # fingerprint_unavailable failure prints neither warning.\n+        stderr_lines.extend(result.reconnect.warnings)\n+        refutation_line = refutation_disabled_line(args)\n+        if refutation_line is not None:\n+            stderr_lines.append(refutation_line)\n+    if outcome is not None and outcome.error is not None:\n+        stderr_lines.append(outcome.error)\n+    elif result.error is not None:\n+        stderr_lines.append(result.error)\n+\n+    exit_code = outcome.exit_code if outcome is not None else 2\n+    return RenderedOutput(stdout_lines, stderr_lines, exit_code)\n",
+          "doc_diff": "--- a/traktor_nml/reconnect_render.py\n+++ b/traktor_nml/reconnect_render.py\n@@ -51,5 +51,15 @@ def render_scan_reconnect_candidates(\n def render_rewrite_from_reconnect(\n     result: RewriteReconnectResult, args: argparse.Namespace\n ) -> RenderedOutput:\n+    \"\"\"Produces stdout as csv_written=<path> first when a CSV was\n+    written, then the stats/samples block and output_written=<path>\n+    sourced from the WriteOutcome, in the same order write_nml_safely\n+    prints them. The CSV line comes first because the CSV is written\n+    inside the reconnection callback, before plan_and_write_nml's write\n+    step runs. Warnings and the refutation line are gated on\n+    result.reconnect being populated, so a run that fails before\n+    reconnection completes (an output collision, or a volume-identity/\n+    fingerprint error) prints neither.\n+    \"\"\"\n     stdout_lines: list[str] = []\n     if result.csv_path is not None:\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-010",
+          "version": 3,
+          "intent_ref": "CI-M-002-008",
+          "file": "traktor_nml/commands/reconnect_cmd.py",
+          "diff": "--- a/traktor_nml/commands/reconnect_cmd.py\n+++ b/traktor_nml/commands/reconnect_cmd.py\n@@ -1,302 +1,89 @@\n \"\"\"scan-reconnect-candidates and rewrite-from-reconnect subcommands.\"\"\"\n\n from __future__ import annotations\n\n import argparse\n-import csv\n-import sys\n from pathlib import Path\n\n-from ..diskscan import index_scan_roots\n-from ..model import EntryRecord, collection_records, loc_attr_changes, write_location_element\n-from ..reconnect import location_from_disk_path, resolve_reconnection\n-from ..rewrite import (\n-    CompareEntryResolver,\n-    _collect_compare_patches,\n-    process_non_collection_entries,\n-    write_nml_safely,\n-)\n-from ..tagcache import TagCache\n-from ..volumes import VolumeIdentityError, parse_volume_map, resolve_volume_identity\n-from ..xmlio import XML_PARSE_ERROR, parse_xml\n-from ._shared_args import (\n-    add_confidence_args,\n-    add_no_refute_argument,\n-    resolve_confidence,\n-    should_refute,\n-    warn_refutation_disabled,\n-)\n+from .. import reconnect_run\n+from ..reconnect_render import emit, render_rewrite_from_reconnect, render_scan_reconnect_candidates\n+from ._shared_args import add_confidence_args, add_no_refute_argument\n\n try:\n-    # fingerprint.py is the M-005 acoustic-fingerprint key provider; it may\n-    # not exist yet when this module is developed concurrently with M-005.\n-    # Importing it defensively keeps every other subcommand (this module is\n-    # auto-imported at CLI startup, see commands/__init__.py) working even\n-    # when fingerprint.py, pyacoustid and fpcalc are absent - --fingerprint\n-    # simply becomes unavailable until M-005 lands, rather than the whole\n-    # CLI failing to import.\n-    from ..fingerprint import (\n-        FPCALC_TIMEOUT_SECONDS,\n-        FpcalcSession,\n-        fingerprint_key_provider,\n-        fingerprint_unavailable_reason,\n-    )\n+    # See reconnect_run.py's own defensive import: --fpcalc-timeout's\n+    # default needs FPCALC_TIMEOUT_SECONDS whether or not fingerprint.py\n+    # (the M-005 acoustic-fingerprint tier) is present yet.\n+    from ..fingerprint import FPCALC_TIMEOUT_SECONDS\n except ImportError:  # pragma: no cover - fingerprint tier lands in M-005\n-    fingerprint_key_provider = None\n-    fingerprint_unavailable_reason = None\n-    FpcalcSession = None\n     FPCALC_TIMEOUT_SECONDS = 30.0\n-\n-\n-class _FingerprintUnavailable(RuntimeError):\n-    pass\n\n\n def add_reconnect_args(parser: argparse.ArgumentParser) -> None:\n     add_no_refute_argument(parser)\n     parser.add_argument(\n         \"--fpcalc-timeout\",\n         type=float,\n         default=FPCALC_TIMEOUT_SECONDS,\n         help=f\"Seconds to allow one file's fingerprint before giving up on it \"\n         f\"(default {FPCALC_TIMEOUT_SECONDS:g}). The file is counted as \"\n         f\"fingerprint_timeout and the scan continues, so one pathological \"\n         f\"file cannot stall a long run.\",\n     )\n     parser.add_argument(\n         \"--scan-root\",\n         type=Path,\n         action=\"append\",\n         dest=\"scan_roots\",\n         required=True,\n         help=\"Filesystem root to scan for candidate audio files (repeatable).\",\n     )\n     parser.add_argument(\n         \"--volume-map\",\n         nargs=3,\n         action=\"append\",\n         metavar=(\"SCAN_ROOT\", \"VOLUME\", \"VOLUMEID\"),\n         help=\"Explicit VOLUME/VOLUMEID for a scan root (repeatable); required when the \"\n         \"prefix scan of the old collection cannot resolve a single unambiguous pair.\",\n     )\n     parser.add_argument(\n         \"--cache\",\n         type=Path,\n         default=Path(\".traktor_nml_tagcache.json\"),\n         help=\"Disk-scan tag cache path. Written/updated as scan roots are indexed, \"\n         \"independently of --dry-run: --dry-run only suppresses writes to the output \"\n         \"NML, not this cache file.\",\n     )\n     parser.add_argument(\"--refresh-cache\", action=\"store_true\")\n     parser.add_argument(\"--csv\", type=Path)\n     parser.add_argument(\n         \"--fingerprint\",\n         action=\"store_true\",\n         help=\"Enable the acoustic-fingerprint match tier (requires pyacoustid, the fpcalc binary, and the chromaprint shared library); \"\n         \"opt-in and off by default since these are optional dependencies.\",\n     )\n     add_confidence_args(parser)\n\n\n-def _write_ambiguity_csv(rows: list[dict[str, str]], csv_path: Path) -> None:\n-    fieldnames = list(rows[0].keys()) if rows else [\"artist\", \"title\", \"old_path\", \"reason\"]\n-    with csv_path.open(\"w\", newline=\"\", encoding=\"utf-8\") as handle:\n-        writer = csv.DictWriter(handle, fieldnames=fieldnames)\n-        if rows:\n-            writer.writeheader()\n-            writer.writerows(rows)\n-    print(f\"csv_written={csv_path.as_posix()}\")\n-\n-\n-def _run_reconnection(\n-    args: argparse.Namespace, old_root\n-) -> tuple[dict[str, EntryRecord], dict[str, int], list[dict[str, str]], list[EntryRecord]]:\n-    old_records = collection_records(old_root)\n-    cache = TagCache(args.cache)\n-    candidates = index_scan_roots(args.scan_roots, cache, refresh_cache=args.refresh_cache)\n-    confidence = resolve_confidence(args)\n-\n-    # Volume identities are resolved once, up front, before any key\n-    # provider is built: both the fingerprint tier's old-side resolver\n-    # below and the candidate-side LOCATION re-encoding further down this\n-    # function reuse the same resolved identities, rather than resolving\n-    # twice.\n-    volume_map = parse_volume_map(args.volume_map)\n-    volume_identities: dict[Path, tuple[str, str]] = {}\n-    for scan_root in args.scan_roots:\n-        volume_identities[Path(scan_root)] = resolve_volume_identity(scan_root, old_records, volume_map)\n-\n-    # known_mounts anchors each scan root at its own filesystem anchor (the\n-    # drive letter or POSIX root, e.g. \"C:\\\\\" or \"/\"), never at scan_root\n-    # itself - decoded_path is volume-relative (relative to the volume\n-    # root), not relative to an arbitrary scan-root subdirectory, so\n-    # anchoring at scan_root would reconstruct the wrong absolute path for\n-    # every record whose file sits outside that particular subdirectory.\n-    known_mounts: dict[tuple[str, str], list[Path]] = {}\n-    for scan_root, identity in volume_identities.items():\n-        anchor = Path(scan_root).anchor\n-        if anchor:\n-            known_mounts.setdefault(identity, []).append(Path(anchor))\n-\n-    key_providers = []\n-    fingerprint_stats: dict[str, int] = {}\n-    if getattr(args, \"fingerprint\", False):\n-        if fingerprint_key_provider is None:\n-            raise _FingerprintUnavailable(\n-                \"fingerprint_key_provider unavailable (traktor_nml.fingerprint not installed)\"\n-            )\n-        unavailable = fingerprint_unavailable_reason()\n-        if unavailable is not None:\n-            # Every way this tier can be unusable degrades to matching\n-            # nothing, so an undiagnosed run looks exactly like one that\n-            # searched and found no candidates. The reason is named rather\n-            # than the dependency set listed, because the three pieces fail\n-            # independently and \"pyacoustid/fpcalc not available\" is wrong\n-            # advice when the missing piece is the chromaprint library and\n-            # both of those are installed.\n-            print(\n-                f\"fingerprint_dependency_missing={unavailable}; \"\n-                \"--fingerprint tier will find no matches\",\n-                file=sys.stderr,\n-            )\n-        # The session owns the fpcalc child, so a per-file timeout is\n-        # enforceable and a caller can terminate one mid-fingerprint.\n-        fpcalc_session = FpcalcSession(\n-            timeout=getattr(args, \"fpcalc_timeout\", FPCALC_TIMEOUT_SECONDS)\n-        )\n-        key_providers.append(\n-            fingerprint_key_provider(\n-                cache, candidates, fingerprint_stats, known_mounts, fpcalc_session\n-            )\n-        )\n-\n-    warn_refutation_disabled(args)\n-    mapping, stats, ambiguity_rows = resolve_reconnection(\n-        old_records, candidates, confidence, key_providers,\n-        refute=should_refute(args),\n-    )\n-    stats = {**fingerprint_stats, **stats}\n-\n-    # Re-encode each winning candidate's real absolute path into a proper\n-    # LOCATION using its scan root's resolved volume identity - the\n-    # placeholder LocationParts a disk-scan candidate carries has no real\n-    # VOLUME/VOLUMEID and is never written as-is.\n-    for candidate in mapping.values():\n-        if candidate.source_path is None:\n-            continue\n-        for scan_root, identity in volume_identities.items():\n-            try:\n-                candidate.source_path.relative_to(scan_root.resolve())\n-            except ValueError:\n-                continue\n-            candidate.location = location_from_disk_path(candidate.source_path, *identity)\n-            break\n-\n-    cache.flush()\n-    return mapping, stats, ambiguity_rows, old_records\n-\n-\n-def _apply_mapping_stdlib(\n-    old_root, old_records: list[EntryRecord], mapping: dict[str, EntryRecord], stats: dict[str, int], dry_run: bool\n-) -> None:\n-    for record in old_records:\n-        new_record = mapping.get(record.primary_key)\n-        if new_record is None:\n-            continue\n-        ch = loc_attr_changes(record.location, new_record.location)\n-        if ch:\n-            stats[\"collection_locations_rewritten\"] += 1\n-            if not dry_run:\n-                loc_elem = record.entry.find(\"LOCATION\")\n-                if loc_elem is not None:\n-                    write_location_element(loc_elem, new_record.location)\n-    resolver = CompareEntryResolver(mapping=mapping)\n-    process_non_collection_entries(\n-        old_root, {id(r.entry) for r in old_records}, resolver, stats, dry_run=dry_run\n-    )\n-\n-\n-def _handle_scan_reconnect_candidates(args: argparse.Namespace) -> int:\n-    try:\n-        old_tree = parse_xml(args.old_input)\n-    except FileNotFoundError:\n-        print(f\"input_not_found={args.old_input.as_posix()}\", file=sys.stderr)\n-        return 2\n-    except XML_PARSE_ERROR as exc:\n-        print(f\"xml_parse_error={args.old_input.as_posix()}: {exc}\", file=sys.stderr)\n-        return 2\n-    try:\n-        mapping, stats, ambiguity_rows, _old_records = _run_reconnection(args, old_tree.getroot())\n-    except VolumeIdentityError as exc:\n-        print(f\"volume_identity_error={exc}\", file=sys.stderr)\n-        return 2\n-    except _FingerprintUnavailable as exc:\n-        print(f\"fingerprint_unavailable={exc}\", file=sys.stderr)\n-        return 2\n-\n-    print(f\"reconnectable={len(mapping)}\")\n-    for key, value in stats.items():\n-        print(f\"{key}={value}\")\n-    if args.csv is not None:\n-        _write_ambiguity_csv(ambiguity_rows, args.csv)\n-    return 0\n-\n-\n-def _handle_rewrite_from_reconnect(args: argparse.Namespace) -> int:\n-    def _collect_patches(old_root):\n-        mapping, stats, ambiguity_rows, old_records = _run_reconnection(args, old_root)\n-        patches, apply_stats = _collect_compare_patches(old_root, old_records, mapping)\n-        merged_stats = {**apply_stats, **stats}\n-        if args.csv is not None:\n-            _write_ambiguity_csv(ambiguity_rows, args.csv)\n-        return patches, merged_stats, []\n-\n-    def mutate_tree(old_root, dry_run):\n-        mapping, stats, ambiguity_rows, old_records = _run_reconnection(args, old_root)\n-        merged_stats = {\n-            \"collection_locations_rewritten\": 0,\n-            \"other_locations_rewritten\": 0,\n-            \"primarykeys_updated_from_collection\": 0,\n-            \"primarykeys_unchanged\": 0,\n-            **stats,\n-        }\n-        _apply_mapping_stdlib(old_root, old_records, mapping, merged_stats, dry_run)\n-        if args.csv is not None:\n-            _write_ambiguity_csv(ambiguity_rows, args.csv)\n-        return merged_stats, []\n-\n-    try:\n-        return write_nml_safely(args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree)\n-    except VolumeIdentityError as exc:\n-        print(f\"volume_identity_error={exc}\", file=sys.stderr)\n-        return 2\n-    except _FingerprintUnavailable as exc:\n-        print(f\"fingerprint_unavailable={exc}\", file=sys.stderr)\n-        return 2\n+def _handle_scan_reconnect_candidates(args: argparse.Namespace) -> int:\n+    return emit(render_scan_reconnect_candidates(reconnect_run.scan_reconnect_candidates(args), args))\n+\n+\n+def _handle_rewrite_from_reconnect(args: argparse.Namespace) -> int:\n+    return emit(render_rewrite_from_reconnect(reconnect_run.rewrite_from_reconnect(args), args))\n\n\n def register(subparsers, handlers: dict) -> None:\n     scan_parser = subparsers.add_parser(\n         \"scan-reconnect-candidates\",\n         help=\"Match an old collection's tracks against disk-scan candidates without writing\",\n     )\n     scan_parser.add_argument(\"old_input\", type=Path)\n     add_reconnect_args(scan_parser)\n     handlers[\"scan-reconnect-candidates\"] = _handle_scan_reconnect_candidates\n\n     rewrite_parser = subparsers.add_parser(\n         \"rewrite-from-reconnect\",\n         help=\"Rewrite an old collection's LOCATIONs and PRIMARYKEYs from a disk scan\",\n     )\n     rewrite_parser.add_argument(\"old_input\", type=Path)\n     rewrite_parser.add_argument(\"output\", type=Path)\n     rewrite_parser.add_argument(\n         \"--dry-run\",\n         action=\"store_true\",\n         help=\"Print stats without writing the output NML. Note: the --cache tag cache \"\n         \"and the --csv ambiguity report are still written, since neither is the \"\n         \"command's declared output - the cache is a scan speed-up and the report \"\n         \"is a record of what the run saw.\",\n     )\n     add_reconnect_args(rewrite_parser)\n     handlers[\"rewrite-from-reconnect\"] = _handle_rewrite_from_reconnect\n",
+          "doc_diff": "--- a/traktor_nml/commands/reconnect_cmd.py\n+++ b/traktor_nml/commands/reconnect_cmd.py\n@@ -284,8 +284,14 @@ def add_reconnect_args(parser: argparse.ArgumentParser) -> None:\n \n \n def _handle_scan_reconnect_candidates(args: argparse.Namespace) -> int:\n+    \"\"\"Argparse wiring only: emit(render(core(args))). Holds no print\n+    call and writes to neither stream itself - the command layer never\n+    computes a value it prints, per tests/test_command_layer_printless.py.\"\"\"\n     return emit(render_scan_reconnect_candidates(reconnect_run.scan_reconnect_candidates(args), args))\n \n \n def _handle_rewrite_from_reconnect(args: argparse.Namespace) -> int:\n+    \"\"\"Argparse wiring only: emit(render(core(args))), same shape as\n+    _handle_scan_reconnect_candidates above and covered by the same\n+    printless guard.\"\"\"\n     return emit(render_rewrite_from_reconnect(reconnect_run.rewrite_from_reconnect(args), args))\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-011",
+          "version": 6,
+          "intent_ref": "CI-M-002-009",
+          "file": "tests/test_reconnect_render_equivalence.py",
+          "diff": "--- /dev/null\n+++ b/tests/test_reconnect_render_equivalence.py\n@@ -0,0 +1,358 @@\n+\"\"\"Section 3.2 equivalence tests: the renderer over the printless core\n+must reproduce exactly what the CLI printed before the split, using the\n+recorded reconnect cases in tests/baselines/manifest.json as the\n+expectation rather than restating them.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+import contextlib\n+import io\n+import json\n+import os\n+import threading\n+from pathlib import Path\n+\n+import pytest\n+\n+from traktor_nml import reconnect_run\n+from traktor_nml.cli import build_parser\n+from traktor_nml.diskscan import ScanCancelled\n+from traktor_nml.reconnect_render import (\n+    render_rewrite_from_reconnect,\n+    render_scan_reconnect_candidates,\n+)\n+from traktor_nml.xmlio import parse_xml\n+\n+MANIFEST_PATH = Path(__file__).parent / \"baselines\" / \"manifest.json\"\n+\n+\n+def _reconnect_cases() -> list[dict]:\n+    cases = json.loads(MANIFEST_PATH.read_text(encoding=\"utf-8\"))\n+    return [c for c in cases if c[\"argv\"][0] in (\"scan-reconnect-candidates\", \"rewrite-from-reconnect\")]\n+\n+\n+def _parse_args(argv: list[str]) -> object:\n+    parser, _handlers = build_parser()\n+    return parser.parse_args(argv)\n+\n+\n+def _render_for_argv(argv: list[str], cwd: Path):\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(cwd)\n+    try:\n+        if argv[0] == \"scan-reconnect-candidates\":\n+            result = reconnect_run.scan_reconnect_candidates(args)\n+            return render_scan_reconnect_candidates(result, args), result\n+        result = reconnect_run.rewrite_from_reconnect(args)\n+        return render_rewrite_from_reconnect(result, args), result\n+    finally:\n+        os.chdir(old_cwd)\n+\n+\n+def _lines_to_text(lines: list[str]) -> str:\n+    return \"\\n\".join(lines) + (\"\\n\" if lines else \"\")\n+\n+\n+@pytest.mark.parametrize(\"case\", _reconnect_cases(), ids=lambda case: \" \".join(case[\"argv\"][:2]))\n+def test_render_matches_recorded_case(fixture_corpus: Path, case: dict) -> None:\n+    \"\"\"render(core(args)) reproduces the recorded stdout, stderr and exit\n+    code for each of the four reconnect manifest cases, using the same\n+    fixture_corpus inputs the manifest case itself was recorded against.\"\"\"\n+    cwd = fixture_corpus.parent\n+    rendered, _result = _render_for_argv(case[\"argv\"], cwd)\n+\n+    stdout = _lines_to_text(rendered.stdout_lines)\n+    stderr = _lines_to_text(rendered.stderr_lines)\n+\n+    expected_stdout = case[\"stdout\"]\n+    expected_stderr = case[\"stderr\"]\n+    if case.get(\"normalise_run_root\"):\n+        run_root = cwd.resolve().as_posix()\n+        expected_stdout = expected_stdout.replace(\"{RUN_ROOT}\", run_root)\n+        expected_stderr = expected_stderr.replace(\"{RUN_ROOT}\", run_root)\n+\n+    assert stdout == expected_stdout\n+    assert stderr == expected_stderr\n+    assert rendered.exit_code == case[\"exit_code\"]\n+\n+\n+def test_dropped_stats_key_breaks_the_comparison(fixture_corpus: Path) -> None:\n+    \"\"\"Negative control: proves the equality assertion above actually\n+    detects drift rather than passing regardless of content. Observed to\n+    fail the assertion below when run against an unmodified renderer.\"\"\"\n+    case = next(c for c in _reconnect_cases() if c[\"argv\"][0] == \"scan-reconnect-candidates\")\n+    rendered, _result = _render_for_argv(case[\"argv\"], fixture_corpus.parent)\n+\n+    tampered = list(rendered.stdout_lines)\n+    if len(tampered) > 1:\n+        tampered.pop(1)\n+\n+    assert _lines_to_text(tampered) != case[\"stdout\"]\n+\n+\n+_SCAN_ARGV = [\n+    \"scan-reconnect-candidates\", \"recon/stale.nml\",\n+    \"--scan-root\", \"recon/audio\",\n+    \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+    \"--match-confidence\", \"filename\",\n+    \"--cache\", \"out/recon.tagcache.json\",\n+]\n+\n+\n+def test_fingerprint_warning_lands_in_result_not_printed_by_core(\n+    fixture_corpus: Path, monkeypatch: pytest.MonkeyPatch\n+) -> None:\n+    \"\"\"A non-None fingerprint_unavailable_reason() must become a warning\n+    on ReconnectResult and render to stderr ahead of the refutation line,\n+    rather than being printed by the core itself - the probe stub\n+    replaces only that function and leaves fingerprint_key_provider bound\n+    as the defensive import left it.\"\"\"\n+    if reconnect_run.fingerprint_key_provider is None:\n+        pytest.skip(\"fingerprint.py not present\")\n+\n+    monkeypatch.setattr(reconnect_run, \"fingerprint_unavailable_reason\", lambda: \"stub reason\")\n+\n+    argv = _SCAN_ARGV + [\"--fingerprint\"]\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        buf_out, buf_err = io.StringIO(), io.StringIO()\n+        with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):\n+            result = reconnect_run.scan_reconnect_candidates(args)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert buf_out.getvalue() == \"\"\n+    assert buf_err.getvalue() == \"\"\n+    assert result.result is not None\n+    assert any(\"stub reason\" in warning for warning in result.result.warnings)\n+\n+    rendered = render_scan_reconnect_candidates(result, args)\n+    assert rendered.stderr_lines[0].startswith(\"fingerprint_dependency_missing=stub reason\")\n+\n+\n+def test_fingerprint_warning_absent_when_reason_returns_none(\n+    fixture_corpus: Path, monkeypatch: pytest.MonkeyPatch\n+) -> None:\n+    \"\"\"Negative control for test_fingerprint_warning_lands_in_result_not_printed_by_core:\n+    proves the warning assertions above actually depend on\n+    fingerprint_unavailable_reason() returning a reason, by monkeypatching it to\n+    return None instead of \"stub reason\" and observing the warning disappear from\n+    both ReconnectResult.warnings and the rendered stderr. Observed to fail\n+    test_fingerprint_warning_lands_in_result_not_printed_by_core's warning\n+    assertions when this stub replaces the \"stub reason\" stub.\"\"\"\n+    if reconnect_run.fingerprint_key_provider is None:\n+        pytest.skip(\"fingerprint.py not present\")\n+\n+    monkeypatch.setattr(reconnect_run, \"fingerprint_unavailable_reason\", lambda: None)\n+\n+    argv = _SCAN_ARGV + [\"--fingerprint\"]\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        result = reconnect_run.scan_reconnect_candidates(args)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert result.result is not None\n+    assert not any(\"stub reason\" in warning for warning in result.result.warnings)\n+    rendered = render_scan_reconnect_candidates(result, args)\n+    assert not any(\n+        line.startswith(\"fingerprint_dependency_missing=\") for line in rendered.stderr_lines\n+    )\n+\n+\n+def test_fingerprint_key_provider_none_raises(fixture_corpus: Path, monkeypatch: pytest.MonkeyPatch) -> None:\n+    \"\"\"Setting fingerprint_key_provider to None proves the raise path is\n+    distinct from the warn path rather than being masked by the probe\n+    stub above.\"\"\"\n+    monkeypatch.setattr(reconnect_run, \"fingerprint_key_provider\", None)\n+\n+    argv = _SCAN_ARGV + [\"--fingerprint\"]\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        result = reconnect_run.scan_reconnect_candidates(args)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert result.error is not None and result.error.startswith(\"fingerprint_unavailable=\")\n+\n+\n+def test_fingerprint_key_provider_present_does_not_raise_unavailable(\n+    fixture_corpus: Path,\n+) -> None:\n+    \"\"\"Negative control for test_fingerprint_key_provider_none_raises: proves the\n+    fingerprint_unavailable= error above is actually caused by\n+    fingerprint_key_provider being None, not by the --fingerprint flag on its own,\n+    by leaving fingerprint_key_provider at its normal bound value and observing no\n+    such error. Observed to fail test_fingerprint_key_provider_none_raises'\n+    assertion when run without the monkeypatch that sets the provider to None.\"\"\"\n+    if reconnect_run.fingerprint_key_provider is None:\n+        pytest.skip(\"fingerprint.py not present\")\n+\n+    argv = _SCAN_ARGV + [\"--fingerprint\"]\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        result = reconnect_run.scan_reconnect_candidates(args)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert result.error is None or not result.error.startswith(\"fingerprint_unavailable=\")\n+\n+\n+def test_no_refute_line_comes_from_renderer(fixture_corpus: Path) -> None:\n+    \"\"\"A no-refute run's refutation line is produced by the renderer via\n+    shared_args.refutation_disabled_line, not restated as a literal\n+    inside reconnect_render.\"\"\"\n+    argv = _SCAN_ARGV + [\"--no-refute\"]\n+    rendered, _result = _render_for_argv(argv, fixture_corpus.parent)\n+    assert any(line.startswith(\"refutation_disabled=\") for line in rendered.stderr_lines)\n+\n+\n+def test_no_refute_line_absent_when_source_returns_none(\n+    fixture_corpus: Path, monkeypatch: pytest.MonkeyPatch\n+) -> None:\n+    \"\"\"Negative control for test_no_refute_line_comes_from_renderer: proves\n+    that assertion actually depends on shared_args.refutation_disabled_line\n+    rather than passing regardless of --no-refute, by monkeypatching the\n+    renderer module's bound reference to always return None and observing\n+    the refutation line disappear from stderr. Observed to fail the\n+    positive test's assertion when run against an unmodified renderer.\"\"\"\n+    import traktor_nml.reconnect_render as reconnect_render_module\n+\n+    monkeypatch.setattr(reconnect_render_module, \"refutation_disabled_line\", lambda args: None)\n+    argv = _SCAN_ARGV + [\"--no-refute\"]\n+    rendered, _result = _render_for_argv(argv, fixture_corpus.parent)\n+    assert not any(line.startswith(\"refutation_disabled=\") for line in rendered.stderr_lines)\n+\n+\n+def test_on_progress_fires_and_cancel_raises(fixture_corpus: Path) -> None:\n+    \"\"\"An on_progress callback passed into the core fires at least once\n+    with a path from the scan, and a pre-set cancel token raises\n+    ScanCancelled out of the core rather than yielding a partial\n+    result.\"\"\"\n+    args = _parse_args(_SCAN_ARGV)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        seen: list = []\n+        reconnect_run.scan_reconnect_candidates(\n+            args, on_progress=lambda done, total, path: seen.append(path)\n+        )\n+        assert seen, \"on_progress never fired\"\n+\n+        cancel = threading.Event()\n+        cancel.set()\n+        old_root = parse_xml(args.old_input).getroot()\n+        with pytest.raises(ScanCancelled):\n+            reconnect_run.run_reconnection(args, old_root, cancel=cancel)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+\n+def test_on_progress_does_not_fire_when_scan_root_is_empty(fixture_corpus: Path) -> None:\n+    \"\"\"Negative control for test_on_progress_fires_and_cancel_raises's\n+    on_progress assertion: proves that assertion actually depends on the\n+    scan finding files to report on, not on the callback firing\n+    regardless of scan content, by pointing --scan-root at an empty\n+    directory and observing on_progress never fire. Observed to fail\n+    (seen non-empty) if run_reconnection ignored an empty scan tree and\n+    fired progress anyway.\"\"\"\n+    empty_root = fixture_corpus.parent / \"empty_audio\"\n+    empty_root.mkdir()\n+    argv = [\n+        \"scan-reconnect-candidates\", \"recon/stale.nml\",\n+        \"--scan-root\", \"empty_audio\",\n+        \"--volume-map\", \"empty_audio\", \"D:\", \"D:\",\n+        \"--match-confidence\", \"filename\",\n+        \"--cache\", \"out/recon.tagcache.json\",\n+    ]\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        seen: list = []\n+        reconnect_run.scan_reconnect_candidates(\n+            args, on_progress=lambda done, total, path: seen.append(path)\n+        )\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert seen == []\n+\n+\n+def test_cancel_not_set_does_not_raise_scan_cancelled(fixture_corpus: Path) -> None:\n+    \"\"\"Negative control for test_on_progress_fires_and_cancel_raises: proves the\n+    ScanCancelled raise above is actually gated on the cancel token being set,\n+    not raised unconditionally by run_reconnection, by passing an unset Event\n+    and observing the run complete instead of raising. Observed to fail\n+    (raise ScanCancelled) if run_reconnection ignored the cancel token's\n+    state rather than checking it.\"\"\"\n+    args = _parse_args(_SCAN_ARGV)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        old_root = parse_xml(args.old_input).getroot()\n+        cancel = threading.Event()\n+        result = reconnect_run.run_reconnection(args, old_root, cancel=cancel)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert result is not None\n+\n+\n+def test_output_equal_to_input_never_starts_reconnection(fixture_corpus: Path) -> None:\n+    \"\"\"A rewrite-from-reconnect run whose output path equals its input\n+    path is refused before reconnection starts - proved by asserting no\n+    ReconnectResult is ever produced.\"\"\"\n+    argv = [\n+        \"rewrite-from-reconnect\", \"recon/stale.nml\", \"recon/stale.nml\",\n+        \"--scan-root\", \"recon/audio\",\n+        \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+        \"--match-confidence\", \"filename\",\n+        \"--cache\", \"out/recon.tagcache.json\",\n+    ]\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        result = reconnect_run.rewrite_from_reconnect(args)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert result.reconnect is None\n+    assert result.outcome is not None and result.outcome.error == \"output_must_differ_from_input\"\n+\n+\n+def test_output_differs_from_input_starts_reconnection(fixture_corpus: Path) -> None:\n+    \"\"\"Negative control for test_output_equal_to_input_never_starts_reconnection:\n+    proves the refusal above is gated on output_path equaling input_path, not on\n+    rewrite-from-reconnect refusing to reconnect regardless of the paths given,\n+    by pointing output at a different path and observing reconnection actually\n+    starts. Observed to fail (reconnect is None) if the equality check applied\n+    to differing paths as well.\"\"\"\n+    argv = [\n+        \"rewrite-from-reconnect\", \"recon/stale.nml\", \"out/reconnected.nml\",\n+        \"--scan-root\", \"recon/audio\",\n+        \"--volume-map\", \"recon/audio\", \"D:\", \"D:\",\n+        \"--match-confidence\", \"filename\",\n+        \"--cache\", \"out/recon.tagcache.json\",\n+        \"--dry-run\",\n+    ]\n+    args = _parse_args(argv)\n+    old_cwd = Path.cwd()\n+    os.chdir(fixture_corpus.parent)\n+    try:\n+        result = reconnect_run.rewrite_from_reconnect(args)\n+    finally:\n+        os.chdir(old_cwd)\n+\n+    assert result.reconnect is not None",
+          "doc_diff": "--- a/tests/test_reconnect_render_equivalence.py\n+++ b/tests/test_reconnect_render_equivalence.py\n@@ -31,16 +31,33 @@ MANIFEST_PATH = Path(__file__).parent / \"baselines\" / \"manifest.json\"\n \n \n def _reconnect_cases() -> list[dict]:\n+    \"\"\"The manifest.json cases whose argv is one of the two reconnect\n+    subcommands - the population section 3.2's parametrized test runs\n+    against. If this ever returns an empty list, pytest silently\n+    collects zero equivalence tests instead of failing the suite; there\n+    is no explicit assertion here against that, so a manifest edit\n+    removing both reconnect commands' cases would go unnoticed without\n+    someone checking collected test counts. Every case here passes\n+    --match-confidence filename; the manifest carries no --fingerprint\n+    case and no strict/normal/loose/bare_name case for either reconnect\n+    command, so those paths rest on the unit tests elsewhere in this\n+    module and in test_write_shell_split.py rather than on this parity\n+    check.\"\"\"\n     cases = json.loads(MANIFEST_PATH.read_text(encoding=\"utf-8\"))\n     return [c for c in cases if c[\"argv\"][0] in (\"scan-reconnect-candidates\", \"rewrite-from-reconnect\")]\n \n \n def _parse_args(argv: list[str]) -> object:\n+    \"\"\"Parse argv through the real CLI parser, so a case's args are the\n+    same argparse.Namespace the CLI itself would build for it.\"\"\"\n     parser, _handlers = build_parser()\n     return parser.parse_args(argv)\n \n \n def _render_for_argv(argv: list[str], cwd: Path):\n+    \"\"\"Run core(args) then render(result) for one manifest case, from\n+    cwd - manifest paths are recorded relative to the fixture corpus\n+    root, so the working directory must match before parsing argv.\"\"\"\n     args = _parse_args(argv)\n     old_cwd = Path.cwd()\n     os.chdir(cwd)\n@@ -53,4 +70,9 @@ def _render_for_argv(argv: list[str], cwd: Path):\n \n \n def _lines_to_text(lines: list[str]) -> str:\n+    \"\"\"Join rendered lines the way emit() would have printed them, for\n+    comparison against a manifest case's recorded stdout/stderr text.\n+    test_dropped_stats_key_breaks_the_comparison proves this comparison\n+    actually detects a dropped line rather than trivially matching\n+    regardless of content.\"\"\"\n     return \"\\n\".join(lines) + (\"\\n\" if lines else \"\")\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-012",
+          "version": 3,
+          "intent_ref": "CI-M-002-010",
+          "file": "tests/test_reconnect.py",
+          "diff": "--- a/tests/test_reconnect.py\n+++ b/tests/test_reconnect.py\n@@ -150,7 +150,7 @@ def test_fingerprint_flag_names_the_dependency_that_is_actually_missing(\n         lambda: \"the chromaprint shared library is not available\",\n     )\n     monkeypatch.setattr(\n-        \"traktor_nml.commands.reconnect_cmd.fingerprint_unavailable_reason\",\n+        \"traktor_nml.reconnect_run.fingerprint_unavailable_reason\",\n         lambda: \"the chromaprint shared library is not available\",\n     )\n",
+          "doc_diff": "--- a/tests/test_reconnect.py\n+++ b/tests/test_reconnect.py\n@@ -150,6 +150,10 @@ def test_fingerprint_flag_names_the_dependency_that_is_actually_missing(\n         lambda: \"the chromaprint shared library is not available\",\n     )\n+    # Patched on both the defining module and reconnect_run's bound name:\n+    # reconnect_run imports fingerprint_unavailable_reason by value at\n+    # import time, so patching only traktor_nml.fingerprint would leave\n+    # the core still calling the pre-patch function object.\n     monkeypatch.setattr(\n         \"traktor_nml.reconnect_run.fingerprint_unavailable_reason\",\n         lambda: \"the chromaprint shared library is not available\",\n     )\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-013",
+          "version": 4,
+          "intent_ref": "CI-M-002-013",
+          "file": "traktor_nml/commands/_shared_args.py",
+          "diff": "--- a/traktor_nml/commands/_shared_args.py\n+++ b/traktor_nml/commands/_shared_args.py\n@@ -11,7 +11,9 @@ from __future__ import annotations\n import argparse\n import sys\n \n from ..confidence import MatchConfidence, parse_match_confidence\n+from ..shared_args import refutation_disabled_line, resolve_confidence, should_refute\n \n \n def add_confidence_args(parser: argparse.ArgumentParser) -> None:\n@@ -28,20 +30,6 @@ def add_confidence_args(parser: argparse.ArgumentParser) -> None:\n     )\n \n \n-def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:\n-    \"\"\"Resolve the effective MatchConfidence: an explicit\n-    --match-confidence always wins; otherwise --allow-artist-title-only\n-    selects loose and its absence selects strict (DL-010).\"\"\"\n-    if getattr(args, \"match_confidence\", None):\n-        return parse_match_confidence(args.match_confidence)\n-    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)\n-\n-\n def add_no_refute_argument(parser: argparse.ArgumentParser) -> None:\n     parser.add_argument(\n         \"--no-refute\",\n@@ -52,26 +40,12 @@ def add_no_refute_argument(parser: argparse.ArgumentParser) -> None:\n     )\n \n \n-def should_refute(args: argparse.Namespace) -> bool:\n-    \"\"\"Whether the cascade should apply the size/duration check.\n-\n-    Pure: safe to call anywhere, any number of times. The warning is a\n-    separate call precisely so this one carries no call-once contract -\n-    reading a flag and announcing it are different jobs, and conflating\n-    them meant a caller with two passes over the same run had to know to\n-    cache the result or the warning printed twice.\n-    \"\"\"\n-    return not getattr(args, \"no_refute\", False)\n-\n-\n def warn_refutation_disabled(args: argparse.Namespace) -> None:\n     \"\"\"Announce --no-refute once per run, if it is set.\n \n     A run that ignores size and duration contradictions can commit a\n     rewrite onto a file the collection's own numbers say is the wrong one,\n     so the switch says so on every run rather than only in --help.\n     \"\"\"\n-    if not should_refute(args):\n-        print(\n-            \"refutation_disabled=size and duration contradictions will be ignored; \"\n-            \"a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match\",\n-            file=sys.stderr,\n-        )\n+    line = refutation_disabled_line(args)\n+    if line is not None:\n+        print(line, file=sys.stderr)\n",
+          "doc_diff": "--- a/traktor_nml/commands/_shared_args.py\n+++ b/traktor_nml/commands/_shared_args.py\n@@ -8,4 +8,9 @@ import argparse\n import sys\n \n from ..confidence import MatchConfidence, parse_match_confidence\n+# Re-exported from shared_args.py: reconnect_run.py and reconnect_render.py\n+# also need resolve_confidence/should_refute/refutation_disabled_line, and\n+# commands/ is the only side of that import boundary allowed to depend on\n+# the other (ref: DL-046). compare_cmd.py and reconnect_cmd.py import these\n+# three names from this module rather than from shared_args.py directly.\n from ..shared_args import refutation_disabled_line, resolve_confidence, should_refute\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-014",
+          "version": 3,
+          "intent_ref": "CI-M-002-014",
+          "file": "traktor_nml/shared_args.py",
+          "diff": "--- /dev/null\n+++ b/traktor_nml/shared_args.py\n@@ -0,0 +1,42 @@\n+\"\"\"Confidence and refutation semantics shared below the commands/ layer.\n+\n+resolve_confidence, should_refute and refutation_disabled_line are pure\n+functions of an argparse.Namespace with no argparse registration or\n+stream dependency of their own. reconnect_run.py and reconnect_render.py\n+import them from here rather than from commands/_shared_args.py, because\n+commands/ imports downward into reconnect_run.py and reconnect_render.py\n+and never the reverse - a core or renderer module importing from\n+commands/ would create the cycle that direction forbids.\n+commands/_shared_args.py imports these same three names from here, so\n+every existing importer of them (compare_cmd.py, reconnect_cmd.py) keeps\n+working unchanged.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+import argparse\n+from typing import Optional\n+\n+from .confidence import MatchConfidence, parse_match_confidence\n+\n+\n+def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:\n+    \"\"\"Resolve the effective MatchConfidence: an explicit\n+    --match-confidence always wins; otherwise --allow-artist-title-only\n+    selects loose and its absence selects strict (DL-010).\"\"\"\n+    if getattr(args, \"match_confidence\", None):\n+        return parse_match_confidence(args.match_confidence)\n+    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)\n+\n+\n+def should_refute(args: argparse.Namespace) -> bool:\n+    \"\"\"Whether the cascade should apply the size/duration check.\n+\n+    Pure: safe to call anywhere, any number of times. The warning is a\n+    separate call precisely so this one carries no call-once contract -\n+    reading a flag and announcing it are different jobs, and conflating\n+    them meant a caller with two passes over the same run had to know to\n+    cache the result or the warning printed twice.\n+    \"\"\"\n+    return not getattr(args, \"no_refute\", False)\n+\n+\n+def refutation_disabled_line(args: argparse.Namespace) -> Optional[str]:\n+    \"\"\"The refutation-disabled message text, or None when refutation is\n+    still active. warn_refutation_disabled and reconnect_render both read\n+    this so the literal has one definition: no manifest case sets\n+    --no-refute for either reconnect command, so a second copy of the\n+    text would drift invisibly.\n+    \"\"\"\n+    if should_refute(args):\n+        return None\n+    return (\n+        \"refutation_disabled=size and duration contradictions will be ignored; \"\n+        \"a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match\"\n+    )\n",
+          "doc_diff": "--- a/traktor_nml/shared_args.py\n+++ b/traktor_nml/shared_args.py\n@@ -50,6 +50,9 @@ def refutation_disabled_line(args: argparse.Namespace) -> Optional[str]:\n     this so the literal has one definition: no manifest case sets\n     --no-refute for either reconnect command, so a second copy of the\n     text would drift invisibly.\n     \"\"\"\n+    # should_refute is the single source of truth for the flag reading;\n+    # this function only decides the message text, so the two never\n+    # disagree about whether refutation is active.\n     if should_refute(args):\n         return None\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 5,
+      "number": 3,
+      "name": "Anti-drift guard and decision log",
+      "files": [
+        "tests/test_command_layer_printless.py",
+        "traktor_nml/README.md",
+        "traktor_nml/CLAUDE.md",
+        "tests/CLAUDE.md"
+      ],
+      "flags": [],
+      "requirements": [
+        "a test asserts commands/reconnect_cmd.py contains no print call and no sys.stdout or sys.stderr write;the decision log records the core/renderer split and the write-shell extraction as one entry in the established reasoning-chain style",
+        "numbered from the next free DL number read off traktor_nml/README.md at HEAD at commit time rather than from a number pinned in this plan;the CLAUDE.md navigation indexes list every module and test module the split introduces"
+      ],
+      "acceptance_criteria": [
+        "pytest passes with tests/baselines/manifest.json unmodified and PARITY_BASELINE_SHA256 unchanged",
+        "and the run reports at least the baseline 191 passed and no more than the baseline 3 skipped (the 3 being the fingerprint tier);the guard test fails when a print call is reintroduced into commands/reconnect_cmd.py and the test says so in its own docstring;git fetch is run and traktor_nml/README.md at HEAD is re-read immediately before writing the entry",
+        "and the entry uses the next free DL number there (DL-046 at planning time",
+        "adjusted if another session has taken it);traktor_nml/README.md carries that entry naming the core/renderer boundary and the plan_and_write_nml extraction;traktor_nml/CLAUDE.md and tests/CLAUDE.md list every file the plan creates with a when-to-read trigger",
+        "the committed decision-log entry cites only package-log DL numbers - the shared read/parse/patch/write skeleton is DL-019, not DL-001, which in that log is the argv-forwarding cli.py shim - and cites no plan-local DL number, checked by reading the cited entries back out of traktor_nml/README.md at HEAD before the commit"
+      ],
+      "tests": [
+        "tests/test_command_layer_printless.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 1,
+          "file": "tests/test_command_layer_printless.py",
+          "function": null,
+          "behavior": "Parses traktor_nml/commands/reconnect_cmd.py with ast and asserts no call to print and no write on sys.stdout or sys.stderr appears anywhere in the module. The docstring states the invariant and records that the test was run against a copy with a print reintroduced and failed there; a companion test asserts the checker reports a violation for a synthetic source string containing a print call so the guard is exercised in both directions.",
+          "decision_refs": [
+            "DL-006"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 3,
+          "file": "traktor_nml/README.md",
+          "function": null,
+          "behavior": "The decision log carries the split as one new entry in the surrounding reasoning-chain style: the reconnect commands run behind a printless core returning a ReconnectResult and a renderer returning buffered lines, because a GUI review table needs the mapping and the ambiguity rows as objects while a run is in progress and a parsed transcript arrives only at the end; and write_nml_safely is a printing wrapper over plan_and_write_nml because the reconnect stdout was produced inside the write shell and a reconnect-local write path would duplicate the read/parse/patch/write skeleton DL-019 exists to prevent. The entry is written in the package log's own namespace, so DL-019 there is the package entry for rewrite.py's shared read/parse/atomic-write helpers, not this plan's DL-001 (the printless-core decision); the entry cites package numbers bare and cites no plan-local DL number, and the DL-019 antecedent is confirmed by re-reading traktor_nml/README.md at HEAD alongside the free-number check below. The entry number is the next free one read off traktor_nml/README.md after a git fetch at commit time, not a number pinned at planning time: DL-045 was the last entry when this plan was written and DL-046 is the expected number, but other sessions commit in parallel, so the README is re-read against HEAD immediately before the entry is written and the number adjusted if it has moved. The package architecture section names reconnect_run.py and reconnect_render.py and the rule that commands/ imports downward into them.",
+          "decision_refs": [
+            "DL-001",
+            "DL-002",
+            "DL-007"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "version": 1,
+          "file": "traktor_nml/CLAUDE.md",
+          "function": null,
+          "behavior": "The Files table carries a row for reconnect_run.py (the reconnect pipeline as one printless pass returning a ReconnectResult; read when changing what a reconnection run computes or what it reports) and a row for reconnect_render.py (every character the reconnect commands put on stdout or stderr, returned as buffered lines; read when changing reconnect output text or ordering), and the rewrite.py row names plan_and_write_nml as the printless write sequence under the write_nml_safely wrapper. The rows sit in the same read-when-you-need-this form as their neighbours, so the index still answers which file to open rather than restating what the modules do.",
+          "decision_refs": [
+            "DL-007"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "version": 1,
+          "file": "tests/CLAUDE.md",
+          "function": null,
+          "behavior": "The Files table carries rows for test_write_shell_split.py (the write-shell outcomes the manifest cannot reach: output collision, text_patch_error ordering, callback exceptions, and that the function writes to no stream), test_reconnect_render_equivalence.py (renderer output compared against the recorded reconnect manifest cases, plus the fingerprint and no-refute warning paths the oracle does not exercise) and test_command_layer_printless.py (the guard that reconnect_cmd.py holds no print call), each with the when-to-read trigger its neighbours use.",
+          "decision_refs": [
+            "DL-006"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-003-001",
+          "version": 5,
+          "intent_ref": "CI-M-003-001",
+          "file": "tests/test_command_layer_printless.py",
+          "diff": "--- /dev/null\n+++ b/tests/test_command_layer_printless.py\n@@ -0,0 +1,62 @@\n+\"\"\"Guards the printless-command-layer boundary: reconnect_cmd.py holds no\n+print call and writes to neither stream, all reconnect output living in\n+reconnect_render.emit instead.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+import ast\n+from pathlib import Path\n+\n+RECONNECT_CMD = Path(__file__).parent.parent / \"traktor_nml\" / \"commands\" / \"reconnect_cmd.py\"\n+\n+\n+def _violations(source: str) -> list[str]:\n+    tree = ast.parse(source)\n+    found = []\n+    for node in ast.walk(tree):\n+        if not isinstance(node, ast.Call):\n+            continue\n+        func = node.func\n+        if isinstance(func, ast.Name) and func.id == \"print\":\n+            found.append(f\"print call at line {node.lineno}\")\n+        elif isinstance(func, ast.Attribute) and func.attr == \"write\":\n+            value = func.value\n+            if (\n+                isinstance(value, ast.Attribute)\n+                and isinstance(value.value, ast.Name)\n+                and value.value.id == \"sys\"\n+                and value.attr in (\"stdout\", \"stderr\")\n+            ):\n+                found.append(f\"sys.{value.attr}.write at line {node.lineno}\")\n+    return found\n+\n+\n+def test_reconnect_cmd_holds_no_print_call() -> None:\n+    \"\"\"The real module, unmutated, reports no violations - the baseline\n+    the negative control below is checked against.\"\"\"\n+    source = RECONNECT_CMD.read_text(encoding=\"utf-8\")\n+    assert _violations(source) == []\n+\n+\n+def test_reconnect_cmd_with_reintroduced_print_is_caught() -> None:\n+    \"\"\"Negative control for test_reconnect_cmd_holds_no_print_call: proves\n+    the guard actually fails on its own invariant breaking, not merely on\n+    an unrelated synthetic snippet, by splicing a print of a computed\n+    value onto the end of the real reconnect_cmd.py source and running\n+    _violations() over the mutated text. Observed to fail (violations ==\n+    []) if _violations() were checking something other than this\n+    module's own calls.\"\"\"\n+    source = RECONNECT_CMD.read_text(encoding=\"utf-8\")\n+    mutated = source + \"\\n\\nprint(f'leaked={len(source)}')\\n\"\n+\n+    assert _violations(mutated) != []\n+    assert _violations(source) == []\n+\n+\n+def test_checker_detects_a_reintroduced_print() -> None:\n+    \"\"\"The checker also catches a print call in an unrelated synthetic\n+    module, so _violations is exercised against more than one source\n+    shape rather than only the real file.\"\"\"\n+    synthetic = \"def handler(args):\\n    print('leaked')\\n    return 0\\n\"\n+    assert _violations(synthetic) != []\n",
+          "doc_diff": "--- a/tests/test_command_layer_printless.py\n+++ b/tests/test_command_layer_printless.py\n@@ -14,5 +14,13 @@ RECONNECT_CMD = Path(__file__).parent.parent / \"traktor_nml\" / \"commands\" / \"reconnect_cmd.py\"\n \n \n def _violations(source: str) -> list[str]:\n+    \"\"\"Walk source's AST for a call to print(...) or sys.stdout/stderr\n+    .write(...). An AST walk rather than a text grep, because a grep for\n+    \"print(\" would also match the word inside a docstring or comment\n+    explaining why the module holds none. Verified to report a\n+    violation when run against reconnect_cmd.py with a print call\n+    spliced onto its source - see\n+    test_reconnect_cmd_with_reintroduced_print_is_caught below - and to\n+    report none against the real, unmutated module.\"\"\"\n     tree = ast.parse(source)\n     found = []\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-002",
+          "version": 3,
+          "intent_ref": "CI-M-003-002",
+          "file": "traktor_nml/README.md",
+          "diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ -25,6 +25,12 @@ Two write mechanisms coexist and never mix within one command:\n `commands/` holds one module per subcommand; `cli.py` discovers them by\n iterating the package rather than listing them, so adding a subcommand\n never requires editing `cli.py` (DL-003).\n\n+`reconnect_run.py` (the printless reconnection core) and\n+`reconnect_render.py` (the buffered stdout/stderr renderer for it) sit\n+beside the other top-level modules, not inside `commands/`:\n+`commands/reconnect_cmd.py` imports downward into them rather than the\n+reverse, so a caller other than the CLI - a GUI review table - can reach\n+the same core and renderer without going through argparse wiring (DL-046).\n+\n `build-playlist` synthesizes its playlist node from an external track list\n with no source span to transplant, so it always takes the serialization\n path this split already sanctions for genuinely new content (DL-028), and\n@@ -192,6 +198,15 @@ manufactures a difference the filesystem does not have - measured on the\n   promoting it to strict so that stem upgrades match by default would have\n   contradicted that precedent. `bare_name` drops the folder as well and\n   reaches filename level only: one real library holds 208 files named\n   `vocals` and 176 named `drums` from stem-extraction folders. These tiers\n   are only reachable because DL-040 stopped size refuting across sources -\n   a re-encode runs 0.23x to 49x the original, so the earlier band would\n   have found these candidates and then discarded them (DL-045).\n+- The reconnect commands run behind a printless core in `reconnect_run.py`\n+  that returns a `ReconnectResult`, and a renderer in `reconnect_render.py`\n+  that turns it into buffered stdout/stderr lines and an exit code,\n+  because a GUI review table needs the mapping and the ambiguity rows as\n+  objects while a run is in progress and a parsed transcript arrives only\n+  at the end. `write_nml_safely` is a printing wrapper over a printless\n+  `plan_and_write_nml` for the same reason: the reconnect stdout was\n+  produced inside the write shell, and a reconnect-local write path would\n+  duplicate the read/parse/patch/write skeleton DL-019 exists to prevent\n+  (DL-046).\n - A candidate the check withdraws is counted as `refuted` alongside\n   `unmatched` rather than folded into it, so \"found it and declined\" never\n   reads as \"the file is gone\" - the same distinction DL-016 drew for\n",
+          "doc_diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ -13,3 +13,8 @@ the same core and renderer without going through argparse wiring (DL-046).\n `build-playlist` synthesizes its playlist node from an external track list\n with no source span to transplant, so it always takes the serialization\n path this split already sanctions for genuinely new content (DL-028), and\n+`shared_args.py` holds `resolve_confidence`/`should_refute`/\n+`refutation_disabled_line` below `commands/`: both `reconnect_run.py` and\n+`commands/_shared_args.py` import them from here, since a core module\n+importing from `commands/` would create the reverse of the import\n+direction DL-046 establishes.\n@@ -204,3 +209,12 @@ manufactures a difference the filesystem does not have - measured on the\n   duplicate the read/parse/patch/write skeleton DL-019 exists to prevent\n   (DL-046).\n+  `run_reconnection` and both reconnect cores also accept `on_progress`\n+  and `cancel`, forwarded to `index_scan_roots`, so the same core can\n+  report live indexing progress and be cancelled by a caller other than\n+  the CLI; neither argparse handler passes them today, and that absence\n+  is intended rather than dead code (DL-046). A cancelled scan raises\n+  `ScanCancelled` rather than returning a partial `ReconnectResult`,\n+  because a short candidate list is indistinguishable from a complete\n+  one and would report most of the collection as missing - a wrong\n+  answer delivered confidently.\n - A candidate the check withdraws is counted as `refuted` alongside\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-003",
+          "version": 3,
+          "intent_ref": "CI-M-003-003",
+          "file": "traktor_nml/CLAUDE.md",
+          "diff": "--- a/traktor_nml/CLAUDE.md\n+++ b/traktor_nml/CLAUDE.md\n@@ -9,7 +9,7 @@\n | `model.py`         | `LocationParts`/`RewriteRule`/`EntryRecord`, LOCATION/PRIMARYKEY parsing; `decode_traktor_dir` is memoised because the cascade reads `decoded_dir` several times per record | Adding an identity field, changing LOCATION encode/decode  |\n | `xmlio.py`         | lxml/stdlib ET parsing wrapper                             | Changing how NML files are parsed or serialized            |\n | `textpatch.py`     | `apply_text_patches`/`ElemPatch` byte-preserving attribute writes | Changing how LOCATION/PRIMARYKEY attribute rewrites are applied |\n-| `rewrite.py`       | Rule-based and compare-based rewrite patch collection, `write_nml_safely`; also `read_and_parse_source`, `write_bytes_atomically`, `path_collides`, and `write_row_report`, reusable read/write/report helpers other commands are expected to call, plus `add_no_refute_argument`/`warn_if_refutation_disabled`, the shared `--no-refute` surface | Modifying the rewrite/compare cascade, the write path, or the `--no-refute` flag |\n+| `rewrite.py`       | Rule-based and compare-based rewrite patch collection; `plan_and_write_nml`, the printless read/parse/patch/write sequence, and `write_nml_safely`, the printing wrapper over it; also `read_and_parse_source`, `write_bytes_atomically`, `path_collides`, and `write_row_report`, reusable read/write/report helpers other commands are expected to call, plus `add_no_refute_argument`/`warn_if_refutation_disabled`, the shared `--no-refute` surface | Modifying the rewrite/compare cascade, the write path, or the `--no-refute` flag |\n | `confidence.py`    | `MatchConfidence` ordered enum (strict/loose/filename), the tier ladder each level admits, and the measured uniqueness behind each path-suffix tier's level | Adding a match tier or confidence level, or moving a tier between levels |\n | `matching.py`      | `record_keys`/`match_records` tiered match cascade; `_CASCADE`, the one table declaring every built-in tier and its properties; the size/duration refutation filter and its `refute` switch | Changing match-key tiers, matching tolerances, tier ordering, or ambiguity detection |\n | `diskscan.py`      | Filesystem candidate scanning for reconnection; candidate `filesize` is bytes on disk, not Traktor's kilobytes; optional `on_progress` and `cancel` for a UI driving the scan | Adding or changing disk-scan candidate discovery, progress reporting, or cancellation |\n | `discovery.py`     | Fuzzy artist/title ranking of disk and collection candidates; review-only, never selects or writes | Changing discovery scoring, normalisation, or stop words   |\n | `tagcache.py`      | Tag-read caching                                           | Changing tag cache key composition or eviction             |\n | `reconnect.py`     | Disk-scan reconnection; `location_from_disk_path` (candidate-side volume-relative-to-absolute transform) and `enforce_one_to_one`, the shared one-to-one assignment post-pass compare-based rewriting also calls | Modifying reconnection matching or destination-collision handling |\n+| `reconnect_render.py` | Every character the reconnect commands put on stdout or stderr, returned as buffered lines rather than printed | Changing reconnect output text or ordering |\n+| `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or what it reports |\n | `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |\n",
+          "doc_diff": "--- a/traktor_nml/CLAUDE.md\n+++ b/traktor_nml/CLAUDE.md\n@@ -13,2 +13,3 @@\n-| `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or what it reports |\n+| `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or reports, or its `on_progress`/`cancel` progress-reporting and cancellation channel |\n+| `shared_args.py` | `resolve_confidence`/`should_refute`/`refutation_disabled_line`, pure functions of an argparse.Namespace shared below `commands/` | Changing confidence resolution or the refutation-disabled message |\n | `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-004",
+          "version": 3,
+          "intent_ref": "CI-M-003-004",
+          "file": "tests/CLAUDE.md",
+          "diff": "--- a/tests/CLAUDE.md\n+++ b/tests/CLAUDE.md\n@@ -7,6 +7,7 @@\n | `conftest.py`            | `run_tool`/`fixture_corpus` fixtures shared across test modules | Adding a test module, changing how the CLI is invoked under test |\n | `test_baseline_parity.py`| Byte-level parity oracle against `baselines/manifest.json`    | Changing any CLI subcommand's output, exit code, or written bytes |\n | `test_cli_contract.py`   | Subcommand surface + `--allow-artist-title-only`/`--match-confidence` alias contract; splice/split malformed-input and atomic-write tests | Adding/renaming a subcommand, changing legacy-flag equivalence |\n+| `test_command_layer_printless.py` | Guard that `commands/reconnect_cmd.py` holds no print call and writes to neither stream | Changing `reconnect_cmd.py`'s handlers, or the printless-command-layer convention |\n | `test_compare.py`        | Compare-based rewrite input-protection and destination-collision tests | Changing `rewrite_from_collection_compare` or `compare_cmd.py`'s write path |\n | `test_diskscan.py`       | Disk-scan candidate discovery tests                            | Changing `diskscan.py`                                        |\n | `test_fpcalc_session.py` | Owned fpcalc child: output parsing, per-file timeout, mid-fingerprint termination, and that a cancelled session spawns nothing further. Uses a stub fpcalc via the FPCALC env var | Changing `FpcalcSession`, the fingerprint timeout, or cancellation |\n@@ -15,6 +16,7 @@\n | `test_parity_baseline.py`| Tamper-evidence for the oracle itself: pins `manifest.json`'s own SHA-256 | Regenerating the baseline, or changing what the pin guarantees |\n | `test_reconnect.py`      | Reconnection matching, path-suffix tiers, size/duration refutation and `--no-refute`, one-to-one assignment, and the `_CASCADE`/ladder consistency checks | Changing `reconnect.py`, `volumes.py`, `matching.py`'s tiers, a matching tolerance, or the cascade table |\n+| `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases, plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |\n | `test_fingerprint.py`    | Fingerprint tier end to end: generates two-bitrate audio fixtures with ffmpeg, pins the duration pre-filter and the degrade-on-broken-comparison path, and gates each test on the dependency it actually needs | Changing `fingerprint.py`, or a test here skipping unexpectedly |\n | `test_spans.py`          | Byte-span scanner, `OutputBuilder`, count-attribute recalculation tests | Changing `spans.py`                                           |\n | `test_splice.py`         | Splice merge/conflict-resolution tests                         | Changing `splice.py` or `playlists.py`                        |\n@@ -22,6 +24,7 @@\n | `test_tracklist.py`      | External track-list parsing and per-line resolution tests      | Changing `tracklist.py`                                       |\n | `test_build_playlist.py` | build-playlist synthesis, insertion and CLI-surface tests       | Changing `buildplaylist.py`, its insertion point, or `commands/build_playlist_cmd.py` |\n | `test_xmlio.py`          | `parse_xml_bytes`'s lxml/stdlib backend-selection tests          | Changing `xmlio.py`'s parsing helpers                        |\n+| `test_write_shell_split.py` | Write-shell outcomes the manifest cannot reach: output collision, `text_patch_error` ordering, callback exceptions, and that `plan_and_write_nml` writes to no stream | Changing `plan_and_write_nml` or `write_nml_safely` |\n",
+          "doc_diff": "--- a/tests/CLAUDE.md\n+++ b/tests/CLAUDE.md\n@@ -13,2 +13,2 @@\n | `test_reconnect.py`      | Reconnection matching, path-suffix tiers, size/duration refutation and `--no-refute`, one-to-one assignment, and the `_CASCADE`/ladder consistency checks | Changing `reconnect.py`, `volumes.py`, `matching.py`'s tiers, a matching tolerance, or the cascade table |\n-| `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases, plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |\n+| `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases (all four pass `--match-confidence filename`; no `--fingerprint` or strict/normal/loose/bare_name case exists), plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "id": "W-001",
+      "milestones": [
+        "M-001"
+      ]
+    },
+    {
+      "id": "W-002",
+      "milestones": [
+        "M-002"
+      ]
+    },
+    {
+      "id": "W-003",
+      "milestones": [
+        "M-003"
+      ]
+    }
+  ],
+  "diagram_graphs": [
+    {
+      "id": "DIAG-001",
+      "type": "dataflow",
+      "scope": "overview",
+      "title": "Reconnect core/renderer boundary",
+      "nodes": [
+        {
+          "id": "handler",
+          "label": "commands/reconnect_cmd.py (argparse only)",
+          "type": "service"
+        },
+        {
+          "id": "core",
+          "label": "reconnect_run.py (printless core)",
+          "type": "service"
+        },
+        {
+          "id": "writeshell",
+          "label": "plan_and_write_nml -> WriteOutcome",
+          "type": "service"
+        },
+        {
+          "id": "renderer",
+          "label": "reconnect_render.py -> RenderedOutput",
+          "type": "service"
+        },
+        {
+          "id": "streams",
+          "label": "stdout / stderr / exit code",
+          "type": "store"
+        },
+        {
+          "id": "wrapper",
+          "label": "write_nml_safely (printing wrapper)",
+          "type": "service"
+        },
+        {
+          "id": "othercmds",
+          "label": "rewrite_cmd.py / compare_cmd.py",
+          "type": "service"
+        }
+      ],
+      "edges": [
+        {
+          "source": "handler",
+          "target": "core",
+          "label": "namespace",
+          "protocol": null
+        },
+        {
+          "source": "core",
+          "target": "writeshell",
+          "label": "collect_patches / mutate_tree",
+          "protocol": null
+        },
+        {
+          "source": "writeshell",
+          "target": "core",
+          "label": "WriteOutcome",
+          "protocol": null
+        },
+        {
+          "source": "core",
+          "target": "renderer",
+          "label": "ReconnectResult",
+          "protocol": null
+        },
+        {
+          "source": "renderer",
+          "target": "streams",
+          "label": "emit buffered lines",
+          "protocol": null
+        },
+        {
+          "source": "othercmds",
+          "target": "wrapper",
+          "label": "unchanged call",
+          "protocol": null
+        },
+        {
+          "source": "wrapper",
+          "target": "writeshell",
+          "label": "delegates then prints",
+          "protocol": null
+        }
+      ],
+      "ascii_render": null
+    }
+  ],
+  "readme_entries": []
+}

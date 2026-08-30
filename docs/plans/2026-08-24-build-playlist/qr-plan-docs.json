@@ -1,0 +1,119 @@
+{
+  "phase": "plan-docs",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-201",
+      "scope": "*",
+      "group_id": "parent-qa-201",
+      "check": "Every doc_diff in the plan is a valid unified diff: for each hunk, (new_count - old_count) equals (added lines - removed lines) in the hunk body, and each hunk's start lines match where its context actually occurs in the real file at C:/codex/traktor-nml-tool. Verify by computing the arithmetic per hunk, not by eyeballing.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 5
+    },
+    {
+      "id": "qa-201a",
+      "parent_id": "qa-201",
+      "group_id": "parent-qa-201",
+      "scope": "CC-M-001-003",
+      "check": "CC-M-001-003's header '@@ -108,6 +108,7 @@' declares a +1 line delta but the body adds 2 comment lines. New count must be old+2.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-201b",
+      "parent_id": "qa-201",
+      "group_id": "parent-qa-201",
+      "scope": "CC-M-002-004",
+      "check": "Both CC-M-002-004 hunks are arithmetically wrong: '@@ -101,6 +101,8 @@' declares +2 but adds 3 lines; '@@ -134,6 +136,7 @@' declares +1 but adds 2 lines. The second hunk's +136 start also assumes the first hunk's understated delta, so both counts and the second start line need correcting.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-201c",
+      "parent_id": "qa-201",
+      "group_id": "parent-qa-201",
+      "scope": "CC-M-002-005",
+      "check": "CC-M-002-005's header '@@ -12,6 +12,10 @@' declares a +4 delta but the docstring body adds 6 lines. New count must be old+6.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-202",
+      "scope": "*",
+      "group_id": "parent-qa-202",
+      "check": "No doc_diff comment or README/CLAUDE.md line describes the change process, a prior state of the code, or a refactor that produced the current shape. Comments read as if the plan was already executed (timeless present, per conventions/temporal.md).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-202a",
+      "parent_id": "qa-202",
+      "group_id": "parent-qa-202",
+      "scope": "CC-M-002-002",
+      "check": "CC-M-002-002's comment in available_playlist_name ends '...the same numbering import_playlists already applied before this extraction (DL-029)'. 'before this extraction' is a baseline reference to a refactor invisible in the shipped tree. Reframe to the technical fact only, e.g. 'starts at 2 so the first collision becomes \"<name> (2)\", the numbering import_playlists also uses (DL-029)'.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-203",
+      "scope": "CC-M-002-007",
+      "group_id": "parent-qa-203",
+      "check": "CC-M-002-007's test comment cites '(DL-029/RA-011)'. No RA-NNN identifier scheme exists anywhere in C:/codex/traktor-nml-tool (grep for 'RA-[0-9]' returns nothing) - it is a planner-internal rejected-alternative id leaking into shipped source. Every identifier a comment cites must resolve inside the repository. Drop RA-011 or replace it with the DL id that records the no-abort-on-collision rationale.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-204",
+      "scope": "tests/CLAUDE.md",
+      "group_id": "parent-qa-204",
+      "check": "M-003 updates traktor_nml/CLAUDE.md, traktor_nml/commands/CLAUDE.md and traktor_nml/README.md but adds no doc_diff for tests/CLAUDE.md, whose Files table lists every test module with a 'When to read' trigger. The plan adds tests/test_tracklist.py (CC-M-001-004) and tests/test_build_playlist.py (CC-M-002-007), leaving the tests index incomplete. Add a doc_diff inserting both rows.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-205",
+      "scope": "*",
+      "group_id": "parent-qa-205",
+      "check": "Each added comment or docstring explains WHY (constraint, consequence, rationale) rather than restating WHAT the adjacent code does. Flag any doc_diff text that a reader could derive by reading the next few lines of code.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-205a",
+      "parent_id": "qa-205",
+      "group_id": "parent-qa-205",
+      "scope": "CC-M-002-005",
+      "check": "CC-M-002-005's register() docstring opens by enumerating the subparser's positionals and every flag ('base, tracklist and output positionals plus --name, --target-folder, --allow-unmatched, --unresolved-report and --dry-run'), duplicating the add_argument calls directly below and guaranteeing drift the first time a flag is added. Keep only the WHY half (no --match-confidence because a text-only track list leaves stricter tiers unreachable, DL-032) plus a one-line purpose statement.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-206",
+      "scope": "CC-M-001-002",
+      "group_id": "parent-qa-206",
+      "check": "CC-M-001-002's comment 'no filesystem file backs a tracklist candidate (DL-026)' cites DL-026, which records which side of the matching cascade the track list occupies - not why source_path is None. Either cite the decision that actually covers a text-only record having no on-disk file, or drop the id and keep the bare technical statement.",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 2
+    },
+    {
+      "id": "qa-207",
+      "scope": "DL-024..DL-039",
+      "group_id": "parent-qa-207",
+      "check": "All 16 new decisions DL-024 through DL-039 appear in the traktor_nml/README.md doc_diff (CC-M-003-004 plus DL-028/DL-032 in CC-M-003-003), and the numbering starts at DL-024 with no collision against the existing DL-001..DL-023 in the repo README. Re-verify after any renumbering that every DL id actually cited from a code comment (025, 028, 029, 031, 032, 035) still resolves to the intended README bullet. DL-024 and DL-026 appear only in decision_refs metadata and README prose, not in any inline code comment, so they are out of scope for this citation check.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    }
+  ]
+}

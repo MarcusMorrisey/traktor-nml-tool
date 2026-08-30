@@ -1,0 +1,14 @@
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -101,6 +101,10 @@ class RewriteReconnectResult:
+     outcome could produce one at all. csv_path is non-None only alongside a non-None
+     reconnect.
+     """
+
++    # outcome is None only when error is set: a volume_identity_error or
++    # fingerprint_unavailable raised out of the reconnection callback
++    # before plan_and_write_nml's own WriteOutcome could be built, so
++    # there is nothing to hold its error/exit_code fields instead.
+     outcome: Optional[WriteOutcome]
+     reconnect: Optional[ReconnectResult]
+     csv_path: Optional[Path]

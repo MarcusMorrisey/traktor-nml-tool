@@ -1,0 +1,28 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -392,6 +392,25 @@ def apply_and_write(source_bytes: bytes, patches: list[ElemPatch], output: Path)
+     write_bytes_atomically(output, patched.encode("utf-8"))
+ 
+ 
++@dataclass(frozen=True)
++class WriteOutcome:
++    """One attempt at the read/parse/patch/write sequence, returned
++    rather than printed so a caller other than the CLI - the reconnect
++    renderer, a future GUI - can read it as data.
++
++    stats is None rather than empty when the attempt ended before any
++    stats existed - the signal that separates an output collision, which
++    has no stats block at all, from a run that collected stats and then
++    failed to write.
++    """
++
++    stats: Optional[dict[str, int]]
++    samples: Optional[list[tuple[str, str, str, str]]]
++    error: Optional[str]
++    written_path: Optional[Path]
++    exit_code: int
++
++
+ def print_stats_and_samples(
+     stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
+ ) -> None:

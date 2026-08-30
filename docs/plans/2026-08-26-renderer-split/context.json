@@ -1,0 +1,74 @@
+{
+  "task_spec": [
+    "Subject: split stdout flattening out of the two reconnect commands so the same structured result feeds both the CLI renderer and a future GUI review table (docs/nicegui-gui-analysis.md \u00a75 step 2, the shared-core refactor).",
+    "Shape per \u00a72: core(...) -> ReconnectResult dataclass -> render_reconnect_result() -> stdout lines; the argparse handler becomes render(core(...)) and returns an exit code.",
+    "Scope: traktor_nml/commands/reconnect_cmd.py (both commands: scan-reconnect-candidates, rewrite-from-reconnect), a new core/renderer home under traktor_nml/, tests/.",
+    "Out-of-scope: traktor_nml/gui/ and any NiceGUI code (that is \u00a75 step 4).",
+    "Out-of-scope: the other subcommands (splice, split, build-playlist, textpatch, rewrite-from-collection-compare) - \u00a75 step 2 names the reconnect commands only.",
+    "Out-of-scope: regenerating the parity baseline, and any behaviour change to matching, refutation or the confidence ladder.",
+    "Out-of-scope: \u00a73.3's typed write-refusal object and the review-override model - those belong with the GUI step, not this split."
+  ],
+  "constraints": [
+    "MUST NOT regenerate tests/baselines/manifest.json. Non-regeneration IS the parity check (\u00a73.1 rule 2). A commit needing it updated is by definition a behaviour change.",
+    "MUST NOT move PARITY_BASELINE_SHA256 in tests/test_parity_baseline.py (\u00a73.1a - the authoritative pin, asserted by pytest, independent of the parity-baseline-* tag).",
+    "MUST keep stdout and stderr byte-identical for both commands, including exit codes (2 on typed errors). The manifest is the oracle that proves it.",
+    "MUST keep the CLI fully usable at every commit on the refactor branch (\u00a75).",
+    "MUST NOT introduce any import from traktor_nml/gui/ into commands/ or cli.py (\u00a75 isolation rules), and MUST NOT add a top-level nicegui import anywhere reachable from commands/__init__.py, which imports every command module at CLI startup.",
+    "SHOULD add \u00a73.2's two tests: (a) render_x(core_x(args)) == recorded stdout using the same fixture inputs as the manifest case; (b) a cheap AST/grep check that the handler body prints no computed values, to stop flattening drifting back into commands/.",
+    "SHOULD follow the repo convention 'a guard you have only seen pass is not a guard' - prove each new test fails when its invariant breaks, and say so in the test.",
+    "SHOULD record the split as a new DL-NNN entry in traktor_nml/README.md's decision log, in the established reasoning-chain style.",
+    "MUST keep the change additive/revertable: \u00a75's rollback story is 'revert the renderer split' as a discrete step."
+  ],
+  "entry_points": [
+    "traktor_nml/commands/reconnect_cmd.py:_run_reconnection (L111-198) - the de facto core today; returns (mapping, stats, ambiguity_rows, old_records) as a bare 4-tuple. This is what becomes ReconnectResult.",
+    "traktor_nml/commands/reconnect_cmd.py:_handle_scan_reconnect_candidates (L219) - prints reconnectable=N then sorted key=value stats; the simpler of the two renderers.",
+    "traktor_nml/commands/reconnect_cmd.py:_handle_rewrite_from_reconnect (L245) - wraps _apply_mapping_stdlib and write_nml_safely; carries --dry-run.",
+    "traktor_nml/commands/reconnect_cmd.py:_apply_mapping_stdlib (L199) - mutates the tree and is entangled with the write path.",
+    "traktor_nml/commands/reconnect_cmd.py:_write_ambiguity_csv (L101) - writes the CSV AND prints csv_written=<path>; a side effect and a stdout line in one function.",
+    "traktor_nml/commands/reconnect_cmd.py:register (L278) - confirms the two commands; unchanged by this work.",
+    "traktor_nml/reconnect.py:resolve_reconnection / enforce_one_to_one / location_from_disk_path - already structured; the core calls these and should not change them.",
+    "tests/test_parity_baseline.py:PARITY_BASELINE_SHA256 - the pin that must not move.",
+    "tests/baselines/manifest.json + tests/baselines/manifest.schema.md - the oracle and its rules/known gaps."
+  ],
+  "rejected_alternatives": [
+    "Subprocess-scraping the CLI's key=value stdout as the GUI's primary architecture - rejected in \u00a72: Tier 1 needs structured data mid-run (live scan progress, an interactive ambiguous-match table), not a parsed transcript at the end. It survives only as the \u00a75 fallback.",
+    "Regenerating manifest.json to make a test go green - explicitly forbidden by \u00a73.1 rule 2 and the repo's working conventions; it is the behavioural contract.",
+    "A working-tree `git diff --exit-code` on manifest.json as the guard - rejected in \u00a73.1a: it passes on any commit that regenerated and committed the baseline, precisely the failure it should catch."
+  ],
+  "current_understanding": [
+    "\u00a75's sequencing: step 1 (extend the parity manifest) is committed as 0138466; step 3 (on_progress + cancel token, and owning the fpcalc child) is committed as 0abace5 and f2188c2. Step 2, this renderer split, was skipped and is the outstanding one. The repo's own 'Shared-core refactor, step N' commit numbering is a different sequence and does not map to \u00a75's.",
+    "No ReconnectResult and no renderer module exist yet - grep for both returns nothing.",
+    "reconnect_cmd.py is 302 lines with 10 print calls. Core and rendering are interleaved rather than layered.",
+    "_run_reconnection does the whole pipeline: collection_records -> TagCache -> index_scan_roots -> resolve_confidence -> volume identity resolution -> optional fingerprint key provider (owning an FpcalcSession) -> resolve_reconnection -> re-encode winning candidates' LOCATIONs -> cache.flush.",
+    "Both handlers catch the same four typed failures (input_not_found, xml_parse_error, VolumeIdentityError, _FingerprintUnavailable), print a key=value line to stderr and return 2.",
+    "The tag cache is written even on a preview/--dry-run run, deliberately: --dry-run's help text says the cache and the CSV are still written because neither is the command's declared output.",
+    "Only reconnect_cmd.py registers reconnect commands, so \u00a75's 'the two reconnect commands' means the two subparsers inside this one module, not two modules.",
+    "The oracle covers the common path well (both commands, dry-run/writing/--csv) but not the fingerprint tier and not the non-filename confidence levels. Its strength for this split is stdout/stderr/exit-code equality on the common path."
+  ],
+  "assumptions": [
+    "The renderer and core belong in traktor_nml/ (a new module, e.g. reconnect_run.py or reconnect_render.py) rather than under commands/, since commands/ is meant to shrink to argparse wiring - (M) the plan sketches the layering but does not name the file.",
+    "ReconnectResult should carry mapping, stats, ambiguity_rows, old_records plus the warnings currently printed mid-core - (M) inferred from the 4-tuple plus the stderr print inside _run_reconnection.",
+    "The fingerprint_dependency_missing stderr warning must become data on the result rather than a print inside the core, or the core is not reusable by a GUI - (H) it is the one stdout/stderr emission buried inside the pipeline.",
+    "VERIFIED (not an assumption): the manifest holds 12 cases, 4 of them reconnect - scan-reconnect-candidates (one form), and rewrite-from-reconnect in dry-run, writing and --csv forms. All four pass --match-confidence filename.",
+    "VERIFIED: NO manifest case passes --fingerprint. The fingerprint tier is an explicitly documented known gap in tests/baselines/manifest.schema.md, which says the commit giving the scan its own fpcalc subprocess must add a case under a reviewed re-tag - step 3 (f2188c2) did not, so that debt is still open.",
+    "RISK: the fingerprint branch of _run_reconnection is exactly the code that prints to stderr mid-core and that this split must move, and it is the one branch the oracle cannot prove unchanged. The plan must compensate with unit tests rather than leaning on the manifest there.",
+    "Because all four reconnect cases use --match-confidence filename, the strict/normal/loose tiers and the bare_name/bare_name_in_folder tiers are not exercised by the oracle for these commands - (H) read from the argv."
+  ],
+  "invisible_knowledge": [
+    "The manifest is the behavioural contract, not a snapshot to refresh. PARITY_BASELINE_SHA256 moves only alongside a reviewed regeneration, a new parity-baseline-vN tag, and a case-by-case diff review.",
+    "Server-side tag protection is unavailable on this repo (GitHub returns 403/404), so a local pre-push hook guards parity-baseline-* tags. It is a speed bump against accident, not a control - the pytest pin is the real guard.",
+    "Other sessions commit to this repo in parallel; git fetch and check HEAD before committing.",
+    "Repo culture: verify against the real corpus rather than reasoning from plausibility; nearly every important finding in recent sessions contradicted a confident assumption.",
+    "A cancelled scan raises ScanCancelled rather than returning partial results, because a short candidate list is indistinguishable from a complete one and would report most of the collection as missing - a wrong answer delivered confidently. Any core-boundary redesign must not soften that.",
+    "Volume identities are resolved once up front and reused by both the fingerprint tier and the LOCATION re-encoding; splitting the core must not cause a second resolution.",
+    "The full test suite is 191 passed, 3 skipped - the 3 skips are the fingerprint tier (pyacoustid and fpcalc absent) and are expected.",
+    "A real full scan-reconnect-candidates run takes ~20 minutes against the corpus; the baseline numbers are in testing/collection-sources.md. Do not plan on running it casually in a test loop."
+  ],
+  "reference_docs": [
+    "docs/nicegui-gui-analysis.md - the plan of record. \u00a72 architecture and the core/renderer sketch; \u00a73.1 + \u00a73.1a the parity oracle rules and the SHA pin; \u00a73.2 renderer-equivalence tests (the acceptance criteria for this step); \u00a75 sequencing, isolation rules and rollback.",
+    "traktor_nml/README.md - the decision log (DL numbers) and package architecture; the new DL entry for this split goes here.",
+    "tests/baselines/manifest.schema.md - parity-oracle rules and known gaps.",
+    "docs/2026-08-25-matching-tolerance-decisions.md - DL-040/041 reasoning; context for why matching behaviour must not shift under a refactor.",
+    "testing/collection-sources.md - the real corpus and the full-scan baseline numbers."
+  ]
+}

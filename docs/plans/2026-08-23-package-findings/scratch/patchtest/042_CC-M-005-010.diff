@@ -1,0 +1,8 @@
+--- a/traktor_nml/CLAUDE.md
++++ b/traktor_nml/CLAUDE.md
+@@ -20,4 +20,4 @@
+ | `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation, `SpanIndex` as the single-pass identity locator | Modifying splice/split's structural write path or count recalculation |
+ | `playlists.py`     | Playlist import for splice (merge, rename, redirect); nodes are located through the shared `SpanIndex`, not a UUID text search | Modifying playlist merge, collision-rename, or PRIMARYKEY redirect logic |
+ | `splice.py`        | Merge-command core: conflict resolution, playlist import; builds one `SpanIndex` per input source | Modifying splice's conflict policy or merge algorithm      |
+-| `split.py`         | Partition-command core: filter, dangling-reference policy  | Modifying split's selection filter or dangling-reference handling |
++| `split.py`         | Partition-command core: filter, dangling-reference policy scoped to the group's own resolved playlist nodes, spans from the shared `SpanIndex` | Modifying split's selection filter or dangling-reference handling |

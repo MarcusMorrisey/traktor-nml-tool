@@ -1,0 +1,43 @@
+--- a/traktor_nml/commands/compare_cmd.py
++++ b/traktor_nml/commands/compare_cmd.py
+@@ -7,10 +7,11 @@ from pathlib import Path
+ 
+ from ..confidence import MatchConfidence, parse_match_confidence
+-from ..matching import match_records
++from ..matching import build_new_indexes, match_records
+ from ..model import collection_records
++from ..reconnect import enforce_one_to_one
+ from ..rewrite import (
+     _collect_compare_patches,
+     rewrite_from_collection_compare,
+     write_nml_safely,
+ )
+ from ..xmlio import XML_PARSE_ERROR, parse_xml
+@@ -172,20 +174,25 @@ def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:
+     confidence = resolve_confidence(args)
+ 
+     def _collect_patches(old_root):
+         old_records = collection_records(old_root)
+         new_tree = parse_xml(args.new_input)
+         new_records = collection_records(new_tree.getroot())
+-        mapping, match_stats, samples = match_records(old_records, new_records, confidence)
++        indexes = build_new_indexes(new_records, confidence)
++        mapping, match_stats, samples = match_records(old_records, new_records, confidence, indexes=indexes)
++        mapping, match_stats, _collided = enforce_one_to_one(
++            mapping, match_stats, old_records, indexes, confidence
++        )
+         patches, apply_stats = _collect_compare_patches(old_root, old_records, mapping)
+         return patches, {**apply_stats, **match_stats}, samples
+ 
+     def mutate_tree(old_root, dry_run):
+         new_tree = parse_xml(args.new_input)
+         stats, samples = rewrite_from_collection_compare(
+             old_root, new_tree.getroot(), dry_run=dry_run, confidence=confidence
+         )
+         return stats, samples
+ 
+     return write_nml_safely(
+-        args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree
++        args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree,
++        extra_inputs=(args.new_input,),
+     )

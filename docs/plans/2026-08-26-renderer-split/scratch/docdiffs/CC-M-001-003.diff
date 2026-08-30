@@ -1,0 +1,11 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -448,6 +448,10 @@ def plan_and_write_nml(
+     outcome.
+     """
+     if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
++        # Checked before parsing and before either callback runs (ref:
++        # DL-004): the reconnect callback owns a long disk scan, and
++        # running it ahead of this refusal would make a refused write
++        # cost the whole scan instead of returning immediately.
+         return WriteOutcome(None, None, "output_must_differ_from_input", None, 2)

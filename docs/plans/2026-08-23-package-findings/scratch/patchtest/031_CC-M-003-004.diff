@@ -1,0 +1,14 @@
+--- a/traktor_nml/README.md
++++ b/traktor_nml/README.md
+@@ -43,5 +43,11 @@
+ - Every write command builds its complete output in memory and validates
+   it before any file handle opens; a failure partway through conflict
+   resolution or reference redirection leaves every output path untouched
+   (DL-012).
++- Every output is additionally committed through a temp file plus
++  `os.replace` so a destination holds either its previous bytes or the
++  complete new bytes (DL-019). Split's multi-output write loop is not
++  transactional across files - a failure partway through leaves earlier
++  groups written - accepted because cross-file staging and commit is new
++  machinery (DL-022).
+ - `reconnect.py`'s one-to-one assignment guarantee (DL-004) and

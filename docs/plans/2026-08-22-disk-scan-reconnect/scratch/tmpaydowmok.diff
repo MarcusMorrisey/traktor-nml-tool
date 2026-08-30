@@ -1,0 +1,5 @@
+--- /dev/null
++++ b/tests/fixtures/__init__.py
+@@ -0,0 +1,2 @@
++# Package marker: exposes build_fixtures as tests.fixtures.build_fixtures
++# for both conftest.py and tests/baselines/regenerate.py.

@@ -1,0 +1,39 @@
+--- /dev/null
++++ b/traktor_nml/reconnect_render.py
+@@ -0,0 +1,31 @@
++"""Every character the reconnect commands put on stdout or stderr.
++
++reconnect_run.py returns typed results rather than printing; this module
++turns a result into buffered stdout lines, stderr lines and an exit code,
++and emit is the one function that actually writes to a stream.
++"""
++
++from __future__ import annotations
++
++import argparse
++import sys
++from dataclasses import dataclass
++
++from . import rewrite
++from .reconnect_run import RewriteReconnectResult, ScanReconnectResult
++from .shared_args import refutation_disabled_line
++
++
++@dataclass
++class RenderedOutput:
++    """Buffered stdout lines, stderr lines and an exit code. emit is the
++    one function that writes them to sys.stdout/sys.stderr, so every
++    print on the reconnect path lives inside it rather than scattered
++    across the pipeline."""
++
++    stdout_lines: list[str]
++    stderr_lines: list[str]
++    exit_code: int
++
++
++def emit(rendered: RenderedOutput) -> int:
++    for line in rendered.stdout_lines:
++        print(line)
++    for line in rendered.stderr_lines:
++        print(line, file=sys.stderr)
++    return rendered.exit_code

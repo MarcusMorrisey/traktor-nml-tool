@@ -1,0 +1,12 @@
+--- a/traktor_nml/README.md
++++ b/traktor_nml/README.md
+@@ -55,5 +55,9 @@
+ - A write command refuses an output path resolving to any of its inputs,
+   not only its primary one, so a multi-input command declares its
+   remaining inputs through `write_nml_safely`'s `extra_inputs` -
+   `rewrite-from-collection-compare` declaring `new_input` is the case
+   that motivated stating this generally (DL-023).
++- A split output depends only on the playlists its own group names, so an
++  untouched playlist elsewhere in the document can neither pull tracks
++  into a group nor fail it - what the per-output semantics above already
++  imply, stated explicitly (DL-020).

@@ -1,0 +1,10 @@
+--- a/traktor_nml/CLAUDE.md
++++ b/traktor_nml/CLAUDE.md
+@@ -18,4 +18,4 @@
+ | `fingerprint.py`   | Acoustic fingerprint comparison (optional chromaprint dep); the old side resolves its path through `volumes.py` rather than from `decoded_path` | Modifying fingerprint matching or its availability guard   |
+-| `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation | Modifying splice/split's structural write path or count recalculation |
+-| `playlists.py`     | Playlist import for splice (merge, rename, redirect)       | Modifying playlist merge, collision-rename, or PRIMARYKEY redirect logic |
+-| `splice.py`        | Merge-command core: conflict resolution, playlist import   | Modifying splice's conflict policy or merge algorithm      |
++| `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation, `SpanIndex` as the single-pass identity locator | Modifying splice/split's structural write path or count recalculation |
++| `playlists.py`     | Playlist import for splice (merge, rename, redirect); nodes are located through the shared `SpanIndex`, not a UUID text search | Modifying playlist merge, collision-rename, or PRIMARYKEY redirect logic |
++| `splice.py`        | Merge-command core: conflict resolution, playlist import; builds one `SpanIndex` per input source | Modifying splice's conflict policy or merge algorithm      |

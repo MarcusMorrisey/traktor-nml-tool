@@ -1,0 +1,23 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -347,16 +347,11 @@ def write_nml_safely(
+         return 2
+ 
+     if HAS_LXML:
+-        try:
+-            source_bytes = input_path.read_bytes()
+-        except FileNotFoundError:
+-            print(f"input_not_found={input_path}", file=sys.stderr)
+-            return 2
+-        try:
+-            root = parse_xml_bytes(source_bytes)
+-        except XML_PARSE_ERROR as exc:
+-            print(f"xml_parse_error={input_path}: {exc}", file=sys.stderr)
++        read_result = read_and_parse_source(input_path)
++        if read_result.error is not None:
++            print(read_result.error, file=sys.stderr)
+             return 2
++        source_bytes, root = read_result.source_bytes, read_result.root
+         patches, stats, samples = collect_patches(root)
+         print_stats_and_samples(stats, samples)
+         if not dry_run:

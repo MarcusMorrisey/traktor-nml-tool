@@ -1,0 +1,324 @@
+{
+  "phase": "plan-code",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-101",
+      "scope": "*",
+      "group_id": "parent-qa-101",
+      "check": "Every code_change diff in the plan applies cleanly against the real tree at C:/codex/traktor-nml-tool: every context line is byte-identical to the current file content (no paraphrase, no re-wrapping, no altered whitespace/padding), every hunk header's -old,+new counts equal the actual number of context+removed and context+added lines in that hunk body, and every stated start line is within a few lines of where the context actually occurs. Verify by reconstructing each file and attempting the apply, not by eyeballing.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 4
+    },
+    {
+      "id": "qa-101a",
+      "parent_id": "qa-101",
+      "group_id": "parent-qa-101",
+      "scope": "CC-M-003-004",
+      "check": "CC-M-003-004's doc_diff header '@@ -53,6 +53,49 @@' is correct: the DL-023 context lines it cites ('rewrite-from-collection-compare declaring new_input is the case / that motivated stating this generally (DL-023).') actually live at traktor_nml/README.md lines 99-101, not 53, and the hunk body adds 16 multi-line bullets (roughly 80 lines), not 43. Confirm the header start line and counts match reality.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 3
+    },
+    {
+      "id": "qa-101b",
+      "parent_id": "qa-101",
+      "group_id": "parent-qa-101",
+      "scope": "CC-M-002-001, CC-M-002-002, CC-M-003-001, CC-M-003-003",
+      "check": "Each of these hunk headers states an old-line count one greater than the number of context+removed lines actually present in its body (CC-M-002-001 '@@ -191,3', CC-M-002-002 '@@ -107,6' and '@@ -140,11', CC-M-003-001 '@@ -19,6', CC-M-003-003 '@@ -25,6'), and several start lines are off by one against the real files (playlists.py's 'return result' is at line 192 not 193; 'for node in find_playlist_nodes' is at 141 not 140; CLAUDE.md's spans.py row is at 19 with only 5 context lines shown).",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 3
+    },
+    {
+      "id": "qa-102",
+      "scope": "DL-033, CC-M-002-006, M-002.requirements, CC-M-003-004",
+      "group_id": "parent-qa-102",
+      "check": "DL-033 states the output-path refusal is done 'via rewrite.write_nml_safely's existing extra_inputs mechanism, not a bespoke check', but write_nml_safely is the attribute-patching (textpatch) write skeleton that DL-007 forbids mixing with the byte-span assembly path build-playlist uses, and no span-assembly command (splice_cmd, split_cmd) calls it. CC-M-002-006 correctly implements a bespoke set-membership check instead, yet its inline comment says 'mirroring splice_cmd.py's own bespoke tuple-membership check ... (DL-033)' - citing a decision that says the opposite of what the code and comment do. Verify the decision, the M-002 requirement, the acceptance criterion and the README bullet are all corrected to state the bespoke check that splice_cmd.py actually establishes.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-102a",
+      "parent_id": "qa-102",
+      "group_id": "parent-qa-102",
+      "scope": "readme_entries[DL-033], CC-M-003-004",
+      "check": "The DL-033 bullet destined for traktor_nml/README.md's durable Design Decisions log does not assert the extra_inputs mechanism, which would leave a permanently false claim in the package's own log and invite a maintainer to 'fix' the working bespoke check by routing a span-assembly command through the textpatch write skeleton.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2
+    },
+    {
+      "id": "qa-103",
+      "scope": "CC-M-002-007::test_assemble_output_never_touches_output_path_on_abort",
+      "check": "The test named as the sole verification of C-008 (build and validate wholly in memory; an abort leaves the output path untouched) can actually fail. As written it constructs output_path = tmp_path/'should_not_exist.nml', never passes it to assemble_output (which takes no output-path parameter at all), and then asserts it does not exist - an assertion that is true by construction and cannot detect a regression. Acceptance criterion 'Calling assemble_output directly on an input that produces an unresolved-tracks or no_entries_resolved error never creates, truncates, or otherwise touches the intended output path' therefore has no executable guard.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tests",
+      "version": 3
+    },
+    {
+      "id": "qa-104",
+      "scope": "CC-M-002-007::_nml",
+      "check": "The M-002 test helper emits '<NODE TYPE=\"$ROOT\" NAME=\"$ROOT\">' as the PLAYLISTS root, but every real collection in testing/collections/ uses '<NODE TYPE=\"FOLDER\" NAME=\"$ROOT\">', and the existing suite's own helpers (tests/test_splice.py::_nml, tests/test_split.py::_nml) already use TYPE=\"FOLDER\". Every target-folder test therefore exercises _find_target_subnodes' findall(\".//NODE[@TYPE='FOLDER']\") against a document whose root folder is invisible to that selector, which is not the production shape.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tests",
+      "version": 3
+    },
+    {
+      "id": "qa-105",
+      "scope": "CC-M-002-006::_handle_build_playlist",
+      "check": "tracklist_bytes.decode(\"utf-8\") is unguarded. A track list saved by a Windows editor in cp1252, or any non-UTF-8 encoding, raises UnicodeDecodeError that escapes the handler as a traceback instead of a diagnostic line plus exit 2, unlike every other input-error path in the package (input_not_found, xml_parse_error). A UTF-8 BOM is a second, quieter case: '\\ufeffArtist' parses as an artist name that matches nothing, so the first line of every BOM-prefixed track list silently becomes an unresolved row.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-build-playlist-cmd",
+      "version": 3
+    },
+    {
+      "id": "qa-106",
+      "scope": "CC-M-002-006::_write_unresolved_report, DL-027",
+      "check": "The --unresolved-report path is excluded from the output-path refusal check, and the report is written even on an aborted run. An operator who points --unresolved-report at the base collection destroys it with CSV via a plain truncating open(\"w\") - on a run the plan describes as writing nothing. Confirm whether extending the refusal set to the report path (and to splice_cmd's --conflict-report, which carries the same gap) is in scope or is a stated, accepted inheritance.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-build-playlist-cmd",
+      "version": 3
+    },
+    {
+      "id": "qa-107",
+      "scope": "CC-M-002-004::_find_target_subnodes",
+      "check": "The target-folder lookup searches base_root.findall(\".//NODE[@TYPE='FOLDER']\") over the whole document rather than only the PLAYLISTS subtree, so a FOLDER node living outside PLAYLISTS could satisfy or falsely ambiguate the lookup. Confirm the search is scoped to the PLAYLISTS tree, matching DL-030's own wording ('more than one FOLDER anywhere in the PLAYLISTS tree').",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 3
+    },
+    {
+      "id": "qa-108",
+      "scope": "CC-M-002-004::_find_target_subnodes",
+      "check": "The ambiguity error is returned as the string f\"target_folder_ambiguous count={n}\", which prints as one stderr line mixing a bare token and a key=value pair. Every other diagnostic in the package is either a bare token (no_root_subnodes, splice_aborted=true) or a single key=value (input_not_found=path). Confirm the spelling matches the package's one-diagnostic-per-line convention and that a test asserts on the token, not only on the exit code.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 3
+    },
+    {
+      "id": "qa-109",
+      "scope": "CC-M-002-004::assemble_output, R-010",
+      "check": "The valid-key validation 'if not set(matched_keys) <= valid_keys' compares keys taken from matched collection EntryRecords against the primary keys of those same records, so it is unfalsifiable and the invalid_primary_key branch is unreachable. R-010's stated mitigation ('every synthesized key is validated against the base collection's own primary keys') therefore mitigates nothing. Confirm whether the risk is real (and needs a check that can fire) or should be withdrawn along with the dead branch.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 3
+    },
+    {
+      "id": "qa-110",
+      "scope": "CI-M-003-004, M-003.acceptance_criteria",
+      "check": "CI-M-003-004 says the new bullets go 'directly after the section's current final entry (DL-023)' and the acceptance criterion repeats 'immediately following its pre-existing DL-023 entry'. DL-023's bullet is at traktor_nml/README.md lines 97-101, and the Design Decisions section continues to line 140 - DL-023 is not the section's final entry. Confirm the intended insertion point and that the criterion states it accurately.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "parent-qa-101",
+      "version": 3
+    },
+    {
+      "id": "qa-111",
+      "scope": "CC-M-002-005, CC-M-002-006",
+      "check": "CC-M-002-005 creates commands/build_playlist_cmd.py whose register() binds handlers[\"build-playlist\"] = _handle_build_playlist, a name only defined by CC-M-002-006, and imports assemble_output / read_and_parse_source / write_bytes_atomically / argparse that its own body never uses. Confirm the two changes are stated as one indivisible landing (the intermediate state raises NameError on any invocation and carries four unused imports).",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-build-playlist-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-112",
+      "scope": "CC-M-002-007::test_no_forbidden_imports_or_substrings_in_new_modules",
+      "check": "The static-scope test checks only the forbidden-substring half of its stated contract. Acceptance criterion (C-007) and the test-list entry both also require 'matching.py and confidence.py remain byte-identical to their pre-existing contents', and M-001's acceptance criteria repeat it, but no test in either milestone asserts it. Confirm the byte-identity claim is either tested or restated as a review-time check.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tests",
+      "version": 3
+    },
+    {
+      "id": "qa-113",
+      "scope": "CC-M-001-003::resolve_tracklist",
+      "check": "match_records is called as match_records([record], collection, MatchConfidence.LOOSE, indexes=indexes) against the real signature match_records(old_records, new_records, confidence, key_providers=(), indexes=None). Confirm indexes is passed by keyword (it is, in the plan text) so key_providers is not accidentally bound positionally, and that passing new_records=collection alongside a prebuilt index does not trigger a second build_new_indexes pass (it does not - the build is guarded by 'if indexes is None').",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-tracklist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-114",
+      "scope": "CC-M-001-003::resolve_tracklist",
+      "check": "mapping.get(\"\") is a valid read-back for the matched record: match_records keys its mapping by old_record.primary_key, LocationParts.primary_key is volume+dir_value+file_name, and a tracklist_record's LocationParts is all-empty, so the key is exactly the empty string. Confirm no code path gives a tracklist record a non-empty location.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-tracklist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-115",
+      "scope": "CC-M-001-002::tracklist_record",
+      "check": "EntryRecord(entry=None, artist=..., title=..., audio_id=\"\", filesize=\"\", playtime_float=\"\", bitrate=\"\", album=\"\", file_name=\"\", location=LocationParts(volume=\"\", volumeid=\"\", dir_value=\"\", file_name=\"\"), source_path=None) names every field of the real dataclass with no missing or invented keyword, and the all-empty record survives match_records' own sample-collection path (record_label and location.decoded_path are both evaluated for a matched old record).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-tracklist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-116",
+      "scope": "CC-M-001-003, DL-032",
+      "check": "MatchConfidence.LOOSE genuinely admits the artist_title tier (confidence._LOOSE_TIERS = _STRICT_TIERS + ('artist_title',)) and no stricter tier is reachable for a record whose filesize, playtime_float, album, file_name and audio_id are all empty, so DL-032's 'every tier above artist_title is structurally unreachable' holds against the real record_keys guards.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tracklist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-117",
+      "scope": "CC-M-002-004::assemble_output",
+      "check": "The OutputBuilder call sequence matches spans.py's real API: add_verbatim(str), then add_counted_span(source, span, tag_name, count_attr, children, attr_patches=None, count=None) with count passed by keyword, then add_verbatim(str), then build(). Confirm the positional argument order and that count=existing_count+1 mirrors splice.py's own count=original_root_count+len(fragments) convention.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-118",
+      "scope": "CC-M-002-004::assemble_output",
+      "check": "add_counted_span computes its insertion point as len(text) - len('</SUBNODES>'), which is wrong for a self-closing '<SUBNODES COUNT=\"0\"/>' container - the fragment would be spliced inside the opening tag. No plan test covers that shape (the _nml helper always emits an explicit closing tag). Confirm whether a self-closing empty SUBNODES occurs in the real corpus, and if so whether this pre-existing spans.py limitation must be handled or documented for build-playlist's empty-root case.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-119",
+      "scope": "CC-M-002-001::synthesize_playlist_node",
+      "check": "playlists.py already imports uuid and ET at module level, so the new function's uuid.uuid4().hex and ET.Element/ET.SubElement/ET.tostring calls need no new import, and ET.tostring(node, encoding=\"unicode\") returns str (matching the str-typed fragments OutputBuilder concatenates), not bytes.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-playlists-module",
+      "version": 2
+    },
+    {
+      "id": "qa-120",
+      "scope": "CC-M-002-002::available_playlist_name",
+      "check": "The extraction is behavior-preserving: the removed inline block in import_playlists used original_name as the suffix base and mutated the caller's existing_names set, and available_playlist_name(requested_name, existing_names) reproduces both, including the in-place set mutation that splice.assemble_output relies on across contributions.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-playlists-module",
+      "version": 2
+    },
+    {
+      "id": "qa-121",
+      "scope": "CC-M-002-003, CC-M-002-004",
+      "check": "Every symbol buildplaylist.py imports exists at its stated source: collection_records in model.py; available_playlist_name (new), find_playlist_nodes and synthesize_playlist_node (new) in playlists.py; OutputBuilder, SpanIndex and find_element_span in spans.py; parse_tracklist and resolve_tracklist in tracklist.py. Confirm no import is left unused (SpanIndex and find_element_span are used only inside _find_target_subnodes, added in the second change).",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-122",
+      "scope": "CC-M-002-004::_find_target_subnodes, R-009",
+      "check": "The default branch's find_element_span(base_source, 'SUBNODES') takes the first SUBNODES in the document, exactly as splice.py:231 already does, while the named-folder branch resolves through SpanIndex(base_source, base_root).span_of(folder_subnodes). Confirm SpanIndex's ordinal-by-tag resolution is valid here (it requires the pre-order tree walk order to agree with source opening-tag order) and that a SpanIndex is not rebuilt per call in a loop.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-123",
+      "scope": "CC-M-002-004::assemble_output, DL-029",
+      "check": "existing_names is collected from find_playlist_nodes(base_root), which returns every NODE[@TYPE='PLAYLIST'] document-wide, so a name collision in a different folder from the insertion target still forces a '(2)' rename. Confirm this document-wide scope is intended (it matches splice.assemble_output:212) rather than a per-folder scope.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-124",
+      "scope": "CC-M-001-001::parse_tracklist",
+      "check": "The skip test uses the stripped line ('not stripped or stripped.startswith(\"#\")') while the delimiter search and both halves are taken from raw_line. Confirm this is deliberate and that a line whose only ' - ' occurrence sits inside leading whitespace (e.g. ' - Title') lands in the unparseable list via the empty-half guard, as the plan's own test asserts.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-tracklist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-125",
+      "scope": "CC-M-001-004, CC-M-002-007",
+      "check": "Both new test modules follow the suite's confirmed conventions: tests/test_build_playlist.py drives run_tool(argv, cwd) from tests.conftest for CLI-level guarantees (DL-011), and tests/test_tracklist.py's direct unit calls on pure parsing/resolution functions are a stated, justified exception rather than a silent departure from the CLI-level contract.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tests",
+      "version": 2
+    },
+    {
+      "id": "qa-126",
+      "scope": "CC-M-002-007::test_unresolved_csv_report_parses_back_with_matching_header",
+      "check": "The test passes --allow-unmatched over a single-line all-unmatched tracklist and asserts exit_code == 2 because no_entries_resolved fires (DL-036) - so it exercises the zero-resolved abort, not the allow-unmatched CSV path it is named for. Confirm the CSV report assertion is still meaningful on that path, and that a separate case covers a report written alongside a successful partial build.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tests",
+      "version": 3
+    },
+    {
+      "id": "qa-127",
+      "scope": "CC-M-002-007::test_commit_path_uses_write_bytes_atomically",
+      "check": "monkeypatch.setattr(build_playlist_cmd, 'write_bytes_atomically', _spy) actually intercepts the commit: the handler must reference the name through the module global (from ..rewrite import write_bytes_atomically, then a bare call), not via rewrite.write_bytes_atomically, for the patch to take effect. Confirm CC-M-002-006's import form matches what the test patches.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tests",
+      "version": 2
+    },
+    {
+      "id": "qa-128",
+      "scope": "CC-M-002-006::_handle_build_playlist",
+      "check": "args.tracklist.read_bytes() catches only FileNotFoundError. A directory, an unreadable file, or a broken link raises IsADirectoryError/PermissionError/OSError that escapes as a traceback rather than the package's diagnostic-plus-exit-2 convention.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-build-playlist-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-129",
+      "scope": "M-002.acceptance_criteria",
+      "check": "Every acceptance criterion in M-002 is backed by a listed test, and every listed test maps to a criterion. Specifically confirm coverage exists for 'The output document re-parses and every byte outside the receiving SUBNODES matches the base' and 'Each new PRIMARYKEY KEY equals the matched collection entry's primary key, not a value derived from the input text' - the CC-M-002-007 body asserts substring ordering and counts but no byte-level comparison against the base outside the receiving span.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tests",
+      "version": 3
+    },
+    {
+      "id": "qa-130",
+      "scope": "*",
+      "check": "Every decision_refs entry across all 13 code_intents (CI-M-001-001..003, CI-M-002-001..006, CI-M-003-001..004) names a decision that exists in planning_context.decisions (DL-024..DL-039), and every rejected_alternative's decision_ref (RA-001..RA-012) and every risk's decision_ref (R-006..R-011) likewise resolves. No new DL id collides with the pre-existing package log, whose maximum is DL-023.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-131",
+      "scope": "*",
+      "check": "Every code_intent has at least one code_change carrying its id in intent_ref, and every code_change either names a real intent_ref or is a test change with intent_ref null. Confirm CI-M-002-004 (BuildPlaylistResult) maps to CC-M-002-003 and CI-M-002-003 (assemble_output) to CC-M-002-004, which are cross-ordered relative to their ids.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-132",
+      "scope": "*",
+      "check": "No file listed in a milestone's files[] lacks a code_change, and no code_change touches a file absent from its milestone's files[]. Confirm traktor_nml/playlists.py appears in M-002's files (it does) and that no change silently edits matching.py or confidence.py, which C-001 forbids.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    }
+  ]
+}

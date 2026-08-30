@@ -1,0 +1,11 @@
+--- a/traktor_nml/CLAUDE.md
++++ b/traktor_nml/CLAUDE.md
+@@ -14,6 +14,6 @@
+ | `diskscan.py`      | Filesystem candidate scanning for reconnection             | Adding or changing disk-scan candidate discovery            |
+ | `tagcache.py`      | Tag-read caching                                           | Changing tag cache key composition or eviction             |
+ | `reconnect.py`     | Disk-scan reconnection, one-to-one assignment invariant    | Modifying reconnection matching or destination-collision handling |
+-| `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths   | Changing volume identity resolution or `--volume-map`      |
+-| `fingerprint.py`   | Acoustic fingerprint comparison (optional chromaprint dep) | Modifying fingerprint matching or its availability guard   |
++| `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |
++| `fingerprint.py`   | Acoustic fingerprint comparison (optional chromaprint dep); the old side resolves its path through `volumes.py` rather than from `decoded_path` | Modifying fingerprint matching or its availability guard   |
+ | `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation | Modifying splice/split's structural write path or count recalculation |

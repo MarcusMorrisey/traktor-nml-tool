@@ -1,0 +1,52 @@
+--- a/traktor_nml/split.py
++++ b/traktor_nml/split.py
+@@ -24,25 +24,30 @@ DanglingPolicy = Literal["exclude", "pull-in", "fail"]
+ class SelectionResult:
+     """playlist_partial's (name, kept, total) records the partial-
+     retention detail DL-009 requires reporting, distinct from
+     playlist_dropped's fully-empty case - a playlist never silently loses
+     entries without one of the two being reported."""
+     kept_keys: set[str]
++    resolved_nodes: list[ET.Element] = field(default_factory=list)
+     playlist_dropped: list[str] = field(default_factory=list)
+     playlist_partial: list[tuple[str, int, int]] = field(default_factory=list)  # (name, kept, total)
+     unknown_playlists: list[str] = field(default_factory=list)
+ 
+ 
+ def select_entries(root: ET.Element, playlist_names: list[str]) -> SelectionResult:
+     """Resolve playlist_names to their primary keys, and report a playlist
+-    reduced to zero entries as dropped rather than writing it empty."""
++    reduced to zero entries as dropped rather than writing it empty.
++    resolved_nodes carries every playlist node this group actually
++    resolved to, so apply_dangling_policy can scope its dangling-reference
++    check to only these nodes rather than searching the document again."""
+     all_nodes = {node.attrib.get("NAME", ""): node for node in find_playlist_nodes(root)}
+     result = SelectionResult(kept_keys=set())
+ 
+     for name in playlist_names:
+         node = all_nodes.get(name)
+         if node is None:
+             result.unknown_playlists.append(name)
+             continue
++        result.resolved_nodes.append(node)
+         keys = [pk.attrib.get("KEY", "") for pk in node_primary_keys(node)]
+         total = len(keys)
+         if total == 0:
+@@ -64,7 +68,7 @@ class SplitOutcome:
+ 
+ 
+ def apply_dangling_policy(
+-    root: ET.Element, kept_keys: set[str], policy: DanglingPolicy
++    root: ET.Element, kept_keys: set[str], policy: DanglingPolicy, playlist_nodes: list[ET.Element]
+ ) -> tuple[set[str], list[tuple[str, str]], list[str]]:
+     """Return (final_kept_keys, dropped_refs, errors).
+ 
+@@ -80,7 +84,7 @@ def apply_dangling_policy(
+     # up front and handled below like any other out-of-selection reference.
+     final_keys = kept_keys & valid_collection_keys
+ 
+-    for node in find_playlist_nodes(root):
++    for node in playlist_nodes:
+         name = node.attrib.get("NAME", "")
+         for pk in node_primary_keys(node):
+             key = pk.attrib.get("KEY", "")

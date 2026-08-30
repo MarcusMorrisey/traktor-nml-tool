@@ -1,0 +1,12 @@
+--- a/traktor_nml/confidence.py
++++ b/traktor_nml/confidence.py
+@@ -20,6 +20,10 @@
+
+     @classmethod
+     def from_legacy_flag(cls, allow_artist_title_only: bool) -> "MatchConfidence":
++        """--allow-artist-title-only maps to LOOSE: kept as a stable
++        spelling for scripted invocations that predate this ordered
++        enum (DL-010)."""
+         return cls.LOOSE if allow_artist_title_only else cls.STRICT
+
+     def admits(self, tier_name: str) -> bool:

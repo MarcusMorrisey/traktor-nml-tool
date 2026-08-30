@@ -1,0 +1,55 @@
+--- a/tests/test_split.py
++++ b/tests/test_split.py
+@@ -174,3 +174,52 @@ def test_omitted_playlist_sorting_info_is_dropped_and_reported(tmp_path: Path)
+     text = out.read_text(encoding="utf-8")
+     assert 'PATH="Keep"' in text
+     assert 'PATH="Skip"' not in text
++
++
++def test_group_succeeds_under_fail_policy_despite_broken_reference_in_unrequested_playlist(
++    tmp_path: Path,
++) -> None:
++    """An unrequested playlist elsewhere in the same file holding a broken
++    reference must not affect this group's outcome: the dangling policy is
++    scoped to only the group's own resolved playlists."""
++    src = tmp_path / "src.nml"
++    src.write_text(
++        _nml(
++            _entry("A", "One", "one.mp3"),
++            1,
++            _playlist("Keep", [_key("one.mp3")], "uuid-keep")
++            + _playlist("Unrelated", [_key("one.mp3"), _key("ghost.mp3")], "uuid-unrelated"),
++            2,
++        ),
++        encoding="utf-8", newline="",
++    )
++    out = tmp_path / "out.nml"
++    result = run_tool(
++        ["split", str(src), "--group", str(out), "Keep", "--dangling-policy", "fail"], cwd=tmp_path
++    )
++    assert result.exit_code == 0
++    assert out.exists()
++
++
++def test_pull_in_adds_no_track_only_referenced_by_an_unrequested_playlist(tmp_path: Path) -> None:
++    src = tmp_path / "src.nml"
++    src.write_text(
++        _nml(
++            _entry("A", "One", "one.mp3") + _entry("B", "Two", "two.mp3"),
++            2,
++            _playlist("Keep", [_key("one.mp3")], "uuid-keep")
++            + _playlist("Unrelated", [_key("one.mp3"), _key("two.mp3")], "uuid-unrelated"),
++            2,
++        ),
++        encoding="utf-8", newline="",
++    )
++    out = tmp_path / "out.nml"
++    result = run_tool(
++        ["split", str(src), "--group", str(out), "Keep", "--dangling-policy", "pull-in"], cwd=tmp_path
++    )
++    assert result.exit_code == 0
++    text = out.read_text(encoding="utf-8")
++    assert "one.mp3" in text
++    # "Unrelated" is not requested, so its reference to two.mp3 must never
++    # pull two.mp3 into this group's output.
++    assert "two.mp3" not in text

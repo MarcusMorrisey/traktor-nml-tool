@@ -1,0 +1,78 @@
+import json
+
+with open('plan.json', encoding='utf-8') as f:
+    plan = json.load(f)
+
+target = None
+for m in plan['milestones']:
+    for cc in m['code_changes']:
+        if cc['id'] == 'CC-M-001-005':
+            target = cc
+            break
+    if target:
+        break
+
+assert target is not None
+
+new_doc_diff = '''--- a/tests/test_write_shell_split.py
++++ b/tests/test_write_shell_split.py
+@@ -1,7 +1,19 @@
+ """Unit tests over plan_and_write_nml covering what the byte-parity
+ manifest cannot reach: the printless core's own outcomes rather than the
+-stream writes a caller layers on top of it.
++stream writes a caller layers on top of it. Each guard below is proved
++to fail when its invariant breaks, not only shown to pass: a collision
++outcome's stats are shown to differ in kind from a completed run's
++(test_output_collision_carries_no_stats), a stats-discarding WriteOutcome
++built the way a prior draft built one is shown to carry different stats
++than the real outcome
++(test_text_patch_error_keeps_the_stats_it_already_collected), the
++callback-exception and write-time-error failure classes are shown to be
++handled differently rather than both propagating
++(test_callback_exception_reaches_the_caller), and the printing wrapper
++write_nml_safely is run over the same input to show capsys is actually
++capturing output rather than the silence above being a misconfigured
++test (test_no_outcome_writes_to_either_stream).
+ """
+ 
+ from __future__ import annotations
+@@ -17,19 +29,29 @@ from traktor_nml.rewrite import WriteOutcome, plan_and_write_nml, write_nml_sa
+ 
+ 
+ def _write_minimal_nml(path: Path) -> None:
++    """A COLLECTION with no entries - enough for plan_and_write_nml to
++    parse and reach either callback; the tests below don't need entries,
++    only a valid document to read, patch and (sometimes) write."""
+     path.write_text(
+         \'<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n\'
+         \'<NML VERSION="19">\n\'
+         \'  <COLLECTION ENTRIES="0">\n\'
+         \'  </COLLECTION>\n\'
+         \'</NML>\n\',
+         encoding="utf-8",
+     )
+ 
+ 
+ def _no_op_collect(root):
++    """Minimal collect_patches returning fixed patches/stats/samples:
++    isolates plan_and_write_nml's write-shell behaviour (collision
++    refusal, write-time error handling, printlessness) from patch
++    computation, which these tests are not exercising."""
+     return [], {"x": 1}, []
+ 
+ 
+ def _no_op_mutate(root, dry_run):
++    """Minimal mutate_tree returning fixed stats, ignoring dry_run:
++    isolates the write shell the same way _no_op_collect does, for the
++    stdlib-fallback path."""
+     return {"x": 1}, []
+'''
+
+target['doc_diff'] = new_doc_diff
+if target.get('version'):
+    target['version'] += 1
+
+with open('plan.json', 'w', encoding='utf-8', newline='\n') as f:
+    json.dump(plan, f, indent=2, ensure_ascii=False)
+
+print("Updated CC-M-001-005 doc_diff, new version:", target.get('version'))

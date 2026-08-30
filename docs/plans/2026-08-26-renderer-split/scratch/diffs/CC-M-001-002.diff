@@ -1,0 +1,41 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -411,18 +411,29 @@ class WriteOutcome:
+     exit_code: int
+ 
+ 
+-def print_stats_and_samples(
++def format_stats_and_samples(
+     stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
+-) -> None:
+-    for key, value in stats.items():
+-        print(f"{key}={value}")
++) -> list[str]:
++    """The stats and sample_matches block as lines rather than prints, so
++    print_stats_and_samples and reconnect_render.render_rewrite_from_reconnect
++    compose the same block into their own output instead of each
++    restating its format."""
++    lines = [f"{key}={value}" for key, value in stats.items()]
+     if samples:
+-        print("sample_matches:")
++        lines.append("sample_matches:")
+         for label, before, after, matched_by in samples[:limit]:
+-            print(f"- {label}")
+-            print(f"  matched_by={matched_by}")
+-            print(f"  before={before}")
+-            print(f"  after={after}")
++            lines.append(f"- {label}")
++            lines.append(f"  matched_by={matched_by}")
++            lines.append(f"  before={before}")
++            lines.append(f"  after={after}")
++    return lines
++
++
++def print_stats_and_samples(
++    stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
++) -> None:
++    for line in format_stats_and_samples(stats, samples, limit):
++        print(line)
+ 
+ 
+ # Callables a caller of write_nml_safely supplies:

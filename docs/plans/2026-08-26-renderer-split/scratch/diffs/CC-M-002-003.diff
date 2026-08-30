@@ -1,0 +1,22 @@
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -91,3 +91,17 @@ class ScanReconnectResult:
+     result: Optional[ReconnectResult]
+     error: Optional[str]
+     csv_path: Optional[Path]
++
++
++@dataclass(frozen=True)
++class RewriteReconnectResult:
++    """One rewrite-from-reconnect pass. outcome and error are never both
++    non-None: a WriteOutcome carries its own error field for write-path
++    failures, and this error field is only for a failure that came out of
++    the reconnection callback before plan_and_write_nml could produce an
++    outcome at all. csv_path is non-None only alongside a non-None
++    reconnect.
++    """
++
++    outcome: Optional[WriteOutcome]
++    reconnect: Optional[ReconnectResult]
++    csv_path: Optional[Path]
++    error: Optional[str]

@@ -1,0 +1,133 @@
+{
+  "phase": "plan-code",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every code_change diff applies to the real current file content at C:\\codex\\general_tasks when changes are applied in wave order (W-001: M-001,M-002,M-004; W-002: M-003,M-005).",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "note": "Re-verified this iteration (iteration 4) with a fresh full reverse-apply reconstruction of all 43 code_changes against the real tree at C:\\codex\\general_tasks, processed per-file in strict reverse wave/milestone/list order (W-002 M-005,M-003 before W-001 M-004,M-002,M-001; GNU patch -p1 -R, no fuzz suppression, actually applied sequentially in a scratch copy of the tree so each step verifies against the correct intermediate state rather than dry-run against the final state only). Result: 10 of 43 diffs still fail to reverse-apply cleanly, so the check remains FAIL. Of the 6 entries this note previously flagged, only 2 (CC-M-003-002, CC-M-003-003) now round-trip; the other 4 are still broken: CC-M-003-001 (splice_cmd.py hunk#2 fails, not hunk#3 as previously noted), CC-M-003-004 and CC-M-004-006 (traktor_nml/README.md - CC-M-004-006 now fails with 'malformed patch at line 17: @@ -60,5 +68,8 @@', a hunk-header/body mismatch, not just prose drift), and CC-M-004-003 (splice.py - now hunks #3 and #5 fail, not hunk@209 as previously noted). In addition, 6 previously-unflagged diffs now fail: CC-M-005-009, CC-M-002-011, CC-M-001-005 (all traktor_nml/README.md), CC-M-005-010 (traktor_nml/CLAUDE.md), CC-M-002-007 (compare_cmd.py hunk#2), and CC-M-005-001 (split.py hunk#1). Concrete evidence: CC-M-005-009's diff hunk targets README.md lines 55-63 expecting the DL-023 extra_inputs paragraph as trailing context, but that DL-020 content actually lives at README.md:113 in a differently-worded, consolidated Design Decisions section - the diff's context does not exist at the location or wording it specifies anywhere near line 55. This confirms the entire README.md/CLAUDE.md diff chain (all 5 README.md code_changes plus CC-M-005-010) is built against a paraphrase of the doc that no longer matches the real file's accumulated wording/order, and several code diffs (compare_cmd.py, splice.py, splice_cmd.py, split.py) have hunks whose context/replacement text likewise no longer matches the real, more-evolved implementation. 33 of 43 code_changes do round-trip cleanly. This is a regression relative to the prior iteration's already-FAIL state (4 new mismatches surfaced, only 2 of the prior 6 fixed), not the clean round-trip the task expected."
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "CC-M-004-003",
+      "check": "splice.py hunk@164 leading context matches assemble_output's actual docstring wrapping.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified this iteration against real C:\\codex\\general_tasks\\traktor_nml\\splice.py:162-166 (byte-level repr comparison): diff hunk@164's three context lines ('    unresolved one), transplant surviving collection entries as verbatim', '    spans, then hand off to playlist import for the PLAYLISTS tree', '    (DL-007, DL-008).\"\"\"') match the actual file's docstring wrapping and 4-space indentation exactly. Prior FAIL note is stale relative to the plan.json now on disk (code_change is version 2)."
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "CC-M-001-006",
+      "check": "traktor_nml/CLAUDE.md hunk@14 context row for tagcache.py matches the file's actual column padding.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Re-verified: diff's tagcache.py context line (144 chars after stripping the leading ' ' unified-diff marker) is byte-for-byte identical to actual CLAUDE.md:15 (144 chars). Prior FAIL note's 146-char claim does not reproduce; padding now matches."
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every hunk header's -old,+new line counts equal the actual hunk body counts, so the diffs are applicable by git apply / patch.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Re-verified this iteration: parsed all 44 code_change diffs' hunk headers and counted actual +/- /context body lines programmatically; all headers match (e.g. CC-M-002-008 tests/test_compare.py now correctly reads @@ -0,0 +1,105 @@ matching its 105 added lines). Prior FAIL note is stale relative to the plan.json now on disk."
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "New-file diffs use /dev/null only for files that do not exist on disk, and existing-file diffs never use /dev/null.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Only CC-M-002-008 (tests/test_compare.py) is /dev/null; that file is absent. Correct."
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Every code_change maps to an existing code_intent, and every code_intent has at least one code_change.",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "Every symbol a diff imports or calls is defined by the same or an earlier-wave diff, or already exists in the codebase.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "build_new_indexes, match_records(indexes=), dataclass, ET, Path all verified present; enforce_one_to_one defined in M-002 (W-001) before its M-002 caller; read_and_parse_source/write_bytes_atomically defined in M-002 (W-001) before M-003 (W-002) consumers; no rewrite<->reconnect import cycle."
+    },
+    {
+      "id": "qa-006",
+      "scope": "CC-M-004-001",
+      "check": "SpanIndex's element-to-ordinal mapping stays valid for the index's whole lifetime under the lxml backend.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Verified against real C:\\codex\\general_tasks\\traktor_nml\\spans.py:113-177 (post-fix): SpanIndex now keeps self._elements, a list retaining a reference to every walked element for the index's entire lifetime, specifically to prevent lxml proxy garbage collection from recycling id() addresses (documented in the class docstring). Original plan.json diff (only self._ordinal_by_id keyed by id(element), no retained references) is stale relative to the fix already on disk."
+    },
+    {
+      "id": "qa-007",
+      "scope": "CC-M-001-004",
+      "check": "known_mounts anchors are the volume roots that decoded_path is relative to, not arbitrary scan-root subdirectories.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Verified against real C:\\codex\\general_tasks\\traktor_nml\\commands\\reconnect_cmd.py:99-109 (post-fix): known_mounts now registers Path(scan_root).anchor, not scan_root.resolve(); matches location_from_disk_path's anchor-stripping. Original plan.json diff (scan_root.resolve()) is stale relative to the fix already on disk."
+    },
+    {
+      "id": "qa-008",
+      "scope": "CC-M-001-002 / CC-M-001-003",
+      "check": "Every existing call site of a signature changed by the plan is updated by some diff in the plan.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Verified against real C:\\codex\\general_tasks (post-fix): tests/test_fingerprint.py:51 now calls fingerprint_key_provider(cache, candidates, stats, {}) with 4 args, and lines 121/126 pass known_mounts to old_side_fingerprint; reconnect_cmd.py:129 passes known_mounts to fingerprint_key_provider. Prior 3-arg gap noted in an earlier iteration has been fixed on disk."
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "check": "The plan's post-application source tree compiles (no NameError-level dangling references to removed symbols).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "element_span_by_identity and _locate_node_start have no surviving call sites; all modules byte-compile."
+    },
+    {
+      "id": "qa-010",
+      "scope": "*",
+      "check": "Every DL-NNN referenced by a milestone is defined in planning_context.decisions or in the existing repository decision log.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "DL-014..DL-023 defined in plan; DL-004/005/007/010/012 in traktor_nml/README.md; DL-008/DL-009 appear only in pre-existing source comments (pre-existing gap, out of scope)."
+    },
+    {
+      "id": "qa-011",
+      "scope": "CC-M-002-001",
+      "check": "enforce_one_to_one's extraction from resolve_reconnection is behaviour-preserving and its signature type-checks.",
+      "status": "PASS",
+      "severity": "COULD",
+      "note": "Extracted body is a verbatim move of the removed inline block (records_by_key/dest_claimants/collided_keys/stats loop/final_mapping identical); the two stats[...] assignments only move earlier (both are pure functions of collided_keys/final_mapping, computed before the ambiguity_rows loop, so ordering change is behavior-preserving). Call site passes args in declared param order (mapping, match_stats, old_records, indexes, confidence, key_providers) and unpacks the 3-tuple correctly. key_providers: list[KeyProvider] = () default matches resolve_reconnection's own pre-existing signature convention in the same file, not a defect introduced by this extraction. Return type tuple[dict[str,EntryRecord], dict[str,int], set[str]] matches final_mapping/stats/collided_keys actual types."
+    },
+    {
+      "id": "qa-012",
+      "scope": "CC-M-004-003",
+      "check": "span_indexes indices align with the inputs list (base at 0, contributions at 1..n).",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "enumerate(contributions, start=1) matches inputs = [base_root] + contribution roots."
+    },
+    {
+      "id": "qa-013",
+      "scope": "CC-M-005-001",
+      "check": "apply_dangling_policy's playlist_nodes argument carries exactly this group's resolved nodes.",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-014",
+      "scope": "CC-M-005-006",
+      "check": "One SpanIndex per document is safe to share across split groups (build_output does not mutate root).",
+      "status": "PASS",
+      "severity": "SHOULD"
+    }
+  ]
+}

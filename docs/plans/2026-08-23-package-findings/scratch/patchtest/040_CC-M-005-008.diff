@@ -1,0 +1,17 @@
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -152,11 +152,9 @@ class SpanIndex:
+     replace element_span_by_identity's per-call tree walk plus per-call
+     text rescan.
+ 
+-    element_span_by_identity stays in place and unchanged for now because
+-    split.py still calls it at three sites; its removal is a later
+-    migration, once split.py's last caller moves to this index, so the
+-    package never sits in a state where a shipped module imports a
+-    function that no longer exists.
++    element_span_by_identity has been removed: split.py, its last caller,
++    now resolves every span through this index, leaving SpanIndex as the
++    package's one element-to-span identity mechanism.
+     """
+ 
+     def __init__(self, source: str, root) -> None:

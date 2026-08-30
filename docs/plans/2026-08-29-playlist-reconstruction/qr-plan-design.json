@@ -1,0 +1,368 @@
+{
+  "phase": "plan-design",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "invisible_knowledge.system/invariants/tradeoffs are empty; verify the 8 context.json knowledge items are transferred",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge.system/invariants/tradeoffs are all empty in plan.json; none of the 8 context.json invisible_knowledge items (DL-007, DL-008, DL-029, DL-037, verbatim-span transplant, ENTRIES recalculation, R-004 UUID tolerance, user real-world use case) were transferred"
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge",
+      "check": "Verify DL-007 (span assembly and attribute-patching writes must not mix in one command) is recorded as an invariant",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge.invariants is empty []; DL-007 span/attribute-patching non-mixing rule is not recorded anywhere in plan.json"
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge",
+      "check": "Verify DL-008 (unresolved conflict aborts the whole write, report written either way) is recorded as an invariant",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge.invariants is empty []; DL-008 abort-plus-report convention is not recorded there (though DL-094 decision text references it)"
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge",
+      "check": "Verify the verbatim-span transplant rule (only renamed playlists and redirected PRIMARYKEYs are re-serialised) is recorded",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge.invariants is empty []; verbatim-span transplant rule is not recorded there"
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge",
+      "check": "Verify 'the ENTRIES attribute is the value reconstruction recalculates and must not be trusted as trigger input' is recorded as an invariant",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge.invariants is empty []; ENTRIES-not-trustworthy-as-trigger-input rule is not recorded there"
+    },
+    {
+      "id": "qa-001e",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge",
+      "check": "Verify R-004 (Traktor's tolerance of a non-original playlist UUID is confirmed only by manual import, not by the suite) is recorded as a tradeoff justifying in-place fill",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge.tradeoffs is empty []; R-004 UUID-tolerance rationale for in-place fill is not recorded there"
+    },
+    {
+      "id": "qa-001f",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge",
+      "check": "Verify the user's real-world case (blank playlists in the current collection, contents in a previous one, path repair needed) is recorded as system context",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge.system is empty string \"\"; the user real-world use case (blank playlists, path repair across collections) is not recorded there"
+    },
+    {
+      "id": "qa-001g",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge",
+      "check": "Verify the DL-029 rename rule and the DL-037 duplicate-entry policy are recorded as the two policies reconstruction departs from",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2,
+      "finding": "invisible_knowledge fields are empty; DL-029 rename rule and DL-037 duplicate-entry policy are not recorded as the two policies reconstruction departs from"
+    },
+    {
+      "id": "qa-006",
+      "scope": "DL-091",
+      "check": "Verify order-sensitive comparison is recorded as user-confirmed or as an explicit open question, not asserted as settled",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "component-redirected-key-comparison",
+      "version": 2,
+      "finding": "DL-091 asserts order-sensitive comparison as settled (\"settles order deterministically\") with no mention it needs user confirmation, but context.json assumptions list it explicitly as unconfirmed: worth confirming with the user."
+    },
+    {
+      "id": "qa-007",
+      "scope": "DL-091",
+      "check": "Verify the plan states the behaviour for degenerate name-match cases",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-007",
+      "version": 2,
+      "finding": "Plan matches base/incoming playlists purely by NAME (line 127) with no mention of degenerate cases: two base playlists sharing one name, two incoming playlists with the same name in different folders, or case-sensitivity of the match - behavior for these is unspecified."
+    },
+    {
+      "id": "qa-007a",
+      "parent_id": "qa-007",
+      "scope": "DL-091",
+      "check": "Verify the plan states what happens to a base playlist whose name matches no incoming playlist",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-007",
+      "version": 2,
+      "finding": "Plan (line 127) only describes behavior when incoming playlists of the same NAME exist; it never states, nor tests (line 152 guard list), what happens to a base playlist whose name matches zero incoming playlists."
+    },
+    {
+      "id": "qa-007b",
+      "parent_id": "qa-007",
+      "scope": "DL-091",
+      "check": "Verify the plan states what happens when the matched incoming playlist has zero entries",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "parent-qa-007",
+      "version": 2,
+      "finding": "Plan does not state what happens when a matched incoming playlist has zero PRIMARYKEY entries - not mentioned in DL-091 comparison logic (line 127) nor in the guard list (line 152)."
+    },
+    {
+      "id": "qa-008",
+      "scope": "DL-092",
+      "check": "Verify the plan decides how a NAME occurring more than once on the base side (same name in two folders) is handled",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "concern-decision-rationale",
+      "version": 2,
+      "finding": "CI-M-001-004 iterates \"for each base playlist NODE\" matched \"of the same NAME\" without addressing base having two PLAYLIST nodes with the same NAME in different folders - no decision on which base node(s) receive the fill or whether this is treated as ambiguous."
+    },
+    {
+      "id": "qa-009",
+      "scope": "DL-093",
+      "check": "Verify a logged rationale exists for discarding the incoming SORTING_INFO entry and for counting it as neither imported nor dropped",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "concern-decision-rationale",
+      "version": 2,
+      "finding": "DL-093 reasoning justifies excluding the reconstructed node from import but gives no rationale for why its SORTING_INFO entry is discarded and counted as neither imported nor dropped (CI-M-001-002); this accounting choice is stated but not justified anywhere in plan.json."
+    },
+    {
+      "id": "qa-010",
+      "scope": "CI-M-001-003",
+      "check": "Verify the _resolve_conflicts return-shape change has a logged decision or names the existing callers affected",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "concern-decision-rationale",
+      "version": 2,
+      "finding": "CI-M-001-003 changes _resolve_conflicts to additionally return the ambiguous-group non-base keys, but plan.json never names the function existing callers or confirms they are updated/unaffected by the new return shape - only DL-094 rationale for the new value exists, not for the shape change impact."
+    },
+    {
+      "id": "qa-011",
+      "scope": "CI-M-002-001",
+      "check": "Verify the decision-log intent requires the DL-037 dedupe-versus-keep-duplicates contrast rationale",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "concern-decision-rationale",
+      "version": 2,
+      "finding": "invisible_knowledge requires reconstruction dedupe policy to state its contrast with DL-037 (build-playlist keeps duplicates) as authored input, but CI-M-002-001 behavior/decision_refs never mention DL-037 or this dedupe-vs-keep-duplicates contrast rationale."
+    },
+    {
+      "id": "qa-017",
+      "scope": "*",
+      "check": "Verify decision-reference integrity across all code_intents",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-017",
+      "version": 2
+    },
+    {
+      "id": "qa-017a",
+      "parent_id": "qa-017",
+      "scope": "*",
+      "check": "Verify every decision_ref value resolves to an existing decision id in planning_context.decisions",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-017",
+      "version": 2
+    },
+    {
+      "id": "qa-017b",
+      "parent_id": "qa-017",
+      "scope": "*",
+      "check": "Verify every decision DL-091..DL-097 is referenced by at least one code_intent",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-017",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "*",
+      "check": "Verify milestone and code_intent structural completeness",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-018",
+      "version": 2
+    },
+    {
+      "id": "qa-018a",
+      "parent_id": "qa-018",
+      "scope": "*",
+      "check": "Verify no milestone has an empty code_intents list",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-018",
+      "version": 2
+    },
+    {
+      "id": "qa-018b",
+      "parent_id": "qa-018",
+      "scope": "*",
+      "check": "Verify no code_intent has an empty decision_refs list",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-018",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "DL-095",
+      "check": "Verify the opt-in default is backed by the user's stated out-of-scope directive rather than inference alone",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-decision-rationale",
+      "version": 2
+    },
+    {
+      "id": "qa-023",
+      "scope": "CI-M-001-001",
+      "check": "Verify the plan states what redirected_playlist_keys yields for a PRIMARYKEY with no old_to_new_key mapping, and how that interacts with the existing unresolved_reference abort",
+      "status": "FAIL",
+      "severity": "MUST",
+      "group_id": "component-redirected-key-comparison",
+      "version": 2,
+      "finding": "CI-M-001-001 states redirected_playlist_keys maps a key \"when a mapping exists\" but never specifies the no-mapping case (keep raw key vs drop vs error), nor how that interacts with assemble_outputs existing unresolved_reference abort described in context.json current_understanding."
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "planning_context.risks is empty; verify identified hazards are recorded with mitigations (base_source rewrite and re-parse, end-first offset validity, R-004 UUID tolerance, GUI CRLF preservation, DL-084 gate, 407-test suite regression)",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2,
+      "finding": "planning_context.risks is empty ([]); no hazards (base_source rewrite/re-parse safety, end-first offset validity, R-004 UUID tolerance, GUI CRLF preservation, DL-084 gate, 407-test regression) are recorded with mitigations"
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Verify the user's MUST/SHOULD constraints from context.json are present in planning_context.constraints, not only architect scratch state: base never rewritten in place, per-file line-ending preservation with newline='', SYSTEM interpreter, no git checkout restore, no writes to build/dist, guard-docstring rule, no temporal narration in docs, no regression of the 7 splice tests or the wider suite",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2,
+      "finding": "planning_context.constraints holds only architect scratch state (repo paths, DL numbering, approaches); none of context.json's MUST/SHOULD constraints (base never rewritten, newline='' line-ending preservation, SYSTEM interpreter, no git checkout restore, no build/dist writes, guard-docstring rule, no temporal doc narration, no regression of 7/407 tests) are present"
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Verify the 7 measured rejected alternatives from context.json are preserved with their evidence rather than compressed into one constraint bullet",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2,
+      "finding": "planning_context.rejected_alternatives is empty; the 7 measured alternatives with evidence from context.json are compressed into a single constraints bullet ('Approaches considered: (A) chosen; (B) rejected; (C) rejected') that only covers 3 of 7 and drops the measured evidence"
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "Verify each milestone states acceptance criteria or tests by which completion is judged (all three currently empty)",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2,
+      "finding": "All three milestones (M-001, M-002, M-003) have empty acceptance_criteria and empty tests arrays; no stated criteria by which completion is judged"
+    },
+    {
+      "id": "qa-012",
+      "scope": "DL-094",
+      "check": "Verify the abort scope (whole write, not just the offending playlist) and report-written-either-way are stated explicitly per DL-008",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-ambiguity-precheck",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "DL-096",
+      "check": "Verify the plan records how line endings and encoding survive the base_source rewrite and re-parse",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "concern-project-rule-conformance",
+      "version": 2,
+      "finding": "DL-096 documents the byte-span rewrite/re-parse mechanism but never states how line endings (mixed CRLF/LF per file) or encoding are preserved through that in-memory rewrite, despite the constraint mandating newline=\"\" read/write; the CRLF mention elsewhere is only about app.py staying 100% CRLF as a file property, not the rewrite mechanics"
+    },
+    {
+      "id": "qa-014",
+      "scope": "CI-M-001-004",
+      "check": "Verify the ambiguity check is stated as strictly preceding any span rewrite, and that this nine-clause intent is decomposable into separately verifiable behaviours",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "component-ambiguity-precheck",
+      "version": 2,
+      "finding": "CI-M-001-004 bundles ~9 distinct behaviors (collect, compare/skip, abort-on-ambiguity-before-rewrite, rebuild children, set ENTRIES, record name, end-first replacement, conditional re-parse, skip-set threading) into one undecomposed change-item behavior string, though the abort-before-rewrite ordering itself is stated explicitly"
+    },
+    {
+      "id": "qa-015",
+      "scope": "M-003",
+      "check": "Verify the DL-084 served-page gate and 100% CRLF preservation appear as milestone acceptance criteria, not only as prose inside CI-M-003-001",
+      "status": "FAIL",
+      "severity": "SHOULD",
+      "group_id": "concern-project-rule-conformance",
+      "version": 2,
+      "finding": "M-003 acceptance_criteria array is empty; the DL-084 served-page gate and 100% CRLF preservation requirements exist only as prose inside CI-M-003-001 behavior text, not as checkable milestone acceptance criteria"
+    },
+    {
+      "id": "qa-016",
+      "scope": "M-001",
+      "check": "Verify the changed meaning of playlists_imported and playlists_renamed (now excluding reconstructed names) is stated, along with any consumer depending on the prior meaning",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-count-trigger-residue",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "DL-097",
+      "check": "Verify the plan states that playlist_entry_count has no remaining caller once the count trigger is removed",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-count-trigger-residue",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "CI-M-001-006",
+      "check": "Verify the test intent requires each guard docstring to record the specific mutation applied and the specific observed output, per the project rule",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-project-rule-conformance",
+      "version": 2
+    },
+    {
+      "id": "qa-020",
+      "scope": "*",
+      "check": "Verify plan.json overview and decision text contain no temporal narration ('previously', 'used to', 'now does', 'no longer')",
+      "status": "FAIL",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2,
+      "finding": "DL-097 reasoning contains temporal narration: 'a rule the module no longer applies'"
+    }
+  ]
+}

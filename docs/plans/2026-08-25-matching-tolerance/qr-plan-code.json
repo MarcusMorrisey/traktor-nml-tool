@@ -1,0 +1,171 @@
+{
+  "phase": "plan-code",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every added baseline case's recorded stdout is free of OS-dependent text; specifically no `csv_written=`/`output_written=` line renders a Path with the host separator",
+      "status": "TODO",
+      "severity": "MUST",
+      "category": "ASSUMPTION_UNVALIDATED",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "CC-M-001-004",
+      "check": "The 4 new --csv cases and 3 new writing cases print `csv_written={Path}` / `output_written={Path}` (reconnect_cmd.py:85, rewrite.py write_nml_safely); confirm the plan states the manifest is Windows-locked or adds a normalisation",
+      "status": "TODO",
+      "severity": "MUST",
+      "category": "ASSUMPTION_UNVALIDATED",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints[2]",
+      "check": "Constraint 'Every added case is deterministic across runs, machines and temp directories' is falsifiable against the existing manifest entry `csv_written=out\\inspect.csv`",
+      "status": "TODO",
+      "severity": "MUST",
+      "category": "ASSUMPTION_UNVALIDATED",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-002",
+      "scope": "DL-014 / CC-M-001-004",
+      "check": "DL-014's stated reason for normalising the ambiguous-writing case ('the ambiguity CSV records candidate paths') matches _write_ambiguity_csv's actual row shape {artist,title,old_path,reason}",
+      "status": "TODO",
+      "severity": "MUST",
+      "category": "ASSUMPTION_UNVALIDATED",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "M-001.acceptance_criteria[2]",
+      "check": "AC requires exactly two normalise_run_root entries; verify the ambiguous-writing case's recorded bytes actually contain the run root, else the relaxation is unjustified",
+      "status": "TODO",
+      "severity": "MUST",
+      "category": "ASSUMPTION_UNVALIDATED",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-003",
+      "scope": "CC-M-002-001",
+      "check": "PARITY_BASELINE_SHA256 ships as \"0\"*64; no intent or code_change fills it, yet M-002 AC requires the guard to pass",
+      "status": "TODO",
+      "severity": "MUST",
+      "category": "ASSUMPTION_UNVALIDATED",
+      "group_id": "component-manifest-hash-pin"
+    },
+    {
+      "id": "qa-004",
+      "scope": "CC-M-001-008",
+      "check": "test_normalised_case_still_detects_a_non_run_root_byte_change asserts only `written != corrupted`; it passes vacuously if normalisation masks everything. R-005 is recorded as mitigated by a test that cannot detect the risk",
+      "status": "TODO",
+      "severity": "SHOULD",
+      "category": "TESTING_STRATEGY_VIOLATION",
+      "group_id": "component-cc-m-001-008"
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "Stacked diffs against the same file carry hunk headers computed from the ORIGINAL file, so applying CC-M-001-004 then -005 then -006 then -009 then -011 to regenerate.py will not land at the stated offsets; declared hunk line counts also disagree with body line counts",
+      "status": "TODO",
+      "severity": "SHOULD",
+      "category": "CONVENTION_VIOLATION",
+      "group_id": "umbrella"
+    },
+    {
+      "id": "qa-006",
+      "scope": "M-003.acceptance_criteria[3]",
+      "check": "AC requires tests/baselines/CLAUDE.md to 'record that SHA beside it' (the tag's commit SHA); CC-M-003-006's diff records no SHA, and the SHA is unknowable before the commit exists",
+      "status": "TODO",
+      "severity": "SHOULD",
+      "category": "TESTING_STRATEGY_VIOLATION"
+    },
+    {
+      "id": "qa-007",
+      "scope": "tests/baselines/manifest.json",
+      "check": "manifest.json is CRLF on disk with no .gitattributes and no repo-wide core.autocrlf pin; a SHA-256 byte pin over a text-mode-written file is fragile across clones",
+      "status": "TODO",
+      "severity": "SHOULD",
+      "category": "CONVENTION_VIOLATION",
+      "group_id": "component-manifest-hash-pin"
+    },
+    {
+      "id": "qa-008",
+      "scope": "CC-M-001-003",
+      "check": "_run_root_forms sorts a set by len with ties (native vs forward-slash forms are equal length); set iteration order is hash-randomised, so substitution order varies per process in a module whose purpose is determinism",
+      "status": "TODO",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    },
+    {
+      "id": "qa-009",
+      "scope": "CC-M-001-008",
+      "check": "`next(c for c in manifest if ...)` with no default raises StopIteration rather than failing cleanly when no normalised case exists",
+      "status": "TODO",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY",
+      "group_id": "component-cc-m-001-008"
+    },
+    {
+      "id": "qa-010",
+      "scope": "CC-M-001-005 / DL-007",
+      "check": "rewrite-from-reconnect output is argv[2] (verified: register() adds old_input then output); _output_paths' existing --csv branch already captures the CSV separately",
+      "status": "VERIFIED_OK",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    },
+    {
+      "id": "qa-011",
+      "scope": "CC-M-001-001 / DL-002",
+      "check": "size=\"16\" matches diskscan's filesize=str(file_stat.st_size) for the 16-zero-byte stub, and --match-confidence filename admits the filename_size tier",
+      "status": "VERIFIED_OK",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    },
+    {
+      "id": "qa-012",
+      "scope": "DL-002 volume-map key",
+      "check": "parse_volume_map keys on str(Path(scan_root)) and resolve_volume_identity looks up str(Path(scan_root)); relative 'recon/audio' normalises identically on both sides",
+      "status": "VERIFIED_OK",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    },
+    {
+      "id": "qa-013",
+      "scope": "DL-008",
+      "check": "index_scan_roots is called with stats=None so its files_seen/cache_hits counters are discarded and never reach stdout",
+      "status": "VERIFIED_OK",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    },
+    {
+      "id": "qa-014",
+      "scope": "DL-013",
+      "check": "diskscan.py line 103 is `for path in sorted(Path(root).rglob(\"*\")):`",
+      "status": "VERIFIED_OK",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    },
+    {
+      "id": "qa-015",
+      "scope": "DL-001",
+      "check": "recon/ as a sibling of corpus/ leaves the scan-compare-candidates case (which scans corpus only) byte-identical",
+      "status": "VERIFIED_OK",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    },
+    {
+      "id": "qa-016",
+      "scope": "*",
+      "check": "No code_change touches a file under traktor_nml/; scope constraint honoured",
+      "status": "VERIFIED_OK",
+      "severity": "COULD",
+      "category": "MINOR_INCONSISTENCY"
+    }
+  ]
+}

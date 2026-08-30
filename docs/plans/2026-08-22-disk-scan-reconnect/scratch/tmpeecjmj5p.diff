@@ -1,0 +1,16 @@
+--- /dev/null
++++ b/traktor_nml/commands/CLAUDE.md
+@@ -0,0 +1,13 @@
++# traktor_nml/commands/
++
++## Files
++
++| File                | What                                                          | When to read                                          |
++| ------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
++| `__init__.py`       | Package marker; `cli.py` iterates this package to find subcommands | Adding a new command module                           |
++| `inspect_cmd.py`    | `inspect` subcommand                                          | Changing collection/playlist inspection output        |
++| `rewrite_cmd.py`    | `preview-diff`/`rewrite` subcommands (rule-based rewriting)    | Changing rule-based path rewrite behavior              |
++| `compare_cmd.py`    | `preview-compare`/`scan-compare-candidates`/`rewrite-from-collection-compare` subcommands | Changing compare-based rewrite or candidate scanning   |
++| `reconnect_cmd.py`  | `reconnect` subcommand (disk-scan reconnection)                | Changing reconnection's CLI surface or stats output    |
++| `splice_cmd.py`     | `splice` subcommand (merge NML files)                          | Changing splice's CLI surface, conflict flags, or reports |
++| `split_cmd.py`      | `split` subcommand (partition an NML file)                     | Changing split's CLI surface or dangling-reference flags |

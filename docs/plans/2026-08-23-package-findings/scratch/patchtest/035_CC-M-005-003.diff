@@ -1,0 +1,11 @@
+--- a/traktor_nml/split.py
++++ b/traktor_nml/split.py
+@@ -191,7 +193,7 @@ def build_output(
+             fragment = ET.tostring(node_copy, encoding="unicode")
+         else:
+             try:
+-                fragment = element_span_by_identity(source_text, root, node).text(source_text)
++                fragment = span_index.span_of(node).text(source_text)
+             except ValueError as exc:
+                 return SplitOutcome(output=None, stats=stats, errors=[f"playlist_span_not_found name={name}: {exc}"])
+         playlist_fragments.append(fragment)

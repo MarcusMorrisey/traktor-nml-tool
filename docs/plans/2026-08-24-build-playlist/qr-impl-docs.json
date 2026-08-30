@@ -1,0 +1,226 @@
+{
+  "phase": "impl-docs",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "All 5 invisible_knowledge items from context.json are transferred into repo docs (README.md/CLAUDE.md/DL log) at their best location, not lost or only implicit.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "IK_TRANSFER_FAILURE",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "IK-1: match_records tier-override-on-ambiguity behavior",
+      "check": "Verify the non-obvious match_records behavior (a tier with >1 candidates sets ambiguous_here=True but doesn't break; a later weaker unique-match tier overrides earlier ambiguity) is documented somewhere reachable (README architecture notes or DL log), since build-playlist relies on this cascade unmodified.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "IK_TRANSFER_FAILURE",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "IK-2: span-transplant vs serialization fallback policy for synthesized content",
+      "check": "Verify README/architecture notes state that the new synthesized PLAYLIST always takes the ET.tostring()-style serialization path (never span transplantation), consistent with existing fidelity policy language.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "IK_TRANSFER_FAILURE",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "IK-3: no-network/offline design posture",
+      "check": "Verify updated docs reaffirm (or at least do not contradict) the tool's explicit no-network/fully-offline posture in the context of build-playlist matching.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "IK_TRANSFER_FAILURE",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "IK-4: ISRC reliability asymmetry / deferral rationale",
+      "check": "Verify a DL-02x..03x entry captures why ISRC tiering was deferred (Beatport sometimes carries ISRC, Bandcamp mostly doesn't -> partial win, not universal key), not just 'deferred to later'.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "IK_TRANSFER_FAILURE",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "IK-5: --match-confidence shared enum reuse (DL-010 precedent)",
+      "check": "Verify new DL entries explicitly state build-playlist passes MatchConfidence.LOOSE via the existing shared ordered enum (per DL-010) rather than inventing a new flag/narrower level, and that this doesn't contradict DL-010's original text.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "IK_TRANSFER_FAILURE",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "No change-relative/temporal language (e.g. 'new', 'now', 'recently added', 'the fix for QR finding X') appears in updated DL-024..039 entries or in comments/docstrings of tracklist.py, buildplaylist.py, build_playlist_cmd.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "TEMPORAL_CONTAMINATION",
+      "group_id": "parent-qa-007",
+      "version": 2
+    },
+    {
+      "id": "qa-007a",
+      "scope": "traktor_nml/README.md DL-024..039",
+      "check": "Scan all 16 new Design Decision bullets for temporal/change-relative phrasing; each should read as a timeless statement of the decision and rationale.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "TEMPORAL_CONTAMINATION",
+      "parent_id": "qa-007",
+      "group_id": "parent-qa-007",
+      "version": 2
+    },
+    {
+      "id": "qa-007b",
+      "scope": "tracklist.py, buildplaylist.py, build_playlist_cmd.py",
+      "check": "Scan inline comments/docstrings in all three new/modified source files -- including the runtime key-validation check and the function-split fix in buildplaylist.py -- for change-relative language; comments must explain current WHY, not reference the QR process or prior code state.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "TEMPORAL_CONTAMINATION",
+      "parent_id": "qa-007",
+      "group_id": "parent-qa-007",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "check": "No comment in new/modified source files references removed or superseded code paths (baseline drift).",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "BASELINE_REFERENCE",
+      "group_id": "parent-qa-009",
+      "version": 2
+    },
+    {
+      "id": "qa-009a",
+      "scope": "traktor_nml/tracklist.py",
+      "check": "Verify no comment references code that no longer exists or an earlier parsing approach that was replaced.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "BASELINE_REFERENCE",
+      "parent_id": "qa-009",
+      "group_id": "parent-qa-009",
+      "version": 2
+    },
+    {
+      "id": "qa-009b",
+      "scope": "traktor_nml/buildplaylist.py",
+      "check": "Verify no comment (especially around the function-split fix) references the pre-split function shape or removed helper.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "BASELINE_REFERENCE",
+      "parent_id": "qa-009",
+      "group_id": "parent-qa-009",
+      "version": 2
+    },
+    {
+      "id": "qa-009c",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py",
+      "check": "Verify no comment (especially around the runtime key-validation fix) references a prior/removed validation approach.",
+      "status": "PASS",
+      "severity": "MUST",
+      "category": "BASELINE_REFERENCE",
+      "parent_id": "qa-009",
+      "group_id": "parent-qa-009",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "traktor_nml/CLAUDE.md",
+      "check": "File-table rows for tracklist.py and buildplaylist.py are present, in the required tabular format, with accurate path/purpose columns matching existing table conventions.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "category": "CLAUDE_MD_FORMAT",
+      "group_id": "concern-claude-md-format",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "traktor_nml/commands/CLAUDE.md",
+      "check": "File-table row for build_playlist_cmd.py is present, in the required tabular format, consistent with splice_cmd.py/split_cmd.py rows.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "category": "CLAUDE_MD_FORMAT",
+      "group_id": "concern-claude-md-format",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "traktor_nml/README.md",
+      "check": "Architecture overview section describes the build-playlist feature, and DL-024..039 are sequentially numbered with no gaps or duplicates against the pre-existing DL log.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "category": "README_COMPLETENESS",
+      "group_id": "component-readme",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "traktor_nml/README.md DL-024..039",
+      "check": "Each new Design Decision bullet explains WHY the decision was made (rationale/tradeoff), not merely WHAT was implemented.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "category": "WHY_NOT_WHAT",
+      "group_id": "component-readme",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "traktor_nml/README.md, traktor_nml/CLAUDE.md",
+      "check": "Docs do not imply ISRC-based matching, CSV/M3U parsing, or live network/API integration are supported by build-playlist -- these were explicitly rejected/deferred and must be described as such if mentioned at all.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "category": "ACCURACY",
+      "group_id": "component-readme",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "traktor_nml/README.md or CLAUDE.md",
+      "check": "Docs describe the insertion-target behavior (default $ROOT vs a user-specified existing folder) for the synthesized playlist.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "category": "COMPLETENESS",
+      "group_id": "component-readme",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "traktor_nml/README.md or CLAUDE.md",
+      "check": "Docs note that playlist-name-collision handling (rename + fresh UUID regeneration) reuses the existing playlists.py convention rather than introducing a new mechanism.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "category": "COMPLETENESS",
+      "group_id": "component-readme",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "*",
+      "check": "New DL-024..039 bullets follow the same formatting/style (length, punctuation, structure) as existing DL entries.",
+      "status": "PASS",
+      "severity": "COULD",
+      "category": "STYLE_CONSISTENCY",
+      "group_id": "umbrella",
+      "version": 2
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "task_spec": [
+    "SUBJECT: pin the reconnect commands' observable behaviour in the byte-level parity oracle, and make the oracle itself tamper-evident, BEFORE any shared-core refactor begins",
+    "scope: tests/baselines/manifest.json, tests/baselines/regenerate.py, tests/fixtures/build_fixtures.py (fixture additions only), a new tests/test_parity_baseline.py, an annotated git tag parity-baseline-v1",
+    "out-of-scope: any change under traktor_nml/ (production code) - this commit is test/fixture only",
+    "out-of-scope: the result-object/renderer split, on_progress callback, cancel token, fpcalc direct-Popen change - all land AFTER this commit",
+    "out-of-scope: any GUI code; the NiceGUI package does not exist yet",
+    "out-of-scope: CI workflow authoring beyond stating the required check (repo has no CI config today - confirm during explore)"
+  ],
+  "constraints": [
+    "MUST NOT change production behaviour; if manifest.json regeneration produces a diff for the pre-existing 8 cases, that is a defect in this change, not a new baseline",
+    "MUST keep every new baseline case deterministic across runs, machines and temp dirs - the oracle compares stdout byte-for-byte",
+    "MUST add cases for scan-reconnect-candidates and rewrite-from-reconnect covering: a --dry-run form, a writing form, an ambiguous-match case, a dangling-match case",
+    "SHOULD add one fingerprint-tier case driven by a stub fpcalc on PATH, so the later direct-Popen change is covered by the oracle rather than only unit tests",
+    "MUST add tests/test_parity_baseline.py asserting a PARITY_BASELINE_SHA256 constant against the manifest's hash, runnable under plain pytest with no git dependency",
+    "MUST add a meta-test proving the guard FAILS on a one-character mutation (mirrors existing test_deliberate_one_character_edit_fails_parity)",
+    "MUST tag the resulting commit parity-baseline-v1 (annotated, pushed)",
+    "SHOULD keep pytest suite green: pytest tests/ -q",
+    "source: docs/nicegui-gui-analysis.md sections 3.1 and 3.1a"
+  ],
+  "entry_points": [
+    "tests/baselines/regenerate.py:CASES - the argv list to extend; also _OUTPUT_ARG_INDEX which maps a command to its output-path argument (rewrite-from-reconnect needs an entry: output is argv[2])",
+    "tests/baselines/regenerate.py:regenerate - chdirs into a temp dir, runs main(argv) in-process, captures stdout/stderr/exit_code and base64 of every output file",
+    "tests/test_baseline_parity.py - the consumer; parametrised over manifest cases, asserts exit code, stdout and written bytes",
+    "tests/fixtures/build_fixtures.py:build_fixtures - already writes stub .mp3 files (xtal.mp3, roygbiv_final.mp3, archangel_128/320.mp3, cafe.mp3, baby.mp3, come_on.mp3) so corpus/ can serve as a --scan-root",
+    "tests/conftest.py:run_tool - in-process invocation used by the rest of the suite",
+    "traktor_nml/commands/reconnect_cmd.py:add_reconnect_args - the flags to exercise (--scan-root, --volume-map, --cache, --refresh-cache, --csv, --fingerprint, --match-confidence)",
+    "traktor_nml/commands/reconnect_cmd.py:_run_reconnection - resolves volume identity then indexes scan roots",
+    "traktor_nml/tagcache.py:TagCache - cache is keyed path|size|mtime and flushes every 50 puts; written even under --dry-run",
+    "traktor_nml/fingerprint.py:_compute_fingerprint - calls acoustid.fingerprint_file; HAS_ACOUSTID gates the tier"
+  ],
+  "rejected_alternatives": [
+    "git diff --exit-code on manifest.json as the CI gate - rejected: passes on any commit that regenerated AND committed the baseline, which is exactly the case it must catch (this is why 3.1a exists)",
+    "Relying only on unit tests for the reconnect cores - rejected: the oracle pins stdout and written bytes, which is what the renderer split must preserve; unit tests would be written against the new shape and could not detect drift from the old",
+    "Regenerating manifest.json during the refactor to make a failing test pass - rejected as the defining anti-pattern; regeneration is only correct for a reviewed, deliberate behaviour change",
+    "Committing the reconnect cases after the refactor - rejected: the oracle must predate the change it is meant to police"
+  ],
+  "current_understanding": [
+    "manifest.json currently holds 8 cases across 7 subcommands: inspect x2, encode-dir, preview-diff, rewrite, preview-compare, scan-compare-candidates, rewrite-from-collection-compare",
+    "It covers NONE of scan-reconnect-candidates, rewrite-from-reconnect, splice, split, build-playlist, discover-tracks, discover-collection-tracks",
+    "regenerate.py is the only sanctioned way to update the manifest; it is deterministic because the fixture corpus and the argv list are both fixed",
+    "Determinism risk 1 (HIGH): reconnect resolves and prints filesystem paths. regenerate() chdirs into a per-run temp dir, so any absolute path reaching stdout embeds that temp dir and makes the baseline unreproducible. Must be established empirically before choosing cases.",
+    "Determinism risk 2: TagCache keys include st_mtime of the stub mp3s, which differ per run. The cache file is a side file, not an output_files entry, but any cache stat printed to stdout could vary.",
+    "Determinism risk 3: scan-root indexing order may depend on filesystem enumeration order.",
+    "Determinism risk 4: resolve_volume_identity may raise VolumeIdentityError when the prefix scan is ambiguous, in which case --volume-map must be supplied explicitly to keep the case stable.",
+    "Determinism risk 5 (fingerprint case): a stub fpcalc must be deterministic and reachable; HAS_ACOUSTID depends on pyacoustid being importable, which may not hold in every environment - the case may need to be skipped rather than baselined if the dependency is optional."
+  ],
+  "assumptions": [
+    "build_fixtures' stub .mp3 files are not real audio, so mutagen tag reads fail and matching falls back to filename/path evidence - still deterministic (M)",
+    "The repo has no CI workflow today, so the CI half of 3.1a will be documented rather than implemented in this commit (M - verify during explore)",
+    "pyacoustid/fpcalc are absent on this machine, so the fingerprint-tier baseline case will need a stub binary on PATH or must be deferred (M)",
+    "Adding cases to CASES and regenerating will not perturb the 8 existing entries, since each case runs in the same fresh temp dir and order is stable (H)",
+    "A new fixture may be needed to produce a genuinely ambiguous reconnect match; duplicate_rips.nml is the likeliest existing candidate (M)"
+  ],
+  "invisible_knowledge": [
+    "DL-002/DL-011: the manifest records stdout, exit code and written bytes as the tool's behavioural contract; regenerating it to go green silently rewrites that contract",
+    "The oracle's value is that it predates the change it polices - committing it after the refactor proves nothing",
+    "The tag cache is deliberately written even under --dry-run because it is a scan speedup, not the command's output; this exception is documented in README and must not be 'fixed' here",
+    "Accepted tradeoff: parity-baseline-v1 cannot be server-side protected (GitHub rulesets need Pro or a public repo; the legacy tags/protection API is gone). A local pre-push hook at .git/hooks/pre-push refuses to move or delete parity-baseline-* tags; the authoritative pin is the pytest hash constant, which does not depend on the tag.",
+    "Because the tag is only hook-protected, any CI job that diffs against parity-baseline-v1 must ALSO assert the tag still resolves to its recorded commit SHA - otherwise a moved tag moves the comparison with it",
+    "Phase 1 of the GUI work is the reconnect wizard only; these two commands are exactly the ones the first refactor touches, which is why they are task 0 rather than a general coverage sweep"
+  ],
+  "reference_docs": [
+    "C:/codex/traktor-nml-tool/docs/nicegui-gui-analysis.md - sections 3.1 (task 0 case list), 3.1a (baseline pinning, tag, meta-test), 5 (sequencing and rollback isolation)",
+    "C:/codex/traktor-nml-tool/tests/baselines/manifest.schema.md - the manifest entry shape",
+    "C:/codex/traktor-nml-tool/tests/baselines/CLAUDE.md - baseline directory conventions",
+    "C:/codex/traktor-nml-tool/tests/CLAUDE.md - test suite conventions",
+    "C:/codex/traktor-nml-tool/traktor_nml/README.md - architecture, design decisions (DL-nnn) and invariants"
+  ]
+}

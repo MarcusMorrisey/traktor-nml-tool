@@ -1,0 +1,79 @@
+--- /dev/null
++++ b/traktor_nml/reconnect_run.py
+@@ -0,0 +1,84 @@
++"""Printless reconnection core: match an old collection's tracks against
++disk-scan candidates and return typed results.
++
++commands/reconnect_cmd.py used to run this pipeline and print its own
++stdout mid-run; a GUI review table needs the mapping and the ambiguity
++rows as objects while a run is in progress, and a transcript parsed after
++the fact arrives too late for that. run_reconnection returns a
++ReconnectResult, and scan_reconnect_candidates/rewrite_from_reconnect wrap
++it with the CSV write and the typed-error mapping each command needs,
++also as results rather than prints. reconnect_render turns these into
++buffered stdout/stderr lines and an exit code.
++"""
++
++from __future__ import annotations
++
++import argparse
++import csv
++from dataclasses import dataclass, field
++from pathlib import Path
++from typing import Callable, Optional
++
++from .shared_args import resolve_confidence, should_refute
++from .diskscan import index_scan_roots
++from .model import EntryRecord, collection_records, loc_attr_changes, write_location_element
++from .reconnect import location_from_disk_path, resolve_reconnection
++from .rewrite import (
++    CompareEntryResolver,
++    WriteOutcome,
++    _collect_compare_patches,
++    plan_and_write_nml,
++    process_non_collection_entries,
++)
++from .tagcache import TagCache
++from .volumes import VolumeIdentityError, parse_volume_map, resolve_volume_identity
++from .xmlio import XML_PARSE_ERROR, parse_xml
++
++try:
++    # fingerprint.py is the M-005 acoustic-fingerprint key provider; it may
++    # not exist yet when this module is developed concurrently with M-005.
++    # Importing it defensively keeps every other subcommand (this module is
++    # reachable from commands/__init__.py, which imports every command
++    # module at CLI startup) working even when fingerprint.py, pyacoustid
++    # and fpcalc are absent - --fingerprint simply becomes unavailable
++    # until M-005 lands, rather than the whole CLI failing to import.
++    from .fingerprint import (
++        FPCALC_TIMEOUT_SECONDS,
++        FpcalcSession,
++        fingerprint_key_provider,
++        fingerprint_unavailable_reason,
++    )
++except ImportError:  # pragma: no cover - fingerprint tier lands in M-005
++    fingerprint_key_provider = None
++    fingerprint_unavailable_reason = None
++    FpcalcSession = None
++    FPCALC_TIMEOUT_SECONDS = 30.0
++
++
++class _FingerprintUnavailable(RuntimeError):
++    pass
++
++
++@dataclass(frozen=True)
++class ReconnectResult:
++    """Everything one reconnection pass produced: the primary-key-to-
++    winning-EntryRecord mapping, its stats, the rows a caller may export
++    as an ambiguity CSV, the old records the mapping was matched against,
++    and warnings - run-derived notices, currently the fingerprint
++    dependency reason - that travel with the result instead of printing
++    to stderr mid-pipeline. A GUI review table reads this
++    directly."""
++
++    mapping: dict[str, EntryRecord]
++    stats: dict[str, int]
++    ambiguity_rows: list[dict[str, str]]
++    old_records: list[EntryRecord]
++    warnings: list[str] = field(default_factory=list)

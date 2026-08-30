@@ -1,0 +1,16 @@
+--- a/traktor_nml/README.md
++++ b/traktor_nml/README.md
+@@ -90,4 +90,12 @@
+ - `reconnect.py`'s one-to-one assignment guarantee (DL-004) and
+   `volumes.py`'s explicit-VOLUME/VOLUMEID requirement (DL-005) are both
+   enforced as post-passes over the shared matching cascade, which itself
+-  stays unaware either invariant is being layered on top of it.
++  stays unaware either invariant is being layered on top of it; the
++  guarantee is enforced by one shared post-pass (`reconnect.enforce_one_to_one`)
++  that compare-based rewriting also calls, and a withdrawn match is
++  reported as `destination_collisions` on both paths (DL-015, DL-016).
++- A write command refuses an output path resolving to any of its inputs,
++  not only its primary one, so a multi-input command declares its
++  remaining inputs through `write_nml_safely`'s `extra_inputs` -
++  `rewrite-from-collection-compare` declaring `new_input` is the case
++  that motivated stating this generally (DL-023).

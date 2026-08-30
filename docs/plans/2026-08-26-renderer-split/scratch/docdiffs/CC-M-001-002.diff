@@ -1,0 +1,12 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -418,6 +418,9 @@ def format_stats_and_samples(
+     lines = [f"{key}={value}" for key, value in stats.items()]
+     if samples:
+         lines.append("sample_matches:")
++        # limit applies only to sample_matches, never to the stats block
++        # above it - print_stats_and_samples and reconnect_render's
++        # render_rewrite_from_reconnect both rely on that split.
+         for label, before, after, matched_by in samples[:limit]:
+             lines.append(f"- {label}")
+             lines.append(f"  matched_by={matched_by}")

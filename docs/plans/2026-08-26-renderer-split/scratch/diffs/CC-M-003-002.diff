@@ -1,0 +1,38 @@
+--- a/traktor_nml/README.md
++++ b/traktor_nml/README.md
+@@ -25,6 +25,12 @@ Two write mechanisms coexist and never mix within one command:
+ `commands/` holds one module per subcommand; `cli.py` discovers them by
+ iterating the package rather than listing them, so adding a subcommand
+ never requires editing `cli.py` (DL-003).
+
++`reconnect_run.py` (the printless reconnection core) and
++`reconnect_render.py` (the buffered stdout/stderr renderer for it) sit
++beside the other top-level modules, not inside `commands/`:
++`commands/reconnect_cmd.py` imports downward into them rather than the
++reverse, so a caller other than the CLI - a GUI review table - can reach
++the same core and renderer without going through argparse wiring (DL-046).
++
+ `build-playlist` synthesizes its playlist node from an external track list
+ with no source span to transplant, so it always takes the serialization
+ path this split already sanctions for genuinely new content (DL-028), and
+@@ -192,6 +198,15 @@ manufactures a difference the filesystem does not have - measured on the
+   promoting it to strict so that stem upgrades match by default would have
+   contradicted that precedent. `bare_name` drops the folder as well and
+   reaches filename level only: one real library holds 208 files named
+   `vocals` and 176 named `drums` from stem-extraction folders. These tiers
+   are only reachable because DL-040 stopped size refuting across sources -
+   a re-encode runs 0.23x to 49x the original, so the earlier band would
+   have found these candidates and then discarded them (DL-045).
++- The reconnect commands run behind a printless core in `reconnect_run.py`
++  that returns a `ReconnectResult`, and a renderer in `reconnect_render.py`
++  that turns it into buffered stdout/stderr lines and an exit code,
++  because a GUI review table needs the mapping and the ambiguity rows as
++  objects while a run is in progress and a parsed transcript arrives only
++  at the end. `write_nml_safely` is a printing wrapper over a printless
++  `plan_and_write_nml` for the same reason: the reconnect stdout was
++  produced inside the write shell, and a reconnect-local write path would
++  duplicate the read/parse/patch/write skeleton DL-019 exists to prevent
++  (DL-046).
+ - A candidate the check withdraws is counted as `refuted` alongside
+   `unmatched` rather than folded into it, so "found it and declined" never
+   reads as "the file is gone" - the same distinction DL-016 drew for

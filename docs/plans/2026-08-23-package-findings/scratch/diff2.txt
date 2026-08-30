@@ -1,0 +1,55 @@
+--- a/traktor_nml/commands/split_cmd.py
++++ b/traktor_nml/commands/split_cmd.py
+@@ -6,7 +6,7 @@ import sys
+ from pathlib import Path
+ 
+ from ..split import build_output
+-from ..xmlio import parse_xml_bytes
++from ..rewrite import read_and_parse_source, write_bytes_atomically
+ 
+ 
+ def _parse_groups(raw_groups: list[list[str]] | None) -> list[tuple[Path, list[str]]]:
+@@ -33,14 +33,12 @@ def _handle_split(args: argparse.Namespace) -> int:
+     if args.input.resolve() in {p.resolve() for p in output_paths}:
+         print("output_must_differ_from_input", file=sys.stderr)
+         return 2
+ 
+-    try:
+-        source_bytes = args.input.read_bytes()
+-    except FileNotFoundError:
+-        print(f"input_not_found={args.input}", file=sys.stderr)
+-        return 2
+-
+-    root = parse_xml_bytes(source_bytes)
++    read_result = read_and_parse_source(args.input)
++    if read_result.error is not None:
++        print(read_result.error, file=sys.stderr)
++        return 2
++    source_bytes, root = read_result.source_bytes, read_result.root
+     source_text = source_bytes.decode("utf-8")
+ 
+     outcomes = []
+@@ -55,10 +55,21 @@ def _handle_split(args: argparse.Namespace) -> int:
+     if any(outcome.output is None for _, outcome in outcomes):
+         print("split_aborted=true", file=sys.stderr)
+         return 2
+ 
++    # Each destination is committed through write_bytes_atomically (temp
++    # file plus os.replace), so a failure mid-write leaves that
++    # destination holding either its previous bytes or the complete new
++    # bytes, never a truncated partial write. This loop is not
++    # transactional across the several group outputs: a failure partway
++    # through still leaves earlier groups written, the bounded tradeoff
++    # DL-022 records rather than an oversight - cross-file staging and
++    # commit is new machinery this milestone does not add.
+     if not args.dry_run:
+         for output_path, outcome in outcomes:
+-            output_path.parent.mkdir(parents=True, exist_ok=True)
+-            output_path.write_bytes(outcome.output.encode("utf-8"))
++            try:
++                write_bytes_atomically(output_path, outcome.output.encode("utf-8"))
++            except OSError as exc:
++                print(f"output_write_error={exc}", file=sys.stderr)
++                return 2
+             print(f"output_written={output_path}")
+     return 0

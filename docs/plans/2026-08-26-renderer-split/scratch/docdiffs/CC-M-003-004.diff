@@ -1,0 +1,8 @@
+--- a/tests/CLAUDE.md
++++ b/tests/CLAUDE.md
+@@ -13,6 +13,9 @@
+ | `test_reconnect.py`      | Reconnection matching, path-suffix tiers, size/duration refutation and `--no-refute`, one-to-one assignment, and the `_CASCADE`/ladder consistency checks | Changing `reconnect.py`, `volumes.py`, `matching.py`'s tiers, a matching tolerance, or the cascade table |
++<!-- test_reconnect.py's fingerprint-unavailable-reason test patches both
++     traktor_nml.fingerprint and traktor_nml.reconnect_run's bound name,
++     since reconnect_run imports the function by value at import time. -->
+ | `test_reconnect_render_equivalence.py` | Renderer output compared against the recorded reconnect manifest cases, plus the fingerprint and no-refute warning paths the oracle does not exercise | Changing `reconnect_run.py` or `reconnect_render.py` |

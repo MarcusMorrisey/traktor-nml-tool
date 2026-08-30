@@ -1,0 +1,81 @@
+{
+  "task_spec": [
+    "SUBJECT: A NiceGUI Phase 1 'reconnect wizard' - a guided GUI workflow that finds Traktor collection tracks whose files have moved, lets an operator review the proposed matches as objects mid-run, and writes the repaired .nml. This is section 5 sequencing step 4 of docs/nicegui-gui-analysis.md; steps 1-3 (parity manifest, renderer split, on_progress/cancel) are committed.",
+    "scope: new traktor_nml/gui/ package; new tests under tests/",
+    "scope: exactly two subcommands, the only ones marked Phase 1 in section 1's Tier 1 table - scan-reconnect-candidates and rewrite-from-reconnect",
+    "out-of-scope: the Tier 2 generated-form machinery (section 4) - separate work, though scan-reconnect-candidates is also Tier 2 eligible",
+    "out-of-scope: Tier 1 Phase 2 (preview-diff, rewrite) and Phase 3 (build-playlist, discover-tracks, discover-collection-tracks)",
+    "out-of-scope: Tier 3 entirely (splice, split, rewrite-from-collection-compare) - deliberately excluded, needs a different review UI",
+    "out-of-scope: section 6 packaging and section 7 hosting - the spike already ran and passed (docs/2026-08-25-packaging-spike-results.md)",
+    "out-of-scope: any change to matching, refutation or the confidence ladder"
+  ],
+  "constraints": [
+    "MUST NOT: modify tests/baselines/manifest.json. Non-regeneration IS the parity check.",
+    "MUST NOT: change PARITY_BASELINE_SHA256 in tests/test_parity_baseline.py.",
+    "MUST: stdout, stderr, exit codes and written output bytes stay byte-identical for every existing CLI command. Typed errors keep exit code 2.",
+    "MUST NOT: any import from traktor_nml/gui/ in traktor_nml/commands/ or traktor_nml/cli.py. Enforced by tests/test_gui_import_isolation.py.",
+    "MUST NOT: any top-level nicegui import reachable from commands/__init__.py, which imports every command module at CLI startup, before argv is parsed. Enforced by tests/test_cli_without_nicegui.py.",
+    "MUST: nicegui stays an optional extra. pyproject.toml declares gui = ['nicegui>=3.16.0'].",
+    "MUST: every new subcommand stays classified. tests/test_gui_command_classification.py asserts total-and-disjoint tiers plus the closed side-effect allowlist.",
+    "MUST: full suite stays at or above 243 passed, at most 3 skipped. The 3 skips are the fingerprint tier (pyacoustid/fpcalc absent) and are expected. A silently lost or newly skipped test fails this as surely as a red one; read counts off the pytest summary line.",
+    "MUST: every new guard test constructs its broken scenario in executable code and demonstrates the divergence; the docstring records the specific mutation and the specific observed output. 'A guard you have only seen pass is not a guard.'",
+    "MUST NOT: claim proof not actually run. An over-correction claiming unearned proof was itself flagged as a defect during this project's review.",
+    "MUST: documentation describes the code as it stands - no 'previously', 'used to', 'now does', 'no longer', 'as before', 'gains', 'moves', 'added'. Largest finding category across this project (seven instances).",
+    "MUST NOT: restore a file with git checkout. An agent did that here, destroyed uncommitted work, and rebuilt from a spec. Copy aside and restore from the copy.",
+    "MUST NOT: delete or write into build/ or dist/ - untracked PyInstaller spike bundles. Three agents have written there this session; one destroyed them.",
+    "SHOULD: run.io_bound for the disk scan, not run.cpu_bound - cpu_bound uses a process pool and TagCache/lxml roots are not cleanly picklable."
+  ],
+  "entry_points": [
+    "traktor_nml/reconnect_run.py:run_reconnection(args, old_root, *, on_progress=None, cancel=None, diagnostics=None) -> ReconnectResult - the printless pipeline the GUI drives",
+    "traktor_nml/reconnect_run.py:scan_reconnect_candidates / rewrite_from_reconnect - the two Phase 1 cores, both taking on_progress/cancel",
+    "traktor_nml/reconnect_run.py:ReconnectResult - frozen dataclass carrying mapping, stats, ambiguity_rows, old_records, warnings, diagnostics. The review table reads this directly.",
+    "traktor_nml/reconnect_run.py:ScanReconnectResult / RewriteReconnectResult - typed per-command results carrying error, csv_path, outcome, diagnostics",
+    "traktor_nml/reconnect_render.py:render_scan_reconnect_candidates / render_rewrite_from_reconnect / emit - CLI rendering; the GUI must NOT route through emit, but the key=value lines it produces are what ui.log should show",
+    "traktor_nml/rewrite.py:plan_and_write_nml -> WriteOutcome - printless write shell; write_nml_safely is the printing wrapper",
+    "traktor_nml/diskscan.py:index_scan_roots(..., on_progress, cancel, on_diagnostic) - all three default None and inert",
+    "traktor_nml/cli.py:build_parser - the definitive subcommand set",
+    "spike/packaging/spike_app.py - the spike's NiceGUI app, a working reference for nicegui in this repo"
+  ],
+  "rejected_alternatives": [
+    "Subprocess-scraping the CLI key=value stdout as the GUI data source - Tier 1 needs structured data mid-run for live progress and an interactive ambiguous-match table; a parsed transcript exists only once the run is over. Survives only as the section 5 fallback.",
+    "nicegui.run.cpu_bound for the scan - process pool, and TagCache/lxml roots are not cleanly picklable.",
+    "ui.upload for scan roots - a browser upload; scan roots must live on the server's filesystem.",
+    "Placing GUI code under traktor_nml/commands/ - commands/__init__.py imports every command module at CLI startup."
+  ],
+  "current_understanding": [
+    "The reconnect path already runs in three layers: reconnect_run.py owns the pipeline and returns objects, reconnect_render.py owns every character reaching a stream, commands/reconnect_cmd.py owns only argparse. That split exists specifically so a GUI can sit beside the CLI renderer.",
+    "on_progress and cancel already thread from both cores through run_reconnection into index_scan_roots, defaulting to None so the CLI path is unchanged.",
+    "traktor_nml/gui/ does not exist yet. Both isolation guards and the classification guard were written against a tree without it, deliberately, so they hold a clean baseline.",
+    "The parity manifest holds 12 cases; all 12 recorded stderr values are empty, which makes asserting stderr a leak detector for any stream write escaping the renderer.",
+    "The packaging spike passed on Windows: lxml and fpcalc both bundle correctly under PyInstaller --onedir with nicegui 3.16.0."
+  ],
+  "assumptions": [
+    "The GUI drives the cores directly and does NOT call reconnect_render.emit; it renders its own view from the result objects (H)",
+    "ui.log should show the same key=value vocabulary the CLI prints, which means the renderer's line-producing functions are reusable without emit (M - needs checking that they are separable from emit)",
+    "nicegui is installed in .venv already (the spike used it), so development can proceed without new environment work (H)",
+    "No pytest plugin for driving NiceGUI is present; section 3.3's acceptance criteria are expressed against the cores and the write path rather than against rendered DOM, so they are testable without a browser harness (M)"
+  ],
+  "invisible_knowledge": [
+    "The single strongest property in the plan (section 3.3): taking a preview result, applying ZERO operator overrides, and writing must produce a file byte-identical to the equivalent non-dry-run CLI invocation. It proves the review layer cannot silently change outcomes and is checkable against manifest bytes directly.",
+    "Preview must write zero bytes anywhere except the documented tag-cache exception. Test by snapshotting every file's mtime and size under tmp_path; only .traktor_nml_tagcache.json may differ.",
+    "The tag cache and the ambiguity CSV are written even under --dry-run, because neither is the command's declared output.",
+    "The output-collision refusal (output_must_differ_from_input) is the FIRST thing plan_and_write_nml does, ahead of parsing and ahead of the caller's callback, so a refused write never costs a 20-minute scan. It must surface as a typed refusal the GUI renders as a disabled button with a reason - not an exit code.",
+    "A cancelled scan raises ScanCancelled and yields NO result at all, because a short candidate list is indistinguishable from a complete one and would report most of the collection as missing. Nothing on the core or write path catches it.",
+    "Volume identities are resolved once per run and reused by the fingerprint tier and the LOCATION re-encoding.",
+    "stderr order is scan diagnostics, then the fingerprint dependency warning, then the refutation-disabled line, then any error. stdout order for rewrite-from-reconnect is csv_written, then the stats/sample_matches block, then output_written.",
+    "File selection is the known friction point and the piece most likely to feel clumsy. NiceGUI has no server-side file picker. In native mode call pywebview's create_file_dialog; otherwise NiceGUI's local_file_picker example component. Section 4 says to budget for it.",
+    "A full scan against the real corpus takes about 20 minutes, so verification runs on the fixture corpus.",
+    "Section 1's prose is internally contradictory about 'exactly one tier list' vs scan-reconnect-candidates appearing in two; tests/test_gui_command_classification.py encodes the resolution as two predicates and records the contradiction.",
+    "This repo's decision log is DL-001..DL-057 in traktor_nml/README.md. A DL tag marks the decision a statement traces to and the statement lives in whichever section describes it; each decision is stated once, so a second copy would drift.",
+    "Keep timestamped-backup convention the repo already uses (*.pre_playlist_inspection_<ts>.nml) and put ui.dialog before writes."
+  ],
+  "reference_docs": [
+    "docs/nicegui-gui-analysis.md - THE spec. Section 1 command tiers, section 2 architecture, section 3.3 acceptance criteria for preview/review/write, sections 3.4/3.5 progress and cancel completion conditions, section 4 UI design and 4.1 per-side-effect safeguards, section 5 rollout/rollback/isolation rules and the fallback ladder.",
+    "docs/2026-08-25-packaging-spike-results.md - what section 6 actually validated on Windows",
+    "docs/2026-08-26-renderer-split-plan.md - the completed refactor that makes this possible; its Decision Log DL-046..DL-057 explains the core/renderer boundary",
+    "traktor_nml/README.md - package decision log DL-001..DL-057 and architecture",
+    "traktor_nml/CLAUDE.md and tests/CLAUDE.md - per-file navigation indexes with when-to-read triggers",
+    "spike/packaging/CLAUDE.md and spike/packaging/spike_app.py - working nicegui reference in this repo",
+    "TODO.md - the Guided Repair Review this wizard IS; existing CSV exports are the workaround it replaces"
+  ]
+}

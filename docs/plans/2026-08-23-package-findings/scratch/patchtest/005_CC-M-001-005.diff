@@ -1,0 +1,18 @@
+--- a/traktor_nml/README.md
++++ b/traktor_nml/README.md
+@@ -47,7 +47,15 @@
+ - `reconnect.py`'s one-to-one assignment guarantee (DL-004) and
+   `volumes.py`'s explicit-VOLUME/VOLUMEID requirement (DL-005) are both
+   enforced as post-passes over the shared matching cascade, which itself
+   stays unaware either invariant is being layered on top of it.
++- `volumes.py` owns both directions of the volume-relative-to-absolute
++  transformation; its old-side inverse (`local_path_for_location`)
++  resolves only against mount anchors the run established explicitly,
++  returning nothing for an unknown VOLUME/VOLUMEID pair or when two
++  anchors for one pair both resolve, because a guessed anchor can
++  fingerprint a different file and rewrite a track onto an unrelated
++  location - an extension of the DL-005 explicit-identity invariant
++  above, not an exception to it (DL-017, DL-018).
+ - The NML schema (COLLECTION/PLAYLISTS/SUBNODES/PRIMARYKEY shapes and
+   their count attributes) is confirmed only against NML VERSION=20 /
+   Traktor Pro 4; `spans.py`'s count-attribute recalculation is generic

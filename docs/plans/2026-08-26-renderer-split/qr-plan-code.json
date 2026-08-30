@@ -1,0 +1,445 @@
+{
+  "phase": "plan-code",
+  "iteration": 4,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every diff's context lines match the current repo file at C:/codex/traktor-nml-tool",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/commands/reconnect_cmd.py",
+      "check": "CC-M-002-010 context lines match reconnect_cmd.py as it stands after M-001",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/rewrite.py",
+      "check": "CC-M-001-001..004 context lines match rewrite.py",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/commands/_shared_args.py",
+      "check": "CC-M-002-013 context lines match _shared_args.py",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "tests/test_reconnect.py",
+      "check": "CC-M-002-012 context lines match test_reconnect.py",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "traktor_nml/rewrite.py",
+      "check": "CC-M-001-001..004 are sequential hunks on one file; later hunks' context reflects earlier hunks applied",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-rewrite-py",
+      "version": 4
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Every print moved out of commands/ reappears in a renderer with identical text, key ordering and stream",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003a",
+      "parent_id": "qa-003",
+      "scope": "render_scan_reconnect_candidates",
+      "check": "reconnectable=N then sorted key=value stats, byte-identical to today",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003b",
+      "parent_id": "qa-003",
+      "scope": "render_rewrite_from_reconnect",
+      "check": "csv_written line then stats/sample_matches block in original order",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003c",
+      "parent_id": "qa-003",
+      "scope": "traktor_nml/rewrite.py wrapper",
+      "check": "write_nml_safely wrapper emits stats-then-error in original order for splice/textpatch callers",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Exit code 2 preserved on all four typed errors for both reconnect commands",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "ScanReconnectResult",
+      "check": "error field carries exact key=value text; renderer maps it to stderr plus exit 2",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "scope": "RewriteReconnectResult",
+      "check": "typed reconnection error and WriteOutcome error both yield exit 2",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "No diff touches tests/baselines/manifest.json",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-005",
+      "version": 2
+    },
+    {
+      "id": "qa-005a",
+      "parent_id": "qa-005",
+      "scope": "tests/test_parity_baseline.py",
+      "check": "PARITY_BASELINE_SHA256 unchanged by any diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-005",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "No gui/ or nicegui import reachable from commands/__init__.py or cli.py",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006a",
+      "parent_id": "qa-006",
+      "scope": "reconnect_run.py+reconnect_render.py",
+      "check": "Neither new module imports traktor_nml.gui or nicegui",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "Import graph acyclic: reconnect_render does not import commands/; reconnect_run does not import reconnect_render",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 4
+    },
+    {
+      "id": "qa-008",
+      "scope": "M-001",
+      "check": "After M-001 alone the CLI is fully usable and all existing callers resolve",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-008",
+      "version": 2
+    },
+    {
+      "id": "qa-008a",
+      "parent_id": "qa-008",
+      "scope": "write_nml_safely callers",
+      "check": "splice, textpatch and rewrite-from-collection-compare call sites unchanged and still valid",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-008",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "CC-M-002-004",
+      "check": "run_reconnection resolves volume identities exactly once, reused by fingerprint tier and LOCATION re-encoding",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-run-reconnection",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "CC-M-002-004",
+      "check": "ScanCancelled still raises rather than returning a partial ReconnectResult",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-run-reconnection",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "CC-M-002-004",
+      "check": "FpcalcSession is opened and closed inside the core; no session escapes the render boundary",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-run-reconnection",
+      "version": 3
+    },
+    {
+      "id": "qa-012",
+      "scope": "CC-M-002-001",
+      "check": "ReconnectResult carries mapping, stats, ambiguity_rows, old_records, warnings; frozen; no mutable default",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-reconnect-run-api",
+      "version": 3
+    },
+    {
+      "id": "qa-013",
+      "scope": "*",
+      "check": "fingerprint_dependency_missing warning survives as data on the result and is actually rendered",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-013",
+      "version": 2
+    },
+    {
+      "id": "qa-013a",
+      "parent_id": "qa-013",
+      "scope": "CC-M-002-004",
+      "check": "Core appends the warning to result.warnings instead of printing mid-pipeline",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-013",
+      "version": 2
+    },
+    {
+      "id": "qa-013b",
+      "parent_id": "qa-013",
+      "scope": "CC-M-002-008+009",
+      "check": "Both renderers emit result.warnings to stderr in original order",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-013",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "CC-M-002-006",
+      "check": "CSV write side effect stays in the core while the csv_written= line is emitted only by the renderer",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-014",
+      "version": 2
+    },
+    {
+      "id": "qa-014a",
+      "parent_id": "qa-014",
+      "scope": "CC-M-002-006",
+      "check": "--dry-run still writes the tag cache and the ambiguity CSV",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-014",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "CC-M-002-010",
+      "check": "Both handlers are render(core(...)) returning an int exit code and print no computed values",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-reconnect-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "CC-M-002-013",
+      "check": "refutation_disabled_line extraction keeps warn_refutation_disabled behaviour identical for other callers",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-output-fidelity",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "CC-M-002-012",
+      "check": "traktor_nml.reconnect_run.fingerprint_unavailable_reason alias actually exists in CC-M-002-004's diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-reconnect-run-api",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "CC-M-002-011",
+      "check": "Equivalence test uses the same fixture inputs and argv as the four reconnect manifest cases",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-new-tests",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "CC-M-001-005,CC-M-002-011,CC-M-003-001",
+      "check": "Each new test states and demonstrates its negative case per repo convention",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-new-tests",
+      "version": 8
+    },
+    {
+      "id": "qa-020",
+      "scope": "CC-M-003-001",
+      "check": "AST guard detects print, sys.stdout.write and sys.stderr.write in reconnect_cmd.py",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-new-tests",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "*",
+      "check": "All DL-0NN numbers cited in intents exist in traktor_nml/README.md's decision log",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-021",
+      "version": 3
+    },
+    {
+      "id": "qa-021a",
+      "parent_id": "qa-021",
+      "scope": "CI-M-002-002/003/004",
+      "check": "The DL-0NN cited in these three intents resolves to a real decision entry",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-021",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "*",
+      "check": "No undefined names and no stale imports left in reconnect_cmd.py after the strip",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-023",
+      "scope": "CC-M-002-004",
+      "check": "run_reconnection is not a god function (>50 lines or >3 nesting) after absorbing the pipeline",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-run-reconnection",
+      "version": 3
+    },
+    {
+      "id": "qa-024",
+      "scope": "*",
+      "check": "The change is additive and revertable as one discrete step per section 5 rollback",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-025",
+      "scope": "CC-M-001-001",
+      "check": "WriteOutcome fields cover every branch write_nml_safely previously handled",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-rewrite-py",
+      "version": 2
+    },
+    {
+      "id": "qa-026",
+      "scope": "CC-M-001-002",
+      "check": "format_stats_and_samples returns lines in the same order print_stats_and_samples printed them",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-rewrite-py",
+      "version": 2
+    },
+    {
+      "id": "qa-027",
+      "scope": "CC-M-002-002+003",
+      "check": "ScanReconnectResult and RewriteReconnectResult are frozen with mutually exclusive result/error fields",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-reconnect-run-api",
+      "version": 2
+    },
+    {
+      "id": "qa-028",
+      "scope": "CC-M-002-007",
+      "check": "RenderedOutput.emit writes to the correct streams with correct line terminators and returns exit_code",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-output-fidelity",
+      "version": 2
+    },
+    {
+      "id": "qa-029",
+      "scope": "CC-M-002-005+006",
+      "check": "scan_reconnect_candidates and rewrite_from_reconnect forward on_progress and cancel through to index_scan_roots",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-reconnect-run-api",
+      "version": 2
+    },
+    {
+      "id": "qa-030",
+      "scope": "CC-M-001-003",
+      "check": "plan_and_write_nml preserves output-collision detection and text_patch_error ordering identically",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-rewrite-py",
+      "version": 2
+    },
+    {
+      "id": "qa-031",
+      "scope": "M-002",
+      "check": "reconnect_cmd.py retains no residual pipeline logic; helpers relocated rather than duplicated",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-reconnect-cmd",
+      "version": 2
+    }
+  ]
+}

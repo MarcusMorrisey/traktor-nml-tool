@@ -1,0 +1,24 @@
+--- a/traktor_nml/commands/split_cmd.py
++++ b/traktor_nml/commands/split_cmd.py
+@@ -6,6 +6,7 @@ import sys
+ from pathlib import Path
+ 
+ from ..split import build_output
++from ..spans import SpanIndex
+ from ..rewrite import read_and_parse_source, write_bytes_atomically
+ 
+ 
+@@ -42,8 +43,12 @@ def _handle_split(args: argparse.Namespace) -> int:
+     source_text = source_bytes.decode("utf-8")
+ 
++    # One SpanIndex built once for the whole document, rather than once
++    # per group, and handed to build_output on every group iteration.
++    span_index = SpanIndex(source_text, root)
++
+     outcomes = []
+     for output_path, names in groups:
+-        outcome = build_output(source_text, root, names, args.dangling_policy)
++        outcome = build_output(source_text, root, names, args.dangling_policy, span_index)
+         outcomes.append((output_path, outcome))
+         print(f"group_output={output_path}")
+         for key, value in outcome.stats.items():

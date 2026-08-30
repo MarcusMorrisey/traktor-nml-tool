@@ -1,0 +1,51 @@
+--- a/tests/test_spans.py
++++ b/tests/test_spans.py
+@@ -140,6 +140,48 @@
+         index.span_of(outsider)
+ 
+ 
++def test_span_index_survives_gc_and_resolves_freshly_accessed_elements_correctly() -> None:
++    """SpanIndex must retain a reference to every element it walked for
++    its entire lifetime: under the lxml backend, an element is a
++    transient proxy over the underlying libxml2 node, and once nothing
++    references a proxy it can be garbage-collected, after which CPython
++    may reuse its freed memory address for a new, unrelated proxy. A
++    SpanIndex keyed only on id(element) without retaining a reference
++    would then risk a later lookup matching a stale, recycled-address
++    entry and silently returning the wrong span.
++
++    This forces a GC cycle immediately after construction, then resolves
++    spans via elements obtained from an independent, freshly issued
++    lookup (traktor_nml.model.collection_records), rather than reusing
++    any object from the original construction walk, and asserts every
++    span still comes back correct.
++    """
++    import gc
++
++    import lxml.etree as ET
++
++    from traktor_nml.model import collection_records
++
++    source = (
++        '<NML VERSION="20"><COLLECTION ENTRIES="2">'
++        '<ENTRY TITLE="A"><LOCATION DIR="/:" FILE="a.mp3"></LOCATION></ENTRY>'
++        '<ENTRY TITLE="B"><LOCATION DIR="/:" FILE="b.mp3"></LOCATION></ENTRY>'
++        "</COLLECTION></NML>"
++    )
++    root = ET.fromstring(source)
++    index = SpanIndex(source, root)
++
++    gc.collect()
++
++    records = collection_records(root)
++    assert index.span_of(records[0].entry).text(source) == (
++        '<ENTRY TITLE="A"><LOCATION DIR="/:" FILE="a.mp3"></LOCATION></ENTRY>'
++    )
++    assert index.span_of(records[1].entry).text(source) == (
++        '<ENTRY TITLE="B"><LOCATION DIR="/:" FILE="b.mp3"></LOCATION></ENTRY>'
++    )
++
++
+ @pytest.mark.skipif(not REAL_FIXTURE.exists(), reason="real fixture not present in this environment")
+ def test_real_fixture_indexed_in_one_pass_and_every_entry_parses_standalone() -> None:
+     import lxml.etree as ET

@@ -1,0 +1,17 @@
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -140,11 +140,9 @@ class SpanIndex:
+     recorded stays bound to the original element for the index's whole
+     lifetime, so a lookup can never be confused by address reuse.
+
+-    element_span_by_identity stays in place and unchanged for now because
+-    split.py still calls it at three sites; its removal is a later
+-    migration, once split.py's last caller moves to this index, so the
+-    package never sits in a state where a shipped module imports a
+-    function that no longer exists.
++    element_span_by_identity has been removed: split.py, its last caller,
++    now resolves every span through this index, leaving SpanIndex as the
++    package's one element-to-span identity mechanism.
+     """
+
+     def __init__(self, source: str, root) -> None:

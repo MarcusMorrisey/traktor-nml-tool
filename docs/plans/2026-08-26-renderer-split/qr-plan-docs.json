@@ -1,0 +1,332 @@
+{
+  "phase": "plan-docs",
+  "iteration": 2,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "No doc_diff cites a DL-NNN number that resolves to an unrelated entry in traktor_nml/README.md's decision log. The package log already defines DL-001 through DL-045; only DL-046 is new. Every '(ref: DL-00X)' in a code doc_diff must point at DL-046 (or another genuinely matching package entry), not at this plan's internal DL-001..DL-010 numbering.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "CC-M-001-001",
+      "check": "'(ref: DL-003)' on WriteOutcome.exit_code resolves in the package log to 'cli.py discovers command modules by iterating the package' (README L28), not to the WriteOutcome stats/error semantics it claims. Renumber to DL-046 or drop the ref.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "CC-M-001-003",
+      "check": "'(ref: DL-004)' on the output_must_differ_from_input guard resolves to the package's one-to-one playlist-reference decision (README L54), not to the ordering rationale. Renumber or drop.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-002",
+      "check": "'(ref: DL-008)' on ScanReconnectResult.error resolves to an unrelated package entry (README L61). Renumber or drop.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-005",
+      "check": "'(ref: DL-001)' in scan_reconnect_candidates resolves to an unrelated package entry. Renumber to DL-046.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001e",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-008",
+      "check": "'(ref: DL-005, DL-006, DL-010)' in render_scan_reconnect_candidates resolves to the package's volume-identity (L57), lxml-availability (L42) and confidence-cascade (L69) entries. Renumber or drop all three.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001f",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-009",
+      "check": "'(ref: DL-005)' in render_rewrite_from_reconnect resolves to the package's explicit-VOLUME/VOLUMEID entry. Renumber or drop.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001g",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-010",
+      "check": "'(ref: DL-006, DL-007)' on both handler docstrings resolves to unrelated package entries (lxml availability; textpatch element extent). Renumber to DL-046.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001h",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-013",
+      "check": "'(ref: DL-007)' on the _shared_args re-export resolves to the package's textpatch entry, while the README doc_diff describing the same import direction correctly cites DL-046. Make the two agree.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001i",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-014",
+      "check": "'(ref: DL-010)' in refutation_disabled_line resolves to the package's confidence-cascade entry. Renumber or drop.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "DL-009 (run_reconnection and both cores accept and forward on_progress/cancel to index_scan_roots, defaulting to None, so a GUI can drive progress and cancellation through the core) appears in no doc_diff. Without it a maintainer sees two parameters with no in-repo caller and removes them, silently re-closing the GUI channel this split exists to open.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "No doc_diff describes the change rather than the code. Change-relative language ('pre-split', 'before the split', 'this split removed', 'rather than defined here', 'keep working unchanged') dates the comment: once the split is history the reader has no pre-split code to compare against and the comment stops carrying information.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003a",
+      "parent_id": "qa-003",
+      "scope": "CC-M-001-001",
+      "check": "'the same mapping print_stats_and_samples callers used before the split' - restate as the invariant itself (which errors map to exit 2) without reference to a prior revision.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003b",
+      "parent_id": "qa-003",
+      "scope": "CC-M-001-004",
+      "check": "'Reproduces the pre-split print order' - state the required order and its oracle (the parity manifest) instead of the prior revision.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003c",
+      "parent_id": "qa-003",
+      "scope": "CC-M-002-002",
+      "check": "'the same four typed failures the pre-split handler mapped to exit 2' - name the four failures and the exit code directly.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003d",
+      "parent_id": "qa-003",
+      "scope": "CC-M-002-005",
+      "check": "'the same exit-2 key=value shape the pre-split handler printed' - state the shape, not its provenance.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003e",
+      "parent_id": "qa-003",
+      "scope": "CC-M-002-008",
+      "check": "'Reproduce scan-reconnect-candidates pre-split stdout/stderr byte for byte' - anchor to the recorded manifest cases, which still exist for a future reader, rather than to a pre-split revision that does not.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003f",
+      "parent_id": "qa-003",
+      "scope": "CC-M-002-009",
+      "check": "'Reproduce rewrite-from-reconnect's pre-split output' and 'the pre-split handler wrote the CSV inside _run_reconnection' - the second names a function the change deletes, so the justification for csv_written= coming first becomes unverifiable. State why the CSV line precedes the stats block in terms that survive.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003g",
+      "parent_id": "qa-003",
+      "scope": "CC-M-002-010",
+      "check": "'so the flattening this split removed cannot drift back in' - state the convention (the command layer prints nothing) without the historical framing.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003h",
+      "parent_id": "qa-003",
+      "scope": "CC-M-002-013",
+      "check": "'Re-exported ... rather than defined here' plus 'keeps re-exporting them so compare_cmd.py and reconnect_cmd.py's existing imports keep working unchanged' - 'existing' and 'unchanged' are change-relative; state the import-direction rule and the re-export's purpose in the present tense.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "CC-M-002-004",
+      "check": "The comment cites '(ref: invisible_knowledge - splitting the core must not cause a second resolution)'. invisible_knowledge is a planning-state field, not a repo artifact, so the reference dangles for anyone reading the file. Cite DL-046 or state the invariant self-containedly.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-ik-transfer",
+      "version": 3
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "Each new test module's doc_diff records the invariant the test protects AND that the guard was proven to fail when the invariant breaks (repo convention: 'a guard you have only seen pass is not a guard'). Currently no test doc_diff says so.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-005",
+      "version": 5
+    },
+    {
+      "id": "qa-005a",
+      "parent_id": "qa-005",
+      "scope": "CC-M-003-001",
+      "check": "test_command_layer_printless.py's _violations docstring explains AST-vs-grep but never records that the guard was observed failing against a handler that does print.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-005",
+      "version": 3
+    },
+    {
+      "id": "qa-005b",
+      "parent_id": "qa-005",
+      "scope": "CC-M-002-011",
+      "check": "The renderer-equivalence helpers are documented, but nothing records that the comparison was seen to fail on a deliberately altered line - without which a _reconnect_cases that silently returns zero cases would pass.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-005",
+      "version": 3
+    },
+    {
+      "id": "qa-006",
+      "scope": "CC-M-002-011",
+      "check": "No doc_diff records that the manifest exercises only --match-confidence filename and no --fingerprint case, so the equivalence test proves byte-identity on the common path only and the fingerprint/strict/loose/bare_name tiers rest on unit tests instead. A reader will otherwise treat a green suite as full parity coverage.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-ik-transfer",
+      "version": 3
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "The deliberate decision that the tag cache and the ambiguity CSV are still written on a --dry-run run (neither is the command's declared output) survives the move of the CSV write out of _run_reconnection into the core. No doc_diff carries it.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "Added comments explain reasoning rather than restate the code they sit above.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-008",
+      "version": 3
+    },
+    {
+      "id": "qa-008a",
+      "parent_id": "qa-008",
+      "scope": "CC-M-001-005",
+      "check": "'Minimal collect_patches: no patches, fixed stats, no samples.' and the _no_op_mutate twin restate the return statement. Say why a no-op callback is the right fixture (it isolates the write shell from patch computation).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-008",
+      "version": 3
+    },
+    {
+      "id": "qa-008b",
+      "parent_id": "qa-008",
+      "scope": "CC-M-002-006",
+      "check": "_apply_mapping_stdlib's docstring narrates the loop body; the load-bearing part is the shared CompareEntryResolver rule. Lead with why both writers must share it.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-008",
+      "version": 3
+    },
+    {
+      "id": "qa-009",
+      "scope": "CC-M-003-004",
+      "check": "The HTML comment about fingerprint monkeypatching is inserted between two rows of a markdown table, splitting the table in most renderers, and puts WHY content in a navigation index whose role is WHAT/WHEN. Move the rationale to the test file (it is already in CC-M-002-012) and keep the index to rows.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-repo-doc-index",
+      "version": 3
+    },
+    {
+      "id": "qa-010",
+      "scope": "CC-M-002-012",
+      "check": "The added comment sits between the monkeypatch target string and the lambda argument, and the surrounding context line reads 'args = ...' rather than real source. Verify the doc_diff's context matches tests/test_reconnect.py so the overlay applies.",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "*",
+      "check": "Every doc_diff is a valid unified diff whose ---/+++ paths match the code_change's file and whose context lines match the post-diff file content, so the overlay applies cleanly.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-012",
+      "scope": "CC-M-003-002",
+      "check": "The README DL-046 entry covers the core/renderer split and the write-shell split, but not the on_progress/cancel threading (see qa-002) or the ScanCancelled-must-escape rule. Confirm DL-046 records why a cancelled scan raises rather than returning partial results, since that is the invariant a future core-boundary redesign is most likely to soften.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-repo-doc-index",
+      "version": 3
+    },
+    {
+      "id": "qa-013",
+      "scope": "CC-M-003-003",
+      "check": "traktor_nml/CLAUDE.md gains rows for reconnect_run.py, reconnect_render.py and shared_args.py, but the reconnect_run.py row's 'When to read' trigger does not mention progress reporting or cancellation, so a reader changing the GUI progress channel is not routed there.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-repo-doc-index",
+      "version": 3
+    }
+  ]
+}

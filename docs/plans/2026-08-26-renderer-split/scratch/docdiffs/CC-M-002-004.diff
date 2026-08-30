@@ -1,0 +1,13 @@
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -119,6 +119,10 @@ def run_reconnection(
+     ScanCancelled propagates rather than becoming a field on the result:
+     a short candidate list is indistinguishable from a complete one, so a
+     partial result would report most of the collection as missing - a
+     wrong answer delivered confidently.
+     """
++    # Volume identities are resolved once here and reused by both the
++    # fingerprint tier (_build_fingerprint_tier's known_mounts) and the
++    # candidate-side LOCATION re-encoding below (ref: invisible_knowledge
++    # - splitting the core must not cause a second resolution).
+     old_records = collection_records(old_root)

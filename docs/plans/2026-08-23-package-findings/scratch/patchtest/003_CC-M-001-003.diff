@@ -1,0 +1,64 @@
+--- a/tests/test_fingerprint.py
++++ b/tests/test_fingerprint.py
+@@ -6,9 +6,11 @@
+ import pytest
+ 
+ from traktor_nml.confidence import MatchConfidence
+-from traktor_nml.fingerprint import HAS_ACOUSTID, fingerprint_key_provider
++from traktor_nml.fingerprint import HAS_ACOUSTID, fingerprint_key_provider, old_side_fingerprint
+ from traktor_nml.matching import match_records
+ from traktor_nml.model import EntryRecord, LocationParts
++from traktor_nml.reconnect import location_from_disk_path
++from traktor_nml.volumes import local_path_for_location
+ from traktor_nml.tagcache import TagCache
+ 
+ requires_acoustid = pytest.mark.skipif(
+@@ -60,3 +62,48 @@ def test_two_bitrate_encodings_match_by_fingerprint(tmp_path: Path) -> None:
+ @requires_acoustid
+ def test_pair_outside_duration_tolerance_never_compared(tmp_path: Path) -> None:
+     pytest.skip("requires real audio fixtures; exercised in the manual rollout gate")
++
++
++def _old_record_at(location: LocationParts) -> EntryRecord:
++    return EntryRecord(
++        entry=object(),
++        artist="", title="", audio_id="", filesize="", playtime_float="", bitrate="", album="",
++        file_name=location.file_name,
++        location=location,
++    )
++
++
++def test_old_side_location_resolves_to_the_file_it_was_encoded_from(tmp_path: Path) -> None:
++    """Round-tripping a real file through location_from_disk_path and back
++    through local_path_for_location, with that file's own volume identity
++    registered as a known mount, must reproduce the exact same path - this
++    holds without pyacoustid installed, unlike a real fingerprint
++    comparison, so it is the assertion this test relies on."""
++    real_dir = tmp_path / "anchor"
++    real_dir.mkdir()
++    real_file = real_dir / "song.mp3"
++    real_file.write_bytes(b"data")
++
++    location = location_from_disk_path(real_file, "VOL", "VOLID")
++    known_mounts = {("VOL", "VOLID"): [real_dir]}
++    assert local_path_for_location(location, known_mounts) == real_file
++
++    cache = TagCache(tmp_path / "cache.json")
++
++    known_stats: dict[str, int] = {}
++    old_side_fingerprint(_old_record_at(location), cache, known_stats, known_mounts)
++    assert known_stats["fingerprint_unavailable_old_side"] == 0
++
++    unknown_location = location_from_disk_path(real_file, "OTHER", "OTHER")
++    unknown_stats: dict[str, int] = {}
++    old_side_fingerprint(_old_record_at(unknown_location), cache, unknown_stats, known_mounts)
++    assert unknown_stats["fingerprint_unavailable_old_side"] == 1
++
++    decoy_dir = tmp_path / "decoy"
++    decoy_dir.mkdir()
++    (decoy_dir / "song.mp3").write_bytes(b"different data, not the same file")
++    single_anchor_mounts = {("VOL", "VOLID"): [real_dir]}
++    assert local_path_for_location(location, single_anchor_mounts) == real_file
++
++    two_anchor_mounts = {("VOL", "VOLID"): [real_dir, decoy_dir]}
++    assert local_path_for_location(location, two_anchor_mounts) is None

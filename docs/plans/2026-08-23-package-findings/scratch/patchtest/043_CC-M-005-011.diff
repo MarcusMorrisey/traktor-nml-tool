@@ -1,0 +1,6 @@
+--- a/traktor_nml/commands/CLAUDE.md
++++ b/traktor_nml/commands/CLAUDE.md
+@@ -13,2 +13,2 @@
+ | `splice_cmd.py`     | `splice` subcommand (merge NML files); reads/parses through `rewrite.read_and_parse_source` and commits through `rewrite.write_bytes_atomically` | Changing splice's CLI surface, conflict flags, or reports |
+-| `split_cmd.py`      | `split` subcommand (partition an NML file); reads/parses through `rewrite.read_and_parse_source` and commits each group through `rewrite.write_bytes_atomically` | Changing split's CLI surface or dangling-reference flags |
++| `split_cmd.py`      | `split` subcommand (partition an NML file); reads/parses through `rewrite.read_and_parse_source`, builds one `SpanIndex` per input and hands it to `build_output` for every group, and commits each group through `rewrite.write_bytes_atomically` | Changing split's CLI surface or dangling-reference flags |

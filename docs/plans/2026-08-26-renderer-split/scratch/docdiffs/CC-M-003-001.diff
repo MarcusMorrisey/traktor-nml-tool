@@ -1,0 +1,12 @@
+--- a/tests/test_command_layer_printless.py
++++ b/tests/test_command_layer_printless.py
+@@ -14,6 +14,10 @@ RECONNECT_CMD = Path(__file__).parent.parent / "traktor_nml" / "commands" / "r
+
+
+ def _violations(source: str) -> list[str]:
++    """Walk source's AST for a call to print(...) or sys.stdout/stderr
++    .write(...). An AST walk rather than a text grep, because a grep for
++    "print(" would also match the word inside a docstring or comment
++    explaining why the module holds none."""
+     tree = ast.parse(source)
+     found = []

@@ -1,0 +1,13 @@
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -95,6 +95,9 @@ class ScanReconnectResult:
+     error is non-None; csv_path is non-None only alongside a non-None
+     result, because the CSV is written after run_reconnection returns.
+     """
+
++    # error carries one of input_not_found=, xml_parse_error=,
++    # volume_identity_error= or fingerprint_unavailable= - the same four
++    # typed failures the pre-split handler mapped to exit 2 (ref: DL-008).
+     result: Optional[ReconnectResult]
+     error: Optional[str]
+     csv_path: Optional[Path]

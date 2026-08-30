@@ -1,0 +1,46 @@
+{
+  "task_spec": [
+    "Fix 8 confirmed code-review findings in the traktor_nml package (C:\\codex\\general_tasks\\traktor_nml\\ and traktor_nml\\commands\\), all independently verified CONFIRMED against the real implemented codebase",
+    "scope: traktor_nml/commands/compare_cmd.py, traktor_nml/fingerprint.py, traktor_nml/split.py, traktor_nml/commands/splice_cmd.py, traktor_nml/commands/split_cmd.py, traktor_nml/playlists.py, traktor_nml/spans.py, traktor_nml/splice.py",
+    "out-of-scope: any new features; this is a fix-only pass against 8 specific, already-diagnosed findings, not a broader refactor"
+  ],
+  "constraints": [
+    "MUST: preserve all existing test suite passes (42 passed, 2 skipped as of last run) - pytest tests/ -q from C:\\codex\\general_tasks",
+    "MUST: preserve the existing byte-preserving write invariants (attribute-patch path via write_nml_safely, span-transplantation path via OutputBuilder/spans.py) - fixes must not regress these",
+    "MUST: add or extend tests to actually exercise each fixed bug, since several of these findings exist precisely because the current test suite didn't cover the failure scenario (e.g. no test covers extra_inputs on rewrite-from-collection-compare, no test covers a dangling reference in an out-of-scope playlist for split, no test covers old_side_fingerprint against a real volume-carrying path)",
+    "SHOULD: fix the two efficiency findings (playlists.py per-node full-text rescan, spans.py element_span_by_identity per-entry rescan) by adding a single-pass precomputation, consistent with the existing single-pass pattern already used correctly by spans.py's own element_span function - do not introduce a third, different indexing strategy"
+  ],
+  "entry_points": [
+    "C:\\codex\\general_tasks\\traktor_nml\\commands\\compare_cmd.py:_handle_rewrite_from_collection_compare (~line 187) - write_nml_safely call missing extra_inputs=(args.new_input,), so output==new_input is not rejected",
+    "C:\\codex\\general_tasks\\traktor_nml\\commands\\compare_cmd.py:_collect_patches/mutate_tree (~line 47) - calls matching.match_records directly, bypassing reconnect.resolve_reconnection's one-to-one/destination-collision post-pass (DL-004 invariant)",
+    "C:\\codex\\general_tasks\\traktor_nml\\fingerprint.py:old_side_fingerprint (~line 105) - builds Path(str(record.location.decoded_path)) directly; decoded_path is volume-relative (no drive/mount prefix), so .is_file() essentially never finds the real file. Compare to traktor_nml\\volumes.py/reconnect.py which DO reattach volume identity for the candidate side",
+    "C:\\codex\\general_tasks\\traktor_nml\\split.py:apply_dangling_policy (~line 86) - iterates find_playlist_nodes(root) unfiltered (every playlist in the whole file), instead of scoping to the current --group's playlist_names, so an out-of-scope playlist's dangling reference wrongly affects this group's outcome",
+    "C:\\codex\\general_tasks\\traktor_nml\\commands\\splice_cmd.py and split_cmd.py:_handle_splice/_handle_split (~line 40) - parse_xml_bytes calls only wrapped in except FileNotFoundError, missing the except XML_PARSE_ERROR handler that traktor_nml\\rewrite.py:write_nml_safely uses for every other write command",
+    "C:\\codex\\general_tasks\\traktor_nml\\commands\\splice_cmd.py and split_cmd.py (~line 66/62) - final output written via plain Path.write_bytes(...) instead of traktor_nml\\rewrite.py:_write_bytes_atomically (temp-file + os.replace), so an interrupted write can leave a truncated/corrupt output file",
+    "C:\\codex\\general_tasks\\traktor_nml\\playlists.py:_locate_node_start (~line 191) - does source_text.find() then source_text.rfind() over the WHOLE document per call; called once per playlist node in import_playlists, giving O(n*document_size) total cost on large real files",
+    "C:\\codex\\general_tasks\\traktor_nml\\spans.py:element_span_by_identity (~line 113) - re-walks root.iter(tag_name) and rescans source from the start on every call; called once per surviving entry in split.py (line 138) and via splice.py's _entry_span_text, giving O(n^2) total cost on large collections (6412-entry real fixture)"
+  ],
+  "rejected_alternatives": [
+    "none discussed - this is a straightforward fix-the-diagnosed-bugs task, not a design decision"
+  ],
+  "current_understanding": [
+    "This codebase was built via a prior planner/executor run (8 milestones: package extraction, disk-scan reconnection with optional acoustic fingerprint matching, splice/split commands using a new byte-span-transplantation write primitive alongside the existing attribute-patch write primitive). It just passed a full 8-angle independent code review (Angle A line-by-line, B removed-behavior, C cross-file tracer, D reuse, E simplification, F efficiency, G altitude, H conventions) with all 8 selected candidate findings independently CONFIRMED by a separate verifier agent.",
+    "The codebase has two parallel write mechanisms: textpatch.py/rewrite.py's attribute-patching path (used by rewrite/rewrite-from-collection-compare/rewrite-from-reconnect, all via the shared write_nml_safely helper which has the safety/atomicity/error-handling conventions - extra_inputs protection, except XML_PARSE_ERROR, atomic temp-file+rename write) and spans.py's newer span-transplantation path (used by splice/split). The 8 findings are essentially cases where splice/split/compare-cmd don't fully inherit conventions that write_nml_safely already correctly implements for the older commands.",
+    "reconnect.py's resolve_reconnection wraps matching.py's raw match_records specifically to add a one-to-one/destination-collision guarantee (DL-004) as a post-pass; compare_cmd.py's rewrite-from-collection-compare uses match_records directly without this wrapper, so it lacks the same guarantee.",
+    "decoded_path (in model.py's LocationParts) is volume-relative by design - VOLUME/VOLUMEID are separate fields, and reconstructing a real OS path requires combining them (see volumes.py/reconnect.py's location_from_disk_path pattern for the candidate/disk side). fingerprint.py's old_side_fingerprint never does this reattachment for the old/existing-collection side.",
+    "spans.py's element_span function is correctly single-pass (documented in its own docstring/comments as deliberately avoiding rescanning from the start on each call); element_span_by_identity does NOT follow this pattern and is called once per entry in loops in split.py and splice.py, and playlists.py's _locate_node_start has the same per-call full-rescan problem, called once per playlist node."
+  ],
+  "assumptions": [
+    "Fixing efficiency findings 7-8 with a single upfront pass (e.g. precomputing all element offsets once via one iteration, keyed by identity/tag+ordinal) is the right shape, consistent with element_span's existing single-pass design - not verified against a specific alternative design, but directly implied by the existing correct pattern in the same file (H confidence)",
+    "The real 6412-entry / 11.7MB fixture corpus used during original development (C:\\codex\\general_tasks\\collection_textual_patch_test.nml) is still available for performance verification of the efficiency fixes if needed (M confidence - not re-confirmed this session, but was present and used earlier)"
+  ],
+  "invisible_knowledge": [
+    "All 8 findings were arrived at via a structured 8-angle review + independent one-vote verification process and are marked CONFIRMED, not speculative - each verifier quoted the exact triggering code and the exact contrasting correct-pattern code elsewhere in the same codebase, so these are not judgment calls, they are real, demonstrated bugs/gaps.",
+    "Fix philosophy for this pass: prefer making splice/split/compare-cmd correctly reuse/inherit the conventions write_nml_safely and location_from_disk_path/resolve_volume_identity already correctly implement, rather than reimplementing a parallel fix in each file - this mirrors the 'altitude' review angle's guidance to generalize the underlying mechanism rather than bolt on narrow special-case patches, which is exactly the kind of issue a previous QR round in this same codebase already fixed once (the fingerprint CLI-wiring gap took 6 QR rounds specifically because early fixes were too narrow) - don't repeat that pattern here.",
+    "Every fix should come with a new/extended test that actually exercises the previously-uncaught scenario (this was explicitly true of every one of the 8 findings - existing tests didn't cover the trigger condition), otherwise the fix could regress again silently."
+  ],
+  "reference_docs": [
+    "C:\\codex\\general_tasks\\traktor_nml\\README.md - architecture/invariants/tradeoffs for the package",
+    "C:\\codex\\general_tasks\\traktor_nml\\CLAUDE.md, traktor_nml\\commands\\CLAUDE.md, tests\\CLAUDE.md - navigation indexes, keep them accurate if fixes touch these files' contents/behavior descriptions"
+  ]
+}

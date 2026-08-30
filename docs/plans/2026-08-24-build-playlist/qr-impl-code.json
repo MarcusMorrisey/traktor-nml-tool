@@ -1,0 +1,432 @@
+{
+  "phase": "impl-code",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "M-001",
+      "check": "All M-001 acceptance criteria are met by traktor_nml/tracklist.py as implemented",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/tracklist.py:parse_tracklist",
+      "check": "3-line tracklist parses correctly; blank and '#' comment lines skipped; hyphen-without-spaces inside title survives intact; leading/trailing whitespace stripped from both halves; a line with an empty half after stripping is unparseable, not a record with an empty field",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/tracklist.py:parse_tracklist",
+      "check": "A line with no spaced-hyphen delimiter lands in the unparseable list carrying its correct 1-based line number and raw text, and does not appear in the parsed list",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/tracklist.py:resolve_tracklist",
+      "check": "A line matching exactly one collection entry resolves matched with that entry's primary key; a line matching two entries resolves ambiguous, not matched; a line matching none resolves unmatched",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/tracklist.py:resolve_tracklist",
+      "check": "Resolution output order equals input line order, verified on a tracklist whose middle line is unmatched",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001e",
+      "parent_id": "qa-001",
+      "scope": "traktor_nml/tracklist.py:resolve_tracklist",
+      "check": "Two identical tracklist lines resolve independently rather than collapsing onto one result",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "M-002",
+      "check": "All M-002 acceptance criteria are met by buildplaylist.py, playlists.py additions, and commands/build_playlist_cmd.py as implemented",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py:register",
+      "check": "build-playlist appears in the top-level help subcommand list with cli.py left unedited (discovered via commands/ package iteration)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002b",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/playlists.py:synthesize_playlist_node",
+      "check": "New PLAYLIST holds one ENTRY per input line in input order; ENTRIES attribute equals assembled count; each PRIMARYKEY KEY equals the matched collection entry's real primary key (never derived from input text); a name containing '&' and '\"' round-trips through re-parseable XML with the name intact",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002c",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/playlists.py:available_playlist_name + synthesize_playlist_node",
+      "check": "A base already holding a playlist of the requested name yields the numbered-suffix variant, the pre-existing playlist keeps its own name/UUID, and two runs over one base produce different PLAYLIST UUID values",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002d",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output",
+      "check": "Output document re-parses and every byte outside the receiving SUBNODES span matches the base exactly (prefix/suffix comparison, not substring/count checks)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002e",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output",
+      "check": "A tracklist holding one unmatched line, no override, exits non-zero, writes the unresolved report, leaves output path absent; the same run with --allow-unmatched exits zero and writes a playlist of only resolved lines with matching ENTRIES",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002f",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py:_handle_build_playlist",
+      "check": "An --output or --unresolved-report path resolving to the base path, tracklist path, or (for report) output path is refused before any write, via the same bespoke set-membership check as splice_cmd.py (DL-033)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002g",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output",
+      "check": "Named target folder absent aborts with no output; named target folder matching >1 FOLDER aborts target_folder_ambiguous naming the count (never first-match-in-document-order); named target folder present receives the node with root SUBNODES COUNT unchanged",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002h",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py:_handle_build_playlist",
+      "check": "A dry run prints stats and leaves the output path absent",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002i",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py:_handle_build_playlist",
+      "check": "A malformed base reports xml_parse_error naming the path and exits 2; a missing tracklist reports input_not_found naming the path and exits 2",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002j",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output",
+      "check": "An empty tracklist, an all-unparseable tracklist, and an all-unmatched tracklist under --allow-unmatched each abort with a dedicated no_entries_resolved error and write nothing, rather than writing an ENTRIES=0 PLAYLIST",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002k",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output",
+      "check": "Two tracklist lines naming the same collection track produce two independent ENTRY/PRIMARYKEY elements referencing it, in input order, not deduplicated",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002l",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output",
+      "check": "A base document with no PLAYLISTS section, root FOLDER, or SUBNODES element at all aborts with a no_root_subnodes error and writes nothing (verified this is genuinely reached via a non-empty/matchable tracklist, not masked by an earlier unmatched-line abort -- see qa-017)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002m",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py + commands/build_playlist_cmd.py",
+      "check": "Unresolved report is written as CSV via csv.DictWriter with a header row, newline=\"\" and UTF-8 encoding (matching splice_cmd.py's _write_conflict_report convention, DL-034); parses back with csv.DictReader with header matching printed fields",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002n",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py or buildplaylist.py (tracklist read path)",
+      "check": "A non-UTF-8 tracklist file reports tracklist_decode_error naming the path and exits 2 rather than raising an unguarded traceback; a UTF-8-BOM-prefixed tracklist's first line's artist is free of the BOM character",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002o",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py:_handle_build_playlist",
+      "check": "Output commit path calls rewrite.write_bytes_atomically and never writes to the output path by any other means (C-003) -- verified via mock/monkeypatch assertion, not just resulting file content",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002p",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py, traktor_nml/tracklist.py, traktor_nml/commands/build_playlist_cmd.py",
+      "check": "No occurrence of pyacoustid, chromaprint, fpcalc, an HTTP client import, or CSV/M3U tracklist parsing in these three files; matching.py and confidence.py are byte-identical to pre-existing contents (C-007)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002q",
+      "parent_id": "qa-002",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output",
+      "check": "Calling assemble_output directly on input producing unresolved_tracks or no_entries_resolved never creates/truncates/touches the intended output path -- the output path is only opened by _handle_build_playlist after assemble_output returns non-None (C-008)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002r",
+      "parent_id": "qa-002",
+      "scope": "manual/process (R-006)",
+      "check": "Confirm whether the plan's manual-Traktor-import validation gate (R-006) has been performed/tracked anywhere (e.g. a manual test-list entry); flag as unautomatable by the test suite itself and note status rather than fail on it",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "traktor_nml/tracklist.py:parse_tracklist (CI-M-001-001)",
+      "check": "Implementation matches stated behavior: pure text handling, no filesystem/XML involvement, splits on first ' - ' occurrence per DL-031",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-tracklist-py",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "traktor_nml/tracklist.py:tracklist_record (CI-M-001-002)",
+      "check": "EntryRecord built with entry=None, source_path=None, empty identity fields and empty LocationParts, confining record_keys to artist_title tier per DL-026",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-tracklist-py",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "traktor_nml/tracklist.py:resolve_tracklist (CI-M-001-003)",
+      "check": "build_new_indexes called once over collection; match_records called once per line with shared indexes; matched record read back via mapping.get(\"\") not a line-derived key; matching.py/confidence.py called, never edited or subclassed",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-tracklist-py",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "traktor_nml/playlists.py:synthesize_playlist_node (CI-M-002-001)",
+      "check": "Fragment assembled as ElementTree elements and returned via ET.tostring (not hand-formatted strings); sits beside import_playlists sharing naming/UUID policy",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-playlists-py",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "traktor_nml/playlists.py:available_playlist_name (CI-M-002-002)",
+      "check": "Requested name returned when free; otherwise first free numbered-suffix variant starting at 2, added to in-use set; import_playlists' own collision handling reads through this same function (no duplicate logic)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-playlists-py",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output (CI-M-002-003)",
+      "check": "Behavior text claims 'Validate that every key in the synthesized fragment is a primary key of a base collection record before returning' -- verify whether actual code performs a runtime check or only documents the invariant via comment (known gap); assess per R-010 whether omission is justified (structurally unfalsifiable) or a genuine behavior-text/implementation mismatch worth flagging",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "traktor_nml/buildplaylist.py:BuildPlaylistResult (CI-M-002-004)",
+      "check": "Result record populates unresolved_rows on every run including clean ones, not only on failure",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py:register (CI-M-002-005)",
+      "check": "Subparser registers positional args (base, tracklist, output) and options (name, target-folder, allow-unmatched, unresolved-report, dry-run) with no --match-confidence flag exposed",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-build-playlist-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "traktor_nml/commands/build_playlist_cmd.py:_handle_build_playlist (CI-M-002-006)",
+      "check": "Handler wiring matches stated behavior: calls assemble_output, applies path-collision refusal, commits via write_bytes_atomically only after a non-None result",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-build-playlist-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "*",
+      "check": "Zero-write-on-ambiguity/error invariant (C-002) holds across every abort path in buildplaylist.py and build_playlist_cmd.py: unresolved_tracks, no_entries_resolved, no_root_subnodes, target_folder_not_found/ambiguous, path-collision refusal, xml_parse_error, input_not_found, tracklist_decode_error",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "*",
+      "check": "Atomic commit discipline: every successful build-playlist write path goes through rewrite.write_bytes_atomically (temp file + os.replace), consistent with existing write commands",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "*",
+      "check": "matching.py and confidence.py are byte-identical to pre-existing contents; no new code anywhere reaches into private helpers or reimplements cascade logic (scope creep check, C-001/C-007)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "*",
+      "check": "Exit code 2 used uniformly across all build-playlist failure classes (input errors and unresolved-track/zero-resolved aborts alike), matching splice_cmd.py's own precedent (DL-035)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "*",
+      "check": "CSV unresolved-report conformance (dialect, header, encoding, newline handling) is consistent across every code path that writes it (abort path and allow-unmatched partial-success path alike)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "tests/test_build_playlist.py:test_base_with_no_playlists_section_aborts_with_no_root_subnodes",
+      "check": "Verify the M-002 implementer's fixture fix (non-empty/matchable collection so the tracklist line doesn't get rejected as unmatched before reaching the no_root_subnodes check) actually makes the test exercise no_root_subnodes as claimed, and that no other test was left with a similar masked-precondition bug",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "traktor_nml/buildplaylist.py, traktor_nml/commands/build_playlist_cmd.py",
+      "check": "DL-024 layering respected: core resolution/synthesis/assembly logic lives in buildplaylist.py, commands/build_playlist_cmd.py holds only CLI surface (arg parsing + thin dispatch); check for god-function violations (>50 lines or >3 nesting) in assemble_output or _handle_build_playlist",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-structural-quality",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "traktor_nml/playlists.py",
+      "check": "synthesize_playlist_node/available_playlist_name reuse the same collision-rename+UUID-regeneration machinery as import_playlists rather than duplicating it (DUPLICATE_LOGIC check)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-playlists-py",
+      "version": 2
+    },
+    {
+      "id": "qa-020",
+      "scope": "tracklist file read path (BOM/non-UTF-8 handling)",
+      "check": "Locate exactly where tracklist_decode_error and BOM-stripping are implemented (not named in any code_intent) and confirm it's a deliberate, tested code path rather than an accidental side effect of a library default",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "traktor_nml/buildplaylist.py:assemble_output (target-folder lookup)",
+      "check": "Target-folder resolution walks the full PLAYLISTS tree via SpanIndex/parsed tree (not document-position first-match) so a genuine name collision across branches is caught as target_folder_ambiguous",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-buildplaylist-core",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "traktor_nml/tracklist.py, traktor_nml/buildplaylist.py, traktor_nml/playlists.py, traktor_nml/commands/build_playlist_cmd.py",
+      "check": "No dead code (e.g. an unreachable invalid_primary_key branch per R-010's own reasoning) or invalid/unmarked intent markers in the new/modified code",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-structural-quality",
+      "version": 2
+    }
+  ]
+}

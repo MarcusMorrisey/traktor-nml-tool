@@ -1,0 +1,60 @@
+--- a/traktor_nml/commands/splice_cmd.py
++++ b/traktor_nml/commands/splice_cmd.py
+@@ -8,7 +8,7 @@ from pathlib import Path
+ 
+ from ..confidence import MatchConfidence, parse_match_confidence
+ from ..splice import ConflictRow, assemble_output
+-from ..xmlio import parse_xml_bytes
++from ..rewrite import read_and_parse_source, write_bytes_atomically
+ 
+ 
+ def _write_conflict_report(rows: list[ConflictRow], csv_path: Path | None) -> None:
+@@ -30,18 +30,25 @@ def _handle_splice(args: argparse.Namespace) -> int:
+     # Refuses output == any input path (the tool's existing dry-run
+     # convention, extended here to every splice input, not just base).
+     if args.output.resolve() in {args.base.resolve(), *(p.resolve() for p in args.input)}:
+         print("output_must_differ_from_input", file=sys.stderr)
+         return 2
+ 
+-    try:
+-        base_bytes = args.base.read_bytes()
+-        contributions = []
+-        for path in args.input:
+-            source_bytes = path.read_bytes()
+-            contributions.append((source_bytes.decode("utf-8"), parse_xml_bytes(source_bytes)))
+-    except FileNotFoundError as exc:
+-        print(f"input_not_found={exc.filename}", file=sys.stderr)
+-        return 2
+-
+-    base_root = parse_xml_bytes(base_bytes)
++    # Read and parse every input (base plus every --input contribution)
++    # through rewrite.read_and_parse_source, so a malformed file yields
++    # xml_parse_error naming that file and exit code 2 instead of an lxml
++    # exception escaping this handler.
++    base_result = read_and_parse_source(args.base)
++    if base_result.error is not None:
++        print(base_result.error, file=sys.stderr)
++        return 2
++    base_bytes, base_root = base_result.source_bytes, base_result.root
++
++    contributions = []
++    for path in args.input:
++        contribution_result = read_and_parse_source(path)
++        if contribution_result.error is not None:
++            print(contribution_result.error, file=sys.stderr)
++            return 2
++        contributions.append((contribution_result.source_bytes.decode("utf-8"), contribution_result.root))
++
+     confidence = parse_match_confidence(args.match_confidence) if args.match_confidence else MatchConfidence.STRICT
+@@ -60,7 +65,9 @@ def _handle_splice(args: argparse.Namespace) -> int:
+         return 2
+ 
+     if not args.dry_run:
+-        args.output.parent.mkdir(parents=True, exist_ok=True)
+-        args.output.write_bytes(result.output.encode("utf-8"))
++        # write_bytes_atomically commits through a temp file plus
++        # os.replace, so an interrupted write cannot truncate an existing
++        # destination (unlike a plain Path.write_bytes call).
++        write_bytes_atomically(args.output, result.output.encode("utf-8"))
+         print(f"output_written={args.output}")
+     return 0

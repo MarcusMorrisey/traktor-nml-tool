@@ -1,0 +1,32 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -276,4 +276,29 @@ def _collect_compare_patches(
+     return patches, stats
+ 
+ 
++@dataclass
++class ReadParseResult:
++    source_bytes: Optional[bytes]
++    root: Optional[ET.Element]
++    error: Optional[str]  # a pre-formatted diagnostic line, e.g. "input_not_found=path"
++
++
++def read_and_parse_source(path: Path) -> ReadParseResult:
++    """Read path as bytes and parse it, reporting input_not_found for a
++    missing file and xml_parse_error naming the path for a malformed one.
++    write_nml_safely's own lxml branch uses this so the diagnostics have
++    one definition, and the span-transplantation commands (splice, split)
++    reach the same behavior without passing through the patch-and-write
++    skeleton write_nml_safely wraps."""
++    try:
++        source_bytes = path.read_bytes()
++    except FileNotFoundError:
++        return ReadParseResult(None, None, f"input_not_found={path}")
++    try:
++        root = parse_xml_bytes(source_bytes)
++    except XML_PARSE_ERROR as exc:
++        return ReadParseResult(None, None, f"xml_parse_error={path}: {exc}")
++    return ReadParseResult(source_bytes, root, None)
++
++
+ def _write_bytes_atomically(output: Path, data: bytes) -> None:

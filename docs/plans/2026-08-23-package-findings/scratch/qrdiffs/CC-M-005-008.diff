@@ -1,0 +1,10 @@
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -140,7 +140,7 @@ class SpanIndex:
+     recorded stays bound to the original element for the index's whole
+     lifetime, so a lookup can never be confused by address reuse.
+     """
+ 
+     def __init__(self, source: str, root) -> None:
+         self._source = source
+         self._elements: list = []

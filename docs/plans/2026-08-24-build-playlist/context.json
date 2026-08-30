@@ -1,0 +1,62 @@
+{
+  "task_spec": [
+    "Add a way to build a well-formed Traktor NML playlist from a user-supplied external track list (plain 'Artist - Title' text lines), matched against an existing base NML's COLLECTION by artist/title",
+    "scope: C:/codex/traktor-nml-tool/traktor_nml/ package - new commands/build_playlist_cmd.py, small new parser module, reuse of model.py/matching.py/confidence.py/playlists.py/spans.py",
+    "out-of-scope: ISRC or fingerprint matching, any new matching tier beyond existing artist_title (LOOSE), CSV/M3U parsing (stretch only, not required for v1), network/API calls, preserving source folder nesting beyond inserting into $ROOT or one named target folder"
+  ],
+  "constraints": [
+    "MUST: identity resolution uses only the existing match_records/record_keys cascade in matching.py, unmodified, at MatchConfidence.LOOSE",
+    "MUST: do not add an ISRC tier or any new tier to matching.py/confidence.py for this feature",
+    "MUST: zero-write-on-ambiguity/error invariant applies - unresolved ambiguity does not silently write a partial file",
+    "MUST: commit output via temp-file + os.replace, consistent with existing write commands",
+    "MUST: preserve user input order in the synthesized PLAYLIST's ENTRY sequence (unlike splice, which flattens/merges without order guarantees)",
+    "MUST: new PLAYLIST/ENTRY/PRIMARYKEY XML is freshly serialized, not span-transplanted (no source span exists for synthesized entries)",
+    "MUST: unmatched/ambiguous tracks are reported (CSV or similar), never silently dropped without a report",
+    "SHOULD: new subcommand follows existing commands/ module conventions so cli.py's package-discovery picks it up with no edits to cli.py",
+    "SHOULD: playlist-name collision handling (rename with UUID regeneration) follows the same convention already used in playlists.py for splice imports"
+  ],
+  "entry_points": [
+    "traktor_nml/model.py:EntryRecord,LocationParts - candidate/record identity model; new parsed lines become EntryRecord(entry=None) instances, same pattern diskscan.py already uses for reconnect",
+    "traktor_nml/matching.py:record_keys,match_records,build_new_indexes - the tiered cascade to reuse unmodified; only MatchConfidence.LOOSE tiers (through artist_title) are reachable given the input has no filesize/time/filename",
+    "traktor_nml/confidence.py:MatchConfidence - LOOSE admits artist_title_size_time, artist_title_file, file_size_time, artist_title_album_time, artist_title; only artist_title is reachable with text-only input, but LOOSE is passed as-is (not a new narrower level)",
+    "traktor_nml/playlists.py:ImportedPlaylist,find_playlist_nodes,node_primary_keys - conventions for playlist NODE/PLAYLIST synthesis, naming-collision rename ('<name> (2)'), fresh UUID regeneration on any synthesized/renamed playlist",
+    "traktor_nml/spans.py:SpanIndex - existing byte-span/write invariants and insertion mechanics used by splice.py/split.py for structural insert; the new command inserts a wholly-synthesized (not transplanted) NODE using the same insertion point conventions",
+    "traktor_nml/commands/splice_cmd.py, traktor_nml/commands/split_cmd.py - conventions for a new commands/ subcommand module (arg parsing, dry-run, write-safely idiom)",
+    "traktor_nml/cli.py - iterates commands/ package for subcommand discovery, no edits needed for a new subcommand"
+  ],
+  "rejected_alternatives": [
+    "ISRC-based matching tier - rejected for v1 per explicit user decision; Beatport downloads sometimes carry ISRC but Bandcamp/DIY releases mostly don't, so it would only be a partial win and adds new matching-cascade code; deferred to a later iteration",
+    "New 'external/text-only' MatchConfidence tier - considered, then rejected on inspection of confidence.py: LOOSE's existing artist_title tier already matches on artist+title alone with no other field requirements, so no new tier is needed",
+    "CSV/M3U parsing in v1 - deferred as stretch/follow-up; plain-text 'Artist - Title' per line is the only required input format for v1",
+    "Full streaming-service API integration (Spotify/Apple Music live fetch) - rejected as out of scope; conflicts with the tool's established offline/no-network posture (already an explicit design decision for fingerprinting)"
+  ],
+  "current_understanding": [
+    "traktor_nml is a Python package (thin argv-forwarding shim traktor_nml_tool.py + package) for inspecting/rewriting/reconnecting/splicing/splitting Traktor NML collection files",
+    "Two write mechanisms coexist and never mix in one command: attribute patching (textpatch.py, used by rewrite.py/reconnect.py) which substitutes attribute values in-place preserving all other bytes; and byte-span assembly (spans.py, used by splice.py/split.py) which concatenates verbatim source byte ranges and re-serializes only fragments that are actually renamed/redirected",
+    "matching.py's cascade is already designed to accept a 'new' side with entry=None (disk-scanned files with no XML entry) - diskscan.py already does this for reconnect; a parsed external playlist line is architecturally the same shape (a thin candidate with only text fields, no file, no XML entry) and can be fed into the same cascade without modification",
+    "playlists.py already solves synthesizing a new PLAYLIST NODE, handling name collisions with deterministic '<name> (2)' renaming and fresh UUID regeneration - this is the direct precedent for building output from scratch (as opposed to transplanting) when a fragment is genuinely new or modified",
+    "NML schema for PLAYLISTS: <NODE TYPE='FOLDER' NAME='$ROOT'><SUBNODES COUNT='N'>...<NODE TYPE='PLAYLIST' NAME='...'><PLAYLIST ENTRIES='N' TYPE='LIST' UUID='...'><ENTRY><PRIMARYKEY TYPE='TRACK' KEY='...'/></ENTRY>...</PLAYLIST></NODE>...</SUBNODES></NODE>; both SUBNODES COUNT and PLAYLIST ENTRIES must be recalculated on any structural change",
+    "PRIMARYKEY KEY is the flattened VOLUME+DIR+FILE string (EntryRecord/LocationParts.primary_key) - the value the new playlist's ENTRY/PRIMARYKEY elements must reference, taken from the matched COLLECTION EntryRecord, not from the parsed input line",
+    "Existing commands (splice/split) always zero-write-on-ambiguity/error and commit via temp-file + os.replace; a new build-playlist command must follow the same discipline",
+    "cli.py discovers subcommands by iterating the commands/ package rather than an explicit registry, so adding commands/build_playlist_cmd.py requires no cli.py edit"
+  ],
+  "assumptions": [
+    "A plain-text 'Artist - Title' parser can reliably split on a ' - ' delimiter for the majority of real-world lines, with graceful skip/report for lines that don't parse (M)",
+    "match_records can be called with old_records = [] (or refactored slightly) so that the parsed external playlist becomes the 'new' side and the existing collection's EntryRecords become the 'old' side being resolved against, without needing new orchestration logic beyond what disk-scan reconnection already does (M)",
+    "No existing helper currently synthesizes a NODE TYPE=PLAYLIST fragment from a bare list of PRIMARYKEY values with no source XML at all - playlists.py's ImportedPlaylist assumes a source NODE to import/rename, so this may need a new (small) constructor path rather than being a pure reuse (M)",
+    "Insertion target (default $ROOT vs a user-specified existing folder) needs a small new lookup against the PLAYLISTS tree, similar to playlists.py's playlist_paths() walker (M)"
+  ],
+  "invisible_knowledge": [
+    "match_records's per-old-record loop does not stop at the first ambiguous tier: a tier with >1 candidates sets ambiguous_here=True but does not break, and a later, weaker tier landing on a unique candidate overrides the earlier ambiguity and counts as matched - only a provider-returned AMBIGUOUS sentinel breaks immediately",
+    "Span transplantation is the tool's default fidelity policy for content copied unchanged from a source; ET.tostring()-style serialization is the established, sanctioned fallback for anything genuinely new or modified (renames, redirects) - a synthesized playlist from external input is entirely 'new' content, so it correctly and unsurprisingly always takes the serialization path with no exception needed to the fidelity policy",
+    "The tool has an explicit no-network, fully-offline design posture (stated for fingerprinting) that this feature must not violate - no live API calls to Spotify/Apple/Beatport/Bandcamp for lookups",
+    "Beatport downloads sometimes carry ISRC tags (label-sourced, format-dependent reliability); Bandcamp downloads mostly do not (Bandcamp does not assign ISRCs itself; only present if the artist obtained one independently) - this is why ISRC was deferred rather than treated as a reliable universal key",
+    "--match-confidence is already a single ordered shared enum (STRICT/LOOSE/FILENAME) across existing commands (DL-010 in the codebase's own design-decision log) - a new command should pass MatchConfidence.LOOSE explicitly rather than inventing a separate flag or narrower enum value"
+  ],
+  "reference_docs": [
+    "C:/codex/traktor-nml-tool/traktor_nml/README.md - architecture overview, two write mechanisms, design-decision (DL-*) log",
+    "C:/codex/traktor-nml-tool/traktor_nml/CLAUDE.md - package-level conventions (not yet read in full, worth checking during planning)",
+    "C:/codex/traktor-nml-tool/traktor_nml/commands/CLAUDE.md - command-module conventions (not yet read in full, worth checking during planning)",
+    "/c/ClaudeProjects/claude_design_PCFS/claude-config/traktor_nml_tool_plan.md - prior implementation plan for Phase 1 (disk-scan reconnection) and Phase 2 (splice/split), useful precedent for schema details and acceptance-criteria style"
+  ]
+}

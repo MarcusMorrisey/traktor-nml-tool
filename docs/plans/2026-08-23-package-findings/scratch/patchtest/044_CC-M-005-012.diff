@@ -1,0 +1,11 @@
+--- a/tests/test_spans.py
++++ b/tests/test_spans.py
+@@ -1,1 +1,7 @@
+-"""Byte-span scanner: extent, nesting, escaping, and round-trip fidelity."""
++"""Byte-span scanner: extent, nesting, escaping, and round-trip fidelity.
++
++element_span_by_identity has been removed (SpanIndex is now the package's
++one element-to-span identity mechanism); this module never exercised it
++directly, so its removal drops no coverage - the identity-location
++behavior it provided is asserted here against SpanIndex.span_of instead.
++"""

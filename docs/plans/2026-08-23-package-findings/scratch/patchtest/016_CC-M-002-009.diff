@@ -1,0 +1,8 @@
+--- a/tests/baselines/manifest.json
++++ b/tests/baselines/manifest.json
+@@ -110,4 +110,4 @@
+     ],
+     "exit_code": 0,
+-    "stdout": "collection_locations_rewritten=0\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=1\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nunmatched=0\nambiguous=0\nsample_matches:\n- Boards of Canada - Roygbiv\n  matched_by=artist_title_size_time\n  before=/Music/roygbiv_final.mp3\n  after=/Music/roygbiv_final.mp3\noutput_written=out\\compare_out.nml\n",
++    "stdout": "collection_locations_rewritten=0\nother_locations_rewritten=0\nprimarykeys_updated_from_collection=0\nprimarykeys_unchanged=0\nmatched=1\nmatched_audio_id=0\nmatched_artist_title_size_time=1\nmatched_artist_title_file=0\nmatched_file_size_time=0\nmatched_artist_title_album_time=0\nmatched_artist_title=0\nunmatched=0\nambiguous=0\ndestination_collisions=0\nsample_matches:\n- Boards of Canada - Roygbiv\n  matched_by=artist_title_size_time\n  before=/Music/roygbiv_final.mp3\n  after=/Music/roygbiv_final.mp3\noutput_written=out\\compare_out.nml\n",
+     "stderr": "",

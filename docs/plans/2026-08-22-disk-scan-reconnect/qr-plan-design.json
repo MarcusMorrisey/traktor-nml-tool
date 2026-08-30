@@ -1,0 +1,207 @@
+{
+  "phase": "plan-design",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "invisible_knowledge carries the non-recoverable knowledge from the planning session (system, invariants, tradeoffs all populated)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge.invariants",
+      "check": "The byte-preserving write invariant (reconnection changes only LOCATION/PRIMARYKEY attribute values, every other byte identical) is recorded as an invariant",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge.invariants",
+      "check": "The one-to-one assignment invariant and the fact that match_records detects only source-side ambiguity (not destination collisions) is recorded as an invariant",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge.system",
+      "check": "The old-side-gating rationale for fingerprinting (old media is exactly what may be unreachable, which is why reconnection exists) is recorded",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge.tradeoffs",
+      "check": "The accepted v1 scope boundary (flat playlist-entry merge/subset, not playlist-tree preservation; no smartlist criteria; no SORTING_ORDER beyond append order) is recorded as a tradeoff",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001e",
+      "parent_id": "qa-001",
+      "scope": "invisible_knowledge.system",
+      "check": "The system field describes the NML domain model (LOCATION VOLUME/VOLUMEID/DIR/FILE on COLLECTION entries; PRIMARYKEY as flattened reference from PLAYLIST entries) rather than being empty",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "planning_context.constraints records the constraints established in the planning session rather than being empty",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "planning_context.constraints",
+      "check": "The seven MUST-class constraints (byte-preserving writes, never-silently-guess, one-to-one assignment, explicit VOLUME/VOLUMEID, splice fail-on-conflict with persistent report, dry-run-before-write and refuse output==input, zero-write-on-ambiguity/error) are each recorded",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002b",
+      "parent_id": "qa-002",
+      "scope": "planning_context.constraints",
+      "check": "The two SHOULD-class constraints (reuse existing abstractions; follow existing CLI conventions) are recorded",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-003",
+      "scope": "planning_context.risks",
+      "check": "planning_context.risks is populated and each recorded risk carries a mitigation",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella"
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Architectural assumptions carried from the planning session are recorded with their confidence and validation path",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "planning_context",
+      "check": "The assumption that schema verification covers only VERSION=20 / Traktor Pro 4, with other versions unverified, is recorded",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "scope": "planning_context",
+      "check": "The assumption that mutagen and pyacoustid/fpcalc are acceptable new optional dependencies is recorded",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004c",
+      "parent_id": "qa-004",
+      "scope": "planning_context",
+      "check": "The M-confidence assumption that Traktor tolerates a freshly generated UUID on a renamed imported playlist is recorded together with its manual-validation requirement",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-005",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "The alternatives considered and rejected during planning are recorded so a future maintainer does not re-litigate them",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella"
+    },
+    {
+      "id": "qa-006",
+      "scope": "M-005",
+      "check": "The fingerprint numeric thresholds (duration tolerance 1.0s, match above 0.95, review band 0.80-0.95) have a logged rationale for those specific values",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-rationale-completeness"
+    },
+    {
+      "id": "qa-007",
+      "scope": "M-007",
+      "check": "The fresh-UUID-on-renamed-playlist behaviour is backed by a recorded assumption or risk rather than asserted as a bare requirement",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-rationale-completeness"
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "The single-schema-version basis of every structural guarantee is visible in the plan as a risk with a stated mitigation",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella"
+    },
+    {
+      "id": "qa-009",
+      "scope": "overview.approach",
+      "check": "overview.approach states the strategy connecting the eight milestones rather than being empty",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-010",
+      "scope": "*",
+      "check": "Milestone ordering dependencies (M-002 before all implementation, M-006 before M-007 and M-008) are expressed rather than left implicit in the number field",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella"
+    },
+    {
+      "id": "qa-011",
+      "scope": "planning_context.decisions",
+      "check": "Each decision's reasoning is a full chain (premise, implication, resolution) rather than a bare assertion",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-rationale-completeness"
+    },
+    {
+      "id": "qa-012",
+      "scope": "diagram_graphs",
+      "check": "No diagram node lacks edges and no edge references a missing node",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-plan-graph-integrity"
+    },
+    {
+      "id": "qa-013",
+      "scope": "milestones[].code_intents[].decision_refs",
+      "check": "Every decision_ref resolves to an existing decision id",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-plan-graph-integrity"
+    },
+    {
+      "id": "qa-014",
+      "scope": "milestones",
+      "check": "No milestone is an orphan lacking code_intents",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-plan-graph-integrity"
+    }
+  ]
+}

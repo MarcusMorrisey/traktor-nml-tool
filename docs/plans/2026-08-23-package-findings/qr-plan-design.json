@@ -1,0 +1,205 @@
+{
+  "phase": "plan-design",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every decision id DL-001..DL-008 in this plan must not collide with the codebase's existing decision log ids (traktor_nml/README.md and docstrings already use DL-001..DL-012 with different meanings; e.g. existing DL-004 is reconnect one-to-one, existing DL-005 is volumes explicit VOLUME/VOLUMEID, existing DL-007 is textpatch scope, existing DL-009 is named-playlist selection)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001a",
+      "group_id": "parent-qa-001",
+      "parent_id": "qa-001",
+      "scope": "DL-002",
+      "check": "DL-002 reasoning cites 'DL-004 one-to-one' meaning the pre-existing decision, while this plan's own DL-004 is the volumes inverse; the reference must be disambiguated",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-001b",
+      "group_id": "parent-qa-001",
+      "parent_id": "qa-001",
+      "scope": "M-005",
+      "check": "M-005 tests backing cites DL-009 which exists in no decision list in this plan; it refers to the pre-existing codebase decision log",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every new invariant, decision and tradeoff recorded in plan.invisible_knowledge must have a landing place in the repository (traktor_nml/README.md Design Decisions / Invariants sections own this content), not only in the transient plan file",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002a",
+      "group_id": "parent-qa-002",
+      "parent_id": "qa-002",
+      "scope": "readme_entries",
+      "check": "readme_entries is empty and no milestone lists traktor_nml/README.md among its files, so the seven new invariants never reach the repo's documented invariant list",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3
+    },
+    {
+      "id": "qa-003",
+      "scope": "DL-005",
+      "check": "DL-005 (probe ordered anchors, accept first readable) contradicts the repo's documented DL-005 invariant that volume identity is explicit and never inferred from paths; the plan neither cites nor reconciles that existing decision",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-old-side-volume-resolution"
+    },
+    {
+      "id": "qa-004",
+      "scope": "R-003",
+      "check": "R-003 covers only failure-to-resolve; the plan has no risk or mitigation for the resolver returning a WRONG readable file (a same-relative-path file under a different anchor, including the filesystem-root candidate that reproduces today's buggy path)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-old-side-volume-resolution"
+    },
+    {
+      "id": "qa-005",
+      "scope": "waves",
+      "check": "Wave assignment must not leave the repository broken between waves; M-004 (wave 1) removes element_span_by_identity while split.py's three call sites (lines 138, 195, 231) are only migrated in M-005 (wave 2)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-span-index-rollout"
+    },
+    {
+      "id": "qa-006",
+      "scope": "M-004",
+      "check": "M-004 files list omits traktor_nml/split.py although CI-M-004-001 removes the function split.py imports and calls",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-span-index-rollout"
+    },
+    {
+      "id": "qa-007",
+      "scope": "M-005",
+      "check": "M-005 files list omits traktor_nml/commands/split_cmd.py although CI-M-005-002 changes build_output's signature, which split_cmd.py:47 calls",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-span-index-rollout"
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "Every code_intent that changes a function signature must have every caller of that function in some milestone's files list",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "M-003",
+      "check": "Acceptance criterion 'destination still holds its previous bytes when a write is interrupted partway' names no mechanism for inducing the interruption; a criterion with no executable form cannot fail honestly",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-write-path-safety"
+    },
+    {
+      "id": "qa-010",
+      "scope": "DL-006",
+      "check": "DL-006 reasoning chain is complete (premise: write_nml_safely owns the conventions; implication: splice/split reproduce only part; conclusion: export helpers) - verify no step is asserted without support",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-write-path-safety"
+    },
+    {
+      "id": "qa-011",
+      "scope": "DL-001",
+      "check": "DL-001 assumes parser pre-order matches source opening-tag order; R-002 mitigates it. Verify the mitigation is an assertion the plan actually schedules (CI-M-004-004) and not just prose",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-span-index-rollout"
+    },
+    {
+      "id": "qa-012",
+      "scope": "invariants",
+      "check": "New invariant 'every output file is written through temp plus os.replace' must be reconciled with the repo's existing DL-012 invariant ('builds its complete output in memory and validates before any file handle opens'), especially for split's multi-output all-or-nothing rule",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-write-path-safety"
+    },
+    {
+      "id": "qa-013",
+      "scope": "constraints",
+      "check": "Constraint 'pytest passes (42 passed, 2 skipped baseline)' is stated as a fixed count while every milestone adds tests; the constraint must state the invariant (no previously-passing test regresses) rather than a count that will necessarily change",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-plan-shape-completeness"
+    },
+    {
+      "id": "qa-014",
+      "scope": "M-002",
+      "check": "M-002 carries eight code_intents spanning three concerns (one-to-one enforcement, input protection, rewrite.py helper extraction for M-003); the helper-extraction intents CI-M-002-003/004 belong to the DL-006 write-safety concern, not to compare correctness",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-015",
+      "scope": "*",
+      "check": "Documentation navigation indexes named in reference_docs (traktor_nml/CLAUDE.md, traktor_nml/commands/CLAUDE.md) must be updated where module contents change; only tests/CLAUDE.md appears in any milestone",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "R-001",
+      "check": "R-001 mitigation (regenerate the baseline case) must name who verifies the regenerated diff is exactly the intended counter and nothing else",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-risk-mitigation-quality"
+    },
+    {
+      "id": "qa-017",
+      "scope": "R-004",
+      "check": "R-004 mitigation asserts the whole-document behavior 'contradicts DL-009 per-output semantics' - verify that claim against the repo's DL-009 text rather than accepting it as given",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-risk-mitigation-quality"
+    },
+    {
+      "id": "qa-018",
+      "scope": "DL-008",
+      "check": "DL-008 claims _locate_node_start 'fails outright on a playlist whose PLAYLIST child carries no UUID'; verify that failure mode against playlists.py:191 rather than assuming it",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-span-index-rollout"
+    },
+    {
+      "id": "qa-019",
+      "scope": "milestone_dependencies",
+      "check": "diagram_ascii lists M-001 as a bare node with no edges; confirm that is intentional isolation and not a dropped edge",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-plan-shape-completeness"
+    },
+    {
+      "id": "qa-020",
+      "scope": "*",
+      "check": "waves and milestone_dependencies.waves duplicate the same content verbatim; confirm one is derived rather than independently maintained",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "code_changes",
+      "check": "Every milestone's code_changes and documentation blocks are empty; confirm this is the expected pre-execution shape for this phase",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-plan-shape-completeness"
+    }
+  ]
+}

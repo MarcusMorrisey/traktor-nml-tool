@@ -1,0 +1,11 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -373,7 +378,7 @@ def write_nml_safely(
+     root = tree.getroot()
+     stats, samples = mutate_tree(root, dry_run)
+     print_stats_and_samples(stats, samples)
+     if not dry_run:
+-        write_traktor_xml(root, output_path, write_bytes=_write_bytes_atomically)
++        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)
+         print(f"output_written={output_path}")
+     return 0

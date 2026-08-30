@@ -1,0 +1,7 @@
+--- a/traktor_nml/CLAUDE.md
++++ b/traktor_nml/CLAUDE.md
+@@ -14,6 +14,7 @@
+ | `reconnect_render.py` | Every character the reconnect commands put on stdout or stderr, returned as buffered lines rather than printed | Changing reconnect output text or ordering |
+ | `reconnect_run.py` | The reconnect pipeline as one printless pass returning a `ReconnectResult` | Changing what a reconnection run computes or what it reports |
++| `shared_args.py` | `resolve_confidence`/`should_refute`/`refutation_disabled_line`, pure functions of an argparse.Namespace shared below `commands/` | Changing confidence resolution or the refutation-disabled message |
+ | `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |

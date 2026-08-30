@@ -1,0 +1,216 @@
+{
+  "phase": "plan-design",
+  "iteration": 4,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every DL-NNN identifier cited in the plan resolves unambiguously to either a plan-local decision or an explicitly-flagged traktor_nml/README.md package-log entry, with the two namespaces never sharing a number (repo precedent: docs/2026-08-24-build-playlist-plan.md acceptance criteria).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "DL-002",
+      "check": "DL-002's reasoning cites 'the skeleton DL-001 exists to prevent'. Package-log DL-001 is the argv-forwarding shim; the shared safe write is DL-019. Verify the citation is corrected to DL-019 and flagged as a package-log reference.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "RA-002",
+      "check": "RA-002's rejection_reason repeats the same DL-001 citation and must resolve to the same corrected package-log entry.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "CI-M-003-002",
+      "check": "CI-M-003-002 writes the DL-001 citation into traktor_nml/README.md permanently as part of DL-046. Verify the text committed to the decision log carries the correct antecedent.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-002",
+      "scope": "CI-M-002-002",
+      "check": "run_reconnection's stated behavior lists the pipeline but no on_progress or cancel-token parameter, while index_scan_roots already accepts both (traktor_nml/diskscan.py:155). Verify the core boundary forwards them, or that a logged decision states why the GUI's live-progress and cancel channel stops at the core.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-core-progress-boundary",
+      "version": 4
+    },
+    {
+      "id": "qa-003",
+      "scope": "R-005",
+      "check": "R-005 accepts buffering on the grounds that on_progress is the live-feedback channel. Verify that mitigation is reachable given the core signature in CI-M-002-002; if the core cannot accept on_progress, the mitigation does not hold.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-core-progress-boundary",
+      "version": 4
+    },
+    {
+      "id": "qa-004",
+      "scope": "DL-006",
+      "check": "Buffering changes the interleaving of stdout and stderr for a caller merging the streams (2>&1): warnings that print before the stats block today are emitted after it once emit writes stdout first. No risk entry covers merged-stream ordering and the manifest records the streams separately, so the oracle is blind to it. Verify this is either logged as an accepted behaviour change or prevented by emit order.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "planning_context.constraints",
+      "check": "The constraint 'each milestone is revertable on its own' conflicts with M-002 depending on plan_and_write_nml introduced in M-001. Verify the rollback statement is restated as ordered revert (M-003, M-002, then M-001) or the dependency is removed.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-milestone-sequencing",
+      "version": 4
+    },
+    {
+      "id": "qa-006",
+      "scope": "CI-M-002-003",
+      "check": "ScanReconnectResult and RewriteReconnectResult are referenced by CI-M-002-003, CI-M-002-004, CI-M-002-006 and CI-M-002-007 but no code_intent defines their fields. Verify each is specified with the same rigor as ReconnectResult and WriteOutcome.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-result-types",
+      "version": 4
+    },
+    {
+      "id": "qa-007",
+      "scope": "DL-005",
+      "check": "warn_refutation_disabled (traktor_nml/commands/_shared_args.py:65) prints directly and is also called three times by compare_cmd.py. The renderer needs the line as text, so either a shared text-producing helper is named or the message string is duplicated in reconnect_render.py. No manifest case sets --no-refute for the reconnect commands, so drift between the two copies is oracle-invisible. Verify a single source of the message text.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-oracle-blind-spots",
+      "version": 4
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "The plan adds traktor_nml/reconnect_run.py, traktor_nml/reconnect_render.py, tests/test_write_shell_split.py, tests/test_reconnect_render_equivalence.py and tests/test_command_layer_printless.py, but no milestone updates traktor_nml/CLAUDE.md or tests/CLAUDE.md, both of which index every module and every test file. Verify the plan covers those index updates.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-009",
+      "scope": "invisible_knowledge",
+      "check": "The context records a suite baseline of 191 passed / 3 skipped (the 3 being the fingerprint tier). The plan's invisible_knowledge and every acceptance criterion say only 'pytest passes', which a silently lost or newly skipped test also satisfies. Verify the count baseline is carried into the plan.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-oracle-blind-spots",
+      "version": 4
+    },
+    {
+      "id": "qa-010",
+      "scope": "M-001",
+      "check": "M-001 changes rewrite.py, whose CLAUDE.md entry documents write_nml_safely plus reusable helpers other commands are expected to call. Verify the entry is updated to name plan_and_write_nml as the printless form, or that the plan records why it need not be.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-doc-coverage",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "CI-M-002-008",
+      "check": "CI-M-002-008 moves the defensive fingerprint import block and _FingerprintUnavailable into reconnect_run.py. Verify the plan states the module-import side effects of that move (commands/__init__.py imports every command module at startup, so the import now travels through reconnect_run instead).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-fingerprint-path",
+      "version": 3
+    },
+    {
+      "id": "qa-012",
+      "scope": "CI-M-002-004",
+      "check": "rewrite_from_reconnect stores the ReconnectResult and csv path on a mutable holder that the callback populates and the outer function reads afterwards. Verify the plan states what the outer function does when the callback never ran (output collision) versus ran and raised.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-m002-result-types",
+      "version": 4
+    },
+    {
+      "id": "qa-013",
+      "scope": "R-003",
+      "check": "R-003's mitigation stubs the fingerprint unavailability probe. Verify the plan names which symbol is stubbed (fingerprint_unavailable_reason) and that the stub does not also mask the separate fingerprint_key_provider-is-None path, which raises rather than warns.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-fingerprint-path",
+      "version": 3
+    },
+    {
+      "id": "qa-014",
+      "scope": "DIAG-001",
+      "check": "Every node in DIAG-001 has at least one edge and every edge references an existing node.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-plan-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "*",
+      "check": "Every decision_ref on a code_intent, risk and rejected_alternative resolves to a decision present in planning_context.decisions (DL-001..DL-008).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "*",
+      "check": "Each milestone has at least one code_intent and each code_intent has at least one decision_ref.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "planning_context.risks",
+      "check": "Every risk carries a mitigation that is a concrete action or an explicit acceptance, not a restatement of the risk.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-plan-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "planning_context.decisions",
+      "check": "Every decision's reasoning is a multi-step chain in the repo's -> style rather than a single premise.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-plan-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "M-003",
+      "check": "M-003 asserts DL-046 is the next free package-log number. traktor_nml/README.md currently ends at DL-045, but other sessions commit in parallel; verify the number is re-checked against HEAD at commit time rather than pinned in the plan.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-doc-coverage",
+      "version": 4
+    },
+    {
+      "id": "qa-020",
+      "scope": "M-002",
+      "check": "M-002 folds two new modules, a rewritten command module and the equivalence test suite into one milestone while the constraint requires the CLI usable at every commit. Verify the milestone is either splittable or that the plan states it lands as one commit deliberately.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "affinity-milestone-sequencing",
+      "version": 2
+    }
+  ]
+}

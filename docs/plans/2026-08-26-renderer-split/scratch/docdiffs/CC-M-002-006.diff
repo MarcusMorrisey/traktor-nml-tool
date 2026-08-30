@@ -1,0 +1,12 @@
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -235,6 +235,10 @@ def scan_reconnect_candidates(
+ def _apply_mapping_stdlib(
+     old_root, old_records: list[EntryRecord], mapping: dict[str, EntryRecord], stats: dict[str, int], dry_run: bool
+ ) -> None:
++    """Mutate old_root in place on the stdlib (non-lxml) path: rewrite
++    each matched record's LOCATION and hand every non-collection entry to
++    CompareEntryResolver, the same resolver rewrite.py's compare-based
++    path uses, so both writers share one PRIMARYKEY/entry-rewrite rule.
++    """
+     for record in old_records:

@@ -1,0 +1,131 @@
+{
+  "phase": "plan-docs",
+  "iteration": 4,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every code_change with a non-empty diff also carries a non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "All 45 code_changes carry a doc_diff. CC-M-002-016 (traktor_nml/README.md) is doc-only by design (diff empty, doc_diff is the README itself) - correct, not a gap."
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every DL-XXX in planning_context.decisions is referenced by at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "All 13 decisions covered: DL-001 CC-M-002-015/README; DL-002 CC-M-001-006/008; DL-003 CC-M-002-006/007/008; DL-004 CC-M-004-001/003 + README; DL-005 CC-M-004-002 + README; DL-006 CC-M-002-014, CC-M-004-004, README; DL-007 CC-M-006-001, CC-M-007-002, README; DL-008 CC-M-007-001/002; DL-009 CC-M-008-001/002; DL-010 CC-M-002-011/012/013 + README; DL-011 CC-M-001-002/006; DL-012 CC-M-007-001 + README; DL-013 CC-M-005-002."
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "No doc_diff comment is written change-relative (timeless present rule, conventions/temporal.md)",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified against current plan.json across all 45 doc_diffs. The 7 originally-flagged doc_diffs are now timeless (see qa-003a/b/c, all PASS). Independently rechecked every remaining doc_diff for change-relative/baseline-reference/location-directive/planning-artifact/intent-leakage language: none found. CC-M-007-004's 'extended here to every splice input, not just base' was also considered here (in addition to its qa-009 review under the location-directive/intent-leakage check) - it names a live, standing convention (output != any input) rather than narrating a removed prior code state, so it does not trip the timeless-present rule."
+    },
+    {
+      "id": "qa-003a",
+      "parent_id": "qa-003",
+      "scope": "CC-M-001-006, CC-M-001-008",
+      "check": "Baseline-provenance documentation states the regeneration rule without narrating the planning process",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified against current plan.json: both doc_diffs now state the rule timelessly. CC-M-001-006 docstrings: 'Loads the tool's recorded output contract (DL-002). Regenerating manifest.json is correct only for a deliberate, reviewed behavior change - never to make a failing test pass.' CC-M-001-008 manifest.schema.md: 'manifest.json records the tool's output contract for this fixed set of invocations ... Regenerating it is correct only against a deliberate, reviewed behavior change ... never to make a failing test pass, since that would silently rewrite the contract it encodes.' No 'milestone', 'before any refactor', 'had no test suite', or other planning-process/baseline-reference language remains."
+    },
+    {
+      "id": "qa-003b",
+      "parent_id": "qa-003",
+      "scope": "CC-M-002-013, CC-M-002-012, CC-M-004-001",
+      "check": "No doc_diff comment compares the code to a version that no longer exists (baseline reference)",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Fixed: doc_diff text now reads timelessly - CC-M-002-012 \"is a pure alias for --match-confidence loose (DL-010)\"; CC-M-002-013 \"kept as a stable spelling for scripted invocations that predate this ordered enum (DL-010)\"; CC-M-004-001 \"match_records is unaware that a one-to-one guarantee is layered on top of its plain old-to-new mapping\". No references to removed/replaced code versions remain."
+    },
+    {
+      "id": "qa-003c",
+      "parent_id": "qa-003",
+      "scope": "CC-M-001-003, CC-M-002-016",
+      "check": "Shipped docs do not reference the pre-change shape of the codebase",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified against current plan.json: both doc_diffs have been rewritten and no longer narrate the pre-change/historical shape. CC-M-001-003 (pytest.ini) now reads 'the repository root holds NML fixtures and a legacy shim, neither of which pytest can collect' - states the current structural fact, no 'historical single-file tool' language remains. CC-M-002-016 (README Overview) now reads 'traktor_nml_tool.py is a thin argv-forwarding shim over this package (DL-001). Scanning, caching, fingerprinting, span assembly and merge are separate modules so no single file carries all of them and independent features do not contend for one file' - no 'original'/'1290-line'/'would have forced every milestone' narrative remains; states the standing structural rule, not its history."
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Every unvalidated assumption and accepted risk anchored to a file has a doc_diff landing it at that file",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified against current plan.json. All 6 risks in planning_context.risks (R-001..R-006) have an anchor file whose code_change carries a non-empty doc_diff that substantively documents that specific risk: R-001/R-006 land in spans.py (CC-M-006-001, comment/CDATA-safe scanning + generic count-recalculation for unverified schema versions); R-002 lands in fingerprint.py (CC-M-005-001, explicit '(R-002)' tag on the HAS_ACOUSTID availability-probe comment); R-003 lands in test_baseline_parity.py (CC-M-001-006, golden-baseline regeneration rule); R-004 lands in playlists.py (CC-M-007-003, now carries the manual-Traktor-import-only caveat, resolving the prior gap tracked under qa-004a); R-005 lands in spans.py (CC-M-006-001, explicit '(R-005, DL-012)' tag on the linear single-pass scan comment). All 3 unvalidated assumptions from the original planning context map onto R-002/R-004/R-006, so no orphaned assumption exists. Sub-items qa-004a and qa-004b (previously FAIL) are now both PASS; this parent item's status was stale and is corrected here to match."
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "CC-M-007-003",
+      "check": "playlists.py documents that Traktor's acceptance of a regenerated playlist UUID is unverified and gated on manual validation (R-004, M-confidence assumption)",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified against current plan.json: CC-M-007-003's doc_diff now adds this to the playlists.py module docstring: 'Traktor's tolerance of that fresh UUID on a renamed/imported playlist is confirmed only by manual Traktor import/open validation, not by this test suite (R-004, DL-008); the regenerated UUID is an accepted, unverified risk until that manual check is repeated for a given output.' This lands the R-004 unverified-assumption/manual-validation-gate directly in the file it anchors to, resolving the original gap (previously only is_verbatim was documented there)."
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "scope": "CC-M-006-001, CC-M-002-016",
+      "check": "The VERSION=20-only schema verification boundary (R-006) is recorded in code or README",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Re-verified against current plan.json: both doc_diffs now state the R-006 boundary. spans.py module comment: 'The NML schema this module assembles output for is confirmed only against VERSION=20 / Traktor Pro 4. recalculate_count_attr is generic over any counted container rather than hardcoded to COLLECTION/PLAYLIST/SUBNODES, so a counted container this tool has not seen - from a schema version not yet verified - is still recalculated instead of being silently left stale.' README.md Invariants: 'The NML schema (...) is confirmed only against NML VERSION=20 / Traktor Pro 4; spans.py's count-attribute recalculation is generic over any counted container rather than a fixed tag list, so a counted container introduced by a later schema version is still recalculated correctly instead of being silently left stale.' Both the assumption and the reason validation is generic (R-006 mitigation) are now present in both locations."
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "doc_diff comments explain WHY rather than restating WHAT the code does",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Re-verified against current plan.json: previously-flagged doc_diffs are now rationale-bearing. CC-M-002-010 build_rules now reads 'Rules are tried in the order built here; apply_rules returns the first match, so an earlier --rule/--rule-with-volumeid takes precedence over a later one covering an overlapping prefix' (explains the precedence consequence, not just the construction order). CC-M-002-001 RewriteRule.apply now reads 'VOLUMEID defaults to new_volume: most real collections use identical VOLUME/VOLUMEID pairs, so new_volumeid is only needed when a rule's destination volume and volume id actually diverge' (states the rationale for the default). All other sampled doc_diffs (DL-004 inversion, DL-005 normalisation, tagcache key composition, diskscan extension-only check, splice/split invariants, etc.) carry real rationale tied to a decision or invariant rather than paraphrasing the following lines."
+    },
+    {
+      "id": "qa-006",
+      "scope": "traktor_nml/, traktor_nml/commands/, tests/",
+      "check": "New package directories get the CLAUDE.md navigation index conventions/documentation.md requires",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Re-verified against current plan.json: CC-M-001-010 adds tests/CLAUDE.md, CC-M-002-017 adds traktor_nml/CLAUDE.md, CC-M-002-018 adds traktor_nml/commands/CLAUDE.md. All three follow the SUBDIRECTORY CLAUDE.md format (Files/Subdirectories tables, backticked names, What/When-to-read columns, no explanatory prose), covering every new source and test package in scope."
+    },
+    {
+      "id": "qa-007",
+      "scope": "CC-M-001-004, CC-M-001-005, CC-M-001-007, CC-M-001-008",
+      "check": "doc_diff hunk headers and file headers are well-formed unified diff",
+      "status": "FAIL",
+      "severity": "COULD",
+      "note": "Hunk header line counts are wrong for new-file doc_diffs: CC-M-001-004/005/007 declare \"@@ -0,0 +1 @@\" (1 line) but each adds 2 lines; CC-M-001-008 declares \"@@ -0,0 +1,17 @@\" but adds 18 lines. CC-M-001-004/005/007 also use \"--- a/<path>\" as the old-file header for a brand-new file instead of the conventional \"--- /dev/null\" (as CC-M-001-008 correctly does)."
+    },
+    {
+      "id": "qa-008",
+      "scope": "CC-M-001-008",
+      "check": "Knowledge that cannot live in the file it describes is placed at the conventional location",
+      "status": "PASS",
+      "severity": "COULD",
+      "note": "manifest.json cannot carry comments, and the doc_diff says so explicitly and puts the explanation in a sibling file in the same directory. Correct application of the IK proximity rule; only the filename (manifest.schema.md rather than a tests/baselines/README.md) departs from convention, and it is more precise about its subject."
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "check": "No doc_diff contains a location directive or an intent-leakage phrase",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "No 'insert at', 'below', 'at line', 'intentionally', 'we decided', 'chose' constructs. CC-M-007-004's 'the tool's existing dry-run convention, extended here to every splice input' is borderline ('existing', 'extended here') but names a live convention rather than a removed code state."
+    },
+    {
+      "id": "qa-010",
+      "scope": "CC-M-002-016",
+      "check": "README.md follows the Overview/Architecture/Design Decisions/Invariants structure and states relationships, not lists",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "All four sections present. Architecture explains the two write mechanisms as a boundary ('never mix within one command') with the reason textpatch cannot carry structural edits, which is exactly the invisible-knowledge standard. Only the Overview's change narrative is a defect - tracked under qa-003c."
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -192,3 +192,42 @@ def run_reconnection(
++
++
++def _write_ambiguity_csv(rows: list[dict[str, str]], csv_path: Path) -> None:
++    fieldnames = list(rows[0].keys()) if rows else ["artist", "title", "old_path", "reason"]
++    with csv_path.open("w", newline="", encoding="utf-8") as handle:
++        writer = csv.DictWriter(handle, fieldnames=fieldnames)
++        if rows:
++            writer.writeheader()
++            writer.writerows(rows)
++
++
++def scan_reconnect_candidates(
++    args: argparse.Namespace,
++    *,
++    on_progress: Optional[Callable[[int, int, Path], None]] = None,
++    cancel=None,
++) -> ScanReconnectResult:
++    """Run one scan-reconnect-candidates pass, printless.
++
++    on_progress and cancel pass straight through to run_reconnection.
++    Writes the ambiguity CSV when args.csv is set, after
++    run_reconnection has returned, and records the written path on the
++    result rather than printing it. Writes to neither stream.
++    """
++    try:
++        old_tree = parse_xml(args.old_input)
++    except FileNotFoundError:
++        return ScanReconnectResult(None, f"input_not_found={args.old_input.as_posix()}", None)
++    except XML_PARSE_ERROR as exc:
++        return ScanReconnectResult(None, f"xml_parse_error={args.old_input.as_posix()}: {exc}", None)
++
++    try:
++        result = run_reconnection(args, old_tree.getroot(), on_progress=on_progress, cancel=cancel)
++    except VolumeIdentityError as exc:
++        return ScanReconnectResult(None, f"volume_identity_error={exc}", None)
++    except _FingerprintUnavailable as exc:
++        return ScanReconnectResult(None, f"fingerprint_unavailable={exc}", None)
++
++    csv_path = None
++    if args.csv is not None:
++        _write_ambiguity_csv(result.ambiguity_rows, args.csv)
++        csv_path = args.csv
++    return ScanReconnectResult(result, None, csv_path)

@@ -1,0 +1,49 @@
+--- a/traktor_nml/volumes.py
++++ b/traktor_nml/volumes.py
+@@ -14,9 +14,10 @@
+ 
+ from __future__ import annotations
+ 
++from typing import Optional
+ from pathlib import Path
+ 
+-from .model import EntryRecord
++from .model import EntryRecord, LocationParts
+ 
+ 
+ class VolumeIdentityError(ValueError):
+@@ -85,3 +86,34 @@ def parse_volume_map(entries: list[list[str]] | None) -> dict[str, tuple[str,
+     for scan_root, volume, volumeid in entries or []:
+         mapping[str(Path(scan_root))] = (volume, volumeid)
+     return mapping
++
++
++def local_path_for_location(
++    location: LocationParts, known_mounts: dict[tuple[str, str], list[Path]]
++) -> Optional[Path]:
++    """Invert location_from_disk_path: resolve location's recorded
++    VOLUME/VOLUMEID plus its volume-relative decoded_path back to the
++    absolute on-disk path it names, against mount anchors this run has
++    established explicitly (known_mounts, keyed by the same (VOLUME,
++    VOLUMEID) pair resolve_volume_identity produces).
++
++    Returns the resolved path only when exactly one anchor registered for
++    location's own pair joins with decoded_path to a readable file.
++    Returns None when the pair appears in no mapping, when no candidate
++    anchor resolves, and when two distinct anchors for one pair both
++    resolve - never guesses an anchor from the VOLUME string or a POSIX
++    mount-directory convention, since that would be inference from the
++    same stale decoded path DL-005 already rules out, and its failure mode
++    is a wrong file rather than a missing one.
++    """
++    anchors = known_mounts.get((location.volume, location.volumeid))
++    if not anchors:
++        return None
++    relative = location.decoded_path
++    relative_parts = relative.parts[1:] if relative.parts and relative.parts[0] == "/" else relative.parts
++    resolved = {
++        candidate for candidate in (Path(anchor, *relative_parts) for anchor in anchors) if candidate.is_file()
++    }
++    if len(resolved) == 1:
++        return next(iter(resolved))
++    return None

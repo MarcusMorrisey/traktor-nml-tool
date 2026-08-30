@@ -1,0 +1,13 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -519,6 +519,10 @@ def write_nml_safely(
+     outcome = plan_and_write_nml(
+         input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs
+     )
++    # Reproduces the pre-split print order (stats, then error, then
++    # output_written) from a WriteOutcome whose fields already encode
++    # that ordering: stats prints whenever collected, error and
++    # written_path are mutually exclusive, and both only after stats.
+     if outcome.stats is not None:
+         print_stats_and_samples(outcome.stats, outcome.samples)
+     if outcome.error is not None:

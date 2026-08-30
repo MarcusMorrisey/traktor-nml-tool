@@ -1,0 +1,1250 @@
+{
+  "plan_id": "7cfd4102-473e-4fff-b0e3-1650a884c672",
+  "created_at": "2026-08-23T16:15:19.191528",
+  "frozen_at": null,
+  "overview": {
+    "problem": "Eight independently confirmed findings sit in the traktor_nml package. Three are correctness gaps where a command skips a convention the older write commands already enforce: rewrite-from-collection-compare accepts an output equal to the newer collection and matches without the one-to-one destination-collision guarantee DL-004 states, and split lets a playlist outside the current group decide that group dangling-reference outcome. One is a silently dead feature: the fingerprint tier builds an old-side path from a volume-relative decoded_path, so the file is never found and the tier contributes nothing on the side it exists for. Two are safety gaps in splice and split: a malformed input escapes as a parser exception rather than the documented diagnostic, and outputs are written with a truncating write. Two are quadratic scans over document size, in spans.element_span_by_identity and playlists._locate_node_start, both called once per entry or node on an 11.7MB, 6412-entry real corpus.",
+    "approach": "Each fix routes the offending command through the mechanism the package already owns for that concern rather than adding a local patch beside it. The destination-collision post-pass becomes a named function in reconnect.py that both the reconnect path and the compare path call. volumes.py gains the documented inverse of location_from_disk_path and the fingerprint tier uses it. splice and split read, parse and write through helpers lifted out of rewrite.py so they inherit write_nml_safely diagnostics and its atomic write. spans.py gains one SpanIndex built in a single pass per document, and it replaces both quadratic locators, leaving one element-to-span strategy. Every fix lands with a test that fails without it, since each finding exists because no test covered its trigger."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-014",
+        "version": 1,
+        "decision": "One SpanIndex, built in a single pass per source document, is the only mechanism that maps a parsed element to its source byte span",
+        "reasoning": "element_span already scans forward once from a known offset and is linear over the element extent, while element_span_by_identity re-walks root.iter(tag) and re-scans source from offset zero on every call and playlists._locate_node_start runs find plus rfind over the whole document per playlist node -> on the 6412-entry 11.7MB corpus both are quadratic over document size because split and splice call them once per surviving entry and per playlist node -> a single pre-order walk assigning each element its per-tag ordinal plus a single _TOKEN_RE.finditer pass collecting per-tag opening-tag offsets answers every lookup in constant time, matches the single-pass discipline element_span already documents (existing DL-007, byte-span assembly), and leaves exactly one indexing strategy in the package"
+      },
+      {
+        "id": "DL-015",
+        "version": 1,
+        "decision": "The destination-collision post-pass lives in reconnect.py as a named function that both resolve_reconnection and compare-based rewriting call, rather than being duplicated inside compare_cmd",
+        "reasoning": "The repository's existing DL-004 (reconnect.py's one-to-one assignment guarantee, README Invariants) is enforced as a post-match inversion over match_records output, and reconnect.py is today its only caller -> compare-based rewriting calls match_records directly, so two old collection entries that each match one new entry unambiguously both get rewritten onto one LOCATION and one PRIMARYKEY, the exact outcome existing DL-004 forbids -> lifting the inversion into a shared function keeps one implementation of that existing invariant, lets compare keep the sample list match_records returns (which resolve_reconnection discards), and keeps reconnect.py the owner of the invariant its own docstring documents"
+      },
+      {
+        "id": "DL-016",
+        "version": 1,
+        "decision": "The compare-based rewrite stats gain destination_collisions and the baselines manifest case for rewrite-from-collection-compare is regenerated",
+        "reasoning": "Enforcing existing DL-004's one-to-one rule on the compare path withdraws collided matches and changes the matched total -> a withdrawal that is not reported leaves the operator unable to tell a genuinely unmatched track from a withdrawn one, which is why the reconnect path already prints the counter -> printing the same counter on the compare path changes recorded stdout for one manifest case, and manifest.schema.md sanctions regeneration for a deliberate reviewed behavior change, so the manifest is regenerated with the change recorded rather than the counter being suppressed to protect a byte-identical baseline"
+      },
+      {
+        "id": "DL-017",
+        "version": 1,
+        "decision": "volumes.py owns a documented inverse of location_from_disk_path that turns a collection LOCATION back into an absolute on-disk path, and fingerprint.py uses it for the old side",
+        "reasoning": "decoded_path is volume-relative by design because VOLUME and VOLUMEID are separate fields, so Path(str(record.location.decoded_path)) names a path rooted at the filesystem root rather than at the volume -> old_side_fingerprint therefore fails is_file for essentially every real record and the fingerprint tier is silently dead on the old side while its unavailable counter absorbs the failure -> reattaching volume identity is exactly the inverse of the transformation volumes.py and reconnect.location_from_disk_path already own for the candidate side, so the inverse belongs beside them, is testable as a round trip rather than as a fingerprint run, and keeps every piece of volume reasoning in the module the existing DL-005 governs"
+      },
+      {
+        "id": "DL-018",
+        "version": 1,
+        "decision": "local_path_for_location resolves only against mount anchors already established for the record's own VOLUME/VOLUMEID by resolve_volume_identity or --volume-map; an unknown volume, or two known anchors that both resolve, yields None rather than a guessed path",
+        "reasoning": "The repository's existing DL-005 (volumes.py docstring, README Invariants) states that volume identity is explicit and never inferred from the stale decoded paths reconnection exists to repair, permitting inference only where a prefix scan yields exactly one distinct VOLUME/VOLUMEID pair and hard-erroring otherwise -> probing an ordered list of plausible anchors (a drive designator read out of the VOLUME string, a POSIX mount directory named after it, the filesystem root) and accepting the first that is_file-resolves is exactly the path-based guessing existing DL-005 forbids, and its failure mode is a false positive: a different file that happens to sit at the same volume-relative path under the wrong anchor is fingerprinted and can win a match that rewrites LOCATION and PRIMARYKEY onto an unrelated track -> the resolver instead takes a mounts mapping from (VOLUME, VOLUMEID) to the mount anchors this run has already established explicitly (each --volume-map entry and each --scan-root whose identity resolve_volume_identity resolved, anchored the same way resolve_volume_identity's own prefix comparison anchors them), returns the resolved path only when exactly one known anchor yields a readable file, and returns None for an unknown volume or for two anchors that disagree, so the old-side lookup inherits existing DL-005's explicitness instead of carving an exception out of it"
+      },
+      {
+        "id": "DL-019",
+        "version": 1,
+        "decision": "splice_cmd and split_cmd read, parse and write through helpers exported from rewrite.py instead of carrying their own input handling and plain write_bytes",
+        "reasoning": "write_nml_safely already encodes the tool conventions for a write command, namely refusing output equal to any input, reporting a parse failure as xml_parse_error with exit code 2, and writing through a temp file plus os.replace -> splice and split reproduce only part of that, so a malformed input raises an lxml exception out of the handler instead of the documented diagnostic, and an interrupted write truncates a destination that previously held a valid collection -> exposing the read-and-parse step and the atomic write from rewrite.py as named helpers gives the span-transplantation commands the same guarantees without forcing their multi-input, multi-output shape through write_nml_safely, whose single-input single-output patch-and-write skeleton does not fit them"
+      },
+      {
+        "id": "DL-020",
+        "version": 1,
+        "decision": "apply_dangling_policy inspects only the playlists the current group names, not every playlist in the document",
+        "reasoning": "build_output produces one output per group and the policy decides that output alone -> scanning every playlist node in the file lets an untouched playlist elsewhere in the document decide this group, so pull-in drags in tracks no requested playlist references and fail aborts a group whose own playlists are entirely sound -> passing the resolved group nodes into the policy makes each output depend only on its own selection, which is what the repository's existing DL-009 (split.py's named-playlist selection and per-output dangling semantics) describes"
+      },
+      {
+        "id": "DL-021",
+        "version": 1,
+        "decision": "playlists.py locates an imported node through SpanIndex and its UUID-based locator is removed",
+        "reasoning": "_locate_node_start finds the PLAYLIST child UUID and then searches backwards for the enclosing NODE open tag, which is a second, weaker way of answering the question the identity locator answers -> it is also the slower of the two, scanning the whole document per node, and it fails outright on a playlist whose PLAYLIST child carries no UUID (the regenerated-UUID risk the existing DL-008 already records) -> routing it through the same SpanIndex the collection entries use removes the duplicate mechanism along with the rescan"
+      },
+      {
+        "id": "DL-022",
+        "version": 1,
+        "decision": "Per-file temp-plus-os.replace atomicity is added underneath the existing DL-012 build-and-validate-before-write rule, and split's multi-output write loop stays non-transactional across files by explicit choice",
+        "reasoning": "The repository's existing DL-012 invariant is that a write command builds its complete output in memory and validates it before any file handle opens, which split_cmd already satisfies by assembling and checking every group before its write loop starts -> that covers computation-phase failure but not write-phase failure: a disk error on the third of four group outputs still leaves the first two written, and a truncating write_bytes can additionally leave one destination half-written -> adding temp-plus-os.replace makes each individual destination hold either its previous bytes or the complete new bytes, closing the truncation hole existing DL-012 never addressed, while cross-file rollback of already-replaced outputs would need a staging-and-commit protocol that is new machinery beyond a fix-only pass, so the residual gap is recorded as a bounded tradeoff rather than silently implied to be closed"
+      },
+      {
+        "id": "DL-023",
+        "version": 1,
+        "decision": "write_nml_safely's output-equals-input refusal covers every file a command reads in that invocation, not only its primary input, and compare-based rewriting declares new_input through extra_inputs",
+        "reasoning": "write_nml_safely already owns the refusal and already accepts extra_inputs precisely so a command reading more than one file can declare the rest -> rewrite-from-collection-compare reads two collections but declares only old_input, so an output that resolves to new_input is accepted and the newer collection is overwritten in place by a rewrite derived from it, destroying the very file the run compared against, even though the same command already refuses the identical mistake against old_input -> stating the rule generally as 'a write command refuses an output path that resolves to any of its inputs' and requiring every multi-input command to declare its remaining inputs through extra_inputs closes the gap as a convention future multi-input commands are checked against, rather than as a one-line special case at a single call site"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Memoize element_span_by_identity and _locate_node_start behind per-call caches, keeping both locators",
+        "rejection_reason": "Leaves two element-to-span mechanisms plus a third caching layer, and the tree walk inside element_span_by_identity stays linear per call, so the quadratic term survives for documents with many same-tag elements",
+        "decision_ref": "DL-014"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Call reconnect.resolve_reconnection directly from compare-based rewriting",
+        "rejection_reason": "resolve_reconnection discards the sample list compare prints and produces ambiguity rows compare has no CSV surface for; the shared piece is the collision post-pass, not the whole reconnection wrapper",
+        "decision_ref": "DL-015"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Suppress the destination_collisions counter on the compare path so the recorded baseline stdout stays byte-identical",
+        "rejection_reason": "A withdrawn match that is not reported is indistinguishable from an unmatched track, which is why the reconnect path prints it; manifest.schema.md provides regeneration for exactly this case",
+        "decision_ref": "DL-016"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Probe an ordered list of plausible mount anchors for the old-side path (a drive designator parsed out of the VOLUME string, a POSIX mount directory named after it, the filesystem root) and accept the first that resolves to a readable file",
+        "rejection_reason": "The is_file probe cannot tell the record's own file from a different file sitting at the same volume-relative path under the wrong anchor, and the filesystem-root candidate reproduces today's buggy construction exactly; a wrong resolution is fingerprinted and can win a match that rewrites LOCATION and PRIMARYKEY onto an unrelated track, which is precisely the path-based inference the existing DL-005 forbids",
+        "decision_ref": "DL-018"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Route splice and split through write_nml_safely itself",
+        "rejection_reason": "That helper is a single-input, single-output parse-patch-write skeleton with an lxml and a stdlib branch; splice merges several inputs and split emits several outputs from one fully assembled string, so the fit would distort the helper rather than share it",
+        "decision_ref": "DL-019"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Add a CLI flag mapping a VOLUME value to its mount point for old-side fingerprinting",
+        "rejection_reason": "New CLI surface is out of scope for a fix-only pass, and --volume-map plus the resolved --scan-root identities already give the run an explicit, existing-DL-005-sanctioned source of mount anchors for exactly the volumes this run touches",
+        "decision_ref": "DL-018"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "Stage every split group output to a temp file and commit them together so a mid-loop failure rolls back the outputs already written",
+        "rejection_reason": "A cross-file commit protocol is new machinery well past a fix-only pass; the finding under repair is the truncating single-file write, which temp-plus-os.replace closes, and the residual cross-file gap is recorded as a tradeoff under DL-022 instead of being closed silently",
+        "decision_ref": "DL-022"
+      }
+    ],
+    "constraints": [
+      "MUST: no previously-passing test regresses. The pass condition is that pytest tests/ -q from C:/codex/general_tasks reports zero failures and zero errors, and that every test which passed before a milestone still passes after it. Test counts are deliberately not a pass condition: every milestone adds tests, so the totals are expected to grow. '42 passed, 2 skipped' is recorded only as a dated reference baseline from the pre-fix run (2026-08-23) for identifying which tests pre-existed, never as a count to match",
+      "Byte-preserving write invariants hold: the attribute-patch path through write_nml_safely and the span-transplantation path through OutputBuilder and spans.py both keep every untouched byte of the source",
+      "Each fixed finding is covered by a test that exercises the previously uncaught trigger condition",
+      "The efficiency fixes use one single-pass precomputation consistent with spans.element_span, not a third indexing strategy",
+      "Fix-only scope: no new features, no new CLI surface, no broader refactor beyond what the eight findings require"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "Enforcing one-to-one on the compare path changes recorded stdout for one baseline manifest case",
+        "mitigation": "Regenerate that case through tests/baselines/regenerate.py rather than hand-editing the manifest, and gate the regeneration on an explicit scope check performed by the milestone's own acceptance criterion: the implementer diffs the regenerated manifest against the committed one and the diff must consist solely of the added destination_collisions counter line in the rewrite-from-collection-compare case, with any other changed byte in any other case treated as a regression to investigate before the regenerated manifest is accepted; test_baseline_parity only proves the manifest matches current behavior, so it cannot substitute for that scope check",
+        "anchor": "tests/baselines/manifest.json",
+        "decision_ref": "DL-016"
+      },
+      {
+        "id": "R-002",
+        "risk": "SpanIndex ordinal assignment assumes the parser pre-order over the tree matches left-to-right opening-tag order in source, the same assumption element_span_by_identity documents",
+        "mitigation": "Assert index spans equal element_span results for every ENTRY and NODE across the real fixture, including nested same-named and self-closing elements",
+        "anchor": "traktor_nml/spans.py",
+        "decision_ref": "DL-014"
+      },
+      {
+        "id": "R-003",
+        "risk": "Old-side volume resolution is limited to mount anchors this run established explicitly, so a record on a volume neither --volume-map nor any --scan-root identifies still fails to resolve",
+        "mitigation": "The unresolved case keeps counting fingerprint_unavailable_old_side, so the tier degrades exactly as it does for a genuinely absent file; this is a false negative (a fingerprint not taken) and is preferred over the false positive R-005 describes",
+        "anchor": "traktor_nml/volumes.py",
+        "decision_ref": "DL-018"
+      },
+      {
+        "id": "R-004",
+        "risk": "Scoping the dangling policy to a group narrows what pull-in and fail see, which changes outcomes for callers relying on the whole-document behavior",
+        "mitigation": "The whole-document behavior contradicts the existing DL-009 per-output semantics; existing exclude and fail expectations for references held by requested playlists stay asserted unchanged",
+        "anchor": "traktor_nml/split.py",
+        "decision_ref": "DL-020"
+      },
+      {
+        "id": "R-005",
+        "risk": "A wrong resolution on the old side is worse than no resolution: if local_path_for_location returned a different file that happens to sit at the same volume-relative path under another anchor, that file's fingerprint could win a match and rewrite LOCATION and PRIMARYKEY onto an unrelated track, and nothing downstream would flag it",
+        "mitigation": "The resolver never guesses an anchor: it consults only the (VOLUME, VOLUMEID) to mount-anchor mapping built from --volume-map entries and from scan roots whose identity resolve_volume_identity resolved, it drops the filesystem-root candidate entirely, and it returns None when a record's pair is unknown or when two known anchors both yield a readable file, so an ambiguous case degrades to fingerprint_unavailable_old_side instead of silently picking one. A test asserts the wrong-anchor case directly: the same volume-relative path is populated with a different file under a second, unmapped anchor and the resolver must return None rather than that file. This keeps the existing DL-005 rule (volume identity is explicit, never inferred from stale paths) intact rather than carving an old-side exception out of it",
+        "anchor": "traktor_nml/volumes.py",
+        "decision_ref": "DL-018"
+      }
+    ]
+  },
+  "invisible_knowledge": {
+    "system": "Two write mechanisms coexist and never mix within one command. The attribute-patch path (textpatch.py driven by rewrite.py and reconnect.py) substitutes attribute values inside opening tags located in raw source text, and rewrite.write_nml_safely carries its conventions: refuse an output equal to any input, report a parse failure as xml_parse_error with exit code 2, and write through a temp file plus os.replace. The span-transplantation path (spans.py driven by splice.py and split.py) concatenates verbatim source byte ranges. All eight findings are cases where the newer commands on the second path, plus compare-based rewriting, do not inherit a convention the first path already implements correctly; the fixes make the conventions shared rather than reimplementing them per command.",
+    "invariants": [
+      "A candidate matched by more than one old record is withdrawn from every mapping the tool writes from, on both the reconnect and the compare path, and the withdrawal is counted (extends the existing DL-004 guarantee to the compare path)",
+      "A write command refuses an output path that resolves to any of its inputs",
+      "A malformed input yields xml_parse_error naming the file and exit code 2, never an escaping parser exception",
+      "Every output file is written through a temp file plus os.replace, so a destination holds either its previous content or the complete new content; this sits underneath the existing DL-012 build-and-validate-before-write rule and does not extend to rolling back sibling outputs already replaced in a multi-output run",
+      "An element is located in source by tree identity through one SpanIndex per document, never by searching for an attribute value and never by a second locator",
+      "A split output depends only on the playlists its own group names",
+      "An old-side path is reconstructed by reattaching volume identity to the volume-relative decoded path, never by treating decoded_path as absolute and never by guessing a mount anchor the run has not explicitly established"
+    ],
+    "tradeoffs": [
+      "Reporting destination_collisions on the compare path costs one regenerated baseline case, accepted so a withdrawn match stays visible",
+      "Old-side volume resolution is confined to mount anchors the run established explicitly, so a record on an unmapped volume is simply not fingerprinted, accepted because a guessed anchor risks fingerprinting the wrong file and rewriting a track onto an unrelated location",
+      "SpanIndex holds per-tag offset lists for the whole document in memory, accepted because the alternative is a document rescan per element on an 11.7MB corpus",
+      "split's multi-output write loop stays non-transactional across files: each destination is individually atomic, but a failure partway through the loop leaves earlier groups written, accepted because cross-file staging and commit is new machinery beyond a fix-only pass"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 2,
+      "number": 1,
+      "name": "Old-side path resolution for the fingerprint tier",
+      "files": [
+        "traktor_nml/volumes.py",
+        "traktor_nml/fingerprint.py",
+        "traktor_nml/commands/reconnect_cmd.py",
+        "tests/test_fingerprint.py",
+        "traktor_nml/README.md",
+        "traktor_nml/CLAUDE.md",
+        "traktor_nml/commands/CLAUDE.md"
+      ],
+      "flags": [
+        "needs-rationale"
+      ],
+      "requirements": [
+        "A collection LOCATION resolves back to the absolute on-disk path it was encoded from; old_side_fingerprint fingerprints a record whose recorded file is present on a mounted volume; a record whose volume is absent counts as fingerprint_unavailable_old_side"
+      ],
+      "acceptance_criteria": [
+        "A round-trip test asserts local_path_for_location of location_from_disk_path for a real file under tmp_path, with that file's volume identity present in the known-mounts mapping, returns that same file",
+        "old_side_fingerprint on a record whose volume identity is a known mount does not increment fingerprint_unavailable_old_side at the path-resolution step",
+        "old_side_fingerprint on a record whose VOLUME/VOLUMEID pair is in no known mount increments fingerprint_unavailable_old_side and returns nothing",
+        "local_path_for_location returns None, not a path, when a file with the same volume-relative path exists under an anchor that is not a known mount for that record's pair",
+        "local_path_for_location returns None when two known anchors for one pair both yield a readable file",
+        "README.md Design Decisions and Invariants carry DL-017 and DL-018 and state that old-side resolution never guesses an anchor, and both CLAUDE.md indexes describe volumes.py's new public function",
+        "No previously-passing test regresses (pytest tests/ -q)"
+      ],
+      "tests": [
+        "type: integration plus round-trip property assertion, in tests/test_fingerprint.py",
+        "backing: doc-derived from the existing DL-005 explicit-identity rule",
+        "normal: a LOCATION whose pair is a known mount resolves to the file on disk",
+        "edge: a LOCATION whose DIR is the volume root; two known anchors both holding a file at that relative path",
+        "error: a LOCATION whose pair is in no known mount, and a decoy file at the same relative path under an unmapped anchor - both must resolve to None rather than to the decoy"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 2,
+          "file": "traktor_nml/volumes.py",
+          "function": "local_path_for_location",
+          "behavior": "Turn a LocationParts back into the absolute on-disk path it names, inverting location_from_disk_path. The function takes the location together with a mapping from (VOLUME, VOLUMEID) to the mount anchors this run has established explicitly, joins the decoded volume-relative path onto each anchor recorded for that record's own pair, and returns the resolved path only when exactly one such candidate is a readable file. It returns None when the pair appears in no mapping, when no candidate resolves, and when two distinct anchors for one pair both resolve. It never parses an anchor out of the VOLUME string, never derives one from a POSIX mount-directory convention, and never falls back to the filesystem root, because those are inferences from the same stale decoded paths the existing DL-005 rules out and their failure mode is a wrong file rather than a missing one. Volume identity resolution stays in this module beside resolve_volume_identity and location_from_disk_path so both directions of the transformation, and the single explicitness rule governing them, are described in one place.",
+          "decision_refs": [
+            "DL-017",
+            "DL-018"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 2,
+          "file": "traktor_nml/fingerprint.py",
+          "function": "old_side_fingerprint",
+          "behavior": "Resolve the record's recorded location through local_path_for_location, passing the known-mounts mapping the caller supplies, instead of constructing a Path from the volume-relative decoded_path, and count fingerprint_unavailable_old_side when the resolver yields nothing - which now covers the unknown-volume and ambiguous-anchor cases as well as a genuinely missing file. fingerprint_key_provider gains the mapping as a parameter and threads it through. The docstring names volume reattachment as the reason the old side needs a resolver at all, and states that an unresolvable or ambiguous volume is deliberately counted as unavailable rather than guessed.",
+          "decision_refs": [
+            "DL-017",
+            "DL-018"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 2,
+          "file": "tests/test_fingerprint.py",
+          "function": "test_old_side_location_resolves_to_the_file_it_was_encoded_from",
+          "behavior": "Round-trip a real file under tmp_path through location_from_disk_path and back through local_path_for_location with that file's volume identity registered as a known mount, and assert equality; assert old_side_fingerprint on that record leaves fingerprint_unavailable_old_side at zero for the path step while a record whose pair is in no known mount increments it; assert the wrong-resolution case directly by writing a different file at the same volume-relative path under a second anchor that is not a known mount for that pair and asserting the resolver returns None rather than the decoy, and by registering two anchors for one pair that both hold a file and asserting None again. The round trip is the assertion because it holds without pyacoustid installed, unlike a real fingerprint comparison.",
+          "decision_refs": [
+            "DL-017",
+            "DL-018"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 1,
+          "file": "traktor_nml/commands/reconnect_cmd.py",
+          "function": "_run_reconnect",
+          "behavior": "Resolve the scan-root volume identities before the key providers are constructed rather than after matching, and build from them plus the parsed --volume-map a mapping from (VOLUME, VOLUMEID) to mount anchors, anchoring each scan root the same way resolve_volume_identity's own prefix comparison does. Pass that mapping into fingerprint_key_provider so the old side resolves against identities this run established explicitly, and keep using the same resolved identities for the existing candidate-side re-encoding so there is one resolution step, not two.",
+          "decision_refs": [
+            "DL-017",
+            "DL-018"
+          ]
+        },
+        {
+          "id": "CI-M-001-005",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": "Design Decisions and Invariants sections",
+          "behavior": "Add, in the existing (DL-nnn) citation style, that volumes.py owns both directions of the volume-relative to absolute transformation and that the old-side inverse resolves only against mount anchors the run established explicitly, returning nothing for an unknown pair or two anchors that both resolve, because a guessed anchor can fingerprint a different file and rewrite a track onto an unrelated location (DL-017, DL-018) - stated as an extension of the existing DL-005 explicit-identity invariant already recorded there, not an exception to it.",
+          "decision_refs": [
+            "DL-017",
+            "DL-018"
+          ]
+        },
+        {
+          "id": "CI-M-001-006",
+          "version": 1,
+          "file": "traktor_nml/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the volumes.py row to name local_path_for_location alongside resolve_volume_identity and location_from_disk_path, and the fingerprint.py row to say the old side resolves its path through volumes.py rather than from decoded_path, so the navigation index still describes what those modules do.",
+          "decision_refs": [
+            "DL-017"
+          ]
+        },
+        {
+          "id": "CI-M-001-007",
+          "version": 1,
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the reconnect_cmd.py row to note that volume identities are resolved before key providers are built and supplied to the fingerprint provider as the old side's known-mounts mapping.",
+          "decision_refs": [
+            "DL-018"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-001-001",
+          "version": 2,
+          "intent_ref": "CI-M-001-001",
+          "file": "traktor_nml/volumes.py",
+          "diff": "--- a/traktor_nml/volumes.py\n+++ b/traktor_nml/volumes.py\n@@ -14,9 +14,10 @@\n \n from __future__ import annotations\n \n+from typing import Optional\n from pathlib import Path\n \n-from .model import EntryRecord\n+from .model import EntryRecord, LocationParts\n \n \n class VolumeIdentityError(ValueError):\n@@ -85,3 +86,34 @@ def parse_volume_map(entries: list[list[str]] | None) -> dict[str, tuple[str,\n     for scan_root, volume, volumeid in entries or []:\n         mapping[str(Path(scan_root))] = (volume, volumeid)\n     return mapping\n+\n+\n+def local_path_for_location(\n+    location: LocationParts, known_mounts: dict[tuple[str, str], list[Path]]\n+) -> Optional[Path]:\n+    \"\"\"Invert location_from_disk_path: resolve location's recorded\n+    VOLUME/VOLUMEID plus its volume-relative decoded_path back to the\n+    absolute on-disk path it names, against mount anchors this run has\n+    established explicitly (known_mounts, keyed by the same (VOLUME,\n+    VOLUMEID) pair resolve_volume_identity produces).\n+\n+    Returns the resolved path only when exactly one anchor registered for\n+    location's own pair joins with decoded_path to a readable file.\n+    Returns None when the pair appears in no mapping, when no candidate\n+    anchor resolves, and when two distinct anchors for one pair both\n+    resolve - never guesses an anchor from the VOLUME string or a POSIX\n+    mount-directory convention, since that would be inference from the\n+    same stale decoded path DL-005 already rules out, and its failure mode\n+    is a wrong file rather than a missing one.\n+    \"\"\"\n+    anchors = known_mounts.get((location.volume, location.volumeid))\n+    if not anchors:\n+        return None\n+    relative = location.decoded_path\n+    relative_parts = relative.parts[1:] if relative.parts and relative.parts[0] == \"/\" else relative.parts\n+    resolved = {\n+        candidate for candidate in (Path(anchor, *relative_parts) for anchor in anchors) if candidate.is_file()\n+    }\n+    if len(resolved) == 1:\n+        return next(iter(resolved))\n+    return None\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-002",
+          "version": 2,
+          "intent_ref": "CI-M-001-002",
+          "file": "traktor_nml/fingerprint.py",
+          "diff": "--- a/traktor_nml/fingerprint.py\n+++ b/traktor_nml/fingerprint.py\n@@ -32,6 +32,7 @@\n \n from .matching import AMBIGUOUS, KeyProvider\n from .model import EntryRecord\n+from .volumes import local_path_for_location\n from .tagcache import TagCache\n \n # Availability is probed once here, at import time, rather than per call:\n@@ -96,14 +97,23 @@ def _cached_fingerprint(path: Path, cache: TagCache) -> Optional[tuple[float,\n \n \n def old_side_fingerprint(\n-    record: EntryRecord, cache: TagCache, stats: dict[str, int]\n+    record: EntryRecord,\n+    cache: TagCache,\n+    stats: dict[str, int],\n+    known_mounts: dict[tuple[str, str], list[Path]],\n ) -> Optional[tuple[float, str]]:\n-    \"\"\"Fingerprint a collection record only when its recorded location\n-    resolves to a readable file at scan time; count the unresolvable case\n-    so its absence is visible in the statistics rather than silent.\"\"\"\n+    \"\"\"Fingerprint a collection record only when its recorded location\n+    resolves, through volume reattachment, to a readable file at scan\n+    time; count the unresolvable case so its absence is visible in the\n+    statistics rather than silent. known_mounts maps (VOLUME, VOLUMEID) to\n+    the mount anchors this run has established explicitly (see\n+    volumes.local_path_for_location) - an unknown volume pair or an\n+    ambiguous anchor is deliberately counted as unavailable rather than\n+    guessed, the same explicitness rule that already governs the\n+    candidate side.\"\"\"\n     stats.setdefault(\"fingerprint_unavailable_old_side\", 0)\n-    path = Path(str(record.location.decoded_path))\n-    if not path.is_file():\n+    path = local_path_for_location(record.location, known_mounts)\n+    if path is None:\n         stats[\"fingerprint_unavailable_old_side\"] += 1\n         return None\n     result = _cached_fingerprint(path, cache)\n@@ -150,7 +159,12 @@ def _cluster_candidates(\n     return {cid: str(find(cid)) for cid in candidate_fps}\n \n \n-def fingerprint_key_provider(cache: TagCache, candidates: list[EntryRecord], stats: dict[str, int]) -> KeyProvider:\n+def fingerprint_key_provider(\n+    cache: TagCache,\n+    candidates: list[EntryRecord],\n+    stats: dict[str, int],\n+    known_mounts: dict[tuple[str, str], list[Path]],\n+) -> KeyProvider:\n     \"\"\"Supply a top-tier match key for an old record when a fingerprint\n     exists for both it and at least one candidate, their durations agree\n     within tolerance, and similarity clears the match threshold. The\n@@ -185,6 +199,6 @@ def fingerprint_key_provider(cache: TagCache, candidates: list[EntryRecord], s\n             return (cluster_key[id(record)],) if id(record) in cluster_key else None\n \n-        old_fp = old_side_fingerprint(record, cache, stats)\n+        old_fp = old_side_fingerprint(record, cache, stats, known_mounts)\n         if old_fp is None:\n             return None\n         old_duration, old_value = old_fp\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-003",
+          "version": 3,
+          "intent_ref": "CI-M-001-003",
+          "file": "tests/test_fingerprint.py",
+          "diff": "--- a/tests/test_fingerprint.py\n+++ b/tests/test_fingerprint.py\n@@ -7,9 +7,11 @@\n import pytest\n \n from traktor_nml.confidence import MatchConfidence\n-from traktor_nml.fingerprint import HAS_ACOUSTID, fingerprint_key_provider\n+from traktor_nml.fingerprint import HAS_ACOUSTID, fingerprint_key_provider, old_side_fingerprint\n from traktor_nml.matching import match_records\n from traktor_nml.model import EntryRecord, LocationParts\n+from traktor_nml.reconnect import location_from_disk_path\n+from traktor_nml.volumes import local_path_for_location\n from traktor_nml.tagcache import TagCache\n \n requires_acoustid = pytest.mark.skipif(\n@@ -62,3 +64,79 @@\n @requires_acoustid\n def test_pair_outside_duration_tolerance_never_compared(tmp_path: Path) -> None:\n     pytest.skip(\"requires real audio fixtures; exercised in the manual rollout gate\")\n+\n+\n+def _old_record_at(location: LocationParts) -> EntryRecord:\n+    return EntryRecord(\n+        entry=object(),\n+        artist=\"\", title=\"\", audio_id=\"\", filesize=\"\", playtime_float=\"\", bitrate=\"\", album=\"\",\n+        file_name=location.file_name,\n+        location=location,\n+    )\n+\n+\n+def test_old_side_location_resolves_to_the_file_it_was_encoded_from(\n+    tmp_path: Path, monkeypatch\n+) -> None:\n+    \"\"\"Round-tripping a real file through location_from_disk_path and back\n+    through local_path_for_location, with that file's own volume identity\n+    registered as a known mount, must reproduce the exact same path - this\n+    holds without pyacoustid installed, unlike a real fingerprint\n+    comparison, so it is the assertion this test relies on.\n+\n+    known_mounts is keyed by the file's VOLUME ROOT (the drive letter or\n+    POSIX root that location_from_disk_path itself strips as the path's\n+    anchor), never by an arbitrary subdirectory such as the file's parent\n+    - decoded_path is relative to the volume root, not to any particular\n+    scan-root subdirectory, so only the volume-root anchor reconstructs\n+    the original absolute path.\n+\n+    old_side_fingerprint's fingerprint_unavailable_old_side counter also\n+    absorbs a failed fingerprint computation (e.g. pyacoustid/fpcalc not\n+    installed in this environment), not only a path-resolution failure, so\n+    the path-resolution step is isolated here by stubbing\n+    _cached_fingerprint to succeed whenever the resolved path is the real\n+    file - independent of whether real fingerprinting is available.\n+    \"\"\"\n+    import traktor_nml.fingerprint as fingerprint_module\n+\n+    def _stub_cached_fingerprint(path, cache):\n+        return (1.0, \"stub-fingerprint\") if path == real_dir / \"song.mp3\" else None\n+\n+    monkeypatch.setattr(fingerprint_module, \"_cached_fingerprint\", _stub_cached_fingerprint)\n+\n+    real_dir = tmp_path / \"anchor\"\n+    real_dir.mkdir()\n+    real_file = real_dir / \"song.mp3\"\n+    real_file.write_bytes(b\"data\")\n+\n+    location = location_from_disk_path(real_file, \"VOL\", \"VOLID\")\n+    anchor = Path(real_file.anchor)\n+    known_mounts = {(\"VOL\", \"VOLID\"): [anchor]}\n+    assert local_path_for_location(location, known_mounts) == real_file\n+\n+    cache = TagCache(tmp_path / \"cache.json\")\n+\n+    known_stats: dict[str, int] = {}\n+    old_side_fingerprint(_old_record_at(location), cache, known_stats, known_mounts)\n+    assert known_stats[\"fingerprint_unavailable_old_side\"] == 0\n+\n+    unknown_location = location_from_disk_path(real_file, \"OTHER\", \"OTHER\")\n+    unknown_stats: dict[str, int] = {}\n+    old_side_fingerprint(_old_record_at(unknown_location), cache, unknown_stats, known_mounts)\n+    assert unknown_stats[\"fingerprint_unavailable_old_side\"] == 1\n+\n+    # A decoy file at the same volume-relative path under a second,\n+    # unmapped anchor must never be picked - mirror the relative directory\n+    # structure (everything below the volume-root anchor) under a\n+    # separate decoy root and place a different file there.\n+    relative_parts = location.decoded_dir.parts[1:]  # drop the leading \"/\"\n+    decoy_root = tmp_path / \"decoy_root\"\n+    (decoy_root.joinpath(*relative_parts)).mkdir(parents=True)\n+    (decoy_root.joinpath(*relative_parts, \"song.mp3\")).write_bytes(b\"different data, not the same file\")\n+\n+    single_anchor_mounts = {(\"VOL\", \"VOLID\"): [anchor]}\n+    assert local_path_for_location(location, single_anchor_mounts) == real_file\n+\n+    two_anchor_mounts = {(\"VOL\", \"VOLID\"): [anchor, decoy_root]}\n+    assert local_path_for_location(location, two_anchor_mounts) is None\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-004",
+          "version": 4,
+          "intent_ref": "CI-M-001-004",
+          "file": "traktor_nml/commands/reconnect_cmd.py",
+          "diff": "--- a/traktor_nml/commands/reconnect_cmd.py\n+++ b/traktor_nml/commands/reconnect_cmd.py\n@@ -86,6 +86,28 @@ def _run_reconnection(\n     candidates = index_scan_roots(args.scan_roots, cache, refresh_cache=args.refresh_cache)\n     confidence = resolve_confidence(args)\n \n+    # Volume identities are resolved once, up front, before any key\n+    # provider is built: both the fingerprint tier's old-side resolver\n+    # below and the candidate-side LOCATION re-encoding further down this\n+    # function reuse the same resolved identities, rather than resolving\n+    # twice.\n+    volume_map = parse_volume_map(args.volume_map)\n+    volume_identities: dict[Path, tuple[str, str]] = {}\n+    for scan_root in args.scan_roots:\n+        volume_identities[Path(scan_root)] = resolve_volume_identity(scan_root, old_records, volume_map)\n+\n+    # known_mounts anchors each scan root at its own filesystem anchor (the\n+    # drive letter or POSIX root, e.g. \"C:\\\\\" or \"/\"), never at scan_root\n+    # itself - decoded_path is volume-relative (relative to the volume\n+    # root), not relative to an arbitrary scan-root subdirectory, so\n+    # anchoring at scan_root would reconstruct the wrong absolute path for\n+    # every record whose file sits outside that particular subdirectory.\n+    known_mounts: dict[tuple[str, str], list[Path]] = {}\n+    for scan_root, identity in volume_identities.items():\n+        anchor = Path(scan_root).anchor\n+        if anchor:\n+            known_mounts.setdefault(identity, []).append(Path(anchor))\n+\n     key_providers = []\n     fingerprint_stats: dict[str, int] = {}\n     if getattr(args, \"fingerprint\", False):\n@@ -104,7 +126,7 @@ def _run_reconnection(\n                 \"--fingerprint tier will find no matches\",\n                 file=sys.stderr,\n             )\n-        key_providers.append(fingerprint_key_provider(cache, candidates, fingerprint_stats))\n+        key_providers.append(fingerprint_key_provider(cache, candidates, fingerprint_stats, known_mounts))\n \n     mapping, stats, ambiguity_rows = resolve_reconnection(\n         old_records, candidates, confidence, key_providers\n@@ -115,11 +137,6 @@ def _run_reconnection(\n     # LOCATION using its scan root's resolved volume identity - the\n     # placeholder LocationParts a disk-scan candidate carries has no real\n     # VOLUME/VOLUMEID and is never written as-is.\n-    volume_map = parse_volume_map(args.volume_map)\n-    volume_identities: dict[Path, tuple[str, str]] = {}\n-    for scan_root in args.scan_roots:\n-        volume_identities[Path(scan_root)] = resolve_volume_identity(scan_root, old_records, volume_map)\n-\n     for candidate in mapping.values():\n         if candidate.source_path is None:\n             continue\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-005",
+          "version": 2,
+          "intent_ref": "CI-M-001-005",
+          "file": "traktor_nml/README.md",
+          "diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ -47,7 +47,15 @@\n - `reconnect.py`'s one-to-one assignment guarantee (DL-004) and\n   `volumes.py`'s explicit-VOLUME/VOLUMEID requirement (DL-005) are both\n   enforced as post-passes over the shared matching cascade, which itself\n   stays unaware either invariant is being layered on top of it.\n+- `volumes.py` owns both directions of the volume-relative-to-absolute\n+  transformation; its old-side inverse (`local_path_for_location`)\n+  resolves only against mount anchors the run established explicitly,\n+  returning nothing for an unknown VOLUME/VOLUMEID pair or when two\n+  anchors for one pair both resolve, because a guessed anchor can\n+  fingerprint a different file and rewrite a track onto an unrelated\n+  location - an extension of the DL-005 explicit-identity invariant\n+  above, not an exception to it (DL-017, DL-018).\n - The NML schema (COLLECTION/PLAYLISTS/SUBNODES/PRIMARYKEY shapes and\n   their count attributes) is confirmed only against NML VERSION=20 /\n   Traktor Pro 4; `spans.py`'s count-attribute recalculation is generic\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-006",
+          "version": 2,
+          "intent_ref": "CI-M-001-006",
+          "file": "traktor_nml/CLAUDE.md",
+          "diff": "--- a/traktor_nml/CLAUDE.md\n+++ b/traktor_nml/CLAUDE.md\n@@ -14,6 +14,6 @@\n | `diskscan.py`      | Filesystem candidate scanning for reconnection             | Adding or changing disk-scan candidate discovery            |\n | `tagcache.py`      | Tag-read caching                                           | Changing tag cache key composition or eviction             |\n | `reconnect.py`     | Disk-scan reconnection, one-to-one assignment invariant    | Modifying reconnection matching or destination-collision handling |\n-| `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths   | Changing volume identity resolution or `--volume-map`      |\n-| `fingerprint.py`   | Acoustic fingerprint comparison (optional chromaprint dep) | Modifying fingerprint matching or its availability guard   |\n+| `volumes.py`       | VOLUME/VOLUMEID inference from existing collection paths, plus `local_path_for_location` resolving a location back to its on-disk path | Changing volume identity resolution or `--volume-map`      |\n+| `fingerprint.py`   | Acoustic fingerprint comparison (optional chromaprint dep); the old side resolves its path through `volumes.py` rather than from `decoded_path` | Modifying fingerprint matching or its availability guard   |\n | `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation | Modifying splice/split's structural write path or count recalculation |\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-001-007",
+          "version": 2,
+          "intent_ref": "CI-M-001-007",
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "diff": "--- a/traktor_nml/commands/CLAUDE.md\n+++ b/traktor_nml/commands/CLAUDE.md\n@@ -8,5 +8,5 @@\n | `inspect_cmd.py`    | `inspect`/`encode-dir` subcommands                             | Changing collection/playlist inspection output        |\n | `rewrite_cmd.py`    | `preview-diff`/`rewrite` subcommands (rule-based rewriting)    | Changing rule-based path rewrite behavior              |\n | `compare_cmd.py`    | `preview-compare`/`scan-compare-candidates`/`rewrite-from-collection-compare` subcommands | Changing compare-based rewrite or candidate scanning   |\n-| `reconnect_cmd.py`  | `scan-reconnect-candidates`/`rewrite-from-reconnect` subcommands (disk-scan reconnection) | Changing reconnection's CLI surface or stats output    |\n+| `reconnect_cmd.py`  | `scan-reconnect-candidates`/`rewrite-from-reconnect` subcommands (disk-scan reconnection); resolves volume identities before key providers are built and supplies them to the fingerprint provider as its known-mounts mapping | Changing reconnection's CLI surface or stats output    |\n | `splice_cmd.py`     | `splice` subcommand (merge NML files)                          | Changing splice's CLI surface, conflict flags, or reports |\n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "One-to-one assignment and input protection for compare-based rewriting",
+      "files": [
+        "traktor_nml/reconnect.py",
+        "traktor_nml/rewrite.py",
+        "traktor_nml/commands/compare_cmd.py",
+        "tests/test_compare.py",
+        "tests/baselines/manifest.json",
+        "tests/CLAUDE.md",
+        "traktor_nml/README.md",
+        "traktor_nml/CLAUDE.md",
+        "traktor_nml/commands/CLAUDE.md"
+      ],
+      "flags": [
+        "error-handling",
+        "needs-rationale"
+      ],
+      "requirements": [
+        "rewrite-from-collection-compare refuses to write when output resolves to old_input or new_input; two old entries matching one new entry are both withdrawn and counted under destination_collisions on the lxml patch path and the stdlib mutate path alike; per-tier matched counts stay consistent with the final matched total"
+      ],
+      "acceptance_criteria": [
+        "rewrite-from-collection-compare with output equal to new_input exits 2 with output_must_differ_from_input and writes nothing",
+        "rewrite-from-collection-compare with output equal to old_input keeps exiting 2 with the same diagnostic",
+        "Two old entries whose only match is one new entry are both withdrawn, reported as destination_collisions=2, and left unrewritten",
+        "The lxml patch path and the stdlib mutate path report the same stats for the collision fixture",
+        "The diff between the regenerated baselines manifest and the committed one consists solely of the added destination_collisions counter in the rewrite-from-collection-compare case; any other changed case is investigated before the regenerated manifest is accepted",
+        "The regenerated baselines manifest passes test_baseline_parity",
+        "README.md records that the existing DL-004 one-to-one guarantee now holds on the compare path too (DL-015, DL-016) and carries an Invariants bullet stating that a write command refuses an output resolving to any of its inputs, with multi-input commands declaring the rest through extra_inputs (DL-023), and the CLAUDE.md indexes name enforce_one_to_one and rewrite.py's newly public helpers",
+        "No previously-passing test regresses (pytest tests/ -q)"
+      ],
+      "tests": [
+        "type: integration through run_tool, in tests/test_compare.py",
+        "backing: doc-derived from the repository's existing DL-004 and tests/CLAUDE.md",
+        "normal: a clean one-to-one compare rewrite keeps its stats and output",
+        "edge: output equal to new_input, and output equal to old_input",
+        "error: two old entries claiming one new entry"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 2,
+          "file": "traktor_nml/reconnect.py",
+          "function": "enforce_one_to_one",
+          "behavior": "Take a mapping from match_records together with its stats, the old records, the candidate indexes, the confidence and the key providers, invert the mapping to find candidates claimed by more than one old record, drop every claimant, re-derive each affected tier count, and return the pruned mapping, the corrected stats carrying destination_collisions and matched, and the set of collided keys. resolve_reconnection calls it and adds its ambiguity-row reporting on top, so the repository's existing DL-004 invariant has one implementation and reconnect.py stays its owner.",
+          "decision_refs": [
+            "DL-015"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "traktor_nml/rewrite.py",
+          "function": "rewrite_from_collection_compare",
+          "behavior": "Build the candidate indexes once through build_new_indexes, pass them to match_records, and run the result through enforce_one_to_one before any LOCATION is rewritten, so the stdlib mutate path applies the same one-to-one guarantee as the lxml patch path and reports destination_collisions in its stats.",
+          "decision_refs": [
+            "DL-015",
+            "DL-016"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "traktor_nml/rewrite.py",
+          "function": "read_and_parse_source",
+          "behavior": "Read a path as bytes and parse it, reporting input_not_found for a missing file and xml_parse_error naming the path for a malformed one, and returning the source bytes together with the parsed root or the diagnostic outcome. write_nml_safely uses it for its own lxml branch so the diagnostics have one definition, and the span-transplantation commands reach the same behavior without passing through the patch-and-write skeleton.",
+          "decision_refs": [
+            "DL-019"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 1,
+          "file": "traktor_nml/rewrite.py",
+          "function": "write_bytes_atomically",
+          "behavior": "Expose the temp-file plus os.replace write under a public name so the splice and split commands write through the same primitive that apply_and_write and the stdlib branch already use, and keep the comment explaining why a truncating write is unacceptable for a collection file attached to it.",
+          "decision_refs": [
+            "DL-019"
+          ]
+        },
+        {
+          "id": "CI-M-002-005",
+          "version": 2,
+          "file": "traktor_nml/commands/compare_cmd.py",
+          "function": "_handle_rewrite_from_collection_compare",
+          "behavior": "Pass extra_inputs carrying new_input to write_nml_safely so an output that resolves to the newer collection is refused with the same output_must_differ_from_input diagnostic old_input already gets - the general rule being that a write command refuses an output resolving to any of its inputs, not only its primary one (DL-023). Separately, run the lxml patch path match through enforce_one_to_one with indexes built once, merging destination_collisions into the printed stats alongside the samples match_records returned (DL-015, DL-016).",
+          "decision_refs": [
+            "DL-023",
+            "DL-015",
+            "DL-016"
+          ]
+        },
+        {
+          "id": "CI-M-002-006",
+          "version": 1,
+          "file": "tests/test_compare.py",
+          "function": "module",
+          "behavior": "Cover compare-based rewriting at the CLI level through run_tool: an output equal to new_input and an output equal to old_input each exit 2 with output_must_differ_from_input and write nothing; two old entries whose only match is one new entry are both withdrawn, reported as destination_collisions=2, and left unrewritten in the output; the same fixture through the stdlib branch reports the same stats as the lxml branch.",
+          "decision_refs": [
+            "DL-015",
+            "DL-016"
+          ]
+        },
+        {
+          "id": "CI-M-002-007",
+          "version": 1,
+          "file": "tests/baselines/manifest.json",
+          "function": "rewrite-from-collection-compare case",
+          "behavior": "Carry the recorded stdout for the rewrite-from-collection-compare invocation with the destination_collisions counter present, regenerated through regenerate.py against the reviewed behavior change rather than hand-edited.",
+          "decision_refs": [
+            "DL-016"
+          ]
+        },
+        {
+          "id": "CI-M-002-008",
+          "version": 1,
+          "file": "tests/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "List tests/test_compare.py with what it covers and when to read it, keeping the navigation index complete.",
+          "decision_refs": [
+            "DL-016"
+          ]
+        },
+        {
+          "id": "CI-M-002-009",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": "Invariants section",
+          "behavior": "Extend the existing bullet that cites reconnect.py's one-to-one assignment guarantee (DL-004) to say the guarantee is enforced by one shared post-pass that compare-based rewriting also calls, and that a withdrawn match is reported as destination_collisions on both paths (DL-015, DL-016). Add a separate bullet stating that a write command refuses an output path resolving to any of its inputs, not only its primary one, so a multi-input command declares its remaining inputs through write_nml_safely's extra_inputs - rewrite-from-collection-compare declaring new_input being the case that motivated stating it generally (DL-023).",
+          "decision_refs": [
+            "DL-015",
+            "DL-016",
+            "DL-023"
+          ]
+        },
+        {
+          "id": "CI-M-002-010",
+          "version": 1,
+          "file": "traktor_nml/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the reconnect.py row to name enforce_one_to_one as the shared post-pass and the rewrite.py row to name read_and_parse_source and write_bytes_atomically as helpers other commands are expected to reuse.",
+          "decision_refs": [
+            "DL-015",
+            "DL-019"
+          ]
+        },
+        {
+          "id": "CI-M-002-011",
+          "version": 1,
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the compare_cmd.py row to say rewrite-from-collection-compare declares both collections as inputs so an output resolving to either is refused (DL-023), and enforces one-to-one through reconnect.enforce_one_to_one (DL-015).",
+          "decision_refs": [
+            "DL-023",
+            "DL-015"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-002-001",
+          "version": 2,
+          "intent_ref": "CI-M-002-001",
+          "file": "traktor_nml/reconnect.py",
+          "diff": "--- a/traktor_nml/reconnect.py\n+++ b/traktor_nml/reconnect.py\n@@ -53,6 +53,54 @@ def location_from_disk_path(path: Path, volume: str, volumeid: str) -> Locatio\n     )\n \n \n+def enforce_one_to_one(\n+    mapping: dict[str, EntryRecord],\n+    match_stats: dict[str, int],\n+    old_records: list[EntryRecord],\n+    indexes: dict[str, dict[tuple[str, ...], list[EntryRecord]]],\n+    confidence: MatchConfidence,\n+    key_providers: list[KeyProvider] = (),\n+) -> tuple[dict[str, EntryRecord], dict[str, int], set[str]]:\n+    \"\"\"Invert mapping (a plain old-to-new mapping from match_records) to\n+    find candidates claimed by more than one old record, drop every\n+    claimant, re-derive each affected tier's match count, and return the\n+    pruned mapping, the corrected stats (carrying destination_collisions\n+    and matched), and the set of dropped old keys (DL-004).\n+\n+    This is the one shared implementation of the one-to-one guarantee:\n+    resolve_reconnection and rewrite_from_collection_compare both call it\n+    rather than each re-deriving their own inversion pass.\n+    \"\"\"\n+    records_by_key = {record.primary_key: record for record in old_records}\n+    dest_claimants: dict[int, list[str]] = {}\n+    for old_key, candidate in mapping.items():\n+        dest_claimants.setdefault(id(candidate), []).append(old_key)\n+    collided_keys = {key for claimants in dest_claimants.values() if len(claimants) > 1 for key in claimants}\n+\n+    # A withdrawn destination collision was still counted under its match\n+    # tier when match_records ran; re-derive that tier the same way\n+    # match_records did (first tier whose index bucket holds exactly this\n+    # one candidate) so matched_<tier> stays consistent with the final\n+    # matched total instead of overcounting a match that was later undone.\n+    stats = dict(match_stats)\n+    for old_key in collided_keys:\n+        record = records_by_key.get(old_key)\n+        if record is None:\n+            continue\n+        winner = mapping[old_key]\n+        for key_name, key_value in record_keys(record, confidence, key_providers):\n+            if indexes.get(key_name, {}).get(key_value) == [winner]:\n+                stat_name = f\"matched_{key_name}\"\n+                if stat_name in stats:\n+                    stats[stat_name] -= 1\n+                break\n+\n+    final_mapping = {key: value for key, value in mapping.items() if key not in collided_keys}\n+    stats[\"destination_collisions\"] = len(collided_keys)\n+    stats[\"matched\"] = len(final_mapping)\n+    return final_mapping, stats, collided_keys\n+\n+\n def resolve_reconnection(\n     old_records: list[EntryRecord],\n     candidates: list[EntryRecord],\n@@ -73,32 +117,10 @@ def resolve_reconnection(\n     mapping, match_stats, _samples = match_records(\n         old_records, candidates, confidence, key_providers, indexes=indexes\n     )\n \n-    records_by_key = {record.primary_key: record for record in old_records}\n-    dest_claimants: dict[int, list[str]] = {}\n-    for old_key, candidate in mapping.items():\n-        dest_claimants.setdefault(id(candidate), []).append(old_key)\n-    collided_keys = {key for claimants in dest_claimants.values() if len(claimants) > 1 for key in claimants}\n-\n-    # A withdrawn destination collision was still counted under its match\n-    # tier when match_records ran; re-derive that tier the same way\n-    # match_records did (first tier whose index bucket holds exactly this\n-    # one candidate) so matched_<tier> stays consistent with the final\n-    # matched total instead of overcounting a match that was later undone.\n-    stats = dict(match_stats)\n-    for old_key in collided_keys:\n-        record = records_by_key.get(old_key)\n-        if record is None:\n-            continue\n-        winner = mapping[old_key]\n-        for key_name, key_value in record_keys(record, confidence, key_providers):\n-            if indexes.get(key_name, {}).get(key_value) == [winner]:\n-                stat_name = f\"matched_{key_name}\"\n-                if stat_name in stats:\n-                    stats[stat_name] -= 1\n-                break\n-\n-    final_mapping = {key: value for key, value in mapping.items() if key not in collided_keys}\n+    final_mapping, stats, collided_keys = enforce_one_to_one(\n+        mapping, match_stats, old_records, indexes, confidence, key_providers\n+    )\n \n     ambiguity_rows: list[dict[str, str]] = []\n     for record in old_records:\n@@ -124,6 +149,4 @@ def resolve_reconnection(\n             }\n         )\n \n-    stats[\"destination_collisions\"] = len(collided_keys)\n-    stats[\"matched\"] = len(final_mapping)\n     return final_mapping, stats, ambiguity_rows\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-002",
+          "version": 4,
+          "intent_ref": "CI-M-002-002",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -20,6 +20,7 @@ from typing import Callable, Optional, Protocol\n\n from .confidence import MatchConfidence\n-from .matching import KeyProvider, match_records\n+from .matching import KeyProvider, build_new_indexes, match_records\n+from .reconnect import enforce_one_to_one\n from .model import (\n     EntryRecord,\n     ElemPatch,\n@@ -211,8 +212,12 @@ def rewrite_from_collection_compare(\n     then redirect every non-collection reference through the resulting\n     old-to-new mapping via the shared cascade.\"\"\"\n     old_records = collection_records(old_root)\n     new_records = collection_records(new_root)\n-    mapping, match_stats, samples = match_records(old_records, new_records, confidence, key_providers)\n+    indexes = build_new_indexes(new_records, confidence, key_providers)\n+    mapping, match_stats, samples = match_records(old_records, new_records, confidence, key_providers, indexes=indexes)\n+    mapping, match_stats, _collided = enforce_one_to_one(\n+        mapping, match_stats, old_records, indexes, confidence, key_providers\n+    )\n     stats = {**_empty_compare_stats(), **match_stats}\n     for record in old_records:\n         new_record = mapping.get(record.primary_key)\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-003",
+          "version": 2,
+          "intent_ref": "CI-M-002-003",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -276,4 +276,29 @@ def _collect_compare_patches(\n     return patches, stats\n \n \n+@dataclass\n+class ReadParseResult:\n+    source_bytes: Optional[bytes]\n+    root: Optional[ET.Element]\n+    error: Optional[str]  # a pre-formatted diagnostic line, e.g. \"input_not_found=path\"\n+\n+\n+def read_and_parse_source(path: Path) -> ReadParseResult:\n+    \"\"\"Read path as bytes and parse it, reporting input_not_found for a\n+    missing file and xml_parse_error naming the path for a malformed one.\n+    write_nml_safely's own lxml branch uses this so the diagnostics have\n+    one definition, and the span-transplantation commands (splice, split)\n+    reach the same behavior without passing through the patch-and-write\n+    skeleton write_nml_safely wraps.\"\"\"\n+    try:\n+        source_bytes = path.read_bytes()\n+    except FileNotFoundError:\n+        return ReadParseResult(None, None, f\"input_not_found={path}\")\n+    try:\n+        root = parse_xml_bytes(source_bytes)\n+    except XML_PARSE_ERROR as exc:\n+        return ReadParseResult(None, None, f\"xml_parse_error={path}: {exc}\")\n+    return ReadParseResult(source_bytes, root, None)\n+\n+\n def _write_bytes_atomically(output: Path, data: bytes) -> None:\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-004",
+          "version": 2,
+          "intent_ref": "CI-M-002-004",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -278,6 +278,10 @@ def _collect_compare_patches(\n \n \n-def _write_bytes_atomically(output: Path, data: bytes) -> None:\n+def write_bytes_atomically(output: Path, data: bytes) -> None:\n+    \"\"\"Write data to output through a temp file plus os.replace, under a\n+    public name so the splice and split commands write through the same\n+    primitive apply_and_write and the stdlib branch already use, rather\n+    than each command committing its own plain, truncating write.\"\"\"\n     # write_bytes/open(\"wb\") truncate an existing destination in place, so a\n     # write that fails partway (disk full, process killed) can leave a\n     # truncated file where a valid collection used to stand. Writing to a\n@@ -298,8 +303,8 @@ def apply_and_write(source_bytes: bytes, patches: list[ElemPatch], output: Pat\n     # Traktor's current collection/history files declare UTF-8. Keeping the\n     # source string intact means this re-encodes to exactly the same bytes\n     # except for the requested XML-escaped attribute values.\n     patched = apply_text_patches(source_bytes.decode(\"utf-8\"), patches)\n-    _write_bytes_atomically(output, patched.encode(\"utf-8\"))\n+    write_bytes_atomically(output, patched.encode(\"utf-8\"))\n \n \n def print_stats_and_samples(\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-005",
+          "version": 1,
+          "intent_ref": "CI-M-002-004",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -373,7 +378,7 @@ def write_nml_safely(\n     root = tree.getroot()\n     stats, samples = mutate_tree(root, dry_run)\n     print_stats_and_samples(stats, samples)\n     if not dry_run:\n-        write_traktor_xml(root, output_path, write_bytes=_write_bytes_atomically)\n+        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)\n         print(f\"output_written={output_path}\")\n     return 0\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-006",
+          "version": 2,
+          "intent_ref": "CI-M-002-003",
+          "file": "traktor_nml/rewrite.py",
+          "diff": "--- a/traktor_nml/rewrite.py\n+++ b/traktor_nml/rewrite.py\n@@ -347,16 +347,11 @@ def write_nml_safely(\n         return 2\n \n     if HAS_LXML:\n-        try:\n-            source_bytes = input_path.read_bytes()\n-        except FileNotFoundError:\n-            print(f\"input_not_found={input_path}\", file=sys.stderr)\n-            return 2\n-        try:\n-            root = parse_xml_bytes(source_bytes)\n-        except XML_PARSE_ERROR as exc:\n-            print(f\"xml_parse_error={input_path}: {exc}\", file=sys.stderr)\n+        read_result = read_and_parse_source(input_path)\n+        if read_result.error is not None:\n+            print(read_result.error, file=sys.stderr)\n             return 2\n+        source_bytes, root = read_result.source_bytes, read_result.root\n         patches, stats, samples = collect_patches(root)\n         print_stats_and_samples(stats, samples)\n         if not dry_run:\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-007",
+          "version": 2,
+          "intent_ref": "CI-M-002-005",
+          "file": "traktor_nml/commands/compare_cmd.py",
+          "diff": "--- a/traktor_nml/commands/compare_cmd.py\n+++ b/traktor_nml/commands/compare_cmd.py\n@@ -7,10 +7,11 @@ from pathlib import Path\n \n from ..confidence import MatchConfidence, parse_match_confidence\n-from ..matching import match_records\n+from ..matching import build_new_indexes, match_records\n from ..model import collection_records\n+from ..reconnect import enforce_one_to_one\n from ..rewrite import (\n     _collect_compare_patches,\n     rewrite_from_collection_compare,\n     write_nml_safely,\n )\n from ..xmlio import XML_PARSE_ERROR, parse_xml\n@@ -172,20 +174,25 @@ def _handle_rewrite_from_collection_compare(args: argparse.Namespace) -> int:\n     confidence = resolve_confidence(args)\n \n     def _collect_patches(old_root):\n         old_records = collection_records(old_root)\n         new_tree = parse_xml(args.new_input)\n         new_records = collection_records(new_tree.getroot())\n-        mapping, match_stats, samples = match_records(old_records, new_records, confidence)\n+        indexes = build_new_indexes(new_records, confidence)\n+        mapping, match_stats, samples = match_records(old_records, new_records, confidence, indexes=indexes)\n+        mapping, match_stats, _collided = enforce_one_to_one(\n+            mapping, match_stats, old_records, indexes, confidence\n+        )\n         patches, apply_stats = _collect_compare_patches(old_root, old_records, mapping)\n         return patches, {**apply_stats, **match_stats}, samples\n \n     def mutate_tree(old_root, dry_run):\n         new_tree = parse_xml(args.new_input)\n         stats, samples = rewrite_from_collection_compare(\n             old_root, new_tree.getroot(), dry_run=dry_run, confidence=confidence\n         )\n         return stats, samples\n \n     return write_nml_safely(\n-        args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree\n+        args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree,\n+        extra_inputs=(args.new_input,),\n     )\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-008",
+          "version": 2,
+          "intent_ref": "CI-M-002-006",
+          "file": "tests/test_compare.py",
+          "diff": "--- /dev/null\n+++ b/tests/test_compare.py\n@@ -0,0 +1,105 @@\n+\"\"\"Compare-based rewriting at the CLI level: input protection and the\n+shared one-to-one assignment guarantee (DL-004, DL-015, DL-016, DL-023).\"\"\"\n+\n+from __future__ import annotations\n+\n+from pathlib import Path\n+\n+from tests.conftest import run_tool\n+\n+\n+def _nml(entries_xml: str, entries_count: int) -> str:\n+    return (\n+        '<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\\n'\n+        '<NML VERSION=\"20\"><HEAD PROGRAM=\"Traktor\" VERSION=\"1\"></HEAD>'\n+        f'<COLLECTION ENTRIES=\"{entries_count}\">{entries_xml}</COLLECTION>'\n+        '<PLAYLISTS><NODE TYPE=\"FOLDER\" NAME=\"$ROOT\"><SUBNODES COUNT=\"0\"></SUBNODES></NODE></PLAYLISTS>'\n+        '<SETS></SETS><INDEXING></INDEXING></NML>'\n+    )\n+\n+\n+def _entry(artist, title, filename, size=\"16\", time=\"1.0\"):\n+    return (\n+        f'<ENTRY TITLE=\"{title}\" ARTIST=\"{artist}\" AUDIO_ID=\"\">'\n+        f'<LOCATION DIR=\"/:Music/:\" FILE=\"{filename}\" VOLUME=\"C:\" VOLUMEID=\"C:\"></LOCATION>'\n+        f'<INFO BITRATE=\"320\" PLAYTIME_FLOAT=\"{time}\" FILESIZE=\"{size}\"></INFO>'\n+        \"</ENTRY>\"\n+    )\n+\n+\n+def test_output_equal_to_new_input_is_refused(tmp_path: Path) -> None:\n+    old_path = tmp_path / \"old.nml\"\n+    old_path.write_text(_nml(_entry(\"A\", \"Song\", \"song.mp3\"), 1), encoding=\"utf-8\")\n+    new_path = tmp_path / \"new.nml\"\n+    new_path.write_text(_nml(_entry(\"A\", \"Song\", \"song.mp3\"), 1), encoding=\"utf-8\")\n+\n+    result = run_tool(\n+        [\"rewrite-from-collection-compare\", str(old_path), str(new_path), str(new_path)], cwd=tmp_path\n+    )\n+    assert result.exit_code == 2\n+    assert \"output_must_differ_from_input\" in result.stderr\n+\n+\n+def test_output_equal_to_old_input_is_refused(tmp_path: Path) -> None:\n+    old_path = tmp_path / \"old.nml\"\n+    old_path.write_text(_nml(_entry(\"A\", \"Song\", \"song.mp3\"), 1), encoding=\"utf-8\")\n+    new_path = tmp_path / \"new.nml\"\n+    new_path.write_text(_nml(_entry(\"A\", \"Song\", \"song.mp3\"), 1), encoding=\"utf-8\")\n+\n+    result = run_tool(\n+        [\"rewrite-from-collection-compare\", str(old_path), str(new_path), str(old_path)], cwd=tmp_path\n+    )\n+    assert result.exit_code == 2\n+    assert \"output_must_differ_from_input\" in result.stderr\n+\n+\n+def test_two_old_entries_matching_one_new_entry_are_both_withdrawn(tmp_path: Path) -> None:\n+    \"\"\"Two old entries whose only artist/title/album/time match is one new\n+    entry both lose their match to the shared post-pass DL-004 already\n+    enforces for reconnection; the destination collision is reported and\n+    neither old LOCATION is rewritten.\"\"\"\n+    old_path = tmp_path / \"old.nml\"\n+    old_path.write_text(\n+        _nml(\n+            _entry(\"A\", \"Song\", \"one.mp3\", time=\"100.0\") + _entry(\"A\", \"Song\", \"two.mp3\", time=\"100.0\"),\n+            2,\n+        ),\n+        encoding=\"utf-8\",\n+    )\n+    new_path = tmp_path / \"new.nml\"\n+    new_path.write_text(_nml(_entry(\"A\", \"Song\", \"three.mp3\", time=\"100.0\"), 1), encoding=\"utf-8\")\n+    out_path = tmp_path / \"out.nml\"\n+\n+    result = run_tool(\n+        [\"rewrite-from-collection-compare\", str(old_path), str(new_path), str(out_path)], cwd=tmp_path\n+    )\n+    assert result.exit_code == 0\n+    assert \"destination_collisions=2\" in result.stdout\n+    out_text = out_path.read_text(encoding=\"utf-8\")\n+    assert \"one.mp3\" in out_text\n+    assert \"two.mp3\" in out_text\n+    assert \"three.mp3\" not in out_text\n+\n+\n+def test_stdlib_branch_reports_the_same_destination_collision_stats(tmp_path: Path, monkeypatch) -> None:\n+    import traktor_nml.rewrite as rewrite_module\n+\n+    monkeypatch.setattr(rewrite_module, \"HAS_LXML\", False)\n+\n+    old_path = tmp_path / \"old.nml\"\n+    old_path.write_text(\n+        _nml(\n+            _entry(\"A\", \"Song\", \"one.mp3\", time=\"100.0\") + _entry(\"A\", \"Song\", \"two.mp3\", time=\"100.0\"),\n+            2,\n+        ),\n+        encoding=\"utf-8\",\n+    )\n+    new_path = tmp_path / \"new.nml\"\n+    new_path.write_text(_nml(_entry(\"A\", \"Song\", \"three.mp3\", time=\"100.0\"), 1), encoding=\"utf-8\")\n+    out_path = tmp_path / \"out.nml\"\n+\n+    result = run_tool(\n+        [\"rewrite-from-collection-compare\", str(old_path), str(new_path), str(out_path)], cwd=tmp_path\n+    )\n+    assert result.exit_code == 0\n+    assert \"destination_collisions=2\" in result.stdout\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-009",
+          "version": 2,
+          "intent_ref": "CI-M-002-007",
+          "file": "tests/baselines/manifest.json",
+          "diff": "--- a/tests/baselines/manifest.json\n+++ b/tests/baselines/manifest.json\n@@ -110,4 +110,4 @@\n     ],\n     \"exit_code\": 0,\n-    \"stdout\": \"collection_locations_rewritten=0\\nother_locations_rewritten=0\\nprimarykeys_updated_from_collection=0\\nprimarykeys_unchanged=0\\nmatched=1\\nmatched_audio_id=0\\nmatched_artist_title_size_time=1\\nmatched_artist_title_file=0\\nmatched_file_size_time=0\\nmatched_artist_title_album_time=0\\nmatched_artist_title=0\\nunmatched=0\\nambiguous=0\\nsample_matches:\\n- Boards of Canada - Roygbiv\\n  matched_by=artist_title_size_time\\n  before=/Music/roygbiv_final.mp3\\n  after=/Music/roygbiv_final.mp3\\noutput_written=out\\\\compare_out.nml\\n\",\n+    \"stdout\": \"collection_locations_rewritten=0\\nother_locations_rewritten=0\\nprimarykeys_updated_from_collection=0\\nprimarykeys_unchanged=0\\nmatched=1\\nmatched_audio_id=0\\nmatched_artist_title_size_time=1\\nmatched_artist_title_file=0\\nmatched_file_size_time=0\\nmatched_artist_title_album_time=0\\nmatched_artist_title=0\\nunmatched=0\\nambiguous=0\\ndestination_collisions=0\\nsample_matches:\\n- Boards of Canada - Roygbiv\\n  matched_by=artist_title_size_time\\n  before=/Music/roygbiv_final.mp3\\n  after=/Music/roygbiv_final.mp3\\noutput_written=out\\\\compare_out.nml\\n\",\n     \"stderr\": \"\",\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-010",
+          "version": 2,
+          "intent_ref": "CI-M-002-008",
+          "file": "tests/CLAUDE.md",
+          "diff": "--- a/tests/CLAUDE.md\n+++ b/tests/CLAUDE.md\n@@ -9,3 +9,4 @@\n | `test_baseline_parity.py`| Byte-level parity oracle against `baselines/manifest.json`    | Changing any CLI subcommand's output, exit code, or written bytes |\n | `test_cli_contract.py`   | Subcommand surface + `--allow-artist-title-only`/`--match-confidence` alias contract | Adding/renaming a subcommand, changing legacy-flag equivalence |\n+| `test_compare.py`        | Compare-based rewrite input-protection and destination-collision tests | Changing `rewrite_from_collection_compare` or `compare_cmd.py`'s write path |\n | `test_diskscan.py`       | Disk-scan candidate discovery tests                            | Changing `diskscan.py`                                        |\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-011",
+          "version": 2,
+          "intent_ref": "CI-M-002-009",
+          "file": "traktor_nml/README.md",
+          "diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ -47,4 +47,12 @@\n - `reconnect.py`'s one-to-one assignment guarantee (DL-004) and\n   `volumes.py`'s explicit-VOLUME/VOLUMEID requirement (DL-005) are both\n   enforced as post-passes over the shared matching cascade, which itself\n-  stays unaware either invariant is being layered on top of it.\n+  stays unaware either invariant is being layered on top of it; the\n+  guarantee is enforced by one shared post-pass (`reconnect.enforce_one_to_one`)\n+  that compare-based rewriting also calls, and a withdrawn match is\n+  reported as `destination_collisions` on both paths (DL-015, DL-016).\n+- A write command refuses an output path resolving to any of its inputs,\n+  not only its primary one, so a multi-input command declares its\n+  remaining inputs through `write_nml_safely`'s `extra_inputs` -\n+  `rewrite-from-collection-compare` declaring `new_input` is the case\n+  that motivated stating this generally (DL-023).\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-012",
+          "version": 2,
+          "intent_ref": "CI-M-002-010",
+          "file": "traktor_nml/CLAUDE.md",
+          "diff": "--- a/traktor_nml/CLAUDE.md\n+++ b/traktor_nml/CLAUDE.md\n@@ -9,8 +9,8 @@\n | `xmlio.py`         | lxml/stdlib ET parsing wrapper                             | Changing how NML files are parsed or serialized            |\n | `textpatch.py`     | `apply_text_patches`/`ElemPatch` byte-preserving attribute writes | Changing how LOCATION/PRIMARYKEY attribute rewrites are applied |\n-| `rewrite.py`       | Rule-based and compare-based rewrite patch collection, `write_nml_safely` | Modifying the rewrite/compare cascade or the write path    |\n+| `rewrite.py`       | Rule-based and compare-based rewrite patch collection, `write_nml_safely`; also `read_and_parse_source` and `write_bytes_atomically`, reusable read/write helpers other commands are expected to call | Modifying the rewrite/compare cascade or the write path    |\n | `confidence.py`    | `MatchConfidence` ordered enum (strict/loose/filename)     | Adding a match tier or confidence level                    |\n | `matching.py`      | `record_keys`/`match_records` tiered match cascade         | Changing match-key tiers or ambiguity detection            |\n | `diskscan.py`      | Filesystem candidate scanning for reconnection             | Adding or changing disk-scan candidate discovery            |\n | `tagcache.py`      | Tag-read caching                                           | Changing tag cache key composition or eviction             |\n-| `reconnect.py`     | Disk-scan reconnection, one-to-one assignment invariant    | Modifying reconnection matching or destination-collision handling |\n+| `reconnect.py`     | Disk-scan reconnection; `enforce_one_to_one` is the shared one-to-one assignment post-pass compare-based rewriting also calls | Modifying reconnection matching or destination-collision handling |\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-013",
+          "version": 2,
+          "intent_ref": "CI-M-002-011",
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "diff": "--- a/traktor_nml/commands/CLAUDE.md\n+++ b/traktor_nml/commands/CLAUDE.md\n@@ -8,3 +8,3 @@\n | `inspect_cmd.py`    | `inspect`/`encode-dir` subcommands                             | Changing collection/playlist inspection output        |\n | `rewrite_cmd.py`    | `preview-diff`/`rewrite` subcommands (rule-based rewriting)    | Changing rule-based path rewrite behavior              |\n-| `compare_cmd.py`    | `preview-compare`/`scan-compare-candidates`/`rewrite-from-collection-compare` subcommands | Changing compare-based rewrite or candidate scanning   |\n+| `compare_cmd.py`    | `preview-compare`/`scan-compare-candidates`/`rewrite-from-collection-compare` subcommands; the rewrite declares both collections as inputs so an output resolving to either is refused (DL-023), and enforces one-to-one through `reconnect.enforce_one_to_one` (DL-015) | Changing compare-based rewrite or candidate scanning   |\n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "Write-path safety for the splice and split subcommands",
+      "files": [
+        "traktor_nml/commands/splice_cmd.py",
+        "traktor_nml/commands/split_cmd.py",
+        "tests/test_cli_contract.py",
+        "traktor_nml/README.md",
+        "traktor_nml/commands/CLAUDE.md"
+      ],
+      "flags": [
+        "error-handling"
+      ],
+      "requirements": [
+        "A malformed NML given to splice or split prints xml_parse_error naming the input and exits 2; every splice and split output is written through the temp-file plus os.replace path so a destination holds either its previous content or the complete new content"
+      ],
+      "acceptance_criteria": [
+        "splice with a malformed base exits 2 with an xml_parse_error line naming the base and writes no output",
+        "splice with one malformed contribution among several exits 2 naming that contribution",
+        "split with a malformed input exits 2 with the same diagnostic shape",
+        "With os.replace monkeypatched in traktor_nml.rewrite to raise OSError on the call for a destination that already holds a valid collection, the command exits non-zero and that destination still holds its previous bytes, and no temp file is left beside it",
+        "Valid splice and split runs still exit 0 and write their outputs",
+        "README.md records the per-file atomic-write invariant underneath the existing DL-012 build-before-write rule and names the multi-output write-loop gap as a stated tradeoff (DL-019, DL-022)",
+        "No previously-passing test regresses (pytest tests/ -q)"
+      ],
+      "tests": [
+        "type: integration through run_tool, in tests/test_cli_contract.py",
+        "backing: doc-derived from write_nml_safely conventions and the existing DL-012",
+        "normal: valid inputs write and exit 0",
+        "edge: one of several splice inputs is malformed",
+        "error: interruption is injected by monkeypatching os.replace in the traktor_nml.rewrite namespace to raise OSError when the destination under test is committed, with the pre-existing destination bytes captured before the run and asserted unchanged after it, plus an assertion that the temp file the helper created no longer exists - the raise-at-commit point is what makes the test able to fail, since asserting on an uninterrupted run would pass against a truncating write too"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 1,
+          "file": "traktor_nml/commands/splice_cmd.py",
+          "function": "_handle_splice",
+          "behavior": "Read and parse the base and every --input contribution through rewrite.read_and_parse_source so a malformed file yields xml_parse_error naming that file and exit code 2 instead of an lxml exception escaping the handler, and write the assembled output through rewrite.write_bytes_atomically so an interrupted write cannot truncate an existing destination.",
+          "decision_refs": [
+            "DL-019"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 2,
+          "file": "traktor_nml/commands/split_cmd.py",
+          "function": "_handle_split",
+          "behavior": "Read and parse the input through rewrite.read_and_parse_source for the same diagnostics, and write every group output through rewrite.write_bytes_atomically, keeping the existing rule that no output is written when any group fails. The comment at the write loop states what the per-file atomicity does and does not buy: each destination holds either its previous bytes or the complete new bytes, but a failure partway through the loop still leaves earlier groups written, which is the bounded tradeoff DL-022 records rather than an oversight.",
+          "decision_refs": [
+            "DL-019"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "version": 2,
+          "file": "tests/test_cli_contract.py",
+          "function": "malformed input and atomic write cases",
+          "behavior": "Assert splice with a malformed base, splice with one malformed contribution among several, and split with a malformed input each exit 2 with an xml_parse_error line naming the offending path and leave no output file. For the atomic-write case, seed the destination with a valid collection, capture its bytes, monkeypatch os.replace in the traktor_nml.rewrite namespace so the commit for that destination raises OSError, run the command, and assert it exits non-zero, that the destination still holds exactly the captured bytes, and that no temp file survives beside it; without the injected raise there is no interruption to observe and the assertion could not fail.",
+          "decision_refs": [
+            "DL-019"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": "Invariants section",
+          "behavior": "Add, beneath the existing DL-012 bullet about building and validating the complete output before any file handle opens, that every output is additionally committed through a temp file plus os.replace so a destination holds either its previous bytes or the complete new bytes (DL-019), and record that split's multi-output write loop is not transactional across files - a failure partway through leaves earlier groups written, accepted because cross-file staging and commit is new machinery (DL-022).",
+          "decision_refs": [
+            "DL-019",
+            "DL-022"
+          ]
+        },
+        {
+          "id": "CI-M-003-005",
+          "version": 1,
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the splice_cmd.py and split_cmd.py rows to say both read and parse through rewrite.read_and_parse_source and commit through rewrite.write_bytes_atomically, so the index no longer describes them as carrying their own input handling and plain writes.",
+          "decision_refs": [
+            "DL-019"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-003-001",
+          "version": 3,
+          "intent_ref": "CI-M-003-001",
+          "file": "traktor_nml/commands/splice_cmd.py",
+          "diff": "--- a/traktor_nml/commands/splice_cmd.py\n+++ b/traktor_nml/commands/splice_cmd.py\n@@ -8,7 +8,7 @@ from pathlib import Path\n \n from ..confidence import MatchConfidence, parse_match_confidence\n from ..splice import ConflictRow, assemble_output\n-from ..xmlio import parse_xml_bytes\n+from ..rewrite import read_and_parse_source, write_bytes_atomically\n \n \n def _write_conflict_report(rows: list[ConflictRow], csv_path: Path | None) -> None:\n@@ -30,18 +30,25 @@ def _handle_splice(args: argparse.Namespace) -> int:\n     # Refuses output == any input path (the tool's existing dry-run\n     # convention, extended here to every splice input, not just base).\n     if args.output.resolve() in {args.base.resolve(), *(p.resolve() for p in args.input)}:\n         print(\"output_must_differ_from_input\", file=sys.stderr)\n         return 2\n \n-    try:\n-        base_bytes = args.base.read_bytes()\n-        contributions = []\n-        for path in args.input:\n-            source_bytes = path.read_bytes()\n-            contributions.append((source_bytes.decode(\"utf-8\"), parse_xml_bytes(source_bytes)))\n-    except FileNotFoundError as exc:\n-        print(f\"input_not_found={exc.filename}\", file=sys.stderr)\n-        return 2\n-\n-    base_root = parse_xml_bytes(base_bytes)\n+    # Read and parse every input (base plus every --input contribution)\n+    # through rewrite.read_and_parse_source, so a malformed file yields\n+    # xml_parse_error naming that file and exit code 2 instead of an lxml\n+    # exception escaping this handler.\n+    base_result = read_and_parse_source(args.base)\n+    if base_result.error is not None:\n+        print(base_result.error, file=sys.stderr)\n+        return 2\n+    base_bytes, base_root = base_result.source_bytes, base_result.root\n+\n+    contributions = []\n+    for path in args.input:\n+        contribution_result = read_and_parse_source(path)\n+        if contribution_result.error is not None:\n+            print(contribution_result.error, file=sys.stderr)\n+            return 2\n+        contributions.append((contribution_result.source_bytes.decode(\"utf-8\"), contribution_result.root))\n+\n     confidence = parse_match_confidence(args.match_confidence) if args.match_confidence else MatchConfidence.STRICT\n@@ -60,7 +65,17 @@ def _handle_splice(args: argparse.Namespace) -> int:\n         return 2\n \n     if not args.dry_run:\n-        args.output.parent.mkdir(parents=True, exist_ok=True)\n-        args.output.write_bytes(result.output.encode(\"utf-8\"))\n+        # write_bytes_atomically commits through a temp file plus\n+        # os.replace, so an interrupted write cannot truncate an existing\n+        # destination (unlike a plain Path.write_bytes call). A commit\n+        # failure (e.g. disk full, or os.replace itself failing) is\n+        # reported as a diagnostic and a non-zero exit rather than an\n+        # escaping exception, matching every other write command's\n+        # error-reporting convention.\n+        try:\n+            write_bytes_atomically(args.output, result.output.encode(\"utf-8\"))\n+        except OSError as exc:\n+            print(f\"output_write_error={exc}\", file=sys.stderr)\n+            return 2\n         print(f\"output_written={args.output}\")\n     return 0\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-002",
+          "version": 3,
+          "intent_ref": "CI-M-003-002",
+          "file": "traktor_nml/commands/split_cmd.py",
+          "diff": "--- a/traktor_nml/commands/split_cmd.py\n+++ b/traktor_nml/commands/split_cmd.py\n@@ -6,7 +6,7 @@ import sys\n from pathlib import Path\n \n from ..split import build_output\n-from ..xmlio import parse_xml_bytes\n+from ..rewrite import read_and_parse_source, write_bytes_atomically\n \n \n def _parse_groups(raw_groups: list[list[str]] | None) -> list[tuple[Path, list[str]]]:\n@@ -33,14 +33,12 @@ def _handle_split(args: argparse.Namespace) -> int:\n     if args.input.resolve() in {p.resolve() for p in output_paths}:\n         print(\"output_must_differ_from_input\", file=sys.stderr)\n         return 2\n \n-    try:\n-        source_bytes = args.input.read_bytes()\n-    except FileNotFoundError:\n-        print(f\"input_not_found={args.input}\", file=sys.stderr)\n-        return 2\n-\n-    root = parse_xml_bytes(source_bytes)\n+    read_result = read_and_parse_source(args.input)\n+    if read_result.error is not None:\n+        print(read_result.error, file=sys.stderr)\n+        return 2\n+    source_bytes, root = read_result.source_bytes, read_result.root\n     source_text = source_bytes.decode(\"utf-8\")\n \n     outcomes = []\n@@ -55,10 +55,21 @@ def _handle_split(args: argparse.Namespace) -> int:\n     if any(outcome.output is None for _, outcome in outcomes):\n         print(\"split_aborted=true\", file=sys.stderr)\n         return 2\n \n+    # Each destination is committed through write_bytes_atomically (temp\n+    # file plus os.replace), so a failure mid-write leaves that\n+    # destination holding either its previous bytes or the complete new\n+    # bytes, never a truncated partial write. This loop is not\n+    # transactional across the several group outputs: a failure partway\n+    # through still leaves earlier groups written, the bounded tradeoff\n+    # DL-022 records rather than an oversight - cross-file staging and\n+    # commit is new machinery this milestone does not add.\n     if not args.dry_run:\n         for output_path, outcome in outcomes:\n-            output_path.parent.mkdir(parents=True, exist_ok=True)\n-            output_path.write_bytes(outcome.output.encode(\"utf-8\"))\n+            try:\n+                write_bytes_atomically(output_path, outcome.output.encode(\"utf-8\"))\n+            except OSError as exc:\n+                print(f\"output_write_error={exc}\", file=sys.stderr)\n+                return 2\n             print(f\"output_written={output_path}\")\n     return 0\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-003",
+          "version": 4,
+          "intent_ref": "CI-M-003-003",
+          "file": "tests/test_cli_contract.py",
+          "diff": "--- a/tests/test_cli_contract.py\n+++ b/tests/test_cli_contract.py\n@@ -49,3 +49,87 @@ def test_allow_artist_title_only_matches_loose_confidence(fixture_corpus: Path\n         cwd=tmp_path,\n     )\n     assert legacy.stdout == enum_form.stdout\n+\n+\n+def test_splice_malformed_base_reports_xml_parse_error(tmp_path: Path) -> None:\n+    base_path = tmp_path / \"base.nml\"\n+    base_path.write_text(\"<NML VERSION=\\\"20\\\"><UNCLOSED>\", encoding=\"utf-8\")\n+    other_path = tmp_path / \"other.nml\"\n+    other_path.write_text('<?xml version=\"1.0\"?><NML VERSION=\"20\"></NML>', encoding=\"utf-8\")\n+    out_path = tmp_path / \"out.nml\"\n+\n+    result = run_tool(\n+        [\"splice\", str(base_path), str(out_path), \"--input\", str(other_path)], cwd=tmp_path\n+    )\n+    assert result.exit_code == 2\n+    assert f\"xml_parse_error={base_path}\" in result.stderr\n+    assert not out_path.exists()\n+\n+\n+def test_splice_malformed_contribution_reports_xml_parse_error(tmp_path: Path) -> None:\n+    base_path = tmp_path / \"base.nml\"\n+    base_path.write_text('<?xml version=\"1.0\"?><NML VERSION=\"20\"></NML>', encoding=\"utf-8\")\n+    good_path = tmp_path / \"good.nml\"\n+    good_path.write_text('<?xml version=\"1.0\"?><NML VERSION=\"20\"></NML>', encoding=\"utf-8\")\n+    bad_path = tmp_path / \"bad.nml\"\n+    bad_path.write_text(\"<NML VERSION=\\\"20\\\"><UNCLOSED>\", encoding=\"utf-8\")\n+    out_path = tmp_path / \"out.nml\"\n+\n+    result = run_tool(\n+        [\"splice\", str(base_path), str(out_path), \"--input\", str(good_path), \"--input\", str(bad_path)],\n+        cwd=tmp_path,\n+    )\n+    assert result.exit_code == 2\n+    assert f\"xml_parse_error={bad_path}\" in result.stderr\n+    assert not out_path.exists()\n+\n+\n+def test_split_malformed_input_reports_xml_parse_error(tmp_path: Path) -> None:\n+    src_path = tmp_path / \"src.nml\"\n+    src_path.write_text(\"<NML VERSION=\\\"20\\\"><UNCLOSED>\", encoding=\"utf-8\")\n+    out_path = tmp_path / \"out.nml\"\n+\n+    result = run_tool([\"split\", str(src_path), \"--group\", str(out_path), \"Keep\"], cwd=tmp_path)\n+    assert result.exit_code == 2\n+    assert f\"xml_parse_error={src_path}\" in result.stderr\n+    assert not out_path.exists()\n+\n+\n+def test_interrupted_commit_leaves_destination_and_no_temp_file(tmp_path: Path, monkeypatch) -> None:\n+    \"\"\"Seed the destination with a valid collection, inject an OSError\n+    into the commit's own os.replace call, and confirm the destination\n+    still holds exactly its original bytes with no temp file left beside\n+    it - without the injected raise there is no interruption to observe\n+    and this assertion could not fail.\"\"\"\n+    import traktor_nml.rewrite as rewrite_module\n+\n+    # A structurally complete NML (COLLECTION plus a root PLAYLISTS/SUBNODES)\n+    # is required here, not just well-formed XML: assemble_output aborts\n+    # with no_collection before any write is attempted against a document\n+    # missing COLLECTION, which would never exercise the injected os.replace\n+    # failure below and let this test's assertions pass vacuously.\n+    valid_nml = (\n+        '<?xml version=\"1.0\"?><NML VERSION=\"20\"><COLLECTION ENTRIES=\"0\"></COLLECTION>'\n+        '<PLAYLISTS><NODE TYPE=\"FOLDER\" NAME=\"$ROOT\"><SUBNODES COUNT=\"0\"></SUBNODES></NODE></PLAYLISTS>'\n+        \"<SETS></SETS><INDEXING></INDEXING></NML>\"\n+    )\n+    base_path = tmp_path / \"base.nml\"\n+    base_path.write_text(valid_nml, encoding=\"utf-8\")\n+    other_path = tmp_path / \"other.nml\"\n+    other_path.write_text(valid_nml, encoding=\"utf-8\")\n+    out_path = tmp_path / \"out.nml\"\n+    seeded_bytes = b\"previous complete collection bytes\"\n+    out_path.write_bytes(seeded_bytes)\n+\n+    def _raise(*_args, **_kwargs):\n+        raise OSError(\"simulated interrupted commit\")\n+\n+    monkeypatch.setattr(rewrite_module.os, \"replace\", _raise)\n+\n+    result = run_tool(\n+        [\"splice\", str(base_path), str(out_path), \"--input\", str(other_path)], cwd=tmp_path\n+    )\n+    assert result.exit_code != 0\n+    assert out_path.read_bytes() == seeded_bytes\n+    leftover = [p for p in tmp_path.iterdir() if p.name.startswith(f\".{out_path.name}.\")]\n+    assert leftover == []\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-004",
+          "version": 3,
+          "intent_ref": "CI-M-003-004",
+          "file": "traktor_nml/README.md",
+          "diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ -40,6 +40,10 @@\n   source byte span. `playlists.py`'s UUID-marker locator is gone, so a\n   playlist whose `PLAYLIST` child carries no UUID is still located and no\n   locator rescans the document per element (DL-014, DL-021).\n+- `splice_cmd` and `split_cmd` read, parse and write through helpers\n+  exported from `rewrite.py` rather than carrying their own input handling\n+  and a plain `write_bytes`, so both inherit the diagnostics and the atomic\n+  write `write_nml_safely` already implements (DL-019).\n \n ## Invariants\n \n@@ -47,6 +51,15 @@\n - Every write command builds its complete output in memory and validates\n   it before any file handle opens; a failure partway through conflict\n   resolution or reference redirection leaves every output path untouched\n   (DL-012).\n+- Every output file is additionally committed through a temp file plus\n+  `os.replace` so a destination holds either its previous bytes or the\n+  complete new bytes (DL-019). Split's multi-output write loop is not\n+  transactional across files - a failure partway through leaves earlier\n+  groups written - accepted because cross-file staging and commit is new\n+  machinery (DL-022).\n+- A malformed input yields `xml_parse_error` naming the file and exit code\n+  2 from every write command, splice and split included, never an escaping\n+  parser exception (DL-019).\n - `reconnect.py`'s one-to-one assignment guarantee (DL-004) and\n   `volumes.py`'s explicit-VOLUME/VOLUMEID requirement (DL-005) are both\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-005",
+          "version": 2,
+          "intent_ref": "CI-M-003-005",
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "diff": "--- a/traktor_nml/commands/CLAUDE.md\n+++ b/traktor_nml/commands/CLAUDE.md\n@@ -11,3 +11,3 @@\n | `reconnect_cmd.py`  | `scan-reconnect-candidates`/`rewrite-from-reconnect` subcommands (disk-scan reconnection); resolves volume identities before key providers are built and supplies them to the fingerprint provider as its known-mounts mapping | Changing reconnection's CLI surface or stats output    |\n-| `splice_cmd.py`     | `splice` subcommand (merge NML files)                          | Changing splice's CLI surface, conflict flags, or reports |\n-| `split_cmd.py`      | `split` subcommand (partition an NML file)                     | Changing split's CLI surface or dangling-reference flags |\n+| `splice_cmd.py`     | `splice` subcommand (merge NML files); reads/parses through `rewrite.read_and_parse_source` and commits through `rewrite.write_bytes_atomically` | Changing splice's CLI surface, conflict flags, or reports |\n+| `split_cmd.py`      | `split` subcommand (partition an NML file); reads/parses through `rewrite.read_and_parse_source` and commits each group through `rewrite.write_bytes_atomically` | Changing split's CLI surface or dangling-reference flags |\n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 2,
+      "number": 4,
+      "name": "Single-pass span index for identity-located element spans",
+      "files": [
+        "traktor_nml/spans.py",
+        "traktor_nml/playlists.py",
+        "traktor_nml/splice.py",
+        "tests/test_spans.py",
+        "tests/test_splice.py",
+        "traktor_nml/README.md",
+        "traktor_nml/CLAUDE.md"
+      ],
+      "flags": [
+        "needs-rationale"
+      ],
+      "requirements": [
+        "A SpanIndex built once per source document answers element-to-span lookups without re-walking the tree or re-scanning source; splice transplants collection entry spans and imports playlists through that one index; a playlist node with no UUID on its PLAYLIST child is still located; element_span_by_identity remains in place for split.py, its last remaining caller, until M-005 migrates it"
+      ],
+      "acceptance_criteria": [
+        "For every ENTRY and NODE element in a document, the index span equals what element_span returns for that element opening offset",
+        "An element outside the indexed tree raises ValueError naming the tag",
+        "A contribution whose playlist node carries a PLAYLIST child with no UUID is imported verbatim",
+        "Splice byte fidelity for untouched fragments is unchanged",
+        "The real 6412-entry fixture is indexed in one pass, with the case skipped when the fixture is absent",
+        "element_span_by_identity is still exported and still passes its existing tests at the end of this milestone, so split.py keeps importing and calling it and the suite is green at the wave boundary",
+        "README.md records the single-SpanIndex mechanism and the removal of the UUID-based locator (DL-014, DL-021), and traktor_nml/CLAUDE.md describes spans.py's SpanIndex and playlists.py without _locate_node_start",
+        "No previously-passing test regresses (pytest tests/ -q)"
+      ],
+      "tests": [
+        "type: unit for the index, integration for the merge, in tests/test_spans.py and tests/test_splice.py",
+        "backing: default-derived",
+        "normal: index spans match element_span across a whole document",
+        "edge: nested same-named elements, self-closing elements, tag names sharing a prefix, a playlist without a UUID",
+        "error: an element not present in the indexed tree"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 2,
+          "file": "traktor_nml/spans.py",
+          "function": "SpanIndex",
+          "behavior": "Index one source document against its parsed root in a single pass: one pre-order walk assigns every element its ordinal among same-tag elements, and one _TOKEN_RE scan collects the opening-tag offset of every non-closing tag occurrence in document order, so span_of(element) resolves the offset by tag and ordinal and returns element_span from there. An element absent from the indexed tree, or a tag whose source occurrences run short of its ordinal, raises ValueError naming the tag, preserving the diagnostics split and splice already report. element_span_by_identity stays in place and unchanged in this milestone because split.py still calls it at three sites; its removal is CI-M-005-004, in the wave that migrates that last caller, so the package never sits in a state where a shipped module imports a function that no longer exists.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 1,
+          "file": "traktor_nml/playlists.py",
+          "function": "import_playlists",
+          "behavior": "Take the SpanIndex for its source document and use it to locate each imported playlist node, dropping _locate_node_start and its UUID marker search, so a node is located by tree identity rather than by a document-wide text search and a PLAYLIST child without a UUID is no longer a failure.",
+          "decision_refs": [
+            "DL-014",
+            "DL-021"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "version": 1,
+          "file": "traktor_nml/splice.py",
+          "function": "assemble_output",
+          "behavior": "Build one SpanIndex per input source, use it for every collection entry span transplantation, and hand the matching index to import_playlists, so a merge scans each source once regardless of how many entries and playlists it contributes.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-004-004",
+          "version": 1,
+          "file": "tests/test_spans.py",
+          "function": "span index cases",
+          "behavior": "Assert the index returns for every ENTRY and NODE element the same span element_span returns for that element offset, including nested same-named elements, self-closing elements and tag names sharing a prefix; assert an element outside the indexed tree raises ValueError naming the tag; assert the real fixture is indexed in one pass and every indexed entry span parses standalone, skipped when the fixture is absent.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-004-005",
+          "version": 1,
+          "file": "tests/test_splice.py",
+          "function": "playlist without UUID case",
+          "behavior": "Assert a contribution whose playlist node carries a PLAYLIST child with no UUID attribute is imported verbatim and its entries survive the merge, and that byte fidelity of untouched fragments is unchanged.",
+          "decision_refs": [
+            "DL-021"
+          ]
+        },
+        {
+          "id": "CI-M-004-006",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": "Architecture and Invariants sections",
+          "behavior": "Record, in the existing (DL-nnn) style, that byte-span assembly locates an element through one SpanIndex built in a single pass per document, that this is the only element-to-span mechanism in the package, and that playlists.py's UUID-based locator is gone so a playlist whose PLAYLIST child carries no UUID is still located (DL-014, DL-021); note the memory tradeoff of holding per-tag offset lists for an 11.7MB document against a rescan per element.",
+          "decision_refs": [
+            "DL-014",
+            "DL-021"
+          ]
+        },
+        {
+          "id": "CI-M-004-007",
+          "version": 1,
+          "file": "traktor_nml/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the spans.py row to name SpanIndex as the identity locator, the playlists.py row to drop _locate_node_start and say nodes are located through the index, and the splice.py row to say one index is built per input source.",
+          "decision_refs": [
+            "DL-014",
+            "DL-021"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-004-001",
+          "version": 5,
+          "intent_ref": "CI-M-004-001",
+          "file": "traktor_nml/spans.py",
+          "diff": "--- a/traktor_nml/spans.py\n+++ b/traktor_nml/spans.py\n@@ -145,4 +145,71 @@ def element_span_by_identity(source: str, root, element) -> Span:\n     return element_span(source, idx)\n \n \n+class SpanIndex:\n+    \"\"\"Index one source document against its parsed root in a single pass,\n+    so every element in the tree resolves to its byte span without\n+    rescanning the source per lookup.\n+\n+    One pre-order walk (root.iter()) assigns every element its ordinal\n+    among same-tag elements, in the same left-to-right order a well-formed\n+    document's own opening tags appear in source; one _TOKEN_RE scan then\n+    collects the opening-tag offset of every non-closing tag occurrence in\n+    document order. span_of resolves an element's offset by tag and\n+    ordinal and returns element_span from there.\n+\n+    The same walk that assigns ordinals also keeps a reference to every\n+    walked element for this index's entire lifetime (self._elements). This\n+    matters specifically under the lxml backend: an lxml Element is a\n+    transient proxy over the underlying libxml2 tree, and once nothing\n+    references a proxy it can be garbage-collected - after which CPython\n+    may reuse its memory address for a brand-new, unrelated proxy object.\n+    Keying solely on id(element) without retaining a reference would let a\n+    later, different element be assigned the same id() as an\n+    already-collected one, and span_of would then silently resolve to the\n+    wrong (stale) ordinal for that address. Holding self._elements for as\n+    long as this index is alive guarantees every id() this index has ever\n+    recorded stays bound to the original element for the index's whole\n+    lifetime, so a lookup can never be confused by address reuse.\n+    \"\"\"\n+\n+    def __init__(self, source: str, root) -> None:\n+        self._source = source\n+        self._elements: list = []\n+        self._ordinal_by_id: dict[int, int] = {}\n+        tag_counts: dict[str, int] = {}\n+        for element in root.iter():\n+            tag = element.tag\n+            if not isinstance(tag, str):\n+                continue  # skip comments/PIs, whose lxml .tag is a callable, not a name\n+            self._elements.append(element)\n+            ordinal = tag_counts.get(tag, 0)\n+            self._ordinal_by_id[id(element)] = ordinal\n+            tag_counts[tag] = ordinal + 1\n+\n+        offsets_by_tag: dict[str, list[int]] = {}\n+        for token in _TOKEN_RE.finditer(source):\n+            if token.group(1):  # a closing tag never starts a new element\n+                continue\n+            tag_name = token.group(2)\n+            if tag_name is None:\n+                continue\n+            offsets_by_tag.setdefault(tag_name, []).append(token.start())\n+        self._offsets_by_tag = offsets_by_tag\n+\n+    def span_of(self, element) -> Span:\n+        \"\"\"Return element's full byte span, resolved by its tag and\n+        ordinal among same-tag elements rather than by rescanning source.\n+        Raises ValueError naming the tag when element is absent from the\n+        indexed tree, or when that tag's source occurrences run short of\n+        its ordinal.\"\"\"\n+        tag_name = element.tag\n+        ordinal = self._ordinal_by_id.get(id(element))\n+        if ordinal is None:\n+            raise ValueError(f\"element <{tag_name}> is not part of the indexed tree\")\n+        offsets = self._offsets_by_tag.get(tag_name, [])\n+        if ordinal >= len(offsets):\n+            raise ValueError(f\"could not locate occurrence {ordinal} of <{tag_name}> in source text\")\n+        return element_span(self._source, offsets[ordinal])\n+\n+\n class OutputBuilder:\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-002",
+          "version": 2,
+          "intent_ref": "CI-M-004-002",
+          "file": "traktor_nml/playlists.py",
+          "diff": "--- a/traktor_nml/playlists.py\n+++ b/traktor_nml/playlists.py\n@@ -21,7 +21,7 @@ from __future__ import annotations\n import uuid\n from dataclasses import dataclass, field\n \n-from .spans import element_span\n+from .spans import SpanIndex\n from .xmlio import ET\n \n \n@@ -111,7 +111,8 @@ def import_playlists(\n     source_text: str,\n     non_base_root: ET.Element,\n     old_to_new_key: dict[str, str],\n     existing_names: set[str],\n+    span_index: SpanIndex,\n ) -> ImportResult:\n     \"\"\"Import every playlist NODE in non_base_root's tree, sourced from\n     source_text for verbatim span transplantation.\n@@ -118,8 +119,12 @@ def import_playlists(\n     Each imported playlist's matching SORTING_INFO entry (found by its\n     original folder path, if the source has one) is carried over with its\n     PATH rewritten to the playlist's new flattened location (its final,\n     possibly renamed, NAME); a SORTING_INFO entry with no matching playlist\n     at all is dropped and reported rather than silently kept or fabricated.\n+\n+    A node is located by its tree identity through span_index rather than\n+    by a document-wide UUID text search, so a PLAYLIST child with no UUID\n+    attribute is no longer a failure.\n     \"\"\"\n     result = ImportResult()\n     node_to_path = {id(node): path for path, node in playlist_paths(non_base_root).items()}\n@@ -148,9 +153,8 @@ def import_playlists(\n         )\n \n         if not renamed and not needs_redirect:\n-            node_start = _locate_node_start(source_text, node)\n-            span = element_span(source_text, node_start)\n-            fragment = span.text(source_text)\n+            span = span_index.span_of(node)\n+            fragment = span.text(source_text)\n             is_verbatim = True\n         else:\n             node_copy = ET.fromstring(ET.tostring(node))\n@@ -185,20 +189,3 @@ def import_playlists(\n             result.sorting_info.append(_sorting_info_fragment(sorting_info, final_name))\n \n     return result\n-\n-\n-def _locate_node_start(source_text: str, node: ET.Element) -> int:\n-    \"\"\"Locate a playlist NODE's opening-tag offset via its PLAYLIST child's\n-    UUID, which is unique across the document (unlike NAME, which two\n-    playlists in different folders may share) - lxml elements carry no\n-    byte offsets of their own.\"\"\"\n-    playlist_elem = node.find(\"PLAYLIST\")\n-    uuid_value = \"\" if playlist_elem is None else playlist_elem.attrib.get(\"UUID\", \"\")\n-    marker = f'UUID=\"{uuid_value}\"'\n-    uuid_idx = source_text.find(marker)\n-    if uuid_idx < 0:\n-        raise ValueError(f\"could not locate playlist UUID {uuid_value!r} in source text\")\n-    node_idx = source_text.rfind(\"<NODE \", 0, uuid_idx)\n-    if node_idx < 0:\n-        raise ValueError(f\"could not locate enclosing NODE for playlist UUID {uuid_value!r}\")\n-    return node_idx\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-003",
+          "version": 3,
+          "intent_ref": "CI-M-004-003",
+          "file": "traktor_nml/splice.py",
+          "diff": "--- a/traktor_nml/splice.py\n+++ b/traktor_nml/splice.py\n@@ -26,7 +26,7 @@ from .confidence import MatchConfidence\n from .matching import record_keys\n from .model import EntryRecord, collection_entries, collection_records\n from .playlists import find_playlist_nodes, import_playlists, node_primary_keys\n-from .spans import OutputBuilder, element_span_by_identity, find_element_span\n+from .spans import OutputBuilder, SpanIndex, find_element_span\n from .xmlio import ET\n \n _TRACKED_ATTRS = (\"artist\", \"title\", \"album\", \"filesize\", \"playtime_float\", \"bitrate\")\n@@ -148,8 +148,8 @@ def _resolve_conflicts(\n     return old_to_new_key, conflict_rows, unresolved, new_entries\n \n \n-def _entry_span_text(source_text: str, root: ET.Element, record: EntryRecord) -> str:\n-    return element_span_by_identity(source_text, root, record.entry).text(source_text)\n+def _entry_span_text(source_text: str, span_index: SpanIndex, record: EntryRecord) -> str:\n+    return span_index.span_of(record.entry).text(source_text)\n \n \n def assemble_output(\n@@ -164,10 +164,15 @@ def assemble_output(\n     unresolved one), transplant surviving collection entries as verbatim\n     spans, then hand off to playlist import for the PLAYLISTS tree\n     (DL-007, DL-008).\"\"\"\n     inputs = [base_root] + [root for _, root in contributions]\n     sources = [base_source] + [text for text, _ in contributions]\n     records_by_input = [collection_records(root) for root in inputs]\n \n+    # One SpanIndex per input source, built once here rather than once per\n+    # entry or per playlist, so a merge scans each source once regardless\n+    # of how many entries and playlists it contributes.\n+    span_indexes = [SpanIndex(sources[i], inputs[i]) for i in range(len(inputs))]\n+\n     groups = group_identities(records_by_input, confidence)\n     old_to_new_key, conflict_rows, unresolved, new_entries_records = _resolve_conflicts(groups, on_conflict)\n \n@@ -186,7 +191,7 @@ def assemble_output(\n     # New collection entries: transplant each winner's own ENTRY span from\n     # its originating input, verbatim (collection entries are never renamed).\n     new_entry_texts = [\n-        _entry_span_text(sources[idx], inputs[idx], record) for idx, record in new_entries_records\n+        _entry_span_text(sources[idx], span_indexes[idx], record) for idx, record in new_entries_records\n     ]\n     stats[\"collection_entries_added\"] = len(new_entry_texts)\n \n@@ -209,8 +214,10 @@ def assemble_output(\n     sorting_info_dropped: list[str] = []\n     unresolved_refs: list[tuple[str, str]] = []\n     renamed_count = 0\n-    for source_text, root in contributions:\n-        result = import_playlists(source_text, root, old_to_new_key, existing_names)\n+    for contribution_idx, (source_text, root) in enumerate(contributions, start=1):\n+        result = import_playlists(\n+            source_text, root, old_to_new_key, existing_names, span_indexes[contribution_idx]\n+        )\n     for imported in result.playlists:\n         playlist_fragments.append(imported.fragment)\n     sorting_info_fragments.extend(result.sorting_info)\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-004",
+          "version": 3,
+          "intent_ref": "CI-M-004-004",
+          "file": "tests/test_spans.py",
+          "diff": "--- a/tests/test_spans.py\n+++ b/tests/test_spans.py\n@@ -6,7 +6,7 @@\n \n import pytest\n \n-from traktor_nml.spans import element_span, find_element_span, recalculate_count_attr\n+from traktor_nml.spans import SpanIndex, element_span, find_element_span, recalculate_count_attr\n \n REAL_FIXTURE = Path(r\"C:\\codex\\general_tasks\\collection_textual_patch_test.nml\")\n \n@@ -87,3 +87,104 @@\n \n     assert _walk(\"ENTRY\", 200) > 0\n     assert _walk(\"NODE\", 200) > 0\n+\n+\n+def test_span_index_matches_element_span_for_entry_and_node_elements() -> None:\n+    import lxml.etree as ET\n+\n+    source = (\n+        '<ROOT><COLLECTION><ENTRY A=\"1\"><INFO/></ENTRY><ENTRY A=\"2\"/></COLLECTION>'\n+        '<PLAYLISTS><NODE NAME=\"outer\"><NODE NAME=\"inner\"></NODE></NODE></PLAYLISTS></ROOT>'\n+    )\n+    root = ET.fromstring(source)\n+    index = SpanIndex(source, root)\n+\n+    entries = root.findall(\".//ENTRY\")\n+    assert index.span_of(entries[0]).text(source) == '<ENTRY A=\"1\"><INFO/></ENTRY>'\n+    assert index.span_of(entries[1]).text(source) == '<ENTRY A=\"2\"/>'\n+\n+    outer, inner = root.findall(\".//NODE\")\n+    assert index.span_of(inner).text(source) == \"<NODE NAME=\\\"inner\\\"></NODE>\"\n+    assert index.span_of(outer).text(source) == (\n+        '<NODE NAME=\"outer\"><NODE NAME=\"inner\"></NODE></NODE>'\n+    )\n+\n+\n+def test_span_index_handles_tag_names_sharing_a_prefix() -> None:\n+    import lxml.etree as ET\n+\n+    source = '<ROOT><NODENAME>x</NODENAME><NODE A=\"1\"></NODE></ROOT>'\n+    root = ET.fromstring(source)\n+    index = SpanIndex(source, root)\n+\n+    node = root.find(\"NODE\")\n+    nodename = root.find(\"NODENAME\")\n+    assert index.span_of(node).text(source) == '<NODE A=\"1\"></NODE>'\n+    assert index.span_of(nodename).text(source) == \"<NODENAME>x</NODENAME>\"\n+\n+\n+def test_span_index_raises_value_error_for_element_outside_indexed_tree() -> None:\n+    import lxml.etree as ET\n+\n+    source = \"<ROOT><ENTRY/></ROOT>\"\n+    root = ET.fromstring(source)\n+    index = SpanIndex(source, root)\n+    outsider = ET.fromstring(\"<ENTRY/>\")\n+\n+    with pytest.raises(ValueError, match=\"ENTRY\"):\n+        index.span_of(outsider)\n+\n+\n+def test_span_index_survives_gc_and_resolves_freshly_accessed_elements_correctly() -> None:\n+    \"\"\"SpanIndex must retain a reference to every element it walked for\n+    its entire lifetime: under the lxml backend, an element is a\n+    transient proxy over the underlying libxml2 node, and once nothing\n+    references a proxy it can be garbage-collected, after which CPython\n+    may reuse its freed memory address for a new, unrelated proxy. A\n+    SpanIndex keyed only on id(element) without retaining a reference\n+    would then risk a later lookup matching a stale, recycled-address\n+    entry and silently returning the wrong span.\n+\n+    This forces a GC cycle immediately after construction, then resolves\n+    spans via elements obtained from an independent, freshly issued\n+    lookup (traktor_nml.model.collection_records), rather than reusing\n+    any object from the original construction walk, and asserts every\n+    span still comes back correct.\n+    \"\"\"\n+    import gc\n+\n+    import lxml.etree as ET\n+\n+    from traktor_nml.model import collection_records\n+\n+    source = (\n+        '<NML VERSION=\"20\"><COLLECTION ENTRIES=\"2\">'\n+        '<ENTRY TITLE=\"A\"><LOCATION DIR=\"/:\" FILE=\"a.mp3\"></LOCATION></ENTRY>'\n+        '<ENTRY TITLE=\"B\"><LOCATION DIR=\"/:\" FILE=\"b.mp3\"></LOCATION></ENTRY>'\n+        \"</COLLECTION></NML>\"\n+    )\n+    root = ET.fromstring(source)\n+    index = SpanIndex(source, root)\n+\n+    gc.collect()\n+\n+    records = collection_records(root)\n+    assert index.span_of(records[0].entry).text(source) == (\n+        '<ENTRY TITLE=\"A\"><LOCATION DIR=\"/:\" FILE=\"a.mp3\"></LOCATION></ENTRY>'\n+    )\n+    assert index.span_of(records[1].entry).text(source) == (\n+        '<ENTRY TITLE=\"B\"><LOCATION DIR=\"/:\" FILE=\"b.mp3\"></LOCATION></ENTRY>'\n+    )\n+\n+\n+@pytest.mark.skipif(not REAL_FIXTURE.exists(), reason=\"real fixture not present in this environment\")\n+def test_real_fixture_indexed_in_one_pass_and_every_entry_parses_standalone() -> None:\n+    import lxml.etree as ET\n+\n+    source = REAL_FIXTURE.read_text(encoding=\"utf-8\")\n+    root = ET.fromstring(source.encode(\"utf-8\"))\n+    index = SpanIndex(source, root)\n+\n+    for entry in root.iter(\"ENTRY\"):\n+        span = index.span_of(entry)\n+        ET.fromstring(span.text(source))\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-005",
+          "version": 2,
+          "intent_ref": "CI-M-004-005",
+          "file": "tests/test_splice.py",
+          "diff": "--- a/tests/test_splice.py\n+++ b/tests/test_splice.py\n@@ -30,6 +30,18 @@ def _playlist(name: str, keys: list[str], uuid: str) -> str:\n     )\n \n \n+def _playlist_no_uuid(name: str, keys: list[str]) -> str:\n+    \"\"\"A PLAYLIST child with no UUID attribute at all - locating this node\n+    by a UUID text search (the old _locate_node_start behavior) would fail\n+    outright; identity-based location via SpanIndex does not depend on it.\"\"\"\n+    entries = \"\".join(f'<ENTRY><PRIMARYKEY TYPE=\"TRACK\" KEY=\"{k}\"></PRIMARYKEY></ENTRY>' for k in keys)\n+    return (\n+        f'<NODE TYPE=\"PLAYLIST\" NAME=\"{name}\">'\n+        f'<PLAYLIST ENTRIES=\"{len(keys)}\" TYPE=\"LIST\">{entries}</PLAYLIST>'\n+        \"</NODE>\"\n+    )\n+\n+\n def test_splicing_all_unique_playlists_merges_cleanly(tmp_path: Path) -> None:\n     base_key = \"C:\" + \"/:Music/:\" + \"base.mp3\"\n     other_key = \"C:\" + \"/:Music/:\" + \"other.mp3\"\n@@ -204,4 +213,28 @@ def test_orphaned_sorting_info_is_reported_by_path_in_stats(tmp_path: Path) ->\n     assert result.exit_code == 0\n     # \"Orphan\" matches no surviving/imported playlist's PATH, so it is\n     # dropped and reported with its specific PATH value, not just a count.\n     assert \"sorting_info_dropped=['Orphan']\" in result.stdout\n+\n+\n+def test_contribution_playlist_with_no_uuid_is_imported_verbatim(tmp_path: Path) -> None:\n+    other_key = \"C:\" + \"/:Music/:\" + \"other.mp3\"\n+\n+    base_path = tmp_path / \"base.nml\"\n+    base_path.write_text(\n+        _nml(_entry(\"A\", \"Base\", \"base.mp3\"), 1, \"\"),\n+        encoding=\"utf-8\", newline=\"\",\n+    )\n+    other_path = tmp_path / \"other.nml\"\n+    other_path.write_text(\n+        _nml(_entry(\"B\", \"Other\", \"other.mp3\"), 1, _playlist_no_uuid(\"NoUuid\", [other_key])),\n+        encoding=\"utf-8\", newline=\"\",\n+    )\n+\n+    result = run_tool(\n+        [\"splice\", str(base_path), str(tmp_path / \"out.nml\"), \"--input\", str(other_path)],\n+        cwd=tmp_path,\n+    )\n+    assert result.exit_code == 0\n+    out_text = (tmp_path / \"out.nml\").read_text(encoding=\"utf-8\")\n+    assert 'NAME=\"NoUuid\"' in out_text\n+    assert other_key in out_text\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-006",
+          "version": 3,
+          "intent_ref": "CI-M-004-006",
+          "file": "traktor_nml/README.md",
+          "diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ -36,7 +36,15 @@\n - `--match-confidence` is one ordered enum (strict/loose/filename) rather\n   than a second boolean flag, because disk-scan matching's filename-only\n   tier and tag-based matching's artist-title-only tier are really one\n   cascade, not two independent knobs (DL-010).\n+- `spans.py` builds one `SpanIndex` per source document in a single pass -\n+  one pre-order walk for per-tag ordinals, one token scan for opening-tag\n+  offsets - and it is the only mechanism that maps a parsed element to its\n+  source byte span. `playlists.py`'s UUID-marker locator is gone, so a\n+  playlist whose `PLAYLIST` child carries no UUID is still located and no\n+  locator rescans the document per element (DL-014, DL-021).\n \n ## Invariants\n \n@@ -60,5 +68,8 @@\n   location - an extension of the DL-005 explicit-identity invariant\n   above, not an exception to it (DL-017, DL-018).\n+- An element is located in source by tree identity through one `SpanIndex`\n+  per document, never by searching for an attribute value and never by a\n+  second locator (DL-014, DL-021).\n - The NML schema (COLLECTION/PLAYLISTS/SUBNODES/PRIMARYKEY shapes and\n   their count attributes) is confirmed only against NML VERSION=20 /\n   Traktor Pro 4; `spans.py`'s count-attribute recalculation is generic\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-007",
+          "version": 2,
+          "intent_ref": "CI-M-004-007",
+          "file": "traktor_nml/CLAUDE.md",
+          "diff": "--- a/traktor_nml/CLAUDE.md\n+++ b/traktor_nml/CLAUDE.md\n@@ -18,4 +18,4 @@\n | `fingerprint.py`   | Acoustic fingerprint comparison (optional chromaprint dep); the old side resolves its path through `volumes.py` rather than from `decoded_path` | Modifying fingerprint matching or its availability guard   |\n-| `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation | Modifying splice/split's structural write path or count recalculation |\n-| `playlists.py`     | Playlist import for splice (merge, rename, redirect)       | Modifying playlist merge, collision-rename, or PRIMARYKEY redirect logic |\n-| `splice.py`        | Merge-command core: conflict resolution, playlist import   | Modifying splice's conflict policy or merge algorithm      |\n+| `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation, `SpanIndex` as the single-pass identity locator | Modifying splice/split's structural write path or count recalculation |\n+| `playlists.py`     | Playlist import for splice (merge, rename, redirect); nodes are located through the shared `SpanIndex`, not a UUID text search | Modifying playlist merge, collision-rename, or PRIMARYKEY redirect logic |\n+| `splice.py`        | Merge-command core: conflict resolution, playlist import; builds one `SpanIndex` per input source | Modifying splice's conflict policy or merge algorithm      |\n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-005",
+      "version": 2,
+      "number": 5,
+      "name": "Group-scoped dangling-reference policy in split",
+      "files": [
+        "traktor_nml/split.py",
+        "traktor_nml/commands/split_cmd.py",
+        "traktor_nml/spans.py",
+        "tests/test_split.py",
+        "tests/test_spans.py",
+        "traktor_nml/README.md",
+        "traktor_nml/CLAUDE.md",
+        "traktor_nml/commands/CLAUDE.md"
+      ],
+      "flags": [
+        "needs-rationale"
+      ],
+      "requirements": [
+        "The dangling-reference policy examines only the playlists the current group names; pull-in adds only tracks referenced by those playlists; fail reports only references from those playlists; split locates its kept spans through the shared span index, and element_span_by_identity is removed once split.py, its last caller, no longer uses it"
+      ],
+      "acceptance_criteria": [
+        "A group whose own playlists are sound succeeds under --dangling-policy fail while an unrequested playlist elsewhere in the file holds a broken reference",
+        "--dangling-policy pull-in adds no track that only an unrequested playlist references",
+        "The existing exclude and fail expectations for references held by requested playlists keep passing",
+        "Split output bytes for untouched fragments are unchanged",
+        "element_span_by_identity no longer exists in spans.py and no module imports it; a grep for the name across traktor_nml/ and tests/ returns nothing",
+        "README.md records the group-scoped policy against the existing DL-009 semantics (DL-020), and the CLAUDE.md indexes describe split.py and split_cmd.py accordingly",
+        "No previously-passing test regresses (pytest tests/ -q)"
+      ],
+      "tests": [
+        "type: integration through run_tool, in tests/test_split.py, plus the spans unit tests for the removed locator",
+        "backing: doc-derived from the repository's existing DL-009 (split.py's named-playlist selection and per-output dangling semantics), not from any decision introduced by this plan",
+        "normal: exclude drops an out-of-selection reference held by a requested playlist",
+        "edge: pull-in with a broken reference in an unrequested playlist",
+        "error: fail triggered only by a requested playlist"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-005-001",
+          "version": 1,
+          "file": "traktor_nml/split.py",
+          "function": "apply_dangling_policy",
+          "behavior": "Take the playlist nodes the current group resolved to, rather than the whole document, and apply the exclude, pull-in and fail policy over only their PRIMARYKEY references, so each output depends on its own selection alone. select_entries hands over the resolved nodes it already looked up so neither function searches the document twice.",
+          "decision_refs": [
+            "DL-020"
+          ]
+        },
+        {
+          "id": "CI-M-005-002",
+          "version": 2,
+          "file": "traktor_nml/split.py",
+          "function": "build_output",
+          "behavior": "Accept the SpanIndex for the source document and use it for kept collection entries, retained playlist nodes and carried-over SORTING_INFO entries, replacing all three element_span_by_identity call sites, so a group is assembled without rescanning the source per entry, and pass the resolved group nodes into apply_dangling_policy.",
+          "decision_refs": [
+            "DL-014",
+            "DL-020"
+          ]
+        },
+        {
+          "id": "CI-M-005-003",
+          "version": 1,
+          "file": "tests/test_split.py",
+          "function": "group scoping cases",
+          "behavior": "Assert a group whose own playlists are sound succeeds under --dangling-policy fail while an unrequested playlist in the same file holds a broken reference; assert --dangling-policy pull-in adds no track that only an unrequested playlist references; keep the existing exclude and fail expectations for references held by requested playlists.",
+          "decision_refs": [
+            "DL-020"
+          ]
+        },
+        {
+          "id": "CI-M-005-004",
+          "version": 1,
+          "file": "traktor_nml/spans.py",
+          "function": "element_span_by_identity",
+          "behavior": "Remove the function and its export now that split.py, its last caller, resolves spans through SpanIndex, leaving exactly one element-to-span mechanism in the package. The removal happens here rather than in M-004 because M-004 runs in the earlier wave and split.py is migrated in this one; deleting it earlier would leave a shipped module importing a name that no longer exists and the suite red at the wave boundary.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-005-005",
+          "version": 1,
+          "file": "traktor_nml/commands/split_cmd.py",
+          "function": "_handle_split",
+          "behavior": "Build one SpanIndex for the parsed source and pass it to build_output on every group iteration, updating the call site to the new signature so the index is built once per document rather than once per group, and keep the existing build-all-then-write-all ordering intact.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-005-006",
+          "version": 1,
+          "file": "tests/test_spans.py",
+          "function": "removed locator cases",
+          "behavior": "Drop or re-point the tests that exercised element_span_by_identity directly onto SpanIndex, so removing the function does not silently delete coverage of the identity-location behavior it provided.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        },
+        {
+          "id": "CI-M-005-007",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": "Invariants section",
+          "behavior": "Record that a split output depends only on the playlists its own group names, so an untouched playlist elsewhere in the document can neither pull tracks into a group nor fail it, stated as what the existing DL-009 per-output semantics already imply (DL-020).",
+          "decision_refs": [
+            "DL-020"
+          ]
+        },
+        {
+          "id": "CI-M-005-008",
+          "version": 1,
+          "file": "traktor_nml/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the split.py row to say the dangling policy is scoped to the group's own resolved playlist nodes and that spans come from the shared SpanIndex, and confirm the spans.py row no longer names element_span_by_identity.",
+          "decision_refs": [
+            "DL-014",
+            "DL-020"
+          ]
+        },
+        {
+          "id": "CI-M-005-009",
+          "version": 1,
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "function": "Files table",
+          "behavior": "Update the split_cmd.py row to say one SpanIndex is built per input and handed to build_output for every group.",
+          "decision_refs": [
+            "DL-014"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-005-001",
+          "version": 2,
+          "intent_ref": "CI-M-005-001",
+          "file": "traktor_nml/split.py",
+          "diff": "--- a/traktor_nml/split.py\n+++ b/traktor_nml/split.py\n@@ -24,25 +24,30 @@ DanglingPolicy = Literal[\"exclude\", \"pull-in\", \"fail\"]\n class SelectionResult:\n     \"\"\"playlist_partial's (name, kept, total) records the partial-\n     retention detail DL-009 requires reporting, distinct from\n     playlist_dropped's fully-empty case - a playlist never silently loses\n     entries without one of the two being reported.\"\"\"\n     kept_keys: set[str]\n+    resolved_nodes: list[ET.Element] = field(default_factory=list)\n     playlist_dropped: list[str] = field(default_factory=list)\n     playlist_partial: list[tuple[str, int, int]] = field(default_factory=list)  # (name, kept, total)\n     unknown_playlists: list[str] = field(default_factory=list)\n \n \n def select_entries(root: ET.Element, playlist_names: list[str]) -> SelectionResult:\n     \"\"\"Resolve playlist_names to their primary keys, and report a playlist\n-    reduced to zero entries as dropped rather than writing it empty.\"\"\"\n+    reduced to zero entries as dropped rather than writing it empty.\n+    resolved_nodes carries every playlist node this group actually\n+    resolved to, so apply_dangling_policy can scope its dangling-reference\n+    check to only these nodes rather than searching the document again.\"\"\"\n     all_nodes = {node.attrib.get(\"NAME\", \"\"): node for node in find_playlist_nodes(root)}\n     result = SelectionResult(kept_keys=set())\n \n     for name in playlist_names:\n         node = all_nodes.get(name)\n         if node is None:\n             result.unknown_playlists.append(name)\n             continue\n+        result.resolved_nodes.append(node)\n         keys = [pk.attrib.get(\"KEY\", \"\") for pk in node_primary_keys(node)]\n         total = len(keys)\n         if total == 0:\n@@ -64,7 +68,7 @@ class SplitOutcome:\n \n \n def apply_dangling_policy(\n-    root: ET.Element, kept_keys: set[str], policy: DanglingPolicy\n+    root: ET.Element, kept_keys: set[str], policy: DanglingPolicy, playlist_nodes: list[ET.Element]\n ) -> tuple[set[str], list[tuple[str, str]], list[str]]:\n     \"\"\"Return (final_kept_keys, dropped_refs, errors).\n \n@@ -80,7 +84,7 @@ def apply_dangling_policy(\n     # up front and handled below like any other out-of-selection reference.\n     final_keys = kept_keys & valid_collection_keys\n \n-    for node in find_playlist_nodes(root):\n+    for node in playlist_nodes:\n         name = node.attrib.get(\"NAME\", \"\")\n         for pk in node_primary_keys(node):\n             key = pk.attrib.get(\"KEY\", \"\")\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-002",
+          "version": 2,
+          "intent_ref": "CI-M-005-002",
+          "file": "traktor_nml/split.py",
+          "diff": "--- a/traktor_nml/split.py\n+++ b/traktor_nml/split.py\n@@ -15,8 +15,8 @@ from dataclasses import dataclass, field\n from typing import Literal, Optional\n \n from .model import collection_records\n from .playlists import find_playlist_nodes, find_sorting_info, node_primary_keys, playlist_paths\n-from .spans import element_span_by_identity, find_element_span, recalculate_count_attr\n+from .spans import SpanIndex, find_element_span, recalculate_count_attr\n from .xmlio import ET\n \n DanglingPolicy = Literal[\"exclude\", \"pull-in\", \"fail\"]\n@@ -117,26 +117,28 @@ def _replace_children(fragment: str, tag_name: str, count_attr: str, children:\n \n \n def build_output(\n-    source_text: str, root: ET.Element, playlist_names: list[str], policy: DanglingPolicy\n+    source_text: str, root: ET.Element, playlist_names: list[str], policy: DanglingPolicy, span_index: SpanIndex\n ) -> SplitOutcome:\n     selection = select_entries(root, playlist_names)\n     stats: dict[str, object] = {\n         \"playlists_requested\": len(playlist_names),\n         \"playlists_dropped\": list(selection.playlist_dropped),\n         \"playlists_unknown\": list(selection.unknown_playlists),\n     }\n \n-    final_keys, dropped_refs, errors = apply_dangling_policy(root, selection.kept_keys, policy)\n+    final_keys, dropped_refs, errors = apply_dangling_policy(\n+        root, selection.kept_keys, policy, selection.resolved_nodes\n+    )\n     if errors:\n         return SplitOutcome(output=None, stats=stats, errors=errors)\n \n     kept_records = [r for r in collection_records(root) if r.primary_key in final_keys]\n     try:\n         # Each ENTRY's span is located by its own parsed element (identity),\n         # not by searching source text for its FILE attribute value - that\n         # search breaks on duplicate basenames (common across a real corpus)\n         # and on XML-escaped characters, since the parsed attribute value is\n         # unescaped text while the source bytes are not.\n-        kept_entry_texts = [element_span_by_identity(source_text, root, r.entry).text(source_text) for r in kept_records]\n+        kept_entry_texts = [span_index.span_of(r.entry).text(source_text) for r in kept_records]\n     except ValueError as exc:\n         return SplitOutcome(output=None, stats=stats, errors=[f\"collection_entry_span_not_found: {exc}\"])\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-003",
+          "version": 1,
+          "intent_ref": "CI-M-005-002",
+          "file": "traktor_nml/split.py",
+          "diff": "--- a/traktor_nml/split.py\n+++ b/traktor_nml/split.py\n@@ -191,7 +193,7 @@ def build_output(\n             fragment = ET.tostring(node_copy, encoding=\"unicode\")\n         else:\n             try:\n-                fragment = element_span_by_identity(source_text, root, node).text(source_text)\n+                fragment = span_index.span_of(node).text(source_text)\n             except ValueError as exc:\n                 return SplitOutcome(output=None, stats=stats, errors=[f\"playlist_span_not_found name={name}: {exc}\"])\n         playlist_fragments.append(fragment)\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-004",
+          "version": 1,
+          "intent_ref": "CI-M-005-002",
+          "file": "traktor_nml/split.py",
+          "diff": "--- a/traktor_nml/split.py\n+++ b/traktor_nml/split.py\n@@ -227,7 +229,7 @@ def build_output(\n     if indexing_span is not None and removed_sorting_info:\n         removed_ids = {id(si) for si in removed_sorting_info}\n         kept_sorting_info = [\n-            element_span_by_identity(source_text, root, si).text(source_text)\n+            span_index.span_of(si).text(source_text)\n             for si in find_sorting_info(root)\n             if id(si) not in removed_ids\n         ]\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-005",
+          "version": 2,
+          "intent_ref": "CI-M-005-003",
+          "file": "tests/test_split.py",
+          "diff": "--- a/tests/test_split.py\n+++ b/tests/test_split.py\n@@ -174,3 +174,52 @@ def test_omitted_playlist_sorting_info_is_dropped_and_reported(tmp_path: Path)\n     text = out.read_text(encoding=\"utf-8\")\n     assert 'PATH=\"Keep\"' in text\n     assert 'PATH=\"Skip\"' not in text\n+\n+\n+def test_group_succeeds_under_fail_policy_despite_broken_reference_in_unrequested_playlist(\n+    tmp_path: Path,\n+) -> None:\n+    \"\"\"An unrequested playlist elsewhere in the same file holding a broken\n+    reference must not affect this group's outcome: the dangling policy is\n+    scoped to only the group's own resolved playlists.\"\"\"\n+    src = tmp_path / \"src.nml\"\n+    src.write_text(\n+        _nml(\n+            _entry(\"A\", \"One\", \"one.mp3\"),\n+            1,\n+            _playlist(\"Keep\", [_key(\"one.mp3\")], \"uuid-keep\")\n+            + _playlist(\"Unrelated\", [_key(\"one.mp3\"), _key(\"ghost.mp3\")], \"uuid-unrelated\"),\n+            2,\n+        ),\n+        encoding=\"utf-8\", newline=\"\",\n+    )\n+    out = tmp_path / \"out.nml\"\n+    result = run_tool(\n+        [\"split\", str(src), \"--group\", str(out), \"Keep\", \"--dangling-policy\", \"fail\"], cwd=tmp_path\n+    )\n+    assert result.exit_code == 0\n+    assert out.exists()\n+\n+\n+def test_pull_in_adds_no_track_only_referenced_by_an_unrequested_playlist(tmp_path: Path) -> None:\n+    src = tmp_path / \"src.nml\"\n+    src.write_text(\n+        _nml(\n+            _entry(\"A\", \"One\", \"one.mp3\") + _entry(\"B\", \"Two\", \"two.mp3\"),\n+            2,\n+            _playlist(\"Keep\", [_key(\"one.mp3\")], \"uuid-keep\")\n+            + _playlist(\"Unrelated\", [_key(\"one.mp3\"), _key(\"two.mp3\")], \"uuid-unrelated\"),\n+            2,\n+        ),\n+        encoding=\"utf-8\", newline=\"\",\n+    )\n+    out = tmp_path / \"out.nml\"\n+    result = run_tool(\n+        [\"split\", str(src), \"--group\", str(out), \"Keep\", \"--dangling-policy\", \"pull-in\"], cwd=tmp_path\n+    )\n+    assert result.exit_code == 0\n+    text = out.read_text(encoding=\"utf-8\")\n+    assert \"one.mp3\" in text\n+    # \"Unrelated\" is not requested, so its reference to two.mp3 must never\n+    # pull two.mp3 into this group's output.\n+    assert \"two.mp3\" not in text\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-006",
+          "version": 2,
+          "intent_ref": "CI-M-005-005",
+          "file": "traktor_nml/commands/split_cmd.py",
+          "diff": "--- a/traktor_nml/commands/split_cmd.py\n+++ b/traktor_nml/commands/split_cmd.py\n@@ -6,6 +6,7 @@ import sys\n from pathlib import Path\n \n from ..split import build_output\n+from ..spans import SpanIndex\n from ..rewrite import read_and_parse_source, write_bytes_atomically\n \n \n@@ -42,8 +43,12 @@ def _handle_split(args: argparse.Namespace) -> int:\n     source_text = source_bytes.decode(\"utf-8\")\n \n+    # One SpanIndex built once for the whole document, rather than once\n+    # per group, and handed to build_output on every group iteration.\n+    span_index = SpanIndex(source_text, root)\n+\n     outcomes = []\n     for output_path, names in groups:\n-        outcome = build_output(source_text, root, names, args.dangling_policy)\n+        outcome = build_output(source_text, root, names, args.dangling_policy, span_index)\n         outcomes.append((output_path, outcome))\n         print(f\"group_output={output_path}\")\n         for key, value in outcome.stats.items():\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-007",
+          "version": 2,
+          "intent_ref": "CI-M-005-004",
+          "file": "traktor_nml/spans.py",
+          "diff": "--- a/traktor_nml/spans.py\n+++ b/traktor_nml/spans.py\n@@ -110,41 +110,5 @@ def find_element_span(source: str, tag_name: str, start_from: int = 0) -> Opti\n     return None\n \n \n-def element_span_by_identity(source: str, root, element) -> Span:\n-    \"\"\"Locate element's span by its position among same-tag elements in\n-    document order, rather than searching source text for one of its\n-    attribute values (breaks on duplicate values across the document - e.g.\n-    two ENTRY elements sharing a FILE basename, very common across a real\n-    corpus - and on XML-escaped characters, since the parsed attribute value\n-    is unescaped text while the source bytes are not) or by source line\n-    (unreliable whenever more than one element shares a line, as in a\n-    compact/minified document with no inter-tag whitespace).\n-\n-    root.iter(tag) walks the parsed tree in the same pre-order every parser\n-    produces from a well-formed document, which is exactly the left-to-right\n-    order that tag's opening tags appear in source - so the Nth element of\n-    that tag in the tree is unambiguously the Nth \"<tag\" occurrence in text,\n-    independent of attribute values or line boundaries.\n-    \"\"\"\n-    tag_name = element.tag\n-    target_index = next((i for i, el in enumerate(root.iter(tag_name)) if el is element), None)\n-    if target_index is None:\n-        raise ValueError(f\"element <{tag_name}> is not part of the given root's tree\")\n-\n-    idx = -1\n-    for _ in range(target_index + 1):\n-        idx = source.find(f\"<{tag_name}\", idx + 1)\n-        while idx != -1:\n-            # Guard against a longer tag name sharing this prefix (e.g. NODE vs NODENAME).\n-            following = source[idx + 1 + len(tag_name): idx + 2 + len(tag_name)]\n-            if following and following not in (\" \", \"\\t\", \"\\n\", \"\\r\", \">\", \"/\"):\n-                idx = source.find(f\"<{tag_name}\", idx + 1)\n-                continue\n-            break\n-        if idx < 0:\n-            raise ValueError(f\"could not locate occurrence {target_index} of <{tag_name}> in source text\")\n-    return element_span(source, idx)\n-\n-\n class SpanIndex:\n     \"\"\"Index one source document against its parsed root in a single pass,\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-009",
+          "version": 2,
+          "intent_ref": "CI-M-005-007",
+          "file": "traktor_nml/README.md",
+          "diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ -55,5 +55,9 @@\n - A write command refuses an output path resolving to any of its inputs,\n   not only its primary one, so a multi-input command declares its\n   remaining inputs through `write_nml_safely`'s `extra_inputs` -\n   `rewrite-from-collection-compare` declaring `new_input` is the case\n   that motivated stating this generally (DL-023).\n+- A split output depends only on the playlists its own group names, so an\n+  untouched playlist elsewhere in the document can neither pull tracks\n+  into a group nor fail it - what the per-output semantics above already\n+  imply, stated explicitly (DL-020).\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-010",
+          "version": 2,
+          "intent_ref": "CI-M-005-008",
+          "file": "traktor_nml/CLAUDE.md",
+          "diff": "--- a/traktor_nml/CLAUDE.md\n+++ b/traktor_nml/CLAUDE.md\n@@ -20,4 +20,4 @@\n | `spans.py`         | Byte-span transplantation, `OutputBuilder`, count-attribute recalculation, `SpanIndex` as the single-pass identity locator | Modifying splice/split's structural write path or count recalculation |\n | `playlists.py`     | Playlist import for splice (merge, rename, redirect); nodes are located through the shared `SpanIndex`, not a UUID text search | Modifying playlist merge, collision-rename, or PRIMARYKEY redirect logic |\n | `splice.py`        | Merge-command core: conflict resolution, playlist import; builds one `SpanIndex` per input source | Modifying splice's conflict policy or merge algorithm      |\n-| `split.py`         | Partition-command core: filter, dangling-reference policy  | Modifying split's selection filter or dangling-reference handling |\n+| `split.py`         | Partition-command core: filter, dangling-reference policy scoped to the group's own resolved playlist nodes, spans from the shared `SpanIndex` | Modifying split's selection filter or dangling-reference handling |\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-011",
+          "version": 2,
+          "intent_ref": "CI-M-005-009",
+          "file": "traktor_nml/commands/CLAUDE.md",
+          "diff": "--- a/traktor_nml/commands/CLAUDE.md\n+++ b/traktor_nml/commands/CLAUDE.md\n@@ -13,2 +13,2 @@\n | `splice_cmd.py`     | `splice` subcommand (merge NML files); reads/parses through `rewrite.read_and_parse_source` and commits through `rewrite.write_bytes_atomically` | Changing splice's CLI surface, conflict flags, or reports |\n-| `split_cmd.py`      | `split` subcommand (partition an NML file); reads/parses through `rewrite.read_and_parse_source` and commits each group through `rewrite.write_bytes_atomically` | Changing split's CLI surface or dangling-reference flags |\n+| `split_cmd.py`      | `split` subcommand (partition an NML file); reads/parses through `rewrite.read_and_parse_source`, builds one `SpanIndex` per input and hands it to `build_output` for every group, and commits each group through `rewrite.write_bytes_atomically` | Changing split's CLI surface or dangling-reference flags |\n",
+          "doc_diff": "",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-012",
+          "version": 3,
+          "intent_ref": "CI-M-005-006",
+          "file": "tests/test_spans.py",
+          "diff": "--- a/tests/test_spans.py\n+++ b/tests/test_spans.py\n@@ -1,4 +1,9 @@\n-\"\"\"Byte-span scanner: extent, nesting, escaping, and round-trip fidelity.\"\"\"\n+\"\"\"Byte-span scanner: extent, nesting, escaping, and round-trip fidelity.\n+\n+SpanIndex is the package's one element-to-span identity mechanism; the\n+identity-location behavior it provides is asserted here directly against\n+SpanIndex.span_of.\n+\"\"\"\n \n from __future__ import annotations\n \n",
+          "doc_diff": "",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "id": "W-001",
+      "milestones": [
+        "M-001",
+        "M-002",
+        "M-004"
+      ]
+    },
+    {
+      "id": "W-002",
+      "milestones": [
+        "M-003",
+        "M-005"
+      ]
+    }
+  ],
+  "diagram_graphs": [],
+  "readme_entries": [
+    {
+      "path": "traktor_nml",
+      "content": "Additions for traktor_nml/README.md, in the file's existing (DL-nnn)\ncitation style. New decisions continue the repository's existing decision\nlog, which already occupies DL-001..DL-013, so they begin at DL-014; every\nreference to a pre-existing decision below names it as such.\n\n## Design Decisions (append)\n\n- `spans.py` builds one `SpanIndex` per source document in a single pass -\n  one pre-order walk for per-tag ordinals, one token scan for opening-tag\n  offsets - and it is the only mechanism that maps a parsed element to its\n  source byte span. `element_span_by_identity` and `playlists.py`'s\n  UUID-marker locator are both gone, so a playlist whose `PLAYLIST` child\n  carries no UUID is still located and no locator rescans the document per\n  element (DL-014, DL-021).\n- The one-to-one destination-collision post-pass is a named function in\n  `reconnect.py` that both `resolve_reconnection` and compare-based\n  rewriting call, so the pre-existing DL-004 guarantee has one\n  implementation rather than one per caller (DL-015).\n- `write_nml_safely`'s output-equals-input refusal is stated over every\n  file the invocation reads, not only its primary input: a command with\n  more than one input declares the rest through `extra_inputs`.\n  `rewrite-from-collection-compare` reads two collections and declares\n  `new_input`, so an output resolving to the newer collection is refused\n  the same way one resolving to `old_input` already was (DL-023).\n- `volumes.py` owns both directions of the volume-relative to absolute\n  transformation: `location_from_disk_path` for the candidate side and\n  `local_path_for_location` for the old side (DL-017).\n- `local_path_for_location` resolves only against mount anchors this run\n  established explicitly - `--volume-map` entries and scan roots whose\n  identity `resolve_volume_identity` resolved - and returns nothing for an\n  unknown VOLUME/VOLUMEID pair or for two known anchors that both yield a\n  readable file. It never parses an anchor out of the VOLUME string and\n  never falls back to the filesystem root: a guessed anchor can resolve to\n  a different file sitting at the same volume-relative path, whose\n  fingerprint could then win a match and rewrite LOCATION and PRIMARYKEY\n  onto an unrelated track. This extends the pre-existing DL-005\n  explicit-identity rule to the old side rather than carving an exception\n  out of it (DL-018).\n- `splice_cmd` and `split_cmd` read, parse and write through helpers\n  exported from `rewrite.py` rather than carrying their own input handling\n  and a plain `write_bytes`, so both inherit the diagnostics and the atomic\n  write `write_nml_safely` already implements (DL-019).\n\n## Invariants (append)\n\n- A candidate matched by more than one old record is withdrawn from every\n  mapping the tool writes from, on the compare path as well as the\n  reconnect path, and the withdrawal is reported as `destination_collisions`\n  (pre-existing DL-004, extended by DL-015 and DL-016).\n- A write command refuses an output path that resolves to any of its\n  inputs, not only its primary one; a multi-input command declares its\n  remaining inputs through `write_nml_safely`'s `extra_inputs` (DL-023).\n- A malformed input yields `xml_parse_error` naming the file and exit code\n  2 from every write command, splice and split included, never an escaping\n  parser exception (DL-019).\n- Every output file is committed through a temp file plus `os.replace`, so\n  a destination holds either its previous bytes or the complete new bytes.\n  This sits underneath the pre-existing DL-012 build-and-validate-before-write\n  rule and closes the truncation hole that rule never covered (DL-019).\n- An element is located in source by tree identity through one `SpanIndex`\n  per document, never by searching for an attribute value and never by a\n  second locator (DL-014, DL-021).\n- A split output depends only on the playlists its own group names: an\n  untouched playlist elsewhere in the document can neither pull tracks into\n  a group under `pull-in` nor abort it under `fail`, which is what the\n  pre-existing DL-009 per-output semantics already imply (DL-020).\n- An old-side path is reconstructed by reattaching volume identity to the\n  volume-relative decoded path, never by treating `decoded_path` as\n  absolute and never by guessing a mount anchor (DL-017, DL-018).\n\n## Tradeoffs (append)\n\n- Reporting `destination_collisions` on the compare path costs one\n  regenerated baseline manifest case; accepted so a withdrawn match stays\n  distinguishable from a genuinely unmatched track (DL-016).\n- Old-side volume resolution is confined to explicitly established mount\n  anchors, so a record on an unmapped volume is simply not fingerprinted\n  and counts as `fingerprint_unavailable_old_side`; accepted because the\n  alternative failure mode is fingerprinting the wrong file (DL-018).\n- `SpanIndex` holds per-tag offset lists for the whole document in memory;\n  accepted because the alternative is a document rescan per element on an\n  11.7MB, 6412-entry corpus (DL-014).\n- `split`'s multi-output write loop is not transactional across files: each\n  destination is individually atomic, but a failure partway through the\n  loop leaves earlier group outputs written. Accepted because cross-file\n  staging and commit is new machinery beyond a fix-only pass, and recorded\n  here rather than left implied by the per-file atomicity claim (DL-022).\n"
+    }
+  ]
+}

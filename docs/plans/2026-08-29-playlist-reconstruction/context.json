@@ -1,0 +1,85 @@
+{
+  "task_spec": [
+    "subject: reconstruct playlists in a base Traktor NML from a source (older) NML - where the base holds playlist names whose contents diverge from the source, fill the base playlist in place from the union of both, instead of importing a renamed '<name> (2)' duplicate",
+    "scope: C:/codex/traktor-nml-tool - traktor_nml/splice.py, traktor_nml/playlists.py, traktor_nml/commands/splice_cmd.py, tests/test_splice.py",
+    "scope: after the CLI lands, a wizard step in traktor_nml/gui/ exposing the same operation",
+    "out-of-scope: accessibility work of any kind (deferred to next version by the user; no NVDA, no screen-reader verification)",
+    "out-of-scope: changing the default splice collision behaviour - the '<name> (2)' rename stays the default, reconstruction is opt-in",
+    "out-of-scope: build-playlist, split, rewrite, and the reconnect wizard's existing scan/review/write flow",
+    "out-of-scope: creating playlists in base that the base does not already have"
+  ],
+  "constraints": [
+    "MUST: trigger on playlist CONTENT difference (redirected PRIMARYKEY sequence), not entry counts - user directive; counts miss the A,B vs B,C case",
+    "MUST: combining is the union of both sides, deduplicated on the redirected key; base's own entries keep their existing order first, then incoming keys not already present",
+    "MUST: check ambiguous cases BEFORE combining - an incoming key resolving to more than one base identity is reported and aborts, following splice's existing DL-008 abort-plus-report convention",
+    "MUST: a reconstructed playlist must NOT also be appended as an imported '<name> (2)' duplicate (current half-finished state does exactly this)",
+    "MUST: base file is never rewritten in place; output is a separate full copy - already true of splice, must stay true",
+    "MUST: base playlist keeps its own NODE, UUID and folder position when filled",
+    "MUST NOT: regress the 7 existing tests in tests/test_splice.py, or the wider suite (currently 407 passed, 3 skipped under the SYSTEM interpreter)",
+    "SHOULD: two trigger positions only (rename default, reconstruct-on-content-difference); the count-based mode is dominated and is to be removed",
+    "MUST: every guard constructs its broken scenario in executable code, and its docstring records the specific mutation and the specific observed output (project rule) - run it, read the value, then write it",
+    "MUST: documentation describes code as it stands - no 'previously', 'used to', 'now does', 'no longer'",
+    "MUST: preserve each file's own line endings; traktor_nml/gui/app.py is 100% CRLF (1194 CRLF, 0 bare LF), every other module/test/doc is LF; read and write with newline=''",
+    "MUST: never restore a file with git checkout - copy aside and restore from the copy; never write into or delete build/ or dist/",
+    "MUST: run the suite under the SYSTEM interpreter, not .venv (.venv carries extra packages and differs); system interpreter must stay free of nicegui and webview",
+    "MUST: any change touching traktor_nml/gui/ requires a served-page gate run (DL-084) from C:/codex/traktor-nml-tool-gate before it lands",
+    "SHOULD: a new decision-log entry recording why the '<name> (2)' rename is not universal, since DL-029 currently states it as the rule"
+  ],
+  "entry_points": [
+    "traktor_nml/splice.py:assemble_output - the merge; already carries an uncommitted reconstruct= parameter and a pre-pass inserted between the old_to_new_key construction (line ~177) and the first builder call (line ~206), which is the only window where base_source can be rewritten and re-parsed for free",
+    "traktor_nml/splice.py:_resolve_conflicts - builds old_to_new_key (non-base key -> base key); the redirect map the content comparison and the merge both depend on",
+    "traktor_nml/playlists.py:available_playlist_name - the '<name> (2)' suffix rule (DL-029); single spelling shared by imported and synthesized playlists",
+    "traktor_nml/playlists.py:import_playlists - appends each incoming playlist as a fragment; this is where a reconstructed name must be excluded so it is not also imported",
+    "traktor_nml/playlists.py:merged_playlist_entries - UNCOMMITTED, already written: union with base order first, dedup on redirected key",
+    "traktor_nml/playlists.py:playlist_entry_count - UNCOMMITTED, already written: counts PRIMARYKEY children rather than trusting the ENTRIES attribute; likely to be superseded by content comparison",
+    "traktor_nml/spans.py:SpanIndex.span_of - resolves an element to its byte span; how the pre-pass locates base's PLAYLIST element to replace",
+    "traktor_nml/spans.py:OutputBuilder.add_counted_span - COUNT/ENTRIES recalculation on a span with appended children",
+    "traktor_nml/matching.py:match_records - defines the existing 'ambiguous' outcome (a tier matching more than one candidate); the vocabulary the ambiguity check should follow",
+    "traktor_nml/commands/splice_cmd.py - CLI surface; where the opt-in flag and any report path are added",
+    "traktor_nml/gui/app.py - the wizard; a later step would expose this operation",
+    "tests/test_splice.py - _nml/_entry/_playlist fixture helpers for minimal valid NMLs"
+  ],
+  "rejected_alternatives": [
+    "splice as-is - measured: base MySet stays ENTRIES=0 and a second 'MySet (2)' with the tracks is appended, exit code 0. Fills nothing, reports success",
+    "build-playlist - takes an external 'Artist - Title' text tracklist, cannot read playlists out of a source NML",
+    "rewrite-from-collection-compare - repairs locations/PRIMARYKEYs on entries that already exist, so it has nothing to put into an empty playlist",
+    "count-based trigger ENTRIES(base) < ENTRIES(incoming) - superseded; misses same-count content divergence",
+    "count-based trigger ENTRIES(base) != ENTRIES(incoming) - implemented then superseded by content comparison; strictly dominated, to be removed",
+    "fill-only-when-base-is-empty - rejected by the user in favour of combining whenever contents differ",
+    "text pre-pass before old_to_new_key exists - impossible, the redirect map is required to compare and merge keys"
+  ],
+  "current_understanding": [
+    "splice merges a base NML with further NMLs: base is authoritative for its own COLLECTION and playlists and its bytes are never rewritten; track identity across inputs uses record_keys tier ordering cascaded through union-find",
+    "playlist import APPENDS each incoming playlist into base's root SUBNODES as a fragment; base's SUBNODES span is otherwise copied verbatim - so filling a base playlist means replacing a span INSIDE that verbatim region, which the existing assembly has no path for",
+    "the uncommitted pre-pass works around this by rewriting base_source (replacements applied end-first so offsets stay valid), re-parsing base_root via xmlio.parse_xml_bytes, then letting the existing assembly run on the rewritten text",
+    "measured state of the half-finished work: base MySet correctly filled 0 -> 2 entries in place, stats playlists_reconstructed=1, BUT playlists_imported=1 and playlists_renamed=1 as well, so the output still carries a redundant 'MySet (2)'. That exclusion is the known missing piece",
+    "ambiguity is an existing first-class outcome in matching.py:match_records (a tier matching more than one candidate); splice already aborts on unresolved identity conflicts and writes its conflict report either way (DL-008)",
+    "an incoming PRIMARYKEY with no old_to_new_key entry and no base counterpart already becomes an unresolved_reference, which assemble_output aborts on at the end",
+    "tests/test_splice.py currently passes 7/7 with the uncommitted pre-pass present and the flag off"
+  ],
+  "assumptions": [
+    "content comparison should compare the REDIRECTED key sequence, not raw source keys, since base and source name the same track by different keys (H)",
+    "order-sensitive comparison: a reordered but otherwise identical playlist counts as 'differs' and triggers a combine, which is a no-op on membership but rewrites order to base-first (M) - worth confirming with the user",
+    "'ambiguous' here means one incoming key whose identity group holds more than one base record, so no single base key is the right redirect target (M)",
+    "the ambiguity report should follow splice_cmd.py's existing _write_conflict_report CSV convention (csv.DictWriter, newline='', UTF-8) rather than a second dialect (H)",
+    "the wizard step is wanted after the CLI works, not simultaneously (H - user said 'then the GUI step')",
+    "playlist_entry_count becomes unused once the count trigger is removed and should be deleted rather than left dead (M)"
+  ],
+  "invisible_knowledge": [
+    "DL-007: byte-span assembly (splice/split) and attribute-patching writes (rewrite/reconnect) must never mix within one command; splice is span-assembly, so reconstruction must stay on the span path and must not route through write_nml_safely",
+    "DL-008: an unresolved conflict aborts the whole write, and the report is written either way - the convention the ambiguity check must reproduce rather than inventing a second failure shape",
+    "DL-029: a same-name collision takes a deterministic '<name> (2)' rename with a freshly generated UUID, because two PLAYLIST elements sharing one UUID within a file is invalid. Reconstruction deliberately departs from this for the matched-name case, which is why it needs its own decision-log entry",
+    "DL-037: build-playlist keeps duplicate entries from duplicate input lines because a Traktor PLAYLIST is an ordered list of references, not a set, and the operator authored those lines. Reconstruction dedupes instead - the duplication there would be an artefact of merging two documents, not authored input. The two policies must each state why",
+    "fragments that no rename or redirect touched are transplanted as verbatim source byte spans; only renamed playlists and redirected PRIMARYKEY values are re-serialised - a reconstructed playlist is necessarily re-serialised",
+    "the ENTRIES attribute on a PLAYLIST is the value a reconstruction recalculates, so it must not be trusted as the input to deciding whether to reconstruct",
+    "Traktor's tolerance of a playlist carrying a UUID other than the one it shipped with is confirmed only by manual Traktor import, not by the test suite (package log R-004) - filling base's node in place avoids opening a second unverified case, since base keeps its own UUID",
+    "the user's real-world use case is the critical one for this tool: playlists in a current collection are blank, and a previous collection holds their contents; path repair matters because the two collections reference tracks at different locations"
+  ],
+  "reference_docs": [
+    "docs/2026-08-24-build-playlist-plan.md - DL-024..DL-039 with reasoning chains; DL-029 UUID/collision rename, DL-030 target-folder rules, DL-037 duplicate-entry policy",
+    "traktor_nml/commands/CLAUDE.md - commands/ file table and the core-module/thin-CLI-module layering rule",
+    "docs/CLAUDE.md - docs file table",
+    "C:/codex/traktor-nml-tool-gate/README.md - the DL-084 served-page gate, its fixture, and the driving order, required for any gui/ change",
+    "C:/codex/CONTINUE-traktor-wizard.md - project close-out state, traps that cost real time, and the hard-enforced project rules"
+  ]
+}

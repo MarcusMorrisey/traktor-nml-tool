@@ -1,0 +1,11 @@
+{
+  "phase": "plan-design",
+  "iteration": 6,
+  "items": [
+    {"id": "qa-001", "scope": "cross-wave", "check": "No milestone acceptance criterion names an artifact a later milestone creates", "status": "PASS", "severity": "MUST"},
+    {"id": "qa-002", "scope": "M-004", "check": "Non-zero-override property pinned by a criterion runnable at its own gate", "status": "PASS", "severity": "MUST"},
+    {"id": "qa-003", "scope": "CI-M-003-006", "check": "v4 excises non-zero paragraph, DL-076 dropped, closing pointer present", "status": "PASS", "severity": "SHOULD"},
+    {"id": "qa-004", "scope": "CI-M-004-009", "check": "Guard prose matches the element-level comparison the criterion mandates", "status": "FAIL", "severity": "SHOULD"},
+    {"id": "qa-005", "scope": "tree", "check": "Cited source facts (reconnect_run 51-53/181-185, reconnect.py recount rule, plan_and_write_nml first statement, pyproject packages) verified against HEAD", "status": "PASS", "severity": "MUST"}
+  ]
+}

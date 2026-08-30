@@ -1,0 +1,19 @@
+--- a/traktor_nml/README.md
++++ b/traktor_nml/README.md
+@@ -18,7 +18,16 @@
+   concatenates verbatim source byte ranges, re-serialising only the
+   specific fragments a rename or PRIMARYKEY redirect actually changes
+   (DL-007) - `textpatch.py` has no concept of element extent, so
+   structural insert/remove could not go through it without falling back
+   to a full, format-losing serialisation.
++
++`spans.py`'s `SpanIndex` locates an element's byte span through one
++`SpanIndex` built in a single pass per document, rather than a rescan per
++element - the only element-to-span mechanism in the package now that
++`playlists.py`'s UUID-based locator is gone, so a playlist whose PLAYLIST
++child carries no UUID is still located (DL-014, DL-021). Holding per-tag
++offset lists for an 11.7MB document costs memory a rescan-per-element
++approach would not pay, accepted for the linear-instead-of-quadratic
++total cost across a full merge or split.
+ 
+ `commands/` holds one module per subcommand; `cli.py` discovers them by

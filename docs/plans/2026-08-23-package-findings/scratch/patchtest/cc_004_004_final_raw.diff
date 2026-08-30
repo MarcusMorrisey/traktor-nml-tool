@@ -1,0 +1,116 @@
+--- a/tests/test_spans.py
++++ b/tests/test_spans.py
+@@ -6,7 +6,7 @@
+ 
+ import pytest
+ 
+-from traktor_nml.spans import element_span, find_element_span, recalculate_count_attr
++from traktor_nml.spans import SpanIndex, element_span, find_element_span, recalculate_count_attr
+ 
+ REAL_FIXTURE = Path(r"C:\codex\general_tasks\collection_textual_patch_test.nml")
+ 
+@@ -87,3 +87,104 @@
+ 
+     assert _walk("ENTRY", 200) > 0
+     assert _walk("NODE", 200) > 0
++
++
++def test_span_index_matches_element_span_for_entry_and_node_elements() -> None:
++    import lxml.etree as ET
++
++    source = (
++        '<ROOT><COLLECTION><ENTRY A="1"><INFO/></ENTRY><ENTRY A="2"/></COLLECTION>'
++        '<PLAYLISTS><NODE NAME="outer"><NODE NAME="inner"></NODE></NODE></PLAYLISTS></ROOT>'
++    )
++    root = ET.fromstring(source)
++    index = SpanIndex(source, root)
++
++    entries = root.findall(".//ENTRY")
++    assert index.span_of(entries[0]).text(source) == '<ENTRY A="1"><INFO/></ENTRY>'
++    assert index.span_of(entries[1]).text(source) == '<ENTRY A="2"/>'
++
++    outer, inner = root.findall(".//NODE")
++    assert index.span_of(inner).text(source) == "<NODE NAME=\"inner\"></NODE>"
++    assert index.span_of(outer).text(source) == (
++        '<NODE NAME="outer"><NODE NAME="inner"></NODE></NODE>'
++    )
++
++
++def test_span_index_handles_tag_names_sharing_a_prefix() -> None:
++    import lxml.etree as ET
++
++    source = '<ROOT><NODENAME>x</NODENAME><NODE A="1"></NODE></ROOT>'
++    root = ET.fromstring(source)
++    index = SpanIndex(source, root)
++
++    node = root.find("NODE")
++    nodename = root.find("NODENAME")
++    assert index.span_of(node).text(source) == '<NODE A="1"></NODE>'
++    assert index.span_of(nodename).text(source) == "<NODENAME>x</NODENAME>"
++
++
++def test_span_index_raises_value_error_for_element_outside_indexed_tree() -> None:
++    import lxml.etree as ET
++
++    source = "<ROOT><ENTRY/></ROOT>"
++    root = ET.fromstring(source)
++    index = SpanIndex(source, root)
++    outsider = ET.fromstring("<ENTRY/>")
++
++    with pytest.raises(ValueError, match="ENTRY"):
++        index.span_of(outsider)
++
++
++def test_span_index_survives_gc_and_resolves_freshly_accessed_elements_correctly() -> None:
++    """SpanIndex must retain a reference to every element it walked for
++    its entire lifetime: under the lxml backend, an element is a
++    transient proxy over the underlying libxml2 node, and once nothing
++    references a proxy it can be garbage-collected, after which CPython
++    may reuse its freed memory address for a new, unrelated proxy. A
++    SpanIndex keyed only on id(element) without retaining a reference
++    would then risk a later lookup matching a stale, recycled-address
++    entry and silently returning the wrong span.
++
++    This forces a GC cycle immediately after construction, then resolves
++    spans via elements obtained from an independent, freshly issued
++    lookup (traktor_nml.model.collection_records), rather than reusing
++    any object from the original construction walk, and asserts every
++    span still comes back correct.
++    """
++    import gc
++
++    import lxml.etree as ET
++
++    from traktor_nml.model import collection_records
++
++    source = (
++        '<NML VERSION="20"><COLLECTION ENTRIES="2">'
++        '<ENTRY TITLE="A"><LOCATION DIR="/:" FILE="a.mp3"></LOCATION></ENTRY>'
++        '<ENTRY TITLE="B"><LOCATION DIR="/:" FILE="b.mp3"></LOCATION></ENTRY>'
++        "</COLLECTION></NML>"
++    )
++    root = ET.fromstring(source)
++    index = SpanIndex(source, root)
++
++    gc.collect()
++
++    records = collection_records(root)
++    assert index.span_of(records[0].entry).text(source) == (
++        '<ENTRY TITLE="A"><LOCATION DIR="/:" FILE="a.mp3"></LOCATION></ENTRY>'
++    )
++    assert index.span_of(records[1].entry).text(source) == (
++        '<ENTRY TITLE="B"><LOCATION DIR="/:" FILE="b.mp3"></LOCATION></ENTRY>'
++    )
++
++
++@pytest.mark.skipif(not REAL_FIXTURE.exists(), reason="real fixture not present in this environment")
++def test_real_fixture_indexed_in_one_pass_and_every_entry_parses_standalone() -> None:
++    import lxml.etree as ET
++
++    source = REAL_FIXTURE.read_text(encoding="utf-8")
++    root = ET.fromstring(source.encode("utf-8"))
++    index = SpanIndex(source, root)
++
++    for entry in root.iter("ENTRY"):
++        span = index.span_of(entry)
++        ET.fromstring(span.text(source))

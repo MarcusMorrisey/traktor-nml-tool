@@ -1,0 +1,10 @@
+--- a/tests/test_reconnect.py
++++ b/tests/test_reconnect.py
+@@ -150,7 +150,7 @@ def test_fingerprint_flag_names_the_dependency_that_is_actually_missing(
+         lambda: "the chromaprint shared library is not available",
+     )
+     monkeypatch.setattr(
+-        "traktor_nml.commands.reconnect_cmd.fingerprint_unavailable_reason",
++        "traktor_nml.reconnect_run.fingerprint_unavailable_reason",
+         lambda: "the chromaprint shared library is not available",
+     )

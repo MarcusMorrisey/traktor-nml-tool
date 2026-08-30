@@ -1,0 +1,21 @@
+--- a/tests/test_baseline_parity.py
++++ b/tests/test_baseline_parity.py
+@@ -22,6 +22,9 @@
+
+
+ def _load_manifest() -> list[dict]:
++    """Loads the tool's recorded output contract (DL-002). Regenerating
++    manifest.json is correct only for a deliberate, reviewed behavior
++    change - never to make a failing test pass."""
+     return json.loads(BASELINE_MANIFEST.read_text(encoding="utf-8"))
+
+
+@@ -30,6 +33,9 @@
+ @pytest.mark.parametrize("case", _load_manifest(), ids=lambda c: " ".join(c["argv"]))
+ def test_baseline_invocation_matches_stored_bytes(case: dict, fixture_corpus: Path, tmp_path: Path) -> None:
++    """Re-runs one recorded invocation against the fixture corpus and
++    compares exit code, stdout and every written file's bytes against the
++    manifest's stored values (DL-011)."""
+     (tmp_path / "out").mkdir(exist_ok=True)
+     result = run_tool(case["argv"], cwd=tmp_path)
+ 

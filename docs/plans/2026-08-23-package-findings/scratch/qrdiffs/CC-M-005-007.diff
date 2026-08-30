@@ -1,0 +1,44 @@
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -110,41 +110,5 @@ def find_element_span(source: str, tag_name: str, start_from: int = 0) -> Opti
+     return None
+ 
+ 
+-def element_span_by_identity(source: str, root, element) -> Span:
+-    """Locate element's span by its position among same-tag elements in
+-    document order, rather than searching source text for one of its
+-    attribute values (breaks on duplicate values across the document - e.g.
+-    two ENTRY elements sharing a FILE basename, very common across a real
+-    corpus - and on XML-escaped characters, since the parsed attribute value
+-    is unescaped text while the source bytes are not) or by source line
+-    (unreliable whenever more than one element shares a line, as in a
+-    compact/minified document with no inter-tag whitespace).
+-
+-    root.iter(tag) walks the parsed tree in the same pre-order every parser
+-    produces from a well-formed document, which is exactly the left-to-right
+-    order that tag's opening tags appear in source - so the Nth element of
+-    that tag in the tree is unambiguously the Nth "<tag" occurrence in text,
+-    independent of attribute values or line boundaries.
+-    """
+-    tag_name = element.tag
+-    target_index = next((i for i, el in enumerate(root.iter(tag_name)) if el is element), None)
+-    if target_index is None:
+-        raise ValueError(f"element <{tag_name}> is not part of the given root's tree")
+-
+-    idx = -1
+-    for _ in range(target_index + 1):
+-        idx = source.find(f"<{tag_name}", idx + 1)
+-        while idx != -1:
+-            # Guard against a longer tag name sharing this prefix (e.g. NODE vs NODENAME).
+-            following = source[idx + 1 + len(tag_name): idx + 2 + len(tag_name)]
+-            if following and following not in (" ", "\t", "\n", "\r", ">", "/"):
+-                idx = source.find(f"<{tag_name}", idx + 1)
+-                continue
+-            break
+-        if idx < 0:
+-            raise ValueError(f"could not locate occurrence {target_index} of <{tag_name}> in source text")
+-    return element_span(source, idx)
+-
+-
+ class SpanIndex:
+     """Index one source document against its parsed root in a single pass,

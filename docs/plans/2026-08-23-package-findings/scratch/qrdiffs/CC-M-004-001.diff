@@ -1,0 +1,74 @@
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -145,4 +145,71 @@ def element_span_by_identity(source: str, root, element) -> Span:
+     return element_span(source, idx)
+ 
+ 
++class SpanIndex:
++    """Index one source document against its parsed root in a single pass,
++    so every element in the tree resolves to its byte span without
++    rescanning the source per lookup.
++
++    One pre-order walk (root.iter()) assigns every element its ordinal
++    among same-tag elements, in the same left-to-right order a well-formed
++    document's own opening tags appear in source; one _TOKEN_RE scan then
++    collects the opening-tag offset of every non-closing tag occurrence in
++    document order. span_of resolves an element's offset by tag and
++    ordinal and returns element_span from there.
++
++    The same walk that assigns ordinals also keeps a reference to every
++    walked element for this index's entire lifetime (self._elements). This
++    matters specifically under the lxml backend: an lxml Element is a
++    transient proxy over the underlying libxml2 tree, and once nothing
++    references a proxy it can be garbage-collected - after which CPython
++    may reuse its memory address for a brand-new, unrelated proxy object.
++    Keying solely on id(element) without retaining a reference would let a
++    later, different element be assigned the same id() as an
++    already-collected one, and span_of would then silently resolve to the
++    wrong (stale) ordinal for that address. Holding self._elements for as
++    long as this index is alive guarantees every id() this index has ever
++    recorded stays bound to the original element for the index's whole
++    lifetime, so a lookup can never be confused by address reuse.
++    """
++
++    def __init__(self, source: str, root) -> None:
++        self._source = source
++        self._elements: list = []
++        self._ordinal_by_id: dict[int, int] = {}
++        tag_counts: dict[str, int] = {}
++        for element in root.iter():
++            tag = element.tag
++            if not isinstance(tag, str):
++                continue  # skip comments/PIs, whose lxml .tag is a callable, not a name
++            self._elements.append(element)
++            ordinal = tag_counts.get(tag, 0)
++            self._ordinal_by_id[id(element)] = ordinal
++            tag_counts[tag] = ordinal + 1
++
++        offsets_by_tag: dict[str, list[int]] = {}
++        for token in _TOKEN_RE.finditer(source):
++            if token.group(1):  # a closing tag never starts a new element
++                continue
++            tag_name = token.group(2)
++            if tag_name is None:
++                continue
++            offsets_by_tag.setdefault(tag_name, []).append(token.start())
++        self._offsets_by_tag = offsets_by_tag
++
++    def span_of(self, element) -> Span:
++        """Return element's full byte span, resolved by its tag and
++        ordinal among same-tag elements rather than by rescanning source.
++        Raises ValueError naming the tag when element is absent from the
++        indexed tree, or when that tag's source occurrences run short of
++        its ordinal."""
++        tag_name = element.tag
++        ordinal = self._ordinal_by_id.get(id(element))
++        if ordinal is None:
++            raise ValueError(f"element <{tag_name}> is not part of the indexed tree")
++        offsets = self._offsets_by_tag.get(tag_name, [])
++        if ordinal >= len(offsets):
++            raise ValueError(f"could not locate occurrence {ordinal} of <{tag_name}> in source text")
++        return element_span(self._source, offsets[ordinal])
++
++
+ class OutputBuilder:

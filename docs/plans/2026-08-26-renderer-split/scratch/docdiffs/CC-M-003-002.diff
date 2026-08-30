@@ -1,0 +1,11 @@
+--- a/traktor_nml/README.md
++++ b/traktor_nml/README.md
+@@ -13,6 +13,11 @@ the same core and renderer without going through argparse wiring (DL-046).
+ `build-playlist` synthesizes its playlist node from an external track list
+ with no source span to transplant, so it always takes the serialization
+ path this split already sanctions for genuinely new content (DL-028), and
++`shared_args.py` holds `resolve_confidence`/`should_refute`/
++`refutation_disabled_line` below `commands/`: both `reconnect_run.py` and
++`commands/_shared_args.py` import them from here, since a core module
++importing from `commands/` would create the reverse of the import
++direction DL-046 establishes.

@@ -1,0 +1,736 @@
+===== CC-M-001-001 v3 traktor_nml/rewrite.py
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -389,6 +389,24 @@ def apply_and_write(source_bytes: bytes, patches: list[ElemPatch], output: Path) -> None:
+     patched = apply_text_patches(source_bytes.decode("utf-8"), patches)
+     write_bytes_atomically(output, patched.encode("utf-8"))
+
++
++@dataclass(frozen=True)
++class WriteOutcome:
++    """One attempt at the read/parse/patch/write sequence, returned
++    rather than printed so a caller other than the CLI - the reconnect
++    renderer, a future GUI - can read it as data.
++
++    stats is None rather than empty when the attempt ended before any
++    stats existed - the signal that separates an output collision, which
++    has no stats block at all, from a run that collected stats and then
++    failed to write.
++    """
++
++    stats: Optional[dict[str, int]]
++    samples: Optional[list[tuple[str, str, str, str]]]
++    error: Optional[str]
++    written_path: Optional[Path]
++    exit_code: int
++
+
+ def print_stats_and_samples(
+     stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
+
+
+===== CC-M-001-002 v2 traktor_nml/rewrite.py
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -404,17 +404,31 @@ class WriteOutcome:
+     error: Optional[str]
+     written_path: Optional[Path]
+     exit_code: int
+ 
+ 
+-def print_stats_and_samples(
++def format_stats_and_samples(
+     stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
+-) -> None:
+-    for key, value in stats.items():
+-        print(f"{key}={value}")
++) -> list[str]:
++    """The stats and sample_matches block as lines rather than prints, so
++    print_stats_and_samples and reconnect_render.render_rewrite_from_reconnect
++    compose the same block into their own output instead of each
++    restating its format."""
++    lines = [f"{key}={value}" for key, value in stats.items()]
+     if samples:
+-        print("sample_matches:")
++        lines.append("sample_matches:")
+         for label, before, after, matched_by in samples[:limit]:
+-            print(f"- {label}")
+-            print(f"  matched_by={matched_by}")
+-            print(f"  before={before}")
+-            print(f"  after={after}")
++            lines.append(f"- {label}")
++            lines.append(f"  matched_by={matched_by}")
++            lines.append(f"  before={before}")
++            lines.append(f"  after={after}")
++    return lines
++
++
++def print_stats_and_samples(
++    stats: dict[str, int], samples: list[tuple[str, str, str, str]] | None, limit: int = 10
++) -> None:
++    for line in format_stats_and_samples(stats, samples, limit):
++        print(line)
+
+
+===== CC-M-001-003 v2 traktor_nml/rewrite.py
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -409,7 +409,64 @@ def print_stats_and_samples(
+ CollectPatchesFn = Callable[[ET.Element], tuple[list[ElemPatch], dict[str, int], list]]
+ MutateTreeFn = Callable[[ET.Element, bool], tuple[dict[str, int], list]]
+
+
++def plan_and_write_nml(
++    input_path: Path,
++    output_path: Path,
++    dry_run: bool,
++    collect_patches: CollectPatchesFn,
++    mutate_tree: MutateTreeFn,
++    extra_inputs: tuple[Path, ...] = (),
++) -> WriteOutcome:
++    """Read, parse, patch, and write once, returning a WriteOutcome
++    rather than printing. Resolves output_path against
++    input_path and extra_inputs before touching the filesystem or either
++    callback, so the output-collision refusal precedes both parsing and
++    the caller's own collect_patches/mutate_tree. Raises nothing
++    collect_patches or mutate_tree themselves raise; only
++    FileNotFoundError, the XML parse error, and the two write-time
++    exceptions apply_and_write can raise are caught and folded into the
++    outcome.
++    """
++    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
++        return WriteOutcome(None, None, "output_must_differ_from_input", None, 2)
++
++    if HAS_LXML:
++        read_result = read_and_parse_source(input_path)
++        if read_result.error is not None:
++            return WriteOutcome(None, None, read_result.error, None, 2)
++        source_bytes, root = read_result.source_bytes, read_result.root
++        patches, stats, samples = collect_patches(root)
++        if not dry_run:
++            try:
++                apply_and_write(source_bytes, patches, output_path)
++            except (UnicodeDecodeError, ValueError) as exc:
++                return WriteOutcome(stats, samples, f"text_patch_error={exc}", None, 2)
++            return WriteOutcome(stats, samples, None, output_path, 0)
++        return WriteOutcome(stats, samples, None, None, 0)
++
++    try:
++        tree = parse_xml(input_path)
++    except FileNotFoundError:
++        return WriteOutcome(None, None, f"input_not_found={input_path.as_posix()}", None, 2)
++    except XML_PARSE_ERROR as exc:
++        return WriteOutcome(None, None, f"xml_parse_error={input_path.as_posix()}: {exc}", None, 2)
++    root = tree.getroot()
++    stats, samples = mutate_tree(root, dry_run)
++    if not dry_run:
++        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)
++        return WriteOutcome(stats, samples, None, output_path, 0)
++    return WriteOutcome(stats, samples, None, None, 0)
++
++
+ def write_nml_safely(
+     input_path: Path,
+     output_path: Path,
+
+
+===== CC-M-001-004 v2 traktor_nml/rewrite.py
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -416,44 +416,25 @@ def write_nml_safely(
+     collect_patches: CollectPatchesFn,
+     mutate_tree: MutateTreeFn,
+     extra_inputs: tuple[Path, ...] = (),
+ ) -> int:
+     """Read source bytes, parse, patch, print stats, and write once.
+
+     Refuses to write when output_path resolves to input_path or any of
+     extra_inputs (existing tool convention). Both existing write commands
+     (rewrite, rewrite-from-collection-compare) are expressed as callers of
+     this helper, one supplying collect_patches for the lxml path and
+-    mutate_tree for the stdlib fallback.
++    mutate_tree for the stdlib fallback. Delegates to plan_and_write_nml
++    and turns the returned WriteOutcome into the same stream writes this
++    function made when it owned the sequence directly.
+     """
+-    if output_path.resolve() in {input_path.resolve(), *(p.resolve() for p in extra_inputs)}:
+-        print("output_must_differ_from_input", file=sys.stderr)
+-        return 2
+-
+-    if HAS_LXML:
+-        read_result = read_and_parse_source(input_path)
+-        if read_result.error is not None:
+-            print(read_result.error, file=sys.stderr)
+-            return 2
+-        source_bytes, root = read_result.source_bytes, read_result.root
+-        patches, stats, samples = collect_patches(root)
+-        print_stats_and_samples(stats, samples)
+-        if not dry_run:
+-            try:
+-                apply_and_write(source_bytes, patches, output_path)
+-            except (UnicodeDecodeError, ValueError) as exc:
+-                print(f"text_patch_error={exc}", file=sys.stderr)
+-                return 2
+-            print(f"output_written={output_path.as_posix()}")
+-        return 0
+-
+-    try:
+-        tree = parse_xml(input_path)
+-    except FileNotFoundError:
+-        print(f"input_not_found={input_path.as_posix()}", file=sys.stderr)
+-        return 2
+-    except XML_PARSE_ERROR as exc:
+-        print(f"xml_parse_error={input_path.as_posix()}: {exc}", file=sys.stderr)
+-        return 2
+-    root = tree.getroot()
+-    stats, samples = mutate_tree(root, dry_run)
+-    print_stats_and_samples(stats, samples)
+-    if not dry_run:
+-        write_traktor_xml(root, output_path, write_bytes=write_bytes_atomically)
+-        print(f"output_written={output_path.as_posix()}")
+-    return 0
++    outcome = plan_and_write_nml(
++        input_path, output_path, dry_run, collect_patches, mutate_tree, extra_inputs
++    )
++    if outcome.stats is not None:
++        print_stats_and_samples(outcome.stats, outcome.samples)
++    if outcome.error is not None:
++        print(outcome.error, file=sys.stderr)
++    if outcome.written_path is not None:
++        print(f"output_written={outcome.written_path.as_posix()}")
++    return outcome.exit_code
+
+
+===== CC-M-002-006 v2 traktor_nml/reconnect_run.py
+--- a/traktor_nml/reconnect_run.py
++++ b/traktor_nml/reconnect_run.py
+@@ -233,3 +233,79 @@ def scan_reconnect_candidates(
++
++
++def _apply_mapping_stdlib(
++    old_root, old_records: list[EntryRecord], mapping: dict[str, EntryRecord], stats: dict[str, int], dry_run: bool
++) -> None:
++    for record in old_records:
++        new_record = mapping.get(record.primary_key)
++        if new_record is None:
++            continue
++        ch = loc_attr_changes(record.location, new_record.location)
++        if ch:
++            stats["collection_locations_rewritten"] += 1
++            if not dry_run:
++                loc_elem = record.entry.find("LOCATION")
++                if loc_elem is not None:
++                    write_location_element(loc_elem, new_record.location)
++    resolver = CompareEntryResolver(mapping=mapping)
++    process_non_collection_entries(
++        old_root, {id(r.entry) for r in old_records}, resolver, stats, dry_run=dry_run
++    )
++
++
++def rewrite_from_reconnect(
++    args: argparse.Namespace,
++    *,
++    on_progress: Optional[Callable[[int, int, Path], None]] = None,
++    cancel=None,
++) -> RewriteReconnectResult:
++    """Run one rewrite-from-reconnect pass, printless.
++
++    on_progress and cancel reach run_reconnection through the callback.
++    A mutable holder dict with keys reconnect and csv_path,
++    both initially None, is populated by the callback and read after
++    plan_and_write_nml returns. The write order inside the callback fixes
++    the holder's meaning in every case: run_reconnection returns first
++    and the holder's reconnect key is set immediately, then the CSV is
++    written and csv_path is set - so there is no state in which csv_path
++    is set while reconnect is None, and no partial ReconnectResult is
++    ever stored. ScanCancelled escapes rather than becoming a field.
++    """
++    holder: dict[str, object] = {"reconnect": None, "csv_path": None}
++
++    def _collect_patches(old_root):
++        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)
++        holder["reconnect"] = result
++        patches, apply_stats = _collect_compare_patches(old_root, result.old_records, result.mapping)
++        merged_stats = {**apply_stats, **result.stats}
++        if args.csv is not None:
++            _write_ambiguity_csv(result.ambiguity_rows, args.csv)
++            holder["csv_path"] = args.csv
++        return patches, merged_stats, []
++
++    def mutate_tree(old_root, dry_run):
++        result = run_reconnection(args, old_root, on_progress=on_progress, cancel=cancel)
++        holder["reconnect"] = result
++        merged_stats = {
++            "collection_locations_rewritten": 0,
++            "other_locations_rewritten": 0,
++            "primarykeys_updated_from_collection": 0,
++            "primarykeys_unchanged": 0,
++            **result.stats,
++        }
++        _apply_mapping_stdlib(old_root, result.old_records, result.mapping, merged_stats, dry_run)
++        if args.csv is not None:
++            _write_ambiguity_csv(result.ambiguity_rows, args.csv)
++            holder["csv_path"] = args.csv
++        return merged_stats, []
++
++    try:
++        outcome = plan_and_write_nml(args.old_input, args.output, args.dry_run, _collect_patches, mutate_tree)
++    except VolumeIdentityError as exc:
++        return RewriteReconnectResult(None, None, None, f"volume_identity_error={exc}")
++    except _FingerprintUnavailable as exc:
++        return RewriteReconnectResult(None, None, None, f"fingerprint_unavailable={exc}")
++
++    return RewriteReconnectResult(outcome, holder["reconnect"], holder["csv_path"], None)
+
+
+===== CC-M-002-007 v2 traktor_nml/reconnect_render.py
+--- /dev/null
++++ b/traktor_nml/reconnect_render.py
+@@ -0,0 +1,31 @@
++"""Every character the reconnect commands put on stdout or stderr.
++
++reconnect_run.py returns typed results rather than printing; this module
++turns a result into buffered stdout lines, stderr lines and an exit code,
++and emit is the one function that actually writes to a stream.
++"""
++
++from __future__ import annotations
++
++import argparse
++import sys
++from dataclasses import dataclass
++
++from . import rewrite
++from .reconnect_run import RewriteReconnectResult, ScanReconnectResult
++from .shared_args import refutation_disabled_line
++
++
++@dataclass
++class RenderedOutput:
++    """Buffered stdout lines, stderr lines and an exit code. emit is the
++    one function that writes them to sys.stdout/sys.stderr, so every
++    print on the reconnect path lives inside it rather than scattered
++    across the pipeline."""
++
++    stdout_lines: list[str]
++    stderr_lines: list[str]
++    exit_code: int
++
++
++def emit(rendered: RenderedOutput) -> int:
++    for line in rendered.stdout_lines:
++        print(line)
++    for line in rendered.stderr_lines:
++        print(line, file=sys.stderr)
++    return rendered.exit_code
+
+
+===== CC-M-002-008 v1 traktor_nml/reconnect_render.py
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -30,3 +30,21 @@ def emit(rendered: RenderedOutput) -> int:
+     for line in rendered.stderr_lines:
+         print(line, file=sys.stderr)
+     return rendered.exit_code
++
++
++def render_scan_reconnect_candidates(
++    result: ScanReconnectResult, args: argparse.Namespace
++) -> RenderedOutput:
++    if result.error is not None:
++        return RenderedOutput([], [result.error], 2)
++
++    reconnect = result.result
++    stdout_lines = [f"reconnectable={len(reconnect.mapping)}"]
++    for key, value in reconnect.stats.items():
++        stdout_lines.append(f"{key}={value}")
++    if result.csv_path is not None:
++        stdout_lines.append(f"csv_written={result.csv_path.as_posix()}")
++
++    stderr_lines = list(reconnect.warnings)
++    refutation_line = refutation_disabled_line(args)
++    if refutation_line is not None:
++        stderr_lines.append(refutation_line)
++
++    return RenderedOutput(stdout_lines, stderr_lines, 0)
+
+
+===== CC-M-002-009 v2 traktor_nml/reconnect_render.py
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -48,3 +48,26 @@ def render_scan_reconnect_candidates(
+     return RenderedOutput(stdout_lines, stderr_lines, 0)
++
++
++def render_rewrite_from_reconnect(
++    result: RewriteReconnectResult, args: argparse.Namespace
++) -> RenderedOutput:
++    stdout_lines: list[str] = []
++    if result.csv_path is not None:
++        stdout_lines.append(f"csv_written={result.csv_path.as_posix()}")
++
++    outcome = result.outcome
++    if outcome is not None and outcome.stats is not None:
++        stdout_lines.extend(rewrite.format_stats_and_samples(outcome.stats, outcome.samples))
++    if outcome is not None and outcome.written_path is not None:
++        stdout_lines.append(f"output_written={outcome.written_path.as_posix()}")
++
++    stderr_lines: list[str] = []
++    if result.reconnect is not None:
++        # warn_refutation_disabled in the pre-split core only ran after
++        # volume-identity resolution and the fingerprint check both
++        # succeeded, i.e. only on a run that reached matching - gating on
++        # result.reconnect (populated only once run_reconnection returns)
++        # reproduces that: an output collision or a volume_identity_error/
++        # fingerprint_unavailable failure prints neither warning.
++        stderr_lines.extend(result.reconnect.warnings)
++        refutation_line = refutation_disabled_line(args)
++        if refutation_line is not None:
++            stderr_lines.append(refutation_line)
++    if outcome is not None and outcome.error is not None:
++        stderr_lines.append(outcome.error)
++    elif result.error is not None:
++        stderr_lines.append(result.error)
++
++    exit_code = outcome.exit_code if outcome is not None else 2
++    return RenderedOutput(stdout_lines, stderr_lines, exit_code)
+
+
+===== CC-M-002-011 v1 tests/test_reconnect_render_equivalence.py
+--- /dev/null
++++ b/tests/test_reconnect_render_equivalence.py
+@@ -0,0 +1,208 @@
++"""Section 3.2 equivalence tests: the renderer over the printless core
++must reproduce exactly what the CLI printed before the split, using the
++recorded reconnect cases in tests/baselines/manifest.json as the
++expectation rather than restating them.
++"""
++
++from __future__ import annotations
++
++import contextlib
++import io
++import json
++import os
++import threading
++from pathlib import Path
++
++import pytest
++
++from traktor_nml import reconnect_run
++from traktor_nml.cli import build_parser
++from traktor_nml.diskscan import ScanCancelled
++from traktor_nml.reconnect_render import (
++    render_rewrite_from_reconnect,
++    render_scan_reconnect_candidates,
++)
++from traktor_nml.xmlio import parse_xml
++
++MANIFEST_PATH = Path(__file__).parent / "baselines" / "manifest.json"
++
++
++def _reconnect_cases() -> list[dict]:
++    cases = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
++    return [c for c in cases if c["argv"][0] in ("scan-reconnect-candidates", "rewrite-from-reconnect")]
++
++
++def _parse_args(argv: list[str]) -> object:
++    parser, _handlers = build_parser()
++    return parser.parse_args(argv)
++
++
++def _render_for_argv(argv: list[str], cwd: Path):
++    args = _parse_args(argv)
++    old_cwd = Path.cwd()
++    os.chdir(cwd)
++    try:
++        if argv[0] == "scan-reconnect-candidates":
++            result = reconnect_run.scan_reconnect_candidates(args)
++            return render_scan_reconnect_candidates(result, args), result
++        result = reconnect_run.rewrite_from_reconnect(args)
++        return render_rewrite_from_reconnect(result, args), result
++    finally:
++        os.chdir(old_cwd)
++
++
++def _lines_to_text(lines: list[str]) -> str:
++    return "\n".join(lines) + ("\n" if lines else "")
++
++
++@pytest.mark.parametrize("case", _reconnect_cases(), ids=lambda case: " ".join(case["argv"][:2]))
++def test_render_matches_recorded_case(fixture_corpus: Path, case: dict) -> None:
++    """render(core(args)) reproduces the recorded stdout, stderr and exit
++    code for each of the four reconnect manifest cases, using the same
++    fixture_corpus inputs the manifest case itself was recorded against."""
++    cwd = fixture_corpus.parent
++    rendered, _result = _render_for_argv(case["argv"], cwd)
++
++    stdout = _lines_to_text(rendered.stdout_lines)
++    stderr = _lines_to_text(rendered.stderr_lines)
++
++    expected_stdout = case["stdout"]
++    expected_stderr = case["stderr"]
++    if case.get("normalise_run_root"):
++        run_root = cwd.resolve().as_posix()
++        expected_stdout = expected_stdout.replace("{RUN_ROOT}", run_root)
++        expected_stderr = expected_stderr.replace("{RUN_ROOT}", run_root)
++
++    assert stdout == expected_stdout
++    assert stderr == expected_stderr
++    assert rendered.exit_code == case["exit_code"]
++
++
++def test_dropped_stats_key_breaks_the_comparison(fixture_corpus: Path) -> None:
++    """Negative control: proves the equality assertion above actually
++    detects drift rather than passing regardless of content. Observed to
++    fail the assertion below when run against an unmodified renderer."""
++    case = next(c for c in _reconnect_cases() if c["argv"][0] == "scan-reconnect-candidates")
++    rendered, _result = _render_for_argv(case["argv"], fixture_corpus.parent)
++
++    tampered = list(rendered.stdout_lines)
++    if len(tampered) > 1:
++        tampered.pop(1)
++
++    assert _lines_to_text(tampered) != case["stdout"]
++
++
++_SCAN_ARGV = [
++    "scan-reconnect-candidates", "recon/stale.nml",
++    "--scan-root", "recon/audio",
++    "--volume-map", "recon/audio", "D:", "D:",
++    "--match-confidence", "filename",
++    "--cache", "out/recon.tagcache.json",
++]
++
++
++def test_fingerprint_warning_lands_in_result_not_printed_by_core(
++    fixture_corpus: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    """A non-None fingerprint_unavailable_reason() must become a warning
++    on ReconnectResult and render to stderr ahead of the refutation line,
++    rather than being printed by the core itself - the probe stub
++    replaces only that function and leaves fingerprint_key_provider bound
++    as the defensive import left it."""
++    if reconnect_run.fingerprint_key_provider is None:
++        pytest.skip("fingerprint.py not present")
++
++    monkeypatch.setattr(reconnect_run, "fingerprint_unavailable_reason", lambda: "stub reason")
++
++    argv = _SCAN_ARGV + ["--fingerprint"]
++    args = _parse_args(argv)
++    old_cwd = Path.cwd()
++    os.chdir(fixture_corpus.parent)
++    try:
++        buf_out, buf_err = io.StringIO(), io.StringIO()
++        with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
++            result = reconnect_run.scan_reconnect_candidates(args)
++    finally:
++        os.chdir(old_cwd)
++
++    assert buf_out.getvalue() == ""
++    assert buf_err.getvalue() == ""
++    assert result.result is not None
++    assert any("stub reason" in warning for warning in result.result.warnings)
++
++    rendered = render_scan_reconnect_candidates(result, args)
++    assert rendered.stderr_lines[0].startswith("fingerprint_dependency_missing=stub reason")
++
++
++def test_fingerprint_key_provider_none_raises(fixture_corpus: Path, monkeypatch: pytest.MonkeyPatch) -> None:
++    """Setting fingerprint_key_provider to None proves the raise path is
++    distinct from the warn path rather than being masked by the probe
++    stub above."""
++    monkeypatch.setattr(reconnect_run, "fingerprint_key_provider", None)
++
++    argv = _SCAN_ARGV + ["--fingerprint"]
++    args = _parse_args(argv)
++    old_cwd = Path.cwd()
++    os.chdir(fixture_corpus.parent)
++    try:
++        result = reconnect_run.scan_reconnect_candidates(args)
++    finally:
++        os.chdir(old_cwd)
++
++    assert result.error is not None and result.error.startswith("fingerprint_unavailable=")
++
++
++def test_no_refute_line_comes_from_renderer(fixture_corpus: Path) -> None:
++    """A no-refute run's refutation line is produced by the renderer via
++    _shared_args.refutation_disabled_line, not restated as a literal
++    inside reconnect_render."""
++    argv = _SCAN_ARGV + ["--no-refute"]
++    rendered, _result = _render_for_argv(argv, fixture_corpus.parent)
++    assert any(line.startswith("refutation_disabled=") for line in rendered.stderr_lines)
++
++
++def test_on_progress_fires_and_cancel_raises(fixture_corpus: Path) -> None:
++    """An on_progress callback passed into the core fires at least once
++    with a path from the scan, and a pre-set cancel token raises
++    ScanCancelled out of the core rather than yielding a partial
++    result."""
++    args = _parse_args(_SCAN_ARGV)
++    old_cwd = Path.cwd()
++    os.chdir(fixture_corpus.parent)
++    try:
++        seen: list = []
++        reconnect_run.scan_reconnect_candidates(
++            args, on_progress=lambda done, total, path: seen.append(path)
++        )
++        assert seen, "on_progress never fired"
++
++        cancel = threading.Event()
++        cancel.set()
++        old_root = parse_xml(args.old_input).getroot()
++        with pytest.raises(ScanCancelled):
++            reconnect_run.run_reconnection(args, old_root, cancel=cancel)
++    finally:
++        os.chdir(old_cwd)
++
++
++def test_output_equal_to_input_never_starts_reconnection(fixture_corpus: Path) -> None:
++    """A rewrite-from-reconnect run whose output path equals its input
++    path is refused before reconnection starts - proved by asserting no
++    ReconnectResult is ever produced."""
++    argv = [
++        "rewrite-from-reconnect", "recon/stale.nml", "recon/stale.nml",
++        "--scan-root", "recon/audio",
++        "--volume-map", "recon/audio", "D:", "D:",
++        "--match-confidence", "filename",
++        "--cache", "out/recon.tagcache.json",
++    ]
++    args = _parse_args(argv)
++    old_cwd = Path.cwd()
++    os.chdir(fixture_corpus.parent)
++    try:
++        result = reconnect_run.rewrite_from_reconnect(args)
++    finally:
++        os.chdir(old_cwd)
++
++    assert result.reconnect is None
++    assert result.outcome is not None and result.outcome.error == "output_must_differ_from_input"
+
+
+===== CC-M-002-013 v2 traktor_nml/commands/_shared_args.py
+--- a/traktor_nml/commands/_shared_args.py
++++ b/traktor_nml/commands/_shared_args.py
+@@ -11,7 +11,9 @@ from __future__ import annotations
+ import argparse
+ import sys
+ 
+ from ..confidence import MatchConfidence, parse_match_confidence
++from ..shared_args import refutation_disabled_line, resolve_confidence, should_refute
+ 
+ 
+ def add_confidence_args(parser: argparse.ArgumentParser) -> None:
+@@ -28,20 +30,6 @@ def add_confidence_args(parser: argparse.ArgumentParser) -> None:
+     )
+ 
+ 
+-def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
+-    """Resolve the effective MatchConfidence: an explicit
+-    --match-confidence always wins; otherwise --allow-artist-title-only
+-    selects loose and its absence selects strict (DL-010)."""
+-    if getattr(args, "match_confidence", None):
+-        return parse_match_confidence(args.match_confidence)
+-    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
+-
+-
+ def add_no_refute_argument(parser: argparse.ArgumentParser) -> None:
+     parser.add_argument(
+         "--no-refute",
+@@ -52,26 +40,12 @@ def add_no_refute_argument(parser: argparse.ArgumentParser) -> None:
+     )
+ 
+ 
+-def should_refute(args: argparse.Namespace) -> bool:
+-    """Whether the cascade should apply the size/duration check.
+-
+-    Pure: safe to call anywhere, any number of times. The warning is a
+-    separate call precisely so this one carries no call-once contract -
+-    reading a flag and announcing it are different jobs, and conflating
+-    them meant a caller with two passes over the same run had to know to
+-    cache the result or the warning printed twice.
+-    """
+-    return not getattr(args, "no_refute", False)
+-
+-
+ def warn_refutation_disabled(args: argparse.Namespace) -> None:
+     """Announce --no-refute once per run, if it is set.
+ 
+     A run that ignores size and duration contradictions can commit a
+     rewrite onto a file the collection's own numbers say is the wrong one,
+     so the switch says so on every run rather than only in --help.
+     """
+-    if not should_refute(args):
+-        print(
+-            "refutation_disabled=size and duration contradictions will be ignored; "
+-            "a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match",
+-            file=sys.stderr,
+-        )
++    line = refutation_disabled_line(args)
++    if line is not None:
++        print(line, file=sys.stderr)
+
+
+===== CC-M-002-014 v1 traktor_nml/shared_args.py
+--- /dev/null
++++ b/traktor_nml/shared_args.py
+@@ -0,0 +1,42 @@
++"""Confidence and refutation semantics shared below the commands/ layer.
++
++resolve_confidence, should_refute and refutation_disabled_line are pure
++functions of an argparse.Namespace with no argparse registration or
++stream dependency of their own. reconnect_run.py and reconnect_render.py
++import them from here rather than from commands/_shared_args.py, because
++commands/ imports downward into reconnect_run.py and reconnect_render.py
++and never the reverse - a core or renderer module importing from
++commands/ would create the cycle that direction forbids.
++commands/_shared_args.py imports these same three names from here, so
++every existing importer of them (compare_cmd.py, reconnect_cmd.py) keeps
++working unchanged.
++"""
++
++from __future__ import annotations
++
++import argparse
++from typing import Optional
++
++from .confidence import MatchConfidence, parse_match_confidence
++
++
++def resolve_confidence(args: argparse.Namespace) -> MatchConfidence:
++    """Resolve the effective MatchConfidence: an explicit
++    --match-confidence always wins; otherwise --allow-artist-title-only
++    selects loose and its absence selects strict (DL-010)."""
++    if getattr(args, "match_confidence", None):
++        return parse_match_confidence(args.match_confidence)
++    return MatchConfidence.from_legacy_flag(args.allow_artist_title_only)
++
++
++def should_refute(args: argparse.Namespace) -> bool:
++    """Whether the cascade should apply the size/duration check.
++
++    Pure: safe to call anywhere, any number of times. The warning is a
++    separate call precisely so this one carries no call-once contract -
++    reading a flag and announcing it are different jobs, and conflating
++    them meant a caller with two passes over the same run had to know to
++    cache the result or the warning printed twice.
++    """
++    return not getattr(args, "no_refute", False)
++
++
++def refutation_disabled_line(args: argparse.Namespace) -> Optional[str]:
++    """The refutation-disabled message text, or None when refutation is
++    still active. warn_refutation_disabled and reconnect_render both read
++    this so the literal has one definition: no manifest case sets
++    --no-refute for either reconnect command, so a second copy of the
++    text would drift invisibly.
++    """
++    if should_refute(args):
++        return None
++    return (
++        "refutation_disabled=size and duration contradictions will be ignored; "
++        "a candidate the collection's own FILESIZE/PLAYTIME_FLOAT contradict can now win a match"
++    )
+
+

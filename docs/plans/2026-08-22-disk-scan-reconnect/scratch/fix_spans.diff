@@ -1,0 +1,35 @@
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -13,6 +13,18 @@
+ command.
+ """
+
++# The scanner below treats comments, CDATA sections and processing
++# instructions as opaque tokens specifically so a literal '<' or '>'
++# permitted inside one of them never desynchronises the depth count
++# element_span relies on (DL-007).
++
++# The NML schema this module assembles output for is confirmed only
++# against VERSION=20 / Traktor Pro 4. recalculate_count_attr is generic
++# over any counted container rather than hardcoded to
++# COLLECTION/PLAYLIST/SUBNODES, so a counted container this tool has not
++# seen - from a schema version not yet verified - is still recalculated
++# instead of being silently left stale.
++
+ from __future__ import annotations
+
+ import re
+@@ -59,7 +71,12 @@
+     if is_self_closing:
+         return Span(open_lt_pos, match_at_start.end())
+
++    # pos advances only forward from match_at_start's end, and this loop
++    # scans source once via finditer rather than rescanning from the
++    # start of source on each call, so collecting every element's span
++    # across a full document stays linear instead of quadratic over its
++    # size (R-005, DL-012).
++
+     depth = 1
+     pos = match_at_start.end()
+     for token in _TOKEN_RE.finditer(source, pos):
+         if token.group(2) != tag_name:

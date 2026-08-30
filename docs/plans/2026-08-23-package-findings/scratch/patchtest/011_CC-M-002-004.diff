@@ -1,0 +1,24 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -278,6 +278,10 @@ def _collect_compare_patches(
+ 
+ 
+-def _write_bytes_atomically(output: Path, data: bytes) -> None:
++def write_bytes_atomically(output: Path, data: bytes) -> None:
++    """Write data to output through a temp file plus os.replace, under a
++    public name so the splice and split commands write through the same
++    primitive apply_and_write and the stdlib branch already use, rather
++    than each command committing its own plain, truncating write."""
+     # write_bytes/open("wb") truncate an existing destination in place, so a
+     # write that fails partway (disk full, process killed) can leave a
+     # truncated file where a valid collection used to stand. Writing to a
+@@ -298,8 +303,8 @@ def apply_and_write(source_bytes: bytes, patches: list[ElemPatch], output: Pat
+     # Traktor's current collection/history files declare UTF-8. Keeping the
+     # source string intact means this re-encodes to exactly the same bytes
+     # except for the requested XML-escaped attribute values.
+     patched = apply_text_patches(source_bytes.decode("utf-8"), patches)
+-    _write_bytes_atomically(output, patched.encode("utf-8"))
++    write_bytes_atomically(output, patched.encode("utf-8"))
+ 
+ 
+ def print_stats_and_samples(

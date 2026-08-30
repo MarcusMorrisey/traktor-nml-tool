@@ -1,0 +1,8 @@
+--- a/traktor_nml/commands/CLAUDE.md
++++ b/traktor_nml/commands/CLAUDE.md
+@@ -11,3 +11,3 @@
+ | `reconnect_cmd.py`  | `scan-reconnect-candidates`/`rewrite-from-reconnect` subcommands (disk-scan reconnection); resolves volume identities before key providers are built and supplies them to the fingerprint provider as its known-mounts mapping | Changing reconnection's CLI surface or stats output    |
+-| `splice_cmd.py`     | `splice` subcommand (merge NML files)                          | Changing splice's CLI surface, conflict flags, or reports |
+-| `split_cmd.py`      | `split` subcommand (partition an NML file)                     | Changing split's CLI surface or dangling-reference flags |
++| `splice_cmd.py`     | `splice` subcommand (merge NML files); reads/parses through `rewrite.read_and_parse_source` and commits through `rewrite.write_bytes_atomically` | Changing splice's CLI surface, conflict flags, or reports |
++| `split_cmd.py`      | `split` subcommand (partition an NML file); reads/parses through `rewrite.read_and_parse_source` and commits each group through `rewrite.write_bytes_atomically` | Changing split's CLI surface or dangling-reference flags |

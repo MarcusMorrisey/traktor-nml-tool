@@ -1,0 +1,11 @@
+--- a/traktor_nml/split.py
++++ b/traktor_nml/split.py
+@@ -227,7 +229,7 @@ def build_output(
+     if indexing_span is not None and removed_sorting_info:
+         removed_ids = {id(si) for si in removed_sorting_info}
+         kept_sorting_info = [
+-            element_span_by_identity(source_text, root, si).text(source_text)
++            span_index.span_of(si).text(source_text)
+             for si in find_sorting_info(root)
+             if id(si) not in removed_ids
+         ]

@@ -1,0 +1,16 @@
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -51,6 +51,13 @@ def render_scan_reconnect_candidates(
+ def render_rewrite_from_reconnect(
+     result: RewriteReconnectResult, args: argparse.Namespace
+ ) -> RenderedOutput:
++    """Reproduce rewrite-from-reconnect's pre-split output: csv_written=
++    first (the pre-split handler wrote the CSV inside _run_reconnection,
++    ahead of the write path), then the stats/samples block and
++    output_written= sourced from the WriteOutcome exactly as
++    write_nml_safely would have printed them, then warnings and the
++    refutation line gated on result.reconnect being populated (ref:
++    DL-005) so a pre-reconnection failure prints neither.
++    """
+     stdout_lines: list[str] = []
+     if result.csv_path is not None:

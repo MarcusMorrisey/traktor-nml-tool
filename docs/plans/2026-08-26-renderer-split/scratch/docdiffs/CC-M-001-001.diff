@@ -1,0 +1,16 @@
+--- a/traktor_nml/rewrite.py
++++ b/traktor_nml/rewrite.py
+@@ -406,10 +406,13 @@ class WriteOutcome:
+     failed to write.
+     """
+
+     stats: Optional[dict[str, int]]
+     samples: Optional[list[tuple[str, str, str, str]]]
++    # error and written_path are never both non-None: a run either fails
++    # (error set) or writes (written_path set), and a dry run and a
++    # collision both leave both fields None.
+     error: Optional[str]
+     written_path: Optional[Path]
++    # 0 on success, 2 on any of the four typed failures (ref: DL-003) -
++    # the same mapping print_stats_and_samples' callers used before the split.
+     exit_code: int

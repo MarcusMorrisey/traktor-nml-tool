@@ -1,0 +1,21 @@
+--- a/traktor_nml/spans.py
++++ b/traktor_nml/spans.py
+@@ -13,6 +13,18 @@
+ command.
+ """
+
++# The scanner below treats comments, CDATA sections and processing
++# instructions as opaque tokens specifically so a literal '<' or '>'
++# permitted inside one of them never desynchronises the depth count
++# element_span relies on (DL-007).
++
++# The NML schema this module assembles output for is confirmed only
++# against VERSION=20 / Traktor Pro 4. recalculate_count_attr (added
++# alongside OutputBuilder) is generic over any counted container rather
++# than hardcoded to COLLECTION/PLAYLIST/SUBNODES, so a counted container
++# this tool has not seen - from a schema version not yet verified - is
++# still recalculated instead of being silently left stale.
++
+ from __future__ import annotations
+
+ import re

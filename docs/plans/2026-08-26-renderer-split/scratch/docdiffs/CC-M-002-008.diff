@@ -1,0 +1,15 @@
+--- a/traktor_nml/reconnect_render.py
++++ b/traktor_nml/reconnect_render.py
+@@ -34,6 +34,12 @@ def emit(rendered: RenderedOutput) -> int:
+ def render_scan_reconnect_candidates(
+     result: ScanReconnectResult, args: argparse.Namespace
+ ) -> RenderedOutput:
++    """Reproduce scan-reconnect-candidates' pre-split stdout/stderr byte
++    for byte: reconnectable= and the stats block on stdout in mapping
++    order, csv_written= only when a CSV was written, and the run's own
++    warnings ahead of the refutation-disabled line on stderr (ref:
++    DL-005, DL-006, DL-010). An error on the result short-circuits to a
++    single stderr line and exit 2, since no ReconnectResult exists yet.
++    """
+     if result.error is not None:
+         return RenderedOutput([], [result.error], 2)

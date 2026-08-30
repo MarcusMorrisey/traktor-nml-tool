@@ -1,0 +1,12 @@
+--- a/traktor_nml/shared_args.py
++++ b/traktor_nml/shared_args.py
+@@ -50,6 +50,9 @@ def refutation_disabled_line(args: argparse.Namespace) -> Optional[str]:
+     this so the literal has one definition: no manifest case sets
+     --no-refute for either reconnect command, so a second copy of the
+     text would drift invisibly.
+     """
++    # should_refute is the single source of truth for the flag reading;
++    # this function only decides the message text, so the two never
++    # disagree about whether refutation is active (ref: DL-010).
+     if should_refute(args):
+         return None

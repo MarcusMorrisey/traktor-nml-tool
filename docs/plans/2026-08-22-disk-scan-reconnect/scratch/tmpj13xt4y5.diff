@@ -1,0 +1,12 @@
+--- a/traktor_nml/commands/rewrite_cmd.py
++++ b/traktor_nml/commands/rewrite_cmd.py
+@@ -24,6 +24,9 @@
+
+
+ def build_rules(args: argparse.Namespace) -> list[RewriteRule]:
++    # Rules are tried in the order built here; apply_rules returns the
++    # first match, so an earlier --rule/--rule-with-volumeid takes
++    # precedence over a later one covering an overlapping prefix.
+     rules: list[RewriteRule] = []
+
+     if getattr(args, "rule", None):

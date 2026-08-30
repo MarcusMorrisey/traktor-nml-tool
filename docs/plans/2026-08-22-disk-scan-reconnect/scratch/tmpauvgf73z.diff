@@ -1,0 +1,11 @@
+--- a/traktor_nml/model.py
++++ b/traktor_nml/model.py
+@@ -22,6 +22,10 @@
+
+     def apply(self, loc: LocationParts) -> LocationParts:
++        # VOLUMEID defaults to new_volume: most real collections use
++        # identical VOLUME/VOLUMEID pairs, so new_volumeid is only needed
++        # when a rule's destination volume and volume id actually diverge.
+         suffix = loc.dir_value[len(self.old_dir_prefix):]
+         return LocationParts(
+             volume=self.new_volume,

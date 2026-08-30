@@ -1,0 +1,25 @@
+--- a/traktor_nml/fingerprint.py
++++ b/traktor_nml/fingerprint.py
+@@ -13,6 +13,10 @@
+ review only, never auto-accepted.
+ """
+
++# HAS_ACOUSTID gates every entry point in this module, including ones
++# that do not mention it by name below, so importing this module never
++# requires the fpcalc binary to be installed.
++
+ from __future__ import annotations
+
+ from pathlib import Path
+@@ -31,6 +35,11 @@
+ from .model import EntryRecord
+ from .tagcache import TagCache
+
++# Availability is probed once here, at import time, rather than per call:
++# HAS_ACOUSTID is the flag both the startup warning line and the
++# active-provider stats counter (named per DL-006) read to report
++# whether this tier is live (R-002).
++
+ try:
+     import acoustid
+

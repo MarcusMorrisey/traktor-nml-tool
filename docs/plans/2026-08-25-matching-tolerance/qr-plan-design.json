@@ -1,0 +1,116 @@
+{
+  "phase": "plan-design",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every machine-varying input the baseline captures (lxml backend presence, acoustid module, filesystem enumeration order, mtime) is either eliminated, pinned, or logged as an accepted decision",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 4
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "DL-003/DL-004/CI-M-001-004",
+      "check": "rewrite-from-reconnect writing cases: write_nml_safely branches on HAS_LXML, producing a different stats key set (mutate_tree pre-seeds four zeroed keys) and a different serialisation path; no decision records how the manifest stays valid on a machine whose lxml availability differs from the capture machine",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "DL-005",
+      "check": "DL-005 rejects the fingerprint case for machine-dependence; verify the same standard is applied to (or explicitly waived for) the lxml-dependent writing cases",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-002",
+      "scope": "M-001/CI-M-001-004",
+      "check": "planning_context.constraints requires rewrite-from-reconnect pinned in an ambiguous-match form; the case list and M-001 requirements narrow to dry-run/matched-writing/dangling-writing with no decision recording the drop. M-001 still carries the unresolved needs-rationale flag",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "affinity-case-coverage",
+      "version": 3
+    },
+    {
+      "id": "qa-003",
+      "scope": "DL-006/M-002/M-003",
+      "check": "No invariant, doc line or failure message states that PARITY_BASELINE_SHA256 may only be recomputed under review; the constant is a two-line edit that reproduces the exact regenerate-to-go-green anti-pattern the plan exists to prevent",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tamper-evidence",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "DL-006/M-003",
+      "check": "task_spec permits stating the required CI check; context invisible_knowledge requires any tag-diffing CI job to also assert the tag resolves to its recorded SHA. Neither reaches a plan artifact, so the requirement dies with the session",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tamper-evidence",
+      "version": 3
+    },
+    {
+      "id": "qa-005",
+      "scope": "R-004",
+      "check": "R-004's mitigation (.git/hooks/pre-push) exists on this machine but is not version-controlled and appears in no milestone file list or documentation intent; a fresh clone silently loses the control",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tamper-evidence",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "DL-003/CI-M-001-006",
+      "check": "The set of normalised cases lives in a regenerate.py module-level set while the manifest carries a per-entry normalise_run_root field; two sources of truth that can drift if the manifest is edited or a case is reordered",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-case-coverage",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "M-002 acceptance",
+      "check": "Acceptance criterion 'altering one character of manifest.json on disk makes test_manifest_matches_pinned_hash fail' has no automated verification; CI-M-002-003 mutates in memory only",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-tamper-evidence",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "DL-001/DL-002/DL-007/DL-008/DL-009",
+      "check": "Each reasoning chain reaches an implication, not just a premise; each cited anchor (compare_cmd.py:L95, reconnect_cmd.py index_scan_roots call, _OUTPUT_ARG_INDEX) matches the repository as it stands",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-rationale-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "RA-001..RA-008",
+      "check": "Every rejected alternative's decision_ref resolves to an existing decision and its rejection reason is falsifiable rather than preference",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-rationale-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "R-001..R-005",
+      "check": "Each risk's mitigation is realised by a named code_intent, file or acceptance criterion rather than by prose alone",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-rationale-integrity",
+      "version": 3
+    }
+  ]
+}

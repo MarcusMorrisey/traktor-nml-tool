@@ -1,0 +1,34 @@
+--- a/tests/test_reconnect_render_equivalence.py
++++ b/tests/test_reconnect_render_equivalence.py
+@@ -31,15 +31,22 @@ MANIFEST_PATH = Path(__file__).parent / "baselines" / "manifest.json"
+
+
+ def _reconnect_cases() -> list[dict]:
++    """The manifest.json cases whose argv is one of the two reconnect
++    subcommands - the population section 3.2's parametrized test runs
++    against."""
+     cases = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+     return [c for c in cases if c["argv"][0] in ("scan-reconnect-candidates", "rewrite-from-reconnect")]
+
+
+ def _parse_args(argv: list[str]) -> object:
++    """Parse argv through the real CLI parser, so a case's args are the
++    same argparse.Namespace the CLI itself would build for it."""
+     parser, _handlers = build_parser()
+     return parser.parse_args(argv)
+
+
+ def _render_for_argv(argv: list[str], cwd: Path):
++    """Run core(args) then render(result) for one manifest case, from
++    cwd - manifest paths are recorded relative to the fixture corpus
++    root, so the working directory must match before parsing argv."""
+     args = _parse_args(argv)
+     old_cwd = Path.cwd()
+     os.chdir(cwd)
+@@ -53,6 +60,8 @@ def _render_for_argv(argv: list[str], cwd: Path):
+
+
+ def _lines_to_text(lines: list[str]) -> str:
++    """Join rendered lines the way emit() would have printed them, for
++    comparison against a manifest case's recorded stdout/stderr text."""
+     return "\n".join(lines) + ("\n" if lines else "")
