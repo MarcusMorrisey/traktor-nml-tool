@@ -1,0 +1,59 @@
+#!/bin/sh
+# Local stand-in for GitHub tag protection on parity-baseline-* tags.
+#
+# The parity oracle (tests/baselines/manifest.json) is pinned to the commit
+# tagged parity-baseline-vN; see docs/nicegui-gui-analysis.md section 3.1a.
+# Moving or deleting such a tag would silently invalidate that pin, so this
+# hook refuses to push either.
+#
+# GitHub-side protection via rulesets needs Pro or a public repo, so this
+# hook is the compensating control. The authoritative guard is the
+# PARITY_BASELINE_SHA256 constant asserted by pytest, which does not depend
+# on the tag at all.
+#
+# This file is tracked, but git reads hooks from .git/hooks unless told
+# otherwise, and core.hooksPath is config rather than content - it does not
+# clone. A fresh clone therefore has this hook on disk and inactive until:
+#
+#     git config core.hooksPath hooks
+#
+# Checked by tools/preflight.py, because a protection that is present but
+# unwired reads exactly like one that is working.
+#
+# Bypass deliberately, when genuinely re-baselining:  git push --no-verify
+
+zero=$(git hash-object --stdin </dev/null | tr '[0-9a-f]' '0')
+status=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+	case "$remote_ref" in
+		refs/tags/parity-baseline-*) ;;
+		*) continue ;;
+	esac
+
+	tag_name=${remote_ref#refs/tags/}
+
+	if [ "$local_sha" = "$zero" ]; then
+		echo "pre-push: refusing to DELETE protected tag $tag_name" >&2
+		echo "  This tag pins the parity oracle baseline." >&2
+		status=1
+		continue
+	fi
+
+	if [ "$remote_sha" != "$zero" ] && [ "$local_sha" != "$remote_sha" ]; then
+		echo "pre-push: refusing to MOVE protected tag $tag_name" >&2
+		echo "  remote: $remote_sha" >&2
+		echo "  local:  $local_sha" >&2
+		echo "  A baseline change needs a NEW tag (parity-baseline-vN+1)," >&2
+		echo "  not a moved one - see docs/nicegui-gui-analysis.md 3.1a." >&2
+		status=1
+		continue
+	fi
+done
+
+if [ "$status" -ne 0 ]; then
+	echo "" >&2
+	echo "Push aborted. Override with --no-verify only for a reviewed re-baseline." >&2
+fi
+
+exit $status

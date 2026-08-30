@@ -3,14 +3,58 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.util
 import io
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
 from tests.fixtures.build_fixtures import build_fixtures, build_reconnect_fixtures
+
+# The optional packages whose presence moves the suite's pass and skip
+# counts. Under the system interpreter the run is 416 passed, 3 skipped;
+# under .venv, which carries all of these, it is 417 passed, 2 skipped.
+# Both runs are green - the difference is which tests can execute, not
+# which pass - so a bare count says nothing without the interpreter it was
+# measured under, and the handoff records one of the two.
+#
+# nicegui and webview do NOT belong to that difference and are listed for a
+# separate reason: they are the packages the isolation rules in
+# docs/nicegui-gui-analysis.md #5 are about, so a reader checking those
+# rules wants to see whether the run had them available. Neither test
+# degrades when they are present - test_cli_without_nicegui.py blocks the
+# import through sys.meta_path precisely so it holds on a machine that has
+# the real package, and test_gui_import_isolation.py walks ASTs and imports
+# nothing - which is why this reports rather than refuses.
+_REPORTED = ("nicegui", "webview", "pyacoustid", "mutagen", "lxml")
+
+
+def _conditions() -> list[str]:
+    """The interpreter and which of _REPORTED it carries."""
+    present = [name for name in _REPORTED if importlib.util.find_spec(name) is not None]
+    absent = [name for name in _REPORTED if name not in present]
+    return [
+        f"interpreter: {sys.executable}",
+        f"optional present: {', '.join(present) or 'none'}",
+        f"optional absent: {', '.join(absent) or 'none'}",
+    ]
+
+
+def pytest_terminal_summary(terminalreporter) -> None:
+    """Print the run's conditions next to its counts.
+
+    This is the terminal summary rather than the report header because the
+    header is suppressed by -q, and `python -m pytest tests/ -q` is the
+    invocation the handoff records its counts from - the one case where the
+    conditions most need to be on screen. Printed through the reporter's
+    own write_line so it survives -q, and placed after the counts so a
+    number copied out of a run carries them.
+    """
+    for line in _conditions():
+        terminalreporter.write_line(line)
 
 
 @dataclass

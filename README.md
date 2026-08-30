@@ -123,6 +123,26 @@ pytest tests/ -q
 
 A few tests in `tests/test_spans.py` exercise a real-world-scale corpus (`collection_textual_patch_test.nml`, not tracked in this repo — see `.gitignore`) and skip gracefully when it's absent.
 
+The run prints the interpreter it used and the optional packages it found, beside its own totals and under `-q` as well. Both interpreters here are legitimate and both are green — they differ in which optional packages are present and so in which tests can execute, which is why a count is only meaningful next to the conditions printed with it.
+
+## Working on this project
+
+After cloning, activate the tracked hooks. Git reads hooks from `.git/hooks` unless told otherwise, and `core.hooksPath` is config rather than content, so it does not clone:
+
+```bash
+git config core.hooksPath hooks
+```
+
+`hooks/pre-push` refuses to move or delete a `parity-baseline-*` tag, which pins the parity oracle. Until the line above is run it sits on disk inert, which reads exactly like a hook that is working.
+
+Then, at the start of a session:
+
+```bash
+python tools/preflight.py
+```
+
+It checks what is cheap to check and silent when it fails — that the hooks are wired, that the plan and gate repositories resolve beside this one, and that `traktor_nml/gui/app.py` is still wholly CRLF against an otherwise-LF tree. It runs no tests. `python tools/refresh_handoff.py --check` covers what is slow, running the full suite to derive the handoff's counts, and belongs at the end of a session rather than the start.
+
 ## Project history
 
 The original design and implementation plans are retained in [`docs/`](docs/)

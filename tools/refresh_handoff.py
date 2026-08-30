@@ -25,11 +25,20 @@ TRAKTOR_NML_TOOL_PLAN, TRAKTOR_NML_TOOL_GATE and TRAKTOR_WIZARD_HANDOFF
 each override one of the three for a tree that sits somewhere else.
 
 The suite is run under the interpreter that runs this script, and that must
-be the SYSTEM interpreter rather than .venv: .venv carries extra packages and
-reports a different skip count. A system interpreter carrying nicegui or
-webview would also make tests/test_cli_without_nicegui.py and
-tests/test_gui_import_isolation.py meaningless, so both are refused outright
-rather than reported as a mismatch.
+be the SYSTEM interpreter rather than .venv. Both runs are green and neither
+is more correct; they differ in which optional packages are present and so in
+which tests can execute at all - 416 passed and 3 skipped here against 417
+and 2 under .venv, the difference being pyacoustid and the chromaprint
+library it needs. The handoff records one pair of numbers, so this refuses
+the interpreter the other pair belongs to rather than writing it in.
+
+nicegui and webview are what that refusal tests for, because .venv is the
+only interpreter carrying them and they are therefore the cheapest way to
+tell the two apart. The isolation tests do not depend on their absence:
+tests/test_cli_without_nicegui.py blocks the import through sys.meta_path so
+that it holds on a machine that has the real package, and
+tests/test_gui_import_isolation.py walks ASTs and imports nothing. Both pass
+under either interpreter.
 """
 
 from __future__ import annotations
@@ -95,7 +104,10 @@ def _suite_counts() -> tuple[int, int]:
         if importlib.util.find_spec(module) is not None:
             raise Stale(
                 f"this interpreter carries {module}, so it is not the SYSTEM "
-                "interpreter the handoff's suite counts are measured under"
+                "interpreter the handoff's suite counts are measured under. "
+                "Its own counts are valid; they are a different pair, and "
+                "writing them into the handoff would silently restate what "
+                "the numbers there mean."
             )
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "tests/", "-q"],
