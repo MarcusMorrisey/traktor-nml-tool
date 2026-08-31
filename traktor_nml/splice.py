@@ -10,9 +10,11 @@ grouping rather than pairwise old-vs-new comparison. When a base record and a
 non-base record share an identity, the base record always wins and its bytes
 stay untouched; --on-conflict's keep-first/keep-last only disambiguates among
 duplicates that are *not* shared with base. A metadata conflict (any
-differing attribute between two copies of one identity) aborts the whole
-write unless --on-conflict is given, and the conflict report is written
-either way (DL-008). Fragments no rename or redirect touched are transplanted
+differing attribute between two copies of one identity) is settled either
+by a per-key resolutions mapping naming that one identity group or by the
+run-wide --on-conflict policy; a divergence neither of them settles aborts
+the whole write, and the conflict report is written either way (DL-008,
+DL-104). Fragments no rename or redirect touched are transplanted
 as source byte spans (spans.py); only renamed playlists and redirected
 PRIMARYKEY values are re-serialised.
 """
@@ -104,11 +106,37 @@ def group_identities(
     return groups
 
 
+def _group_identity_key(members: list[tuple[int, EntryRecord]]) -> str:
+    """The name a conflicting identity group answers to.
+
+    The union-find root is an index into the flat all_records list, so it
+    moves when an input is added or removed and cannot name the same set of
+    records across two runs. The key is derived from the group's contents
+    instead: the primary key of its sole base-input record where it holds
+    one, and the sorted tuple of its member primary keys where it holds
+    none. Every conflicting group spans more than one input and so holds at
+    least two records, which makes the derivation total (DL-114).
+    """
+    base_keys = [record.primary_key for idx, record in members if idx == 0]
+    if len(base_keys) == 1:
+        return base_keys[0]
+    return "|".join(sorted(record.primary_key for _, record in members))
+
+
 def _resolve_conflicts(
-    groups: dict[int, list[tuple[int, EntryRecord]]], on_conflict: Optional[str]
+    groups: dict[int, list[tuple[int, EntryRecord]]],
+    on_conflict: Optional[str],
+    *,
+    resolutions: Optional[dict[str, str]] = None,
 ) -> tuple[dict[str, str], list[ConflictRow], bool, list[tuple[int, EntryRecord]], set[str]]:
     """Return (old_to_new_key, conflict_rows, unresolved, new_entries,
     ambiguous_keys).
+
+    resolutions maps an identity-group key to the token base or source and
+    settles that one group; on_conflict settles every group the mapping does
+    not name. It is a keyword parameter rather than an appended positional,
+    so the positional callers read the arguments they read (DL-100's
+    precedent, DL-104).
 
     ambiguous_keys holds every non-base primary key whose identity group
     carries more than one base record: no single base key is the right
@@ -129,6 +157,7 @@ def _resolve_conflicts(
     new_entries: list[tuple[int, EntryRecord]] = []
     ambiguous_keys: set[str] = set()
     unresolved = False
+    resolutions = resolutions or {}
 
     for key, members in groups.items():
         contributing_inputs = {idx for idx, _ in members}
@@ -138,12 +167,16 @@ def _resolve_conflicts(
                 new_entries.append(members[0])
             continue
 
+        identity_key = _group_identity_key(members)
         divergent_attrs = [
             attr for attr in _TRACKED_ATTRS if len({getattr(r, attr) for _, r in members}) > 1
         ]
-        if divergent_attrs and on_conflict is None:
+        # A key naming no group is absent from this lookup, so an unmatched
+        # entry is inert rather than an error (DL-105).
+        resolution = resolutions.get(identity_key) if divergent_attrs else None
+        if divergent_attrs and resolution is None and on_conflict is None:
             unresolved = True
-            conflict_rows.append(ConflictRow(str(key), ",".join(divergent_attrs), "unresolved"))
+            conflict_rows.append(ConflictRow(identity_key, ",".join(divergent_attrs), "unresolved"))
             continue
 
         base_members = [(idx, r) for idx, r in members if idx == 0]
@@ -152,20 +185,26 @@ def _resolve_conflicts(
                 if idx != 0:
                     ambiguous_keys.add(record.primary_key)
         base_member = base_members[0] if base_members else None
-        if base_member is not None:
-            winner_idx, winner = base_member
-        else:
+        # source hands the group to the same run-wide picker that decides
+        # among duplicates no base record shares, so one picker answers
+        # "which non-base copy" wherever that question is asked.
+        if resolution == "source" or base_member is None:
+            candidates = [(idx, r) for idx, r in members if idx != 0] or members
             policy = on_conflict or "keep-first"
             picker = min if policy == "keep-first" else max
-            winner_idx, winner = picker(members, key=lambda m: m[0])
+            winner_idx, winner = picker(candidates, key=lambda m: m[0])
             new_entries.append((winner_idx, winner))
+        else:
+            winner_idx, winner = base_member
 
         for _, record in members:
             if record is not winner:
                 old_to_new_key[record.primary_key] = winner.primary_key
 
         if divergent_attrs:
-            conflict_rows.append(ConflictRow(str(key), ",".join(divergent_attrs), on_conflict or "unresolved"))
+            conflict_rows.append(
+                ConflictRow(identity_key, ",".join(divergent_attrs), resolution or on_conflict)
+            )
 
     return old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys
 
@@ -181,12 +220,20 @@ def assemble_output(
     confidence: MatchConfidence,
     on_conflict: Optional[str] = None,
     reconstruct: bool = False,
+    *,
+    resolutions: Optional[dict[str, str]] = None,
 ) -> SpliceResult:
     """Merge every contribution into base_source: build cross-input
     identity groups, resolve conflicts (aborting with zero output on any
     unresolved one), transplant surviving collection entries as verbatim
     spans, then hand off to playlist import for the PLAYLISTS tree
-    (DL-007, DL-008)."""
+    (DL-007, DL-008).
+
+    resolutions maps an identity-group key to base or source and settles
+    that group alone. An empty mapping leaves every group to on_conflict,
+    which is what the parameter's absence leaves them to, so the bytes a
+    call with an empty mapping produces are the bytes a call omitting it
+    produces (DL-104)."""
     inputs = [base_root] + [root for _, root in contributions]
     sources = [base_source] + [text for text, _ in contributions]
     records_by_input = [collection_records(root) for root in inputs]
@@ -198,7 +245,7 @@ def assemble_output(
 
     groups = group_identities(records_by_input, confidence)
     old_to_new_key, conflict_rows, unresolved, new_entries_records, ambiguous_keys = _resolve_conflicts(
-        groups, on_conflict
+        groups, on_conflict, resolutions=resolutions
     )
 
     stats = {

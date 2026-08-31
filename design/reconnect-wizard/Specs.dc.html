@@ -257,6 +257,29 @@ main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap
       </section>
 
       <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">Splice conflicts &mdash; /reconstruct</h2><span class="lbl">One row per track</span></div>
+        <div class="sec-b">
+          <p class="p">A reconstruction reads a <strong>base collection</strong> and a <strong>source collection</strong>. Where the two hold the same track with different tags, the run stops and asks. Every conflicting track gets one row, and the operator picks a side.</p>
+          <div class="sm">
+            <div class="node"><span class="pill">D:/:Music/:House/:Bar A Thym.mp3</span><span class="faint">the identity key, shown in full and monospaced</span></div>
+            <div class="node"><span class="pill">ARTIST &middot; BITRATE</span><span class="faint">only the attributes that differ are named</span></div>
+            <div class="arrow"><span class="pill" style="border-color:#2C5449;color:#4FD3BA">BASE</span> <span class="mono" style="font-size:11px">Ame &middot; 320</span> &mdash; the values the base collection holds</div>
+            <div class="arrow"><span class="pill" style="border-color:#3C4248;color:#56B4E9">SOURCE</span> <span class="mono" style="font-size:11px">&Acirc;me &middot; 256</span> &mdash; the values the source collection holds</div>
+          </div>
+          <ul class="ul" style="margin-top:2px">
+            <li><span class="dot"></span><span><b>The pick has two states, base or source.</b> Both sides&rsquo; values sit side by side on the row and the chosen side carries the selected outline; there is no third &ldquo;merge&rdquo; state and no free-text edit.</span></li>
+            <li><span class="dot"></span><span><b>Above the rows: All base, All source, and a count.</b> The two bulk actions set every row at once, and the count reads <span class="mono" style="font-size:11px">14 of 212 still undecided</span>, so the operator knows what is left without scrolling.</span></li>
+            <li><span class="dot"></span><span><b>Rows are hand-built, one per track</b>, in the same 32px-tall control rhythm as the review table, so the arrow keys the review table binds stay available over this table too.</span></li>
+            <li><span class="dot"></span><span><b>Picks survive a re-preview.</b> Changing the output path or adding a source keeps every pick already made; they live for the length of the session.</span></li>
+          </ul>
+          <div class="warn" style="margin-top:2px">
+            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.4l6.3 11.2H1.7z"/><path d="M8 6.6v3"/><path d="M8 11.8h.01"/></svg>
+            <span><strong>The write refuses while any track is undecided.</strong> The refusal reads <em>Nothing was written &mdash; 14 tracks still need a pick</em>, naming the count rather than the bare token the run reports. Writing a collection with a guessed winner would be plausible and wrong, so no output is offered until every row has a side.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec">
         <div class="sec-h"><h2 class="sec-t">Accessibility rules</h2></div>
         <div class="sec-b">
           <ul class="ul">

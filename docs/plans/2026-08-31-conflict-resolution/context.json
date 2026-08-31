@@ -1,0 +1,78 @@
+{
+  "task_spec": [
+    "SUBJECT: Let the operator resolve splice identity conflicts one at a time - a row per conflicting track showing the base version against the source version, operator picks a winner - instead of the whole reconstruction aborting on the first divergence.",
+    "scope: traktor_nml/splice.py (_resolve_conflicts, assemble_output), a new nicegui-free conflict-model module under traktor_nml/gui/, the /reconstruct page in traktor_nml/gui/app.py, traktor_nml/commands/splice_cmd.py, tests/, traktor_nml/README.md decision log, design/reconnect-wizard/Specs.dc.html",
+    "scope: two cheaper unblocks as an early milestone - render conflict_rows instead of the bare token, and expose a run-wide conflict choice on the page",
+    "out-of-scope: accessibility work of any kind - no screen-reader verification, no NVDA, no new keyboard bindings; mouse and clicking is this version's bar",
+    "out-of-scope: the reconnect flow's own review step (accept/reject per record) - it is a different operation and is finished",
+    "out-of-scope: TODO.md's replace-playlist and the discovery gap",
+    "out-of-scope: the sibling traktor-nml-tool-plan repository, frozen at plan-final-w004 - this plan carries no code_changes and no waves"
+  ],
+  "constraints": [
+    "MUST: new conflict-resolution logic sits BELOW the nicegui boundary in its own nicegui-free module - review_model.py, wizard_state.py, theme.py, keymap.py, announce.py import no nicegui; app.py, file_picker.py, __main__.py are the only three that may (DL-069, AST-guarded by tests/test_gui_view_boundary.py)",
+    "MUST: reconcile with DL-008 explicitly - today an unresolved conflict aborts the whole write and the conflict report is written either way; a new shape may not silently replace it",
+    "MUST: widen _resolve_conflicts' return as a NAMED element, never an appended positional, and enumerate every caller by grep (DL-100 set this precedent; production caller is assemble_output, plus tests/test_splice.py)",
+    "MUST: every guard is made to FAIL first, and its docstring records the specific mutation applied and the specific output observed",
+    "MUST: a gate run from C:\\codex\\traktor-nml-tool-gate before the change lands - gui/ defects are only ever found by serving the page (DL-084)",
+    "MUST: app.py stays 100% CRLF (1388 CRLF, 0 bare LF); the rest of the tree is not uniform, so read and write with newline=''",
+    "MUST: new decisions start at DL-104 (DL-103 is the current high-water mark in traktor_nml/README.md)",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+    "MUST: deliver as docs/plans/2026-08-31-conflict-resolution/ with plan.json and context.json, matching 2026-08-29-playlist-reconstruction's shape",
+    "MUST NOT: regenerate the parity manifest or the gate fixture; never restore a file with git checkout",
+    "SHOULD: model the resolution surface on the existing reconnect review step - hand-rolled ui.row rows per record, not ui.aggrid, which claims the arrow keys Specs binds (DL-079)",
+    "SHOULD: the suite runs under the SYSTEM interpreter at 417 passed / 3 skipped, not .venv (418/2); .venv is the only interpreter with nicegui and is what serves the app"
+  ],
+  "entry_points": [
+    "traktor_nml/splice.py:_resolve_conflicts (~line 107-152) - the abort origin: a group spanning >1 input whose _TRACKED_ATTRS (artist, title, album, filesize, playtime_float, bitrate) diverge sets unresolved=True when on_conflict is None, appending ConflictRow(key, attrs, 'unresolved')",
+    "traktor_nml/splice.py:assemble_output (~line 175-218) - returns SpliceResult(output=None, errors=['unresolved_conflicts']) on any unresolved conflict, before any span is rewritten",
+    "traktor_nml/splice.py:ConflictRow (~line 43) - identity_key, attrs, resolution; already carries what the operator needs to see, and is already discarded by the page",
+    "traktor_nml/gui/app.py:_build_reconstruct_page (~1211-1380) - the /reconstruct route; preview() calls assemble_output with on_conflict hardcoded None and renders only result.errors; write_output() checks result.output is None and says 'Preview first'",
+    "traktor_nml/commands/splice_cmd.py:94 - --on-conflict choices keep-first|keep-last, default None; the only existing escape and a run-wide one",
+    "traktor_nml/gui/review_model.py - the pattern to mirror: pure status/decision derivation with no framework import, two axes (what the tool found vs what the operator said) kept apart",
+    "traktor_nml/gui/wizard_state.py - the other half of the pattern: per-record decision states and the amended result built from them",
+    "tests/test_splice.py - the caller enumeration target and where core-level guards go"
+  ],
+  "rejected_alternatives": [
+    "Expose --on-conflict keep-first|keep-last on the page as the whole answer - blunt, all-or-nothing for an entire run; kept as an early milestone unblock rather than the destination",
+    "Do nothing and drive the repair from the CLI - unblocks this one job but leaves the page unable to ever complete a reconstruction on a realistic collection pair",
+    "ui.aggrid for the conflict table - rejected for the review table already (DL-079) because it claims the arrow keys Specs binds over that table",
+    "Put the resolution logic in app.py - would sit above the nicegui boundary and be unreachable from the suite's system interpreter"
+  ],
+  "current_understanding": [
+    "symptom: operator selects a base collection and a source collection on /reconstruct, clicks Preview, and gets 'Nothing was written.' plus the bare token 'unresolved_conflicts'; clicking Write output then says 'Preview first' even though a preview did run",
+    "repro: any two collections sharing track identities whose tags have been edited between them - the normal case for the operator's own use, same tracks with edited metadata",
+    "the misleading 'Preview first' is a second, smaller defect: preview DID run and DID complete, it refused; write_output only tests result.output is None and cannot tell a refusal from a never-run preview",
+    "the abort is the plan being followed, not a regression: docs/plans/2026-08-29-playlist-reconstruction/plan.json cites DL-008 by name and shapes the ambiguity abort to match it, with acceptance criteria written as exit 2 with no output file",
+    "no conflict-resolution UI exists anywhere: grep -rln conflict --include=*.py over traktor_nml/ and tests/ returns ten files and not one is under traktor_nml/gui/",
+    "what does exist, and is finished, is the reconnect flow's per-record review - accept/reject, seven filter chips, state.decisions, undo_row - a different operation on a different object (a match candidate for a missing file, not two collections disagreeing about a track's tags)",
+    "/reconstruct is its own route rather than a step in the reconnect stepper because the two operations share no pipeline (app.py:1211-1219)",
+    "conflict_rows are already computed and already returned on the abort path - the data the operator needs is built and thrown away at the render"
+  ],
+  "assumptions": [
+    "SETTLED by the operator: per-track picks persist in session, held in state the way the reconnect flow's state.decisions are - a re-preview after changing an output path or adding a source keeps them; lost on app restart, no sidecar file",
+    "SETTLED by the operator: the CLI stays at the run-wide --on-conflict keep-first|keep-last flag. Core grows the per-key mapping and the GUI is its only caller; no --resolutions file",
+    "SETTLED by the operator: the conflict screen is drawn into design/reconnect-wizard/Specs.dc.html FIRST and built to, keeping DL-071 intact rather than carving an exception for a screen Specs has never described",
+    "Base-wins vs source-wins is the operator-facing framing of keep-first vs keep-last in this flow (H)",
+    "A conflict set on a real collection pair can be large - hundreds of rows - so a bulk 'all base' / 'all source' action is needed alongside per-row picks (M)"
+  ],
+  "invisible_knowledge": [
+    "The abort is deliberate and load-bearing: _resolve_conflicts picks one winner per group, so resolving arbitrarily writes a plausible but WRONG collection - which is why the check runs before any span is rewritten (DL-094's reasoning for the sibling ambiguity case)",
+    "output is None exactly when errors is non-empty - SpliceResult's own documented invariant; a partial write is not a shape this module has",
+    "splice is span-assembly: unrenamed, unredirected fragments are transplanted as verbatim source byte spans, and reconstruction must stay on the span path rather than route through write_nml_safely (DL-007, DL-008)",
+    "old_to_new_key holds only keys a conflict resolution actually redirected; base's own keys and already-shared source keys legitimately have no entry, and a missing mapping passes through as the raw key rather than erroring (DL-101)",
+    "The two-axis separation in review_model.py (what the tool found vs what the operator decided) is the design worth copying, not just the row rendering",
+    "Framework shortfalls section is correctly empty: every collision so far resolved ON DL-086's ladder - rung one for token classes, rung two by naming Quasar's own layer for the focus ring. Do not manufacture a DL-087 entry",
+    "A token class carrying background and ink together wins only with color=None at the constructor - required, not tidy (c6eb69c)",
+    "Tailwind's JIT emits rules asynchronously; NiceGUI's stepper unmounts inactive steps; a # comment inside page_stylesheet()'s CSS string is an ID selector that swallows the rule after it with no parse error"
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - the decision log, DL-001..DL-103, the authority; DL-007, DL-008, DL-069, DL-071, DL-079, DL-084, DL-086, DL-091..DL-103 all bear",
+    "traktor_nml/gui/CLAUDE.md - the nicegui boundary, the file map, where Specs and nicegui-gui-analysis.md disagree and which governs each",
+    "docs/plans/2026-08-29-playlist-reconstruction/plan.json - the shape to match, and the plan that set the abort behaviour",
+    "docs/plans/README.md - the one-directory-per-plan convention and what each file holds",
+    "design/reconnect-wizard/Specs.dc.html - the cross-screen contract for what the operator sees (DL-071)",
+    "docs/2026-08-29-w004-focus-ring-record.md - what a served-page gate run produces, 388 lines over four passes",
+    "DEVELOPING.md - the three-repository layout, clean-clone steps, line-ending rules",
+    "C:\\codex\\traktor-nml-tool-gate/README.md - running the gate; gate_paths.py resolves the wizard tree as a sibling"
+  ]
+}

@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from traktor_nml.confidence import MatchConfidence
+from traktor_nml.splice import assemble_output
+from traktor_nml.xmlio import parse_xml_bytes
 from tests.conftest import run_tool
 
 
@@ -149,6 +152,258 @@ def test_conflict_resolved_with_on_conflict_keep_first_still_writes_report(tmp_p
     assert (tmp_path / "out.nml").exists()
     assert (tmp_path / "conflicts.csv").exists()
     assert "conflict_key=" in result.stdout
+
+
+def _parsed(text: str) -> tuple:
+    """A (source text, parsed root) contribution pair, the shape
+    assemble_output takes for base and for every contribution alike."""
+    return text, parse_xml_bytes(text.encode("utf-8"))
+
+
+def _diverging_pair() -> tuple:
+    """A base collection and one source collection holding the same track
+    with a differing BITRATE - the smallest input reaching the
+    divergent-attribute branch, and the shape the CLI conflict guards build.
+    Returned as parsed roots so a guard calls assemble_output directly:
+    resolutions has no CLI flag to drive it through run_tool (DL-108)."""
+    base_text = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
+    source_text = _nml(
+        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""
+    )
+    return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(source_text)]
+
+
+def _conflict_key() -> str:
+    """The identity key the run reports for the diverging pair, read off the
+    abort path rather than reconstructed by the guard, so no guard carries
+    its own copy of the derivation under test."""
+    base_text, base_root, contributions = _diverging_pair()
+    result = assemble_output(base_text, base_root, contributions, MatchConfidence.STRICT)
+    return result.conflict_rows[0].identity_key
+
+
+def test_an_empty_resolutions_mapping_reproduces_the_omitted_parameter_bytes() -> None:
+    """An empty mapping settles nothing, which is what the parameter's
+    absence settles, so the two runs agree byte for byte over one input.
+
+    Observed with assemble_output's resolutions default changed from None
+    to {"C:/:Music/:track.mp3": "source"}, so the omitted-parameter call
+    settled the group differently from the empty-mapping call:
+    AssertionError on `assert empty.output == omitted.output` - the omitted
+    run's COLLECTION carried ENTRIES="2" with a second ENTRY at
+    BITRATE="128" that the empty-mapping run's did not.
+    """
+    base_text, base_root, contributions = _diverging_pair()
+    omitted = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT, "keep-first"
+    )
+    empty = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT, "keep-first", resolutions={}
+    )
+    assert empty.output is not None
+    assert empty.output == omitted.output
+    assert empty.output.encode("utf-8") == omitted.output.encode("utf-8")
+
+
+def test_a_base_resolution_writes_the_base_records_attributes() -> None:
+    """base names the group's base-input record, whose bytes are never
+    rewritten, so the merged collection carries base's BITRATE (DL-007).
+
+    Observed with the winner branch reading `if resolution != "source" or
+    base_member is None:` in place of `if resolution == "source" or
+    base_member is None:`, sending a base pick to the non-base picker:
+    AssertionError on `assert 'BITRATE="128"' not in result.output` - the
+    source copy's INFO BITRATE="128" was transplanted into the collection.
+    """
+    base_text, base_root, contributions = _diverging_pair()
+    result = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT,
+        resolutions={_conflict_key(): "base"},
+    )
+    assert result.output is not None
+    assert 'BITRATE="320"' in result.output
+    assert 'BITRATE="128"' not in result.output
+    assert result.conflict_rows[0].resolution == "base"
+
+
+def test_a_source_resolution_writes_the_non_base_records_attributes() -> None:
+    """source hands the group to the run-wide picker over its non-base
+    members, so the source copy's BITRATE reaches the output and the run
+    records that resolution.
+
+    Observed with the winner branch reading `if resolution == "base" or
+    base_member is None:` in place of `if resolution == "source" or
+    base_member is None:`, so a source pick fell to the base record:
+    AssertionError on `assert 'BITRATE="128"' in result.output`, the output
+    holding only base's own ENTRY at BITRATE="320".
+    """
+    base_text, base_root, contributions = _diverging_pair()
+    result = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT,
+        resolutions={_conflict_key(): "source"},
+    )
+    assert result.output is not None
+    assert 'BITRATE="128"' in result.output
+    assert result.conflict_rows[0].resolution == "source"
+
+
+def test_an_unmatched_resolutions_key_is_inert() -> None:
+    """A key naming no identity group is absent from the lookup, so the run
+    is the run it is with an empty mapping - here, the DL-008 abort.
+
+    Observed with the lookup written as `resolutions[identity_key] if
+    divergent_attrs else None` in place of `resolutions.get(identity_key)
+    if divergent_attrs else None`: KeyError: 'C:/:Music/:track.mp3' raised
+    at traktor_nml/splice.py:176.
+    """
+    base_text, base_root, contributions = _diverging_pair()
+    result = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT,
+        resolutions={"C:" + "/:Music/:" + "nothing.mp3": "base"},
+    )
+    assert result.output is None
+    assert result.errors == ["unresolved_conflicts"]
+
+
+def test_a_per_key_entry_governs_its_own_group_over_on_conflict() -> None:
+    """The mapping is consulted first and on_conflict governs what the
+    mapping does not name, so a named group follows its own pick while
+    keep-last is in force for the rest of the run.
+
+    Observed with the recorded resolution written as `ConflictRow(
+    identity_key, ",".join(divergent_attrs), on_conflict or resolution)`,
+    letting the run-wide policy label a group the mapping decided:
+    AssertionError: assert 'keep-last' == 'base'.
+    """
+    base_text, base_root, contributions = _diverging_pair()
+    result = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT, "keep-last",
+        resolutions={_conflict_key(): "base"},
+    )
+    assert result.output is not None
+    assert 'BITRATE="320"' in result.output
+    assert 'BITRATE="128"' not in result.output
+    assert result.conflict_rows[0].resolution == "base"
+
+
+def test_a_mixed_run_resolves_the_named_group_and_aborts_on_the_unnamed_one() -> None:
+    """One resolved group does not license a write while another group is
+    undecided: the abort covers the run rather than the group, and it runs
+    before any span is rewritten (DL-008).
+
+    Observed with `unresolved = True` replaced by `unresolved = not
+    resolutions`, so a run holding any resolution wrote its output:
+    AssertionError - `assert '<?xml version="1.0" ... </NML>' is None`,
+    the run's conflict_rows carrying the /:two.mp3 row at 'unresolved'.
+    """
+    base_text = _nml(
+        _entry("A", "One", "one.mp3", time="100.0") + _entry("B", "Two", "two.mp3", time="200.0"), 2, ""
+    )
+    source_text = _nml(
+        _entry("A", "One", "one.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"')
+        + _entry("B", "Two", "two.mp3", time="200.0").replace('BITRATE="320"', 'BITRATE="192"'),
+        2, "",
+    )
+    base_root = parse_xml_bytes(base_text.encode("utf-8"))
+    contributions = [_parsed(source_text)]
+    named = "C:" + "/:Music/:" + "one.mp3"
+
+    result = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT,
+        resolutions={named: "base"},
+    )
+    assert result.output is None
+    assert result.errors == ["unresolved_conflicts"]
+    assert len(result.conflict_rows) == 2
+    by_key = {row.identity_key: row.resolution for row in result.conflict_rows}
+    assert by_key[named] == "base"
+    assert by_key["C:" + "/:Music/:" + "two.mp3"] == "unresolved"
+
+
+def test_conflict_rows_are_populated_on_the_abort_path_and_the_clean_path() -> None:
+    """conflict_rows carries one row per divergent group whatever the
+    outcome, so the report the operator reads does not depend on whether the
+    run wrote anything (DL-008).
+
+    Observed with the clean path's `if divergent_attrs:` guarding its
+    conflict_rows.append(...) replaced by `if False:`: AssertionError on
+    `assert len(resolved.conflict_rows) == 1` - assert 0 == 1, where
+    0 = len([]).
+    """
+    base_text, base_root, contributions = _diverging_pair()
+    aborted = assemble_output(base_text, base_root, contributions, MatchConfidence.STRICT)
+    resolved = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT,
+        resolutions={_conflict_key(): "base"},
+    )
+    assert len(aborted.conflict_rows) == 1
+    assert len(resolved.conflict_rows) == 1
+    assert aborted.conflict_rows[0].identity_key == resolved.conflict_rows[0].identity_key
+
+
+def _two_source_divergence() -> tuple:
+    """A base holding an unrelated track and two sources holding one track
+    between them with differing BITRATEs: an identity group carrying no base
+    record, which is the branch keying on the member primary keys."""
+    base_text = _nml(_entry("Z", "Other", "other.mp3", time="9.0"), 1, "")
+    first = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
+    second = _nml(
+        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""
+    )
+    return base_text, parse_xml_bytes(base_text.encode("utf-8")), first, second
+
+
+def test_an_unchanged_groups_identity_key_survives_an_added_source() -> None:
+    """The key is derived from the group's member records rather than from
+    its union-find root index, so a source added ahead of the group's own
+    members - which shifts every later record's index - leaves the group
+    answering to the same name (DL-114).
+
+    Observed with `identity_key = _group_identity_key(members)` replaced by
+    `identity_key = str(key)`, the union-find root index: the same group
+    was named '1' in the two-input run and '2' in the three-input run, and
+    the guard failed with AssertionError: assert '1' == '2'.
+    """
+    base_text, base_root, first, second = _two_source_divergence()
+    filler = _nml(_entry("Q", "Filler", "filler.mp3", time="3.0"), 1, "")
+
+    one = assemble_output(
+        base_text, base_root, [_parsed(first), _parsed(second)], MatchConfidence.STRICT
+    )
+    two = assemble_output(
+        base_text, base_root,
+        [_parsed(filler), _parsed(first), _parsed(second)], MatchConfidence.STRICT,
+    )
+    one_source_key = one.conflict_rows[0].identity_key
+    two_source_key = two.conflict_rows[0].identity_key
+    assert one_source_key == two_source_key
+
+
+def test_an_enlarged_group_carries_a_different_identity_key() -> None:
+    """A group a further source enlarges is a different set of records and
+    answers to a different name, so a pick made against the smaller group is
+    not applied to the larger one (DL-114, DL-115).
+
+    Observed with `identity_key = _group_identity_key(members)` replaced by
+    `identity_key = str(key)`, the union-find root index: both runs named
+    the group '1', and the guard failed with AssertionError:
+    assert '1' != '1'.
+    """
+    base_text, base_root, first, second = _two_source_divergence()
+    third = _nml(
+        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="192"'), 1, ""
+    )
+
+    small = assemble_output(
+        base_text, base_root, [_parsed(first), _parsed(second)], MatchConfidence.STRICT
+    )
+    enlarged = assemble_output(
+        base_text, base_root,
+        [_parsed(first), _parsed(second), _parsed(third)], MatchConfidence.STRICT,
+    )
+    small_key = small.conflict_rows[0].identity_key
+    enlarged_key = enlarged.conflict_rows[0].identity_key
+    assert small_key != enlarged_key
 
 
 def test_imported_playlist_sorting_info_is_rewritten_to_its_new_name(tmp_path: Path) -> None:
