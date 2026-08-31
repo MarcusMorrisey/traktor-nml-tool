@@ -359,7 +359,7 @@ def test_an_unchanged_groups_identity_key_survives_an_added_source() -> None:
     members - which shifts every later record's index - leaves the group
     answering to the same name (DL-114).
 
-    Observed with `identity_key = _group_identity_key(members)` replaced by
+    Observed with `identity_key = group_identity_key(members)` replaced by
     `identity_key = str(key)`, the union-find root index: the same group
     was named '1' in the two-input run and '2' in the three-input run, and
     the guard failed with AssertionError: assert '1' == '2'.
@@ -384,7 +384,7 @@ def test_an_enlarged_group_carries_a_different_identity_key() -> None:
     answers to a different name, so a pick made against the smaller group is
     not applied to the larger one (DL-114, DL-115).
 
-    Observed with `identity_key = _group_identity_key(members)` replaced by
+    Observed with `identity_key = group_identity_key(members)` replaced by
     `identity_key = str(key)`, the union-find root index: both runs named
     the group '1', and the guard failed with AssertionError:
     assert '1' != '1'.

@@ -106,7 +106,7 @@ def group_identities(
     return groups
 
 
-def _group_identity_key(members: list[tuple[int, EntryRecord]]) -> str:
+def group_identity_key(members: list[tuple[int, EntryRecord]]) -> str:
     """The name a conflicting identity group answers to.
 
     The union-find root is an index into the flat all_records list, so it
@@ -167,7 +167,7 @@ def _resolve_conflicts(
                 new_entries.append(members[0])
             continue
 
-        identity_key = _group_identity_key(members)
+        identity_key = group_identity_key(members)
         divergent_attrs = [
             attr for attr in _TRACKED_ATTRS if len({getattr(r, attr) for _, r in members}) > 1
         ]
