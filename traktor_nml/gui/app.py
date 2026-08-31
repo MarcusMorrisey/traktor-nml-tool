@@ -48,8 +48,10 @@ from ..reconnect_render import (
 )
 from ..reconnect_run import ReconnectResult
 from ..confidence import MatchConfidence
+from ..model import collection_records
 from ..rewrite import read_and_parse_source, write_bytes_atomically
 from ..splice import assemble_output
+from . import conflict_model
 from . import review_model
 # theme.py is the only source for a colour or size literal in this module (DL-078).
 from . import wizard_state
@@ -1209,6 +1211,12 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 
         render()
 
+# The error token assemble_output reports when a divergent identity group
+# is left unresolved. The /reconstruct page renders the rows the same run
+# returned in its place, so the token itself never reaches the operator.
+_CONFLICT_ABORT_TOKEN = "unresolved_conflicts"
+
+
 def _build_reconstruct_page() -> None:
     """Registers the playlist-reconstruction screen at '/reconstruct'.
 
@@ -1228,6 +1236,10 @@ def _build_reconstruct_page() -> None:
         base_holder: dict = {"path": None}
         source_holder: list = []
         result_holder: dict = {"result": None, "base_bytes": None}
+        # The ConflictGroups the last run reported, as conflict_model
+        # derives them. Held beside the result so the write control and the
+        # rows read the same set the run produced.
+        conflict_holder: list = []
 
         with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
             ui.label("Reconstruct playlists").classes("text-xl font-semibold")
@@ -1288,6 +1300,22 @@ def _build_reconstruct_page() -> None:
                 "wizard-control wizard-label"
             )
 
+            ui.label("Where the collections disagree").classes(
+                "wizard-body-13 font-semibold"
+            )
+            # The run-wide fallback, carrying the splice subcommand's own
+            # two choices onto assemble_output's on_conflict parameter. Its
+            # default settles nothing, so a divergent group stops the run
+            # and is shown as a row of its own below.
+            conflict_choice = ui.select(
+                {
+                    None: "Ask me - stop and show every conflicting track",
+                    "keep-first": "keep-first - the collection being repaired wins",
+                    "keep-last": "keep-last - the last source added wins",
+                },
+                value=None,
+            ).classes("w-full")
+
             report = ui.column().classes("w-full gap-1")
 
             def _load():
@@ -1314,6 +1342,44 @@ def _build_reconstruct_page() -> None:
                     contributions.append((loaded.source_bytes.decode("utf-8"), loaded.root))
                 return base_result.source_bytes, base_result.root, contributions
 
+            def _load_conflict_groups(result, base_root, contributions) -> list:
+                """The conflicting identity groups conflict_model derives
+                from what the run reported, re-grouping the same records the
+                run merged. Called through run.io_bound with the run itself:
+                the pass reads every record of every input."""
+                records_by_input = [collection_records(base_root)]
+                records_by_input += [
+                    collection_records(root) for _, root in contributions
+                ]
+                return conflict_model.conflict_groups(
+                    result.conflict_rows, records_by_input, MatchConfidence.STRICT
+                )
+
+            def _render_conflicts(groups) -> None:
+                """One hand-rolled ui.row per conflicting track, carrying the
+                identity key, the attribute names that diverge and each
+                side's values (Specs.dc.html, "Splice conflicts").
+
+                Hand-rolled rather than ui.aggrid, which claims the arrow
+                keys Specs binds over this same table (DL-079, DL-110).
+                """
+                ui.label(
+                    "These tracks are held differently by the collections. "
+                    "Nothing is written while any of them is unsettled."
+                ).classes("wizard-body-13")
+                for view in conflict_model.ConflictDecisions().rows(groups):
+                    with ui.row().classes("w-full items-center gap-3 wizard-row"):
+                        ui.label(view.identity_key).classes(
+                            "font-mono wizard-body-12 grow"
+                        )
+                        ui.label(", ".join(view.attrs)).classes("wizard-label")
+                        ui.label(f"BASE {' | '.join(view.base_values)}").classes(
+                            "font-mono wizard-body-12 wizard-status-found"
+                        )
+                        ui.label(f"SOURCE {' | '.join(view.source_values)}").classes(
+                            "font-mono wizard-body-12 wizard-action"
+                        )
+
             async def preview() -> None:
                 """Runs the same assemble_output call the CLI makes, with
                 reconstruct=True, and renders what it reports. Nothing is
@@ -1326,8 +1392,12 @@ def _build_reconstruct_page() -> None:
                 result = await run.io_bound(
                     assemble_output,
                     base_bytes.decode("utf-8"), base_root, contributions,
-                    MatchConfidence.STRICT, None, True,
+                    MatchConfidence.STRICT, conflict_choice.value, True,
                 )
+                groups = await run.io_bound(
+                    _load_conflict_groups, result, base_root, contributions
+                )
+                conflict_holder[:] = groups
                 result_holder["result"] = result
                 result_holder["base_bytes"] = base_bytes
                 report.clear()
@@ -1341,6 +1411,12 @@ def _build_reconstruct_page() -> None:
                             "wizard-body-13 font-semibold"
                         )
                         for error in result.errors:
+                            # The conflict abort's token names rows this same
+                            # run returned, so those rows stand in its place;
+                            # every other token renders as the token it is.
+                            if error == _CONFLICT_ABORT_TOKEN and groups:
+                                _render_conflicts(groups)
+                                continue
                             ui.label(error).classes("font-mono wizard-body-12 text-warning")
                         return
                     rebuilt = result.stats.get("reconstructed_playlists") or {}
