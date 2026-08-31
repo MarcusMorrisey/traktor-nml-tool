@@ -1240,6 +1240,11 @@ def _build_reconstruct_page() -> None:
         # derives them. Held beside the result so the write control and the
         # rows read the same set the run produced.
         conflict_holder: list = []
+        # The operator's picks, keyed by identity group. Held beside the
+        # other holders so they outlive a re-preview and are discarded with
+        # the process; a pick whose group membership the new run changed
+        # reads back undecided (DL-107, DL-115).
+        decisions = conflict_model.ConflictDecisions()
 
         with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
             ui.label("Reconstruct playlists").classes("text-xl font-semibold")
@@ -1357,28 +1362,87 @@ def _build_reconstruct_page() -> None:
 
             def _render_conflicts(groups) -> None:
                 """One hand-rolled ui.row per conflicting track, carrying the
-                identity key, the attribute names that diverge and each
-                side's values (Specs.dc.html, "Splice conflicts").
+                identity key, the attribute names that diverge, each side's
+                values and a two-state pick, under an all-base action, an
+                all-source action and the outstanding count (Specs.dc.html,
+                "Splice conflicts").
 
                 Hand-rolled rather than ui.aggrid, which claims the arrow
                 keys Specs binds over this same table (DL-079, DL-110).
+
+                Every state the rows show - the pick held for a group, how
+                many are still undecided, what a bulk action leaves standing
+                - is read from conflict_model, which is where the suite can
+                reach it (DL-069, DL-106).
                 """
                 ui.label(
                     "These tracks are held differently by the collections. "
                     "Nothing is written while any of them is unsettled."
                 ).classes("wizard-body-13")
-                for view in conflict_model.ConflictDecisions().rows(groups):
+                table = ui.column().classes("w-full gap-0")
+
+                def draw() -> None:
+                    """Redraws the table over the current decisions - the
+                    whole table rather than the row just picked, since a bulk
+                    action moves every undecided row and the count moves with
+                    any pick at all."""
+                    table.clear()
+                    with table:
+                        with ui.row().classes("w-full items-center gap-2"):
+                            ui.button(
+                                "All base",
+                                on_click=lambda: bulk(conflict_model.BASE),
+                                color=None,
+                            ).classes("wizard-control")
+                            ui.button(
+                                "All source",
+                                on_click=lambda: bulk(conflict_model.SOURCE),
+                                color=None,
+                            ).classes("wizard-control")
+                            ui.label(
+                                f"{decisions.outstanding(groups)} of {len(groups)}"
+                                " still undecided"
+                            ).classes("wizard-body-12 wizard-faint")
+                        for group, view in zip(groups, decisions.rows(groups)):
+                            row(group, view)
+
+                def bulk(side: str) -> None:
+                    decisions.resolve_all(groups, side)
+                    draw()
+
+                def pick(group, side: str) -> None:
+                    decisions.resolve(group, side)
+                    draw()
+
+                def row(group, view) -> None:
+                    """One track's row. The decision the view carries indexes
+                    the selected class straight onto the side it names, so
+                    the chosen side alone carries the selected fill and this
+                    module holds no reading of what a decision means."""
+                    selected = {view.decision: "wizard-decision-accept"}
                     with ui.row().classes("w-full items-center gap-3 wizard-row"):
                         ui.label(view.identity_key).classes(
                             "font-mono wizard-body-12 grow"
                         )
                         ui.label(", ".join(view.attrs)).classes("wizard-label")
-                        ui.label(f"BASE {' | '.join(view.base_values)}").classes(
-                            "font-mono wizard-body-12 wizard-status-found"
+                        ui.button(
+                            f"BASE {' | '.join(view.base_values)}",
+                            on_click=lambda: pick(group, conflict_model.BASE),
+                            color=None,
+                        ).classes(
+                            "wizard-control font-mono wizard-body-12 "
+                            f"{selected.get(conflict_model.BASE, 'wizard-tag-action-outline')}"
                         )
-                        ui.label(f"SOURCE {' | '.join(view.source_values)}").classes(
-                            "font-mono wizard-body-12 wizard-action"
+                        ui.button(
+                            f"SOURCE {' | '.join(view.source_values)}",
+                            on_click=lambda: pick(group, conflict_model.SOURCE),
+                            color=None,
+                        ).classes(
+                            "wizard-control font-mono wizard-body-12 "
+                            f"{selected.get(conflict_model.SOURCE, 'wizard-tag-action-outline')}"
                         )
+
+                draw()
 
             async def preview() -> None:
                 """Runs the same assemble_output call the CLI makes, with
@@ -1393,6 +1457,7 @@ def _build_reconstruct_page() -> None:
                     assemble_output,
                     base_bytes.decode("utf-8"), base_root, contributions,
                     MatchConfidence.STRICT, conflict_choice.value, True,
+                    resolutions=decisions.resolutions(conflict_holder),
                 )
                 groups = await run.io_bound(
                     _load_conflict_groups, result, base_root, contributions
@@ -1438,9 +1503,18 @@ def _build_reconstruct_page() -> None:
             ui.button("Preview", on_click=preview, color=None).classes("wizard-control")
 
             async def write_output() -> None:
+                """Writes the output the held run produced, or names why it
+                cannot. A run that never happened and a run that happened and
+                refused are different refusals, and the second names how many
+                conflicts are still to decide (DL-111)."""
                 result = result_holder["result"]
-                if result is None or result.output is None:
-                    ui.notify("Preview first", type="warning")
+                refusal = conflict_model.write_refusal(
+                    result, decisions, conflict_holder
+                )
+                if refusal is not None:
+                    ui.notify(
+                        conflict_model.write_refusal_sentence(refusal), type="warning"
+                    )
                     return
                 if not output_input.value:
                     ui.notify("Choose an output path", type="warning")
