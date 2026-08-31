@@ -6,18 +6,31 @@ working *on* it.
 
 ## The layout
 
-Three repositories, siblings, plus the handoff beside them:
+Three repositories, siblings:
 
 ```
 C:\codex\
   traktor-nml-tool\             this repository - the tool and the wizard
   traktor-nml-tool-gate\        the serving gate and its fixtures
   traktor-nml-tool-plan\        the W-001..W-004 plan, archival
-  CONTINUE-traktor-wizard.md    the handoff a new session reads first
 ```
 
-Nothing hardcodes those paths. `tools/preflight.py`, `tools/refresh_handoff.py` and the
-gate's `gate_paths.py` all resolve siblings from their own location, with an environment
+The handoff a new session reads first is **not** among them. It is the one artifact in this
+project that no repository holds, so it is the one with nowhere to be restored from, and it
+lives in a synced folder instead:
+
+```
+D:\Sync\codex\nmlTool\CONTINUE-traktor-wizard.md
+```
+
+That is outside the sibling layout by definition, so the tools find it through
+`TRAKTOR_WIZARD_HANDOFF`, set as a user environment variable on this machine. Without it
+they look for `CONTINUE-traktor-wizard.md` beside the repositories and say so: `preflight.py`
+reports `handoff: ... is absent` and fails, and `refresh_handoff.py` exits 2 with
+`handoff absent:` and the path it tried.
+
+Nothing hardcodes any of these paths. `tools/preflight.py`, `tools/refresh_handoff.py` and
+the gate's `gate_paths.py` all resolve siblings from their own location, with an environment
 variable overriding each for a tree that sits elsewhere:
 
 | Variable | Overrides | Read by |
