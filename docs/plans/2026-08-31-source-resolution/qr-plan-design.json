@@ -1,0 +1,198 @@
+{
+  "phase": "plan-design",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "planning_context.constraints is empty (0 entries) while context.json supplies 12 MUST/SHOULD constraints; every constraint must be carried into the plan or explicitly retired",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "planning_context.risks is empty (0 entries); no risk is identified and therefore none is mitigated, for a plan whose whole subject is a defect a green suite missed",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "invisible_knowledge is empty (system '', invariants [], tradeoffs []) while context.json supplies 7 invisible-knowledge items including the SpliceResult output/errors invariant, the location-derived primary key, and the bytes-not-text patch discipline",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "planning_context.rejected_alternatives is empty (0 entries) while context.json supplies 4 rejected alternatives; the reasoning that excluded transplant-and-delete and full re-serialisation is unrecorded",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "No decision or acceptance criterion covers the constraint 'output line endings match the base file's own, preserved per file' - and this plan is the first to INSERT newly generated text (ALBUM/INFO children) into base_source",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "DL-119",
+      "check": "DL-119 states an absent carrier element is written into base's ENTRY span but states no rule for WHERE in the child sequence it goes; NML entries carry an ordered child set (LOCATION, ALBUM, MODIFICATION_INFO, INFO, TEMPO, ...) and Traktor's tolerance of arbitrary order is asserted nowhere",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": null,
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006a",
+      "scope": "M-001.acceptance",
+      "check": "The acceptance criterion for the ALBUM-insertion guard is 'parses to an entry whose ALBUM TITLE is the new value' - a guard a wrong child position and wrong indentation both pass",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006b",
+      "scope": "CI-M-001-001",
+      "check": "patch_entry_attributes' behavior text specifies no whitespace/indentation for an inserted child, so the inserted fragment's newline style and indent are unconstrained on a CRLF base file",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "DL-119",
+      "check": "DL-119 covers only the direction 'source carries it, base lacks it'. The symmetric case - a divergent attribute the SOURCE reads as empty (absent ALBUM/INFO on the source record) while base carries a value - has no stated rule: write an empty value, or remove base's attribute/element",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-dl119-carrier",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "DL-119",
+      "check": "DL-119 relies on a COLLECTION ENTRY never being written self-closing (so a child can always be inserted); this holds only because collection_records skips entries without a LOCATION child, and that dependency is stated nowhere",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dl119-carrier",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "DL-121",
+      "check": "DL-121's shared reverse-ordered list is sound in principle (both entry spans and playlist spans come from span_indexes[0] over the original base_source, and COLLECTION/PLAYLISTS spans are disjoint) but the plan does not record that soundness argument as a stated invariant, so a later reader cannot check it",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dl121-prepass",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "DL-121",
+      "check": "In splice.py as it stands, `replacements` is declared INSIDE `if reconstruct:` and AFTER two early `return SpliceResult(...)` aborts (duplicate_names, ambiguous_hits). DL-121 requires the pass to run with reconstruct unset, which means hoisting the list and the apply/re-parse out of that block; neither DL-121 nor CI-M-002-002 states what happens to entry patches on those abort paths",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-dl121-prepass",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "DL-121",
+      "check": "The re-parse is currently guarded by `if replacements:`; with entry patches joining, base_root must be re-parsed whenever ANY replacement applied, because `count=len(collection_entries(base_root)) + len(new_entry_texts)` is read from it downstream. The plan says 'one re-parse' but does not pin the guard condition",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dl121-prepass",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "DL-121",
+      "check": "span_indexes[0] is stale after the pre-pass rewrites base_source; the plan should record that no base-side span lookup may occur after the pass (contribution lookups at splice.py:414 use span_indexes[contribution_idx>=1])",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dl121-prepass",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "DL-118",
+      "check": "DL-118's claim that patching the divergent subset is byte-identical to patching all six holds only where a non-divergent tracked attribute is physically present on base's entry; where it is absent on BOTH sides it is non-divergent and patching it would insert a carrier - the byte-identity claim is safe but its precondition is unstated",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-reasoning-depth",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "DL-122",
+      "check": "DL-122 patches base_members[0] on a multi-base group and leaves non-base keys in ambiguous_keys; no acceptance criterion in M-002 guards the multi-base-record case at all",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-reasoning-depth",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "DL-125",
+      "check": "DL-125 cites conflict_model.py:219 and app.py:1460 as read rather than assumed - the citation form is right; verify these line references resolve on branch conflict-resolution at b9c7578",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-reasoning-depth",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "M-004",
+      "check": "readme_entries is empty (0) although M-004 requires DL-116..DL-126 statements in traktor_nml/README.md, and the overview records that the previous plan's M-005 never landed, leaving the file's own text at DL-103 - so DL-104..DL-115 are minted-but-unwritten and M-004 does not say whether it writes them",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-falsifiable-acceptance",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "M-003",
+      "check": "M-003 acceptance 'A served run picking BASE on every group writes the output it writes today' has no recorded baseline artifact to compare against, so the criterion is unfalsifiable as written",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-falsifiable-acceptance",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "milestones",
+      "check": "All four milestones carry 0 code_changes and waves is empty; confirm this matches the task_spec's 'this plan carries no code_changes and no waves' rather than being an omission",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-structural-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "DIAG-001",
+      "check": "Graph has 7 nodes and 7 edges, no orphan nodes and no invalid edge refs; scope is 'overview' not a milestone id - confirm 'overview' is a valid scope value",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-structural-integrity",
+      "version": 2
+    }
+  ]
+}

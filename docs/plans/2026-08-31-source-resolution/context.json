@@ -1,0 +1,72 @@
+{
+  "task_spec": [
+    "SUBJECT: Make a SOURCE conflict pick mean what the operator reads it to mean - the base collection's own entry carries the source's value for the divergent attributes - instead of transplanting the source's entry alongside base's and leaving two COLLECTION entries pointing at one LOCATION.",
+    "scope: traktor_nml/splice.py (_resolve_conflicts' source branch, assemble_output's pre-pass ordering), traktor_nml/textpatch.py (an entry-attribute patch beside location_patch), tests/test_splice.py, traktor_nml/README.md decision log, the gate repository's reconstruct fixture and serve script",
+    "scope: the /reconstruct page's SOURCE control keeps its wording and its behaviour becomes the wording (traktor_nml/gui/app.py may need no change at all - establish that rather than assume it)",
+    "out-of-scope: accessibility work of any kind - no screen-reader verification, no NVDA. Mouse and clicking is this version's bar",
+    "out-of-scope: the reconnect flow, its review step, and traktor_nml/gui/conflict_model.py's decision states - the model already carries base and source and needs no new state",
+    "out-of-scope: TODO.md's replace-playlist and the discovery gap",
+    "out-of-scope: the sibling traktor-nml-tool-plan repository, frozen at plan-final-w004 - this plan carries no code_changes and no waves"
+  ],
+  "constraints": [
+    "MUST: reconcile with the splice module docstring's own scope note, which states the base input is authoritative for its own COLLECTION and its bytes are never rewritten, and with DL-007's separation of byte-span assembly from attribute patching. This plan changes what that note claims, so the note and the decision log must be brought into agreement rather than left contradicting the code",
+    "MUST NOT produce two COLLECTION entries sharing one LOCATION - DL-004 forbids two entries pointing their playlist references at one LOCATION, and the served gate run on 2026-08-31 produced exactly that",
+    "MUST: every guard is made to FAIL first, and its docstring records the specific mutation applied and the specific output observed",
+    "MUST: a base input file is byte-identical before and after every run - the existing acceptance criterion from the reconstruction plan still holds for the INPUT FILES; what changes is the OUTPUT's copy of base's entry",
+    "MUST: output line endings match the base file's own, preserved per file",
+    "MUST: new decisions continue from the current high-water mark in traktor_nml/README.md (DL-115 at the time of writing - re-read and confirm)",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+    "MUST: a served-page gate run from C:\\codex\\traktor-nml-tool-gate is the acceptance step for anything the operator drives (DL-084, DL-113), re-run over the conflict fixture with a SOURCE pick and the written output read back",
+    "MUST: app.py stays 100% CRLF (1538 CRLF, 0 bare LF); the tree is not uniform, so read and write with newline=''",
+    "MUST: deliver as docs/plans/2026-08-31-source-resolution/ with plan.json and context.json",
+    "MUST NOT: regenerate the parity manifest or the gate fixture; never restore a file with git checkout",
+    "SHOULD: the suite runs under the SYSTEM interpreter, currently 446 passed / 3 skipped, not .venv"
+  ],
+  "entry_points": [
+    "traktor_nml/splice.py:_resolve_conflicts - the source branch: `if resolution == \"source\" or base_member is None:` picks a winner from the non-base candidates and appends it to new_entries. When base_member is None that transplant is correct; when a base record exists and loses, it adds a duplicate entry rather than changing base's",
+    "traktor_nml/splice.py:assemble_output - new_entry_texts transplants each winner's ENTRY span verbatim; the reconstruction pre-pass below it already rewrites base_source in memory and re-parses before any span is consumed (DL-096), which is the precedent and the place an entry patch would run",
+    "traktor_nml/textpatch.py:apply_text_patches, ElemPatch, location_patch, primarykey_patch - attribute substitution inside opening tags with every other byte preserved; location_patch is the shape an entry-attribute patch follows",
+    "traktor_nml/splice.py:_TRACKED_ATTRS - artist, title, album, filesize, playtime_float, bitrate: the attributes a divergence is measured over and therefore the ones a source pick must carry across",
+    "traktor_nml/gui/conflict_model.py - already projects BASE and SOURCE per group and hands splice a resolutions mapping; likely unchanged by this work",
+    "tests/test_splice.py - the nine per-key resolution guards, including the ones that assert the source record's attributes appear in the output and do NOT assert base's are gone",
+    "C:\\codex\\traktor-nml-tool-gate/reconstruct_fixture.py and serve_reconstruct.py - the fixture and serve script that found this; untracked at the time of writing"
+  ],
+  "rejected_alternatives": [
+    "Offer only BASE on the conflict screen - nothing can produce a broken collection, but the useful half of the control is gone; held as a stopgap rather than the destination",
+    "Make SOURCE redirect playlist references only and leave the COLLECTION alone - no duplicate entries, but the attribute the operator was shown and chose does not change, so the control does not do what its label says",
+    "Delete base's ENTRY span and transplant the source's - reaches the right end state but changes base's entry identity and its position in the collection, and discards any base attribute the source does not carry",
+    "Route the source pick through write_nml_safely or a full re-serialisation - splice is span assembly; DL-007 separates the two paths and the reconstruction plan states reconstruction must stay on the span path"
+  ],
+  "current_understanding": [
+    "symptom, measured on a served gate run: a SOURCE pick on a track present in both collections writes an output whose COLLECTION holds FOUR entries where base held three, with two of them carrying LOCATION /:Music/:two.mp3 - one ALBUM 'Base Album', one ALBUM 'Source Album'",
+    "the playlist's PRIMARYKEY for that track resolves ambiguously against both entries, and the redirect that would disambiguate is a no-op because the primary key is derived from the location, so base's key and the source's key are the same string",
+    "root cause: the source branch routes through the keep-first/keep-last picker, which until this change only ever ran when NO base record existed, where transplanting the winner is correct. With a base record present and losing, the transplant adds rather than replaces",
+    "why no guard caught it: the M-002 guards assert the source record's attributes appear in the output, which they do, and never assert base's are absent",
+    "the mechanism the fix needs already exists: textpatch.apply_text_patches substitutes attribute values inside opening tags with every other byte preserved, and the reconstruction pre-pass already rewrites base_source in memory and re-parses before any span is consumed (DL-096)",
+    "BASE picks are correct today and produce a clean output - only the SOURCE direction is affected",
+    "everything else in the conflict flow is verified working by the same gate run: the rows, both sides' values, the outstanding count, the bulk actions, an explicit pick surviving a bulk action, the refusal naming the count, and a clean write once every group is settled"
+  ],
+  "assumptions": [
+    "Patching base's ENTRY in place for the divergent attributes only - rather than for every tracked attribute - is what the operator means by picking source, since the divergent set is what they were shown (M) - the plan should decide this explicitly",
+    "An attribute present on the source record and absent on base's entry needs a stated rule: inserted, or left absent (M)",
+    "The conflict report's resolution token for a source pick stays 'source' and needs no new vocabulary (H)",
+    "traktor_nml/gui/conflict_model.py and traktor_nml/gui/app.py need no change, because the mapping they produce is unchanged and only splice's reading of 'source' changes (M) - establish by reading, not by assuming"
+  ],
+  "invisible_knowledge": [
+    "The splice module docstring's scope note is a v1 tradeoff record, not a physical law: it says the base input is authoritative for its own COLLECTION and its bytes are never rewritten. The reconstruction work already rewrites base_source in memory for playlist nodes, so the note is already narrower in practice than it reads",
+    "output is None exactly when errors is non-empty - SpliceResult's documented invariant; a partial write is not a shape this module has",
+    "old_to_new_key holds only keys a resolution actually redirected; a key with no mapping passes through as the raw key rather than erroring (DL-101)",
+    "The primary key is derived from the location, so two entries for one file cannot be told apart by key - which is why a duplicate entry is not merely untidy but makes the playlist reference ambiguous (DL-004)",
+    "Serving the page is the only gate that has ever caught a defect in gui/, and it caught this one after a green 446-test suite (DL-084)",
+    "Apply patches from FILES written as BYTES then git apply; capture git diff as BYTES and decode UTF-8 explicitly - subprocess(text=True) decodes via cp1252 here",
+    "The gate fixture for the reconnect flow is committed and must never be regenerated; the /reconstruct conflict fixture is separate and new"
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - the decision log and the authority; DL-004, DL-007, DL-008, DL-084, DL-096, DL-101, DL-104, DL-105, DL-113, DL-114, DL-115 all bear",
+    "traktor_nml/splice.py - the module docstring's scope note, which this work changes",
+    "traktor_nml/textpatch.py - the attribute-patching mechanism the fix uses",
+    "docs/plans/2026-08-31-conflict-resolution/plan.json - the plan this defect came out of, and the decisions it set",
+    "docs/plans/2026-08-29-playlist-reconstruction/plan.json - the reconstruction plan, whose base-input byte-identity criterion still holds",
+    "C:\\codex\\traktor-nml-tool-gate/README.md - running the gate; serving is the pass condition for anything touching the running app"
+  ]
+}
