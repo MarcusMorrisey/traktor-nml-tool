@@ -15,7 +15,12 @@ from __future__ import annotations
 import pytest
 
 from traktor_nml.gui.conflict_model import (
+    ALREADY_LISTED,
     BASE,
+    IS_A_SOURCE,
+    IS_THE_BASE,
+    base_refusal,
+    source_refusal,
     CONFLICTS_OUTSTANDING,
     ConflictDecisions,
     NO_PREVIEW,
@@ -441,3 +446,86 @@ def test_a_non_metadata_row_names_no_conflict_group() -> None:
     colliding = ConflictRow(group_identity_key(members), "playlist_name", "ambiguous")
 
     assert conflict_groups([colliding], records_by_input, MatchConfidence.STRICT) == []
+
+
+def test_a_collection_already_listed_is_refused(tmp_path) -> None:
+    """A candidate naming a collection the source list already holds is
+    refused, so one file cannot be folded twice.
+
+    Observed with source_refusal's `if any(_same_file(candidate,
+    listed) for listed in sources): return ALREADY_LISTED` branch
+    deleted: `AssertionError: assert None == 'already_listed'`, the
+    candidate naming the one path already in the list.
+    """
+    listed = tmp_path / "source.nml"
+    listed.write_text("<NML/>", encoding="utf-8")
+    base = tmp_path / "base.nml"
+    base.write_text("<NML/>", encoding="utf-8")
+
+    assert source_refusal(listed, base, [listed]) == ALREADY_LISTED
+
+
+def test_the_collection_being_repaired_is_refused_as_a_source(tmp_path) -> None:
+    """A candidate naming the collection being repaired is refused, so a
+    run cannot take playlists from the collection it repairs.
+
+    Observed with source_refusal's `if base_path is not None and
+    _same_file(candidate, base_path): return IS_THE_BASE` branch
+    deleted: `AssertionError: assert None == 'is_the_base'`, the
+    candidate and base_path naming one file.
+    """
+    base = tmp_path / "base.nml"
+    base.write_text("<NML/>", encoding="utf-8")
+
+    assert source_refusal(base, base, []) == IS_THE_BASE
+
+
+def test_a_collection_on_neither_side_is_accepted(tmp_path) -> None:
+    """A candidate naming no collection the page already holds is
+    accepted, so the refusal answers only the collisions it names.
+
+    Observed with `return ALREADY_LISTED` inserted as source_refusal's
+    first statement: `AssertionError: assert 'already_listed' is None`,
+    a candidate on neither side refused anyway.
+    """
+    base = tmp_path / "base.nml"
+    base.write_text("<NML/>", encoding="utf-8")
+    listed = tmp_path / "one.nml"
+    listed.write_text("<NML/>", encoding="utf-8")
+    fresh = tmp_path / "two.nml"
+    fresh.write_text("<NML/>", encoding="utf-8")
+
+    assert source_refusal(fresh, base, [listed]) is None
+
+
+def test_a_source_is_refused_as_the_collection_to_repair(tmp_path) -> None:
+    """The same collision read from the other side: a candidate the source
+    list already holds is refused as the collection to repair.
+
+    Observed with base_refusal's `if any(_same_file(candidate, listed)
+    for listed in sources): return IS_A_SOURCE` branch deleted:
+    `AssertionError: assert None == 'is_a_source'`.
+    """
+    listed = tmp_path / "source.nml"
+    listed.write_text("<NML/>", encoding="utf-8")
+
+    assert base_refusal(listed, [listed]) == IS_A_SOURCE
+
+
+def test_two_paths_naming_one_file_are_one_collection(tmp_path) -> None:
+    """Paths are compared resolved, so a path through a parent directory
+    and the plain path name one collection rather than two.
+
+    Observed with `_same_file(candidate, listed)` replaced by
+    `candidate is listed`: `AssertionError: assert None ==
+    'already_listed'`, the path reading `sub/../source.nml` read as a
+    second collection beside `source.nml`.
+    """
+    listed = tmp_path / "source.nml"
+    listed.write_text("<NML/>", encoding="utf-8")
+    base = tmp_path / "base.nml"
+    base.write_text("<NML/>", encoding="utf-8")
+    roundabout = tmp_path / "sub" / ".." / "source.nml"
+    (tmp_path / "sub").mkdir()
+
+    assert source_refusal(roundabout, base, [listed]) == ALREADY_LISTED

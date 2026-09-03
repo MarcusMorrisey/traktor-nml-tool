@@ -1254,15 +1254,53 @@ def _build_reconstruct_page() -> None:
             )
 
             ui.label("The collection to repair").classes("wizard-body-13 font-semibold")
-            base_display = ui.label("No collection selected").classes(
-                "font-mono wizard-body-15 wizard-subtle-1"
-            )
+            with ui.row().classes("items-center wizard-control-group"):
+                base_display = ui.label("No collection selected").classes(
+                    "font-mono wizard-body-15 wizard-subtle-1 grow"
+                )
+                base_remove = ui.button(
+                    "Remove",
+                    on_click=lambda: remove_base(),
+                    color=None,
+                ).classes("wizard-control wizard-tag-action-outline wizard-body-12")
+            base_remove.set_visibility(False)
+
+            def discard_run() -> None:
+                """Discards the run and what it reported.
+
+                A held result was assembled over the collections the run
+                read, so leaving it in place after one of them leaves the
+                page would let the write control write an output built from
+                a collection no control names. The picks stay, and
+                conflict_model re-attaches the ones whose group membership
+                the next run leaves unchanged (DL-115).
+                """
+                result_holder["result"] = None
+                result_holder["base_bytes"] = None
+                conflict_holder.clear()
+                report.clear()
 
             async def choose_base() -> None:
                 path = await pick_file_or_folder(directories_only=False)
-                if path is not None:
-                    base_holder["path"] = path
-                    base_display.set_text(str(path))
+                if path is None:
+                    return
+                refusal = conflict_model.base_refusal(path, source_holder)
+                if refusal is not None:
+                    ui.notify(
+                        conflict_model.selection_refusal_sentence(refusal), type="warning"
+                    )
+                    return
+                base_holder["path"] = path
+                base_display.set_text(str(path))
+                base_remove.set_visibility(True)
+                discard_run()
+
+            def remove_base() -> None:
+                """Returns the page to naming no collection to repair."""
+                base_holder["path"] = None
+                base_display.set_text("No collection selected")
+                base_remove.set_visibility(False)
+                discard_run()
 
             ui.button("Choose collection file...", on_click=choose_base, color=None).classes(
                 "wizard-control wizard-label"
@@ -1273,13 +1311,49 @@ def _build_reconstruct_page() -> None:
             )
             source_list = ui.column().classes("gap-1")
 
+            def draw_sources() -> None:
+                """Redraws the list from source_holder, so the rows and the
+                holder the run reads say the same thing after a removal."""
+                source_list.clear()
+                with source_list:
+                    for path in list(source_holder):
+                        with ui.row().classes("items-center wizard-control-group"):
+                            ui.label(str(path)).classes(
+                                "font-mono wizard-body-13 wizard-subtle-1 grow"
+                            )
+                            ui.button(
+                                "Remove",
+                                on_click=lambda _e, chosen=path: remove_source(chosen),
+                                color=None,
+                            ).classes(
+                                "wizard-control wizard-tag-action-outline wizard-body-12"
+                            )
+
+            def remove_source(path) -> None:
+                """Drops one source and discards the run that read it.
+
+                A held result was assembled over the sources the run read,
+                so it is discarded with the source that left the list.
+                """
+                source_holder.remove(path)
+                discard_run()
+                draw_sources()
+
             async def add_source() -> None:
                 path = await pick_file_or_folder(directories_only=False)
                 if path is None:
                     return
+                refusal = conflict_model.source_refusal(
+                    path, base_holder["path"], source_holder
+                )
+                if refusal is not None:
+                    ui.notify(
+                        conflict_model.selection_refusal_sentence(refusal), type="warning"
+                    )
+                    return
                 source_holder.append(path)
-                with source_list:
-                    ui.label(str(path)).classes("font-mono wizard-body-13 wizard-subtle-1")
+                discard_run()
+                draw_sources()
 
             ui.button("Add source collection...", on_click=add_source, color=None).classes(
                 "wizard-control"

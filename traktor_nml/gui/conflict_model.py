@@ -26,6 +26,7 @@ pick (DL-114, DL-115).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Optional, Sequence
 
 from ..matching import MatchConfidence
@@ -44,6 +45,14 @@ SIDES = frozenset({BASE, SOURCE})
 
 # The reasons a write cannot proceed, as write_refusal returns them.
 NO_PREVIEW = "no_preview"
+# The reasons a collection the operator picked is refused a place on the
+# page. A collection named twice contributes nothing the first naming does
+# not, and one naming both sides would have the page repair a collection
+# from itself, so each is refused at the control rather than folded into a
+# run whose result would not say why it looked wrong.
+ALREADY_LISTED = "already_listed"
+IS_THE_BASE = "is_the_base"
+IS_A_SOURCE = "is_a_source"
 CONFLICTS_OUTSTANDING = "conflicts_outstanding"
 
 # Where a group holds more than one record on a side, that side's cell
@@ -277,3 +286,53 @@ def write_refusal_sentence(refusal: WriteRefusal) -> str:
             "Choose base or source for each row above, then run Preview again."
         )
     return f"Write refused: {refusal.reason}"
+
+
+def _same_file(one, other) -> bool:
+    """Whether two paths name one file, compared resolved so a relative
+    path, a different case on a case-insensitive volume and a path
+    through a link are one collection rather than two."""
+    return Path(one).resolve() == Path(other).resolve()
+
+
+def source_refusal(candidate, base_path, sources) -> Optional[str]:
+    """Why a collection cannot join the source list, or None.
+
+    A candidate already on the list answers ALREADY_LISTED; one that is
+    the collection being repaired answers IS_THE_BASE.
+    """
+    if base_path is not None and _same_file(candidate, base_path):
+        return IS_THE_BASE
+    if any(_same_file(candidate, listed) for listed in sources):
+        return ALREADY_LISTED
+    return None
+
+
+def base_refusal(candidate, sources) -> Optional[str]:
+    """Why a collection cannot be the one repaired, or None.
+
+    The same collision source_refusal names, read from the other side:
+    a candidate already taken as a source answers IS_A_SOURCE.
+    """
+    if any(_same_file(candidate, listed) for listed in sources):
+        return IS_A_SOURCE
+    return None
+
+
+def selection_refusal_sentence(reason: str) -> str:
+    """The operator-facing sentence for one selection refusal, naming
+    what is wrong and which control fixes it. Falls back to naming the
+    raw reason rather than raising."""
+    if reason == ALREADY_LISTED:
+        return "That collection is already on the list. Remove it first to add it again."
+    if reason == IS_THE_BASE:
+        return (
+            "That is the collection being repaired. A collection cannot take "
+            "playlists from itself; choose a different file."
+        )
+    if reason == IS_A_SOURCE:
+        return (
+            "That collection is already a source. Remove it from the list "
+            "first, or choose a different file to repair."
+        )
+    return f"Refused: {reason}"
