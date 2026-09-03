@@ -807,8 +807,9 @@ statement of the same decision would only give it two copies to drift apart.
   span is consumed, keeping reconstruction on the byte-span assembly path
   DL-007 separates from attribute patching. Replacements are applied
   end-first so each span offset stays valid against the text it was
-  measured in, and every byte outside a rebuilt `PLAYLIST` element is
-  still copied verbatim (DL-096, DL-102).
+  measured in, and every byte outside a rebuilt `PLAYLIST` element and
+  outside the attribute values a source pick names inside a base
+  `ENTRY` is copied verbatim (DL-096, DL-102).
 - Playlist name matching is exact and case-sensitive. Traktor treats two
   names differing only in case as distinct playlists, so a casefolded
   lookup would rebuild one from the other and leave the same track
@@ -837,8 +838,308 @@ statement of the same decision would only give it two copies to drift apart.
   a rename applied to a playlist that is then skipped as matched - a
   rename the output does not contain and the operator cannot see (DL-097).
 
+- Per-key conflict resolutions reach the core as a named `resolutions`
+  mapping on `_resolve_conflicts` and `assemble_output`, keyed by the
+  identity-group key and valued `base` or `source`; the run-wide
+  `on_conflict` parameter keeps its meaning and applies only where no
+  per-key entry names that group. `_resolve_conflicts` already computes
+  one `ConflictRow` per divergent group and already carries the identity
+  key naming it, so the mapping needs no second grouping pass and no
+  second identity notion, only a lookup where the abort is raised. It is
+  a named keyword parameter and the widened return is a named element
+  rather than an appended positional, with every caller enumerated
+  first - `assemble_output`, `commands/splice_cmd.py`'s `_handle_splice`,
+  the direct uses in `tests/test_splice.py` and the GUI call in
+  `gui/app.py` - on DL-100's precedent (DL-104).
+- A group carrying divergent attributes with neither a per-key resolution
+  nor a run-wide `on_conflict` keeps DL-008's abort exactly: `output` is
+  `None`, `errors` carries `unresolved_conflicts`, `conflict_rows` is
+  populated and nothing is written. The abort exists because
+  `_resolve_conflicts` picks one winner per group, so settling a
+  divergence arbitrarily writes a plausible but wrong collection; a
+  per-key mapping supplies a winner the operator named, which is what
+  makes writing safe. Resolution is additive, so a run with an empty
+  mapping is byte-identical to one made without the parameter (DL-105).
+- The conflict decision state and the row derivation live in
+  `gui/conflict_model.py`, a nicegui-free module, mirroring
+  `review_model.py` and `wizard_state.py`'s split of what the tool found
+  from what the operator said. DL-069 puts every rule worth testing below
+  the nicegui boundary because the suite's system interpreter has no
+  nicegui, so resolution logic in `app.py` would be unreachable from the
+  suite and would fail `tests/test_gui_view_boundary.py`'s AST walk.
+  `conflict_model.py` holds `ConflictDecisions` (per identity key:
+  undecided, base, source), the row projection over a `ConflictRow` plus
+  its decision, the bulk all-base/all-source application and the
+  outstanding count, and imports no nicegui (DL-106).
+- Per-track picks are held in session state keyed by the identity key,
+  surviving a re-preview after an output path change or a further source
+  and discarded with the process. The identity key is what
+  `_resolve_conflicts` groups on and what `ConflictRow` carries, so it is
+  stable across two runs over the same inputs and lets a re-preview
+  re-attach a decision without a second identifier or a sidecar file;
+  `ConflictDecisions` sits beside the `/reconstruct` page's other
+  holders, the way `state.decisions` holds the reconnect flow's picks
+  (DL-107).
+- The splice CLI carries only the run-wide `--on-conflict
+  keep-first|keep-last` flag, and the per-key `resolutions` parameter has
+  the GUI as its sole caller. A per-key mapping on a command line needs a
+  file format, a parser and a report of keys matching nothing, and that
+  surface serves no operator the tool has: the operator resolving
+  track-by-track is the one looking at rendered rows. `splice_cmd.py`
+  passes no resolutions and the core's default of an empty mapping keeps
+  the CLI path identical (DL-108).
+- The conflict-resolution screen is drawn into
+  `design/reconnect-wizard/Specs.dc.html` before it is built, and built to
+  what Specs says. DL-071 makes Specs the cross-screen contract for what
+  the operator sees and a screen disagreeing with Specs is fixed in
+  Specs, so a screen Specs never described would either carve an
+  exception to that rule or be reconciled after the fact against a
+  contract written to match the code (DL-109).
+- The conflict table renders hand-rolled `ui.row` rows per conflicting
+  track, one row showing the base version against the source version with
+  a base/source pick, alongside run-wide all-base and all-source actions.
+  DL-079 rejected `ui.aggrid` for the review table because aggrid claims
+  the arrow keys Specs binds over that same table, and the conflict table
+  sits in the same wizard surface under the same keyboard contract, so
+  aggrid here would reintroduce that collision; a conflict set of
+  hundreds of rows is made tractable by the bulk actions rather than by a
+  grid widget (DL-110).
+- The write control refuses on a reason the model returns, distinguishing
+  a preview that never ran from a preview that ran and refused, and
+  naming the outstanding conflict count when it refuses for that.
+  `write_output` tests only `result.output is None`, and `output` is
+  `None` exactly when `errors` is non-empty, which is `SpliceResult`'s
+  invariant, so that one test reads a completed refusal and an absent run
+  as the same thing; `conflict_model.py` returns the refusal reason off
+  the held result plus the outstanding count and the control renders it
+  (DL-111).
+- The conflict rows the run produced are rendered on the abort path in
+  place of the bare token, and the run-wide choice is offered on the
+  page, as the first landing increment before per-row picks exist.
+  `conflict_rows` are already computed and already returned on the abort
+  path and the page discarded them at the render, so rendering what is
+  already returned and passing the CLI's existing `on_conflict` through
+  the page's own control needs no core change; those two land first
+  inside the page milestone, so an operator can complete a reconstruction
+  before the per-key mapping and the per-row picks arrive (DL-112).
+- The page milestone is accepted by a served-page gate run from the gate
+  repository exercising a conflicting collection pair end to end -
+  preview, then per-row picks, then a bulk action, then a write. DL-084
+  records that `gui/` defects are found only by serving the page, since
+  the suite's system interpreter has no nicegui and `app.py` is guarded
+  by AST walk rather than by rendered DOM, so a conflict table whose rows
+  and picks are never rendered would pass every guard this work adds
+  while being unusable; the gate run is an acceptance criterion of the
+  page milestone rather than an optional follow-up (DL-113).
+- `ConflictRow` carries a content-derived identity key - the group's sole
+  base-input record's primary key, or the sorted tuple of the group's
+  member primary keys where the group holds no base record - rather than
+  the union-find root index it carries as a group label.
+  `group_identities` keys its groups on `find(i)`, an index into the flat
+  record list built as base's records followed by each contribution's in
+  order, and that root index is positional: a further source collection
+  lengthens the list, shifts every later index and can move a group's
+  root, so one track's group is labelled differently between two previews
+  and a decision keyed on the old label attaches to a different group or
+  to none. The derivation is total, since every conflicting group holds
+  at least two records spanning at least two inputs, so both branches
+  always yield a value (DL-114).
+- A held decision survives a re-preview only when its content-derived key
+  names a group whose member primary keys are the identical set; a group
+  whose membership differs, and a key naming no group at all, return the
+  row to undecided and count toward outstanding. `record_keys` cascades
+  through every tier and `group_identities` unions across them, so a
+  further source can merge two separate groups into one or
+  pull a record into a group it was not in, and the operator's pick was
+  made against the versions of one specific member set and says nothing
+  about a larger one. Membership is compared as a set of primary keys and
+  only an exact match re-attaches, so a re-preview after a further source
+  refuses the write and shows the row again rather than writing a stale
+  pick (DL-115).
+- A source pick on a group holding a base record keeps base's own `ENTRY`
+  as the collection's entry for that track and rewrites that entry's
+  divergent attribute values to the winning non-base record's; no non-base
+  `ENTRY` span joins the collection for such a group. The primary key is
+  derived from the location, so two entries for one file carry the same
+  key and a playlist `PRIMARYKEY` cannot name one of them (DL-004), and
+  transplanting the source's `ENTRY` beside base's therefore makes every
+  playlist reference to that track ambiguous - the served gate run over
+  such a transplant wrote four COLLECTION entries where base held three,
+  two of them at one `LOCATION`. The winner for a group with a base record
+  is always base's record and the operator's source pick is carried by
+  substituting attribute values inside base's own `ENTRY` span, so the
+  collection keeps one entry per track and the values the operator read
+  are the values written (DL-116).
+- The keep-first/keep-last picker over non-base candidates selects the
+  entry to transplant only where the group holds no base record: the
+  branch condition is `base_member is None` alone, and the `source` token
+  selects the attribute source rather than an entry to transplant. The
+  picker answers which of several non-base copies survives, a question
+  arising only where nothing base-side already occupies the collection
+  slot, so routing a source pick through it would conflate two questions
+  and make the transplant - correct for a base-less group - an addition
+  for a group base already owns. The base-less branch keeps the picker
+  and the transplant, and the source branch uses the same picker only to
+  name which non-base record supplies the attribute values patched into
+  base's entry (DL-117).
+- A source pick patches exactly the attributes the group's divergence was
+  measured over - the divergent subset of `_TRACKED_ATTRS` - and no
+  others. `divergent_attrs` is the tracked attributes whose value set
+  across the group's members holds more than one element, so a tracked
+  attribute absent from it holds one value across every member including
+  base: patching it would substitute base's value for base's own, and
+  where that shared value is the empty string it inserts nothing, since
+  DL-119's rule is that an empty winning value never creates a carrier -
+  so patching
+  the divergent subset and patching all six produce identical output
+  bytes. The divergent subset is chosen because it is what the conflict
+  row showed the operator and what the pick was made about, and because
+  it touches the fewest bytes of a file whose byte fidelity is the
+  module's contract (DL-118).
+- A divergent attribute whose winning value is non-empty is carried into
+  base's entry whatever base holds: substituted where the carrier tag
+  already holds the attribute, written into the carrier tag where that
+  tag exists without it, and where the carrier element is absent, an
+  `ALBUM` or `INFO` child carrying only that attribute is written into
+  base's `ENTRY`. A divergent attribute whose winning value is empty is
+  substituted where base's carrier tag holds the attribute and is
+  otherwise a no-op: no attribute is removed, no element is removed and
+  an empty value never causes a carrier to be created. The six tracked
+  attributes sit on three tags - `ARTIST` and `TITLE` on the `ENTRY`
+  opening tag, `FILESIZE`, `PLAYTIME_FLOAT` and `BITRATE` on its `INFO`
+  child, album on its `ALBUM` child's `TITLE` - and `collection_records`
+  reads an absent `INFO` or `ALBUM` as the empty string, so an attribute
+  base lacks and the source carries is by definition divergent and by
+  definition on the row the operator read; honouring only the attributes
+  whose carrier base happens to hold would drop part of a row the
+  operator settled. The empty direction is settled the other way because
+  a carrier holds attributes this pick says nothing about - an `INFO`
+  also carries `KEY`, `PLAYTIME`, `IMPORT_DATE` and `RANKING`, an `ALBUM`
+  also carries `TRACK` - so removing the element to express an empty
+  value would discard data no operator chose to discard, while
+  substituting the empty string expresses exactly the value picked
+  (DL-119).
+- The `ENTRY`-span rewrite is a pure function in `textpatch.py`
+  (`patch_entry_attributes`) taking one `ENTRY`'s span text and the
+  attribute changes and returning the rewritten span text;
+  `apply_text_patches` keeps its `LOCATION`/`PRIMARYKEY` tag set and its
+  locator-based whole-document scan. `apply_text_patches` locates a patch
+  by matching a locator against attributes anywhere in the document and
+  has no notion of element extent, so an `ENTRY` patch expressed through
+  it would need `ENTRY`, `INFO` and `ALBUM` in its tag set and would
+  still be unable to tell one entry's `INFO` from another's, while a
+  group's base entry is already addressable as a span, since splice holds
+  a `SpanIndex` over `base_source` and already asks it for entry spans.
+  The span text as the unit bounds every substitution and every insertion
+  to the one entry by construction and leaves `apply_text_patches`'
+  contract and its callers untouched (DL-120).
+- Entry patches and playlist reconstruction replacements share one
+  replacement list declared before the reconstruction block and applied
+  after it, in reverse offset order, followed by one re-parse of
+  `base_root` guarded on that combined list being non-empty; on the
+  `duplicate_playlist_name` and `ambiguous_redirect` abort paths the
+  function returns before the apply, so the entry patches are discarded
+  with everything else and no rewritten `base_source` reaches an output.
+  Every span offset in play is measured against the original
+  `base_source` by `span_indexes[0]`, so two independent rewrite passes
+  over that text would apply the second's offsets to text the first had
+  shifted, and the reconstruction block declares its own list inside
+  itself and after two early returns, where entry patches - which must
+  apply with reconstruct unset - cannot live. The two aborts return
+  `output` `None` with `errors` populated, which is the whole of
+  `SpliceResult`'s shape for a refusal, so discarding the patches with
+  the run costs nothing, while applying them before an abort would build
+  a rewritten `base_source` no return path can carry; the re-parse is
+  guarded on the combined list rather than the reconstruction list alone
+  because the COLLECTION `ENTRIES` count is read from `base_root`
+  downstream, and `span_indexes[0]` is stale from the apply onward, so no
+  base-side span lookup occurs after it (DL-121).
+- A source pick on a group holding more than one base record patches the
+  first base record's entry only, and the group's non-base primary keys
+  stay in `ambiguous_keys`. Such a group has no single right redirect
+  target, which is what `ambiguous_keys` records and what the
+  reconstruction path treats as fatal (DL-094, DL-100), and patching
+  every base entry in the group would write the source's values over
+  several distinct base tracks on the strength of one pick. The patched
+  entry is the same `base_members[0]` the winner branch selects, so the
+  merge path's behaviour for such a group differs only in the values on
+  that one entry, and the reconstruction path still aborts on it
+  (DL-122).
+- The splice module docstring's scope note states that base's `ENTRY`
+  spans are rewritten only for the attributes an operator's source pick
+  names, rather than that base's bytes are never rewritten. The note was
+  written as a v1 tradeoff record while the reconstruction work rewrites
+  `base_source` in memory for playlist nodes, so the absolute form reads
+  as an invariant the code does not hold, and a note claiming an
+  invariant the code does not hold is worse than no note: a later reader
+  takes it as the rule and either works around it or breaks it
+  unknowingly. The note carries what is true - base's COLLECTION keeps
+  its own entries, in their own positions, with their own identities, the
+  only bytes of them a run rewrites are the attribute values an operator
+  named, and the base input file on disk is untouched (DL-123).
+- `stats`' `collection_entries_added` counts only entries the run puts
+  into the COLLECTION, so a source pick on a group base already owns
+  contributes nothing to it. The count is derived from `new_entry_texts`,
+  itself derived from the `new_entries` records, and a source pick with a
+  base record present contributes no record there, so the count follows
+  the change without being recomputed; it reads as the number of `ENTRY`
+  elements the output holds beyond base's own, which is what a caller
+  reporting a merge means by it, and a guard pins that a source pick
+  leaves it at the value a base pick leaves it at (DL-124).
+- `gui/conflict_model.py` and `gui/app.py` carry no change for this work.
+  `conflict_model`'s resolutions mapping is from identity key to the
+  tokens `base` and `source` and `app.py`'s preview passes it straight
+  into `assemble_output` as `resolutions`, so the vocabulary, the mapping
+  shape and the call site are all untouched by what splice does with the
+  token `source`; both stand as they are, established by reading the
+  resolutions producer and its sole call site rather than assumed, and
+  the `/reconstruct` SOURCE control's wording stands because the
+  behaviour is the wording (DL-125).
+- The served-page gate for this work runs from the gate repository over
+  the reconstruct-conflict fixture, extended with a track whose base
+  entry carries no `ALBUM` child, and reads the written output back to
+  count COLLECTION entries and `LOCATION` values. DL-084 records that
+  serving is the only gate that has ever caught a defect in `gui/`, and
+  the duplicate-entry defect survived a green suite and was found by a
+  served run; a guard asserting the source's value appears in the output
+  is exactly the guard that passed while the output held two entries for
+  one file, so the acceptance evidence is the written file's entry count
+  and its `LOCATION` set rather than a substring. The gate run writes the
+  output with a SOURCE pick on every conflicting group, re-reads it, and
+  passes only when the COLLECTION holds as many entries as base held and
+  no `LOCATION` appears twice (DL-126).
 ## Invariants
 
+- The merged COLLECTION holds at most one entry per `LOCATION`. The
+  primary key is derived from the location, so two entries for one file
+  cannot be told apart and a playlist `PRIMARYKEY` naming that file
+  resolves against both, so a source pick on a group base already owns
+  rewrites base's entry rather than adding one beside it (DL-004).
+- Every entry a patch can name holds a `LOCATION` child, because
+  `collection_records` skips any entry without one, so a COLLECTION
+  `ENTRY` reaching the patch path is never self-closing and always
+  carries a child an insertion can anchor against. An `ALBUM` or `INFO`
+  child written into an entry is placed by the fixed child order
+  `LOCATION`, `ALBUM`, `MODIFICATION_INFO`, `INFO` - immediately after
+  the last child present that precedes it in that order, which is
+  always at least `LOCATION`. Traktor writes an `ENTRY`'s children in
+  that order and nothing in this tree, this corpus or Traktor's own
+  documentation asserts that it reads them in any other, so an `ALBUM`
+  appended after `TEMPO` would be a guess about a format whose reader
+  nobody here controls; the `LOCATION` child is what makes the derived
+  anchor total (DL-127).
+- Every line terminator in an output is a byte copied from an input: the
+  base file is read as bytes, decoded UTF-8, spliced as text and
+  re-encoded UTF-8 with no newline translation on either end, and an
+  inserted child copies its whitespace rather than composing it - it is
+  written immediately before its anchor's following sibling, preceded by
+  a verbatim copy of the whitespace byte run preceding that sibling in
+  the span, or inline against the anchor's closing angle bracket where no
+  such run exists. A fragment carrying a generated newline would write LF
+  into a CRLF file, so the copy is what keeps an output's counts of CRLF
+  and of bare LF equal to base's, an entry written on one line carries no
+  line of its own, and an output's line-ending profile is its base file's
+  own (DL-128).
 - Every write command builds its complete output in memory and validates
   it before any file handle opens; a failure partway through conflict
   resolution or reference redirection leaves every output path untouched
