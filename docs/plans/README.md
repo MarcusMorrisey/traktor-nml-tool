@@ -15,6 +15,8 @@ milestone is shaped the way it is once its diffs are committed.
 | `2026-08-26-renderer-split` | Splitting stdout flattening out of the reconnect subcommands so one `ReconnectResult` feeds both renderers. Its prose form is `docs/2026-08-26-renderer-split-plan.md` |
 | `2026-08-27-reconnect-phase1` | The Phase 1 reconnect subcommands |
 | `2026-08-29-playlist-reconstruction` | `splice --reconstruct-playlists` and the `/reconstruct` wizard route (DL-091..DL-103) |
+| `2026-08-31-conflict-resolution` | Per-track conflict resolution: the `resolutions` mapping through the core and the `/reconstruct` conflict screen (DL-104..DL-115) |
+| `2026-08-31-source-resolution` | A SOURCE pick rewriting base's own ENTRY in place rather than transplanting the source's beside it (DL-116..DL-129) |
 
 The reconnect wizard's own plan is not here: it lives in the sibling
 `traktor-nml-tool-plan` repository (see [DEVELOPING.md](../../DEVELOPING.md#the-layout)),

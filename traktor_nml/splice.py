@@ -1,18 +1,26 @@
 """Merge a base NML with further NML files while every playlist stays valid.
 
-Scope note (v1, see the plan's tradeoffs): the base input is authoritative
-for its own COLLECTION and playlists - its bytes are never rewritten. Track
-identity across inputs uses the shared record_keys tier ordering, cascaded
-through every tier via union-find (not just each record's own top-tier key)
-so two copies of one track that happen to agree on a lower tier but not the
-top one still land in the same identity group, since splice needs N-way
-grouping rather than pairwise old-vs-new comparison. When a base record and a
-non-base record share an identity, the base record always wins and its bytes
-stay untouched; --on-conflict's keep-first/keep-last only disambiguates among
-duplicates that are *not* shared with base. A metadata conflict (any
-differing attribute between two copies of one identity) aborts the whole
-write unless --on-conflict is given, and the conflict report is written
-either way (DL-008). Fragments no rename or redirect touched are transplanted
+Scope note: the base input is authoritative for its own COLLECTION and
+playlists - its entries keep their positions and their identities, and the
+merged collection holds at most one entry per LOCATION (DL-004). The only
+bytes of a base ENTRY a run rewrites are the attribute values an operator's
+source resolution names, substituted inside base's own entry span; the base
+input file on disk is never written (DL-123).
+
+Track identity across inputs uses the shared record_keys tier ordering,
+cascaded through every tier via union-find (not just each record's own
+top-tier key) so two copies of one track that happen to agree on a lower tier
+but not the top one still land in the same identity group, since splice needs
+N-way grouping rather than pairwise old-vs-new comparison. When a base record and a
+non-base record share an identity, the base record always wins and keeps its
+entry; a source resolution names which record supplies that entry's tracked
+attribute values, and --on-conflict's keep-first/keep-last only disambiguates
+among duplicates that are *not* shared with base. A metadata conflict (any
+differing attribute between two copies of one identity) is settled either
+by a per-key resolutions mapping naming that one identity group or by the
+run-wide --on-conflict policy; a divergence neither of them settles aborts
+the whole write, and the conflict report is written either way (DL-008,
+DL-104). Fragments no rename or redirect touched are transplanted
 as source byte spans (spans.py); only renamed playlists and redirected
 PRIMARYKEY values are re-serialised.
 """
@@ -33,6 +41,7 @@ from .playlists import (
     redirected_playlist_keys,
 )
 from .spans import OutputBuilder, SpanIndex, find_element_span
+from .textpatch import patch_entry_attributes
 from .xmlio import ET, parse_xml_bytes
 from .xmlio import ET
 
@@ -104,11 +113,62 @@ def group_identities(
     return groups
 
 
+def group_identity_key(members: list[tuple[int, EntryRecord]]) -> str:
+    """The name a conflicting identity group answers to.
+
+    The union-find root is an index into the flat all_records list, so it
+    moves when an input is added or removed and cannot name the same set of
+    records across two runs. The key is derived from the group's contents
+    instead: the primary key of its sole base-input record where it holds
+    one, and the sorted tuple of its member primary keys where it holds
+    none. Every conflicting group spans more than one input and so holds at
+    least two records, which makes the derivation total (DL-114).
+    """
+    base_keys = [record.primary_key for idx, record in members if idx == 0]
+    if len(base_keys) == 1:
+        return base_keys[0]
+    return "|".join(sorted(record.primary_key for _, record in members))
+
+
+class ResolvedConflicts(tuple):
+    """_resolve_conflicts' result: the five values (old_to_new_key,
+    conflict_rows, unresolved, new_entries, ambiguous_keys) a caller unpacks
+    positionally, carrying entry_patches as a named attribute.
+
+    entry_patches is reached by name rather than as a sixth positional
+    element, so every caller that unpacks the five reads the five it reads
+    (DL-100's precedent, DL-104)."""
+
+    def __new__(
+        cls,
+        old_to_new_key: dict[str, str],
+        conflict_rows: list[ConflictRow],
+        unresolved: bool,
+        new_entries: list[tuple[int, EntryRecord]],
+        ambiguous_keys: set[str],
+        entry_patches: list[tuple[EntryRecord, dict[str, str]]],
+    ) -> "ResolvedConflicts":
+        self = super().__new__(
+            cls, (old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys)
+        )
+        self.entry_patches = entry_patches
+        return self
+
+
 def _resolve_conflicts(
-    groups: dict[int, list[tuple[int, EntryRecord]]], on_conflict: Optional[str]
-) -> tuple[dict[str, str], list[ConflictRow], bool, list[tuple[int, EntryRecord]], set[str]]:
+    groups: dict[int, list[tuple[int, EntryRecord]]],
+    on_conflict: Optional[str],
+    *,
+    resolutions: Optional[dict[str, str]] = None,
+) -> ResolvedConflicts:
     """Return (old_to_new_key, conflict_rows, unresolved, new_entries,
     ambiguous_keys).
+
+    resolutions maps an identity-group key to the token base or source and
+    settles that one group; on_conflict settles every group the mapping does
+    not name. It is a keyword parameter rather than an appended positional,
+    so the positional callers read the arguments they read (DL-100's
+    precedent, DL-104).
 
     ambiguous_keys holds every non-base primary key whose identity group
     carries more than one base record: no single base key is the right
@@ -123,12 +183,22 @@ def _resolve_conflicts(
     group not owned by the base, or a cross-input group's non-base winner.
     input_idx disambiguates which source text to transplant the entry's
     span from, since two distinct records can carry identical field values.
+
+    entry_patches, reached by name off the result, lists (base_record,
+    values) for every group a source resolution settles while the group
+    holds a base record: the base record whose ENTRY the run rewrites in
+    place, paired with the group's divergent attributes read off the
+    non-base record the run-wide picker names. Such a group's winner is
+    base's own record and it contributes nothing to new_entries, so the
+    merged COLLECTION keeps one entry per LOCATION (DL-004, DL-116).
     """
     old_to_new_key: dict[str, str] = {}
     conflict_rows: list[ConflictRow] = []
     new_entries: list[tuple[int, EntryRecord]] = []
+    entry_patches: list[tuple[EntryRecord, dict[str, str]]] = []
     ambiguous_keys: set[str] = set()
     unresolved = False
+    resolutions = resolutions or {}
 
     for key, members in groups.items():
         contributing_inputs = {idx for idx, _ in members}
@@ -138,12 +208,16 @@ def _resolve_conflicts(
                 new_entries.append(members[0])
             continue
 
+        identity_key = group_identity_key(members)
         divergent_attrs = [
             attr for attr in _TRACKED_ATTRS if len({getattr(r, attr) for _, r in members}) > 1
         ]
-        if divergent_attrs and on_conflict is None:
+        # A key naming no group is absent from this lookup, so an unmatched
+        # entry is inert rather than an error (DL-105).
+        resolution = resolutions.get(identity_key) if divergent_attrs else None
+        if divergent_attrs and resolution is None and on_conflict is None:
             unresolved = True
-            conflict_rows.append(ConflictRow(str(key), ",".join(divergent_attrs), "unresolved"))
+            conflict_rows.append(ConflictRow(identity_key, ",".join(divergent_attrs), "unresolved"))
             continue
 
         base_members = [(idx, r) for idx, r in members if idx == 0]
@@ -151,23 +225,50 @@ def _resolve_conflicts(
             for idx, record in members:
                 if idx != 0:
                     ambiguous_keys.add(record.primary_key)
+        # base_members[0] is the record a group holding several base records
+        # patches and redirects to; its non-base keys stay ambiguous above,
+        # so the reconstruction path still refuses the group (DL-122).
         base_member = base_members[0] if base_members else None
-        if base_member is not None:
-            winner_idx, winner = base_member
-        else:
+
+        def pick_non_base() -> tuple[int, EntryRecord]:
+            """The non-base record the run-wide picker names, whether it is
+            answering which non-base copy survives or which one supplies a
+            source pick's attribute values."""
+            candidates = [(idx, r) for idx, r in members if idx != 0] or members
             policy = on_conflict or "keep-first"
             picker = min if policy == "keep-first" else max
-            winner_idx, winner = picker(members, key=lambda m: m[0])
+            return picker(candidates, key=lambda m: m[0])
+
+        # The picker exists to answer which of several non-base copies
+        # survives, a question that only arises where nothing base-side
+        # already occupies the collection slot, so the transplant branch is
+        # entered on base_member is None alone (DL-117).
+        if base_member is None:
+            winner_idx, winner = pick_non_base()
             new_entries.append((winner_idx, winner))
+        else:
+            winner_idx, winner = base_member
+            if resolution == "source":
+                # base keeps its entry and the source pick is carried by
+                # substituting the group's divergent attribute values - and
+                # no others (DL-118) - inside that entry's own span.
+                _, source_record = pick_non_base()
+                entry_patches.append(
+                    (winner, {attr: getattr(source_record, attr) for attr in divergent_attrs})
+                )
 
         for _, record in members:
             if record is not winner:
                 old_to_new_key[record.primary_key] = winner.primary_key
 
         if divergent_attrs:
-            conflict_rows.append(ConflictRow(str(key), ",".join(divergent_attrs), on_conflict or "unresolved"))
+            conflict_rows.append(
+                ConflictRow(identity_key, ",".join(divergent_attrs), resolution or on_conflict)
+            )
 
-    return old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys
+    return ResolvedConflicts(
+        old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys, entry_patches
+    )
 
 
 def _entry_span_text(source_text: str, span_index: SpanIndex, record: EntryRecord) -> str:
@@ -181,12 +282,20 @@ def assemble_output(
     confidence: MatchConfidence,
     on_conflict: Optional[str] = None,
     reconstruct: bool = False,
+    *,
+    resolutions: Optional[dict[str, str]] = None,
 ) -> SpliceResult:
     """Merge every contribution into base_source: build cross-input
     identity groups, resolve conflicts (aborting with zero output on any
     unresolved one), transplant surviving collection entries as verbatim
     spans, then hand off to playlist import for the PLAYLISTS tree
-    (DL-007, DL-008)."""
+    (DL-007, DL-008).
+
+    resolutions maps an identity-group key to base or source and settles
+    that group alone. An empty mapping leaves every group to on_conflict,
+    which is what the parameter's absence leaves them to, so the bytes a
+    call with an empty mapping produces are the bytes a call omitting it
+    produces (DL-104)."""
     inputs = [base_root] + [root for _, root in contributions]
     sources = [base_source] + [text for text, _ in contributions]
     records_by_input = [collection_records(root) for root in inputs]
@@ -197,9 +306,8 @@ def assemble_output(
     span_indexes = [SpanIndex(sources[i], inputs[i]) for i in range(len(inputs))]
 
     groups = group_identities(records_by_input, confidence)
-    old_to_new_key, conflict_rows, unresolved, new_entries_records, ambiguous_keys = _resolve_conflicts(
-        groups, on_conflict
-    )
+    resolved = _resolve_conflicts(groups, on_conflict, resolutions=resolutions)
+    old_to_new_key, conflict_rows, unresolved, new_entries_records, ambiguous_keys = resolved
 
     stats = {
         "inputs_merged": len(contributions),
@@ -223,6 +331,21 @@ def assemble_output(
         _entry_span_text(sources[idx], span_indexes[idx], record) for idx, record in new_entries_records
     ]
     stats["collection_entries_added"] = len(new_entry_texts)
+
+    # One replacement list over base_source, seeded with the source picks'
+    # entry patches and extended below by the reconstruction block's rebuilt
+    # playlists. Every offset in it is measured by span_indexes[0] against
+    # the original base_source, and a COLLECTION span and a PLAYLISTS span
+    # are disjoint, so one reverse-ordered pass below the block leaves every
+    # offset reading the text it was measured on. The list is declared here
+    # rather than inside the block because a run carrying entry patches and
+    # no reconstruction must still reach the apply (DL-121).
+    replacements: list[tuple[int, int, str]] = []
+    for base_record, values in resolved.entry_patches:
+        span = span_indexes[0].span_of(base_record.entry)
+        replacements.append(
+            (span.start, span.end, patch_entry_attributes(span.text(base_source), values))
+        )
 
     # Reconstruction pre-pass: a base playlist whose redirected key
     # sequence differs from the same-named incoming ones is rebuilt in
@@ -268,7 +391,6 @@ def assemble_output(
                 errors=[f"ambiguous_playlist_name playlist={name}" for name in duplicate_names],
             )
 
-        replacements: list[tuple[int, int, str]] = []
         ambiguous_hits: list[tuple[str, str]] = []
         for name, base_nodes in base_nodes_by_name.items():
             incoming_nodes = incoming_by_name.get(name)
@@ -329,10 +451,18 @@ def assemble_output(
                 errors=[f"ambiguous_redirect playlist={name} key={key}" for name, key in ambiguous_hits],
             )
 
-        for start_at, end_at, fragment in sorted(replacements, reverse=True):
-            base_source = base_source[:start_at] + fragment + base_source[end_at:]
-        if replacements:
-            base_root = parse_xml_bytes(base_source.encode("utf-8"))
+    # Applied below both of the block's aborts, which return with output
+    # None: a refused run discards its entry patches with everything else
+    # and no rewritten base_source reaches an output (DL-121). The re-parse
+    # is guarded on the combined list rather than the reconstruction's own,
+    # because the COLLECTION ENTRIES count is read from base_root below.
+    # span_indexes[0] is stale from here on and no base-side span lookup
+    # follows it; the contribution lookups below read index one and above.
+    for start_at, end_at, fragment in sorted(replacements, reverse=True):
+        base_source = base_source[:start_at] + fragment + base_source[end_at:]
+    if replacements:
+        base_root = parse_xml_bytes(base_source.encode("utf-8"))
+
     stats["playlists_reconstructed"] = len(reconstructed)
     # Names and resulting entry counts, so a caller can report which
     # playlists a run rebuilt without recomputing the comparison the

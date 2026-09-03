@@ -1,0 +1,701 @@
+{
+  "plan_id": "866b484f-5cef-43e0-9a98-c28ea3a8ca7b",
+  "created_at": "2026-08-31T08:53:47.972869",
+  "frozen_at": null,
+  "overview": {
+    "problem": "A SOURCE pick on the /reconstruct conflict screen transplants the source collection's ENTRY into the merged COLLECTION beside base's own. A served gate run on 2026-08-31 over a base holding three tracks wrote an output holding four entries, two of them carrying LOCATION /:Music/:two.mp3 - one at ALBUM 'Base Album' and one at ALBUM 'Source Album'. The primary key is derived from the location, so both entries answer to the same key and the playlist's PRIMARYKEY for that track resolves against both; the redirect that would disambiguate is a no-op for the same reason. DL-004 forbids exactly this shape. The nine per-key resolution guards passed because they assert the source record's attributes appear in the output - which they do - and never assert base's are gone.",
+    "approach": "The source branch of _resolve_conflicts stops meaning 'transplant the source's entry' and starts meaning 'base's entry carries the source's values'. The keep-first/keep-last picker keeps the one question it was written for - which of several non-base copies survives where base owns nothing - so its branch condition becomes base_member is None alone; a source pick uses the same picker only to name which non-base record supplies the attribute values (DL-116, DL-117). Those values are written into base's own ENTRY span by a pure function in textpatch.py whose unit is one entry's span text, which bounds every substitution and every insertion to that entry and leaves apply_text_patches' LOCATION/PRIMARYKEY scope and its no-element-insertion rule untouched (DL-120).\n\nSix questions are settled rather than left implicit. A source pick patches the divergent attributes only (DL-118) - what the operator was shown, and byte-identical to patching all six, because a non-divergent tracked attribute already holds base's value on every member and an empty shared value inserts nothing. An attribute the source carries that base's entry has no place for is carried anyway (DL-119): substituted where its carrier tag holds it, written into the carrier tag where that tag exists without it, and where the carrier element is absent an ALBUM or INFO child is written into base's ENTRY - because the six tracked attributes sit across three tags and honouring only part of a settled row is the same class of defect as the duplicate entry. The symmetric direction goes the other way (DL-119): an empty winning value is substituted where the attribute exists and otherwise does nothing, because a carrier holds attributes the pick says nothing about - an INFO also carries KEY, PLAYTIME, IMPORT_DATE and RANKING - so removing it would discard data no operator chose to discard. An inserted child is placed by the fixed ENTRY child order LOCATION, ALBUM, MODIFICATION_INFO, INFO rather than appended (DL-127), because Traktor's tolerance of arbitrary child order is asserted nowhere; the anchor always resolves, since collection_records skips any entry without a LOCATION child, which is also why a COLLECTION ENTRY reaching the patch path is never self-closing. An insertion composes no whitespace at all (DL-128): the byte run preceding a sibling is copied verbatim, so an inserted child carries its siblings' indentation and its file's terminator by construction and the output's counts of CRLF and of bare LF equal base's - this being the first work to put newly generated text inside base_source rather than only move spans of it.\n\nThe rewrite is applied in assemble_output's pre-pass (DL-121). The replacement list is declared above the reconstruction block, seeded with the entry patches, extended by that block and applied below it in reverse offset order with one re-parse guarded on the combined list, because both kinds of span are measured by span_indexes[0] against the original base_source and the block declares its own list inside itself and after two early aborts. Those aborts return above the apply, so a refused run discards its entry patches with everything else - SpliceResult carries no partial shape - and span_indexes[0] is stale from the apply onward, so no base-side span lookup follows it.\n\ngui/conflict_model.py and gui/app.py carry no change (DL-125), established by reading conflict_model.py:219 and its sole call site app.py:1460 on conflict-resolution at b9c7578. Acceptance is a served-page gate run whose evidence is the written file's entry count, its LOCATION multiplicities and its terminator counts, not a substring, with a recorded BASE-pick baseline for the direction this work leaves alone (DL-126).\n\nThe target repository keeps its own decision log in traktor_nml/README.md. DL-104 through DL-115 are minted and cited in splice.py, gui/conflict_model.py, gui/app.py and three test modules, while the previous plan's M-005 - which writes their statements into the README - has not landed, leaving the file's own text at DL-103. The high-water mark is therefore DL-115 and this plan mints from DL-116; M-004 writes DL-104 through DL-126, absorbing the eleven statements that plan owes, so no cited id resolves to nothing (DL-129). Per the task spec this plan carries no code_changes and no waves: the four milestones run in order M-001, M-002, M-003, M-004."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-116",
+        "version": 1,
+        "decision": "A source pick on a group holding a base record keeps base's own ENTRY as the collection's entry for that track and rewrites that entry's divergent attribute values to the winning non-base record's; no non-base ENTRY span is added for such a group",
+        "reasoning": "the primary key is derived from the location, so two entries for one file carry the same key and a playlist PRIMARYKEY cannot name one of them (DL-004) -> transplanting the source's ENTRY beside base's therefore makes every playlist reference to that track ambiguous, which is what the 2026-08-31 served gate run produced: four COLLECTION entries where base held three, two of them at /:Music/:two.mp3 -> the winner for a group with a base record is always base's record, and the operator's source pick is carried by substituting attribute values inside base's own ENTRY span, so the collection keeps one entry per track and the values the operator read are the values written"
+      },
+      {
+        "id": "DL-117",
+        "version": 1,
+        "decision": "The keep-first/keep-last picker over non-base candidates runs only where the group holds no base record; the branch condition is base_member is None alone, and the source token selects the attribute source rather than the entry to transplant",
+        "reasoning": "the picker exists to answer which of several non-base copies survives, a question that only arises where nothing base-side already occupies the collection slot -> routing a source pick through it conflated two questions and made the transplant, correct for a base-less group, into an addition for a group base already owns -> the base-less branch keeps the picker and the transplant exactly as they stand, and the source branch uses the same picker only to name which non-base record supplies the attribute values patched into base's entry"
+      },
+      {
+        "id": "DL-118",
+        "version": 2,
+        "decision": "A source pick patches exactly the attributes the group's divergence was measured over - the divergent subset of _TRACKED_ATTRS - and no others",
+        "reasoning": "divergent_attrs is the tracked attributes whose value set across the group's members holds more than one element, so a tracked attribute absent from that list holds one value across every member including base -> patching such an attribute substitutes base's value for base's own, and where that one shared value is the empty string it inserts nothing, because an empty winning value never creates a carrier (DL-119); the two cases together make patching the divergent subset and patching all six produce identical output bytes -> the divergent subset is chosen because it is what the conflict row showed the operator and what the pick was made about, and because it touches the fewest bytes of a file whose byte fidelity is the module's contract"
+      },
+      {
+        "id": "DL-119",
+        "version": 2,
+        "decision": "A divergent attribute whose winning value is non-empty is carried into base's entry whatever base holds: substituted where the carrier tag already holds the attribute, written into the carrier tag where that tag exists without it, and where the carrier element is absent an ALBUM or INFO child carrying only that attribute is written into base's ENTRY. A divergent attribute whose winning value is empty is substituted where base's carrier tag holds the attribute and is otherwise a no-op: no attribute is removed, no element is removed, and an empty value never causes a carrier to be created",
+        "reasoning": "the six tracked attributes sit on three tags - ARTIST and TITLE on the ENTRY opening tag, FILESIZE PLAYTIME_FLOAT and BITRATE on its INFO child, album on its ALBUM child's TITLE - and collection_records reads an absent INFO or ALBUM as the empty string, so an attribute base lacks and the source carries is by definition divergent and by definition on the row the operator read -> honouring only the attributes whose carrier base happens to hold would drop part of a row the operator settled, the same class of defect as the duplicate entry: the control not meaning what its label says -> every divergent attribute is carried, and the empty direction is settled the other way because a carrier holds attributes this pick says nothing about - an INFO also carries KEY PLAYTIME IMPORT_DATE and RANKING, an ALBUM also carries TRACK - so removing the element to express an empty value would discard data no operator chose to discard, while substituting the empty string expresses exactly the value picked; because an empty winning value never creates a carrier, an attribute absent on both sides is non-divergent and inserts nothing, which is the precondition DL-118's byte-identity claim rests on"
+      },
+      {
+        "id": "DL-120",
+        "version": 1,
+        "decision": "The ENTRY-span rewrite is a pure function in textpatch.py taking one ENTRY's span text and the attribute changes and returning the rewritten span text; apply_text_patches keeps its LOCATION/PRIMARYKEY tag set and its locator-based whole-document scan",
+        "reasoning": "apply_text_patches locates a patch by matching a locator against attributes anywhere in the document and has no notion of element extent, so an ENTRY patch expressed through it would need ENTRY, INFO and ALBUM added to its tag set and would still be unable to tell one entry's INFO from another's -> a group's base entry is already addressable as a span, since splice holds a SpanIndex over base_source and already asks it for entry spans -> the rewrite takes the span text as its unit, which bounds every substitution and every insertion to the one entry by construction and leaves apply_text_patches' contract and its callers untouched"
+      },
+      {
+        "id": "DL-121",
+        "version": 2,
+        "decision": "Entry patches and playlist reconstruction replacements share one replacement list declared before the reconstruction block and applied after it, in reverse offset order, followed by one re-parse of base_root guarded on that combined list being non-empty; on the duplicate_playlist_name and ambiguous_redirect abort paths the function returns before the apply, so the entry patches are discarded with everything else and no rewritten base_source ever reaches an output",
+        "reasoning": "every span offset in play is measured against the original base_source by span_indexes[0], so two independent rewrite passes over that text would apply the second's offsets to text the first had already shifted, and the reconstruction pre-pass already rewrites base_source and re-parses before any builder call consumes a span (DL-096) -> the reconstruction block declares its replacements list inside itself and after two early returns, so entry patches, which must apply with reconstruct unset, cannot live there: the list is declared above the block, seeded with the entry patches, extended by the block, and applied below it, which makes the pass reachable on a run with entry patches and no reconstruction -> the two aborts return output None with errors populated, which is the whole of SpliceResult's shape for a refusal, so discarding the patches with the run costs nothing and the alternative - applying them before an abort - would build a rewritten base_source that no return path can carry; the re-parse is guarded on the combined list rather than on the reconstruction list alone because the COLLECTION ENTRIES count is read from base_root downstream, and span_indexes[0] is stale from the apply onward, so no base-side span lookup occurs after it"
+      },
+      {
+        "id": "DL-122",
+        "version": 1,
+        "decision": "A source pick on a group holding more than one base record patches the first base record's entry only, and the group's non-base primary keys stay in ambiguous_keys",
+        "reasoning": "a group with several base records has no single right redirect target, which is what ambiguous_keys records and what the reconstruction path treats as fatal (DL-094, DL-100) -> patching every base entry in such a group would write the source's values over several distinct base tracks on the strength of one pick -> the patched entry is the same base_members[0] the winner branch already selects, so the merge path's behaviour for such a group is unchanged apart from the values on that one entry, and the reconstruction path still aborts on it"
+      },
+      {
+        "id": "DL-123",
+        "version": 1,
+        "decision": "The splice module docstring's scope note states that base's ENTRY spans are rewritten only for the attributes an operator's source pick names, in place of stating that base's bytes are never rewritten",
+        "reasoning": "the note was written as a v1 tradeoff record and the reconstruction work already rewrites base_source in memory for playlist nodes, so it reads more absolutely than the code has behaved since DL-096 -> a note claiming an invariant the code does not hold is worse than no note, because a later reader takes it as the rule and either works around it or breaks it unknowingly -> the note carries what is true: base's COLLECTION keeps its own entries, in their own positions, with their own identities, the only bytes of them a run rewrites are the attribute values an operator named, and the base input file on disk is untouched"
+      },
+      {
+        "id": "DL-124",
+        "version": 1,
+        "decision": "stats collection_entries_added counts only entries added to the COLLECTION, so a source pick on a group base already owns adds nothing to it",
+        "reasoning": "the count is derived from new_entry_texts, which is derived from new_entries_records -> a source pick with a base record present contributes no record there, so the count follows the change without being recomputed -> the count reads as the number of ENTRY elements the output holds beyond base's own, which is what a caller reporting a merge means by it, and a guard pins that a source pick leaves it at the value a base pick leaves it at"
+      },
+      {
+        "id": "DL-125",
+        "version": 1,
+        "decision": "traktor_nml/gui/conflict_model.py and traktor_nml/gui/app.py carry no change for this work",
+        "reasoning": "conflict_model.resolutions returns a mapping from identity key to the tokens base and source and app.py's preview passes it straight into assemble_output as resolutions -> the vocabulary, the mapping shape and the call site are all unchanged by a change in what splice does with the token source -> both files stand as they are, established by reading the resolutions producer at conflict_model.py:219 and its sole call site at app.py:1460 rather than assumed, and the /reconstruct SOURCE control's wording stands because the behaviour becomes the wording"
+      },
+      {
+        "id": "DL-126",
+        "version": 1,
+        "decision": "The served-page gate for this work runs from C:/codex/traktor-nml-tool-gate over the reconstruct-conflict fixture, extended with a track whose base entry carries no ALBUM child, and reads the written output back to count COLLECTION entries and LOCATION values",
+        "reasoning": "DL-084 records that serving is the only gate that has ever caught a defect in gui/, and this defect survived a green 446-test suite and was found by a served run -> a guard asserting the source's value appears in the output is exactly the guard that passed while the output held two entries for one file, so the acceptance evidence has to be the written file's entry count and its LOCATION set, not a substring -> the gate run writes the output with a SOURCE pick on every conflicting group, re-reads it, and passes only when the COLLECTION holds as many entries as base held and no LOCATION appears twice"
+      },
+      {
+        "id": "DL-127",
+        "version": 1,
+        "decision": "An inserted ALBUM or INFO child is placed by a fixed ENTRY child order - LOCATION, ALBUM, MODIFICATION_INFO, INFO - immediately after the last child present in the entry that precedes it in that order, which is always at least LOCATION",
+        "reasoning": "Traktor writes an ENTRY's children in a fixed order and nothing in this tree, this corpus or Traktor's own documentation asserts that it reads them in any other, so an ALBUM appended after TEMPO is a guess about a format whose reader nobody here controls -> an insertion point has to be derived rather than defaulted to the end of the entry, and it has to be total, because the entry may hold any subset of the children -> the anchor is the last child present that precedes the inserted tag in the fixed order, which is total because collection_records skips any entry with no LOCATION child, so every entry a patch can name holds LOCATION and LOCATION precedes both insertable tags"
+      },
+      {
+        "id": "DL-128",
+        "version": 1,
+        "decision": "An inserted child generates no line terminator and no indentation of its own: it is written immediately before its anchor's following sibling, preceded by a verbatim copy of the exact whitespace byte run that precedes that sibling in the span, or inline against the anchor's closing angle bracket where no such run exists",
+        "reasoning": "the base file is read as bytes, decoded UTF-8, spliced as text and re-encoded UTF-8, with no newline translation on either end, so every line terminator in an output is a byte that came out of an input - and this work is the first to put newly generated text inside base_source rather than only moving spans of it -> a fragment carrying a generated newline would write LF into a CRLF file and produce the mixed endings the per-file line-ending constraint exists to prevent, and no existing criterion reads terminators -> the whitespace is copied rather than composed, so the inserted child carries whatever indentation and whatever terminator its siblings carry by construction, and an entry written on one line gains no line of its own; the output's count of CRLF and of bare LF therefore equals base's, which is what the guard asserts"
+      },
+      {
+        "id": "DL-129",
+        "version": 1,
+        "decision": "M-004 writes DL-104 through DL-126 into traktor_nml/README.md, absorbing the eleven statements the previous plan's unlanded M-005 owes",
+        "reasoning": "DL-104 through DL-115 are minted and cited in splice.py, gui/conflict_model.py, gui/app.py and three test modules, while the README's own text stops at DL-103 because the conflict-resolution plan's M-005 never landed -> writing only DL-116 onward would leave a log reading DL-103 then DL-116 with eleven citations across six files resolving to nothing, a dangling-citation defect this plan would be the one to create -> M-004 carries the eleven from docs/plans/2026-08-31-conflict-resolution/plan.json's planning_context decisions, which hold their decision and reasoning as written, alongside DL-116 through DL-126, and the acceptance criterion greps for each of the twenty-three"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Offer only BASE on the conflict screen",
+        "rejection_reason": "Nothing can produce a broken collection, but the useful half of the control is gone; held as a stopgap rather than the destination",
+        "decision_ref": "DL-116"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Make SOURCE redirect playlist references only and leave the COLLECTION alone",
+        "rejection_reason": "No duplicate entries, but the attribute the operator was shown and chose does not change, so the control does not do what its label says",
+        "decision_ref": "DL-116"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Delete base's ENTRY span and transplant the source's",
+        "rejection_reason": "Reaches the right end state but changes base's entry identity and its position in the collection, and discards any base attribute the source does not carry",
+        "decision_ref": "DL-116"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Route the source pick through write_nml_safely or a full re-serialisation",
+        "rejection_reason": "splice is span assembly; DL-007 separates the two paths and the reconstruction plan states reconstruction must stay on the span path",
+        "decision_ref": "DL-116"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Express the ENTRY patch through apply_text_patches by adding ENTRY, INFO and ALBUM to its tag set",
+        "rejection_reason": "apply_text_patches matches a locator against attributes anywhere in the document and has no notion of element extent, so it could not tell one entry's INFO from another's, and its stated no-element-insertion rule would have to be broken for the absent-carrier case",
+        "decision_ref": "DL-120"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Append an inserted ALBUM or INFO child at the end of base's ENTRY",
+        "rejection_reason": "Traktor's tolerance of arbitrary child order is asserted nowhere in this tree, this corpus or Traktor's documentation, so appending is a guess about a format whose reader nobody here controls",
+        "decision_ref": "DL-127"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "Express an empty winning value by removing base's attribute or its carrier element",
+        "rejection_reason": "A carrier holds attributes the pick says nothing about - an INFO also carries KEY, PLAYTIME, IMPORT_DATE and RANKING, an ALBUM also carries TRACK - so removal would discard data no operator chose to discard",
+        "decision_ref": "DL-119"
+      },
+      {
+        "id": "RA-008",
+        "alternative": "Apply entry patches in their own pass, separate from the reconstruction pre-pass",
+        "rejection_reason": "Both passes' offsets are measured by span_indexes[0] against the original base_source, so the second pass would apply its offsets to text the first had already shifted",
+        "decision_ref": "DL-121"
+      }
+    ],
+    "constraints": [
+      "MUST: reconcile with the splice module docstring's own scope note, which states the base input is authoritative for its own COLLECTION and its bytes are never rewritten, and with DL-007's separation of byte-span assembly from attribute patching. This plan changes what that note claims, so the note and the decision log must be brought into agreement rather than left contradicting the code",
+      "MUST NOT produce two COLLECTION entries sharing one LOCATION - DL-004 forbids two entries pointing their playlist references at one LOCATION, and the served gate run on 2026-08-31 produced exactly that",
+      "MUST: every guard is made to FAIL first, and its docstring records the specific mutation applied and the specific output observed",
+      "MUST: a base input file is byte-identical before and after every run - the existing acceptance criterion from the reconstruction plan still holds for the INPUT FILES; what changes is the OUTPUT's copy of base's entry",
+      "MUST: output line endings match the base file's own, preserved per file",
+      "MUST: new decisions continue from the current high-water mark in traktor_nml/README.md (DL-115 at the time of writing - re-read and confirm)",
+      "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+      "MUST: a served-page gate run from C:\\codex\\traktor-nml-tool-gate is the acceptance step for anything the operator drives (DL-084, DL-113), re-run over the conflict fixture with a SOURCE pick and the written output read back",
+      "MUST: app.py stays 100% CRLF (1538 CRLF, 0 bare LF); the tree is not uniform, so read and write with newline=''",
+      "MUST: deliver as docs/plans/2026-08-31-source-resolution/ with plan.json and context.json",
+      "MUST NOT: regenerate the parity manifest or the gate fixture; never restore a file with git checkout",
+      "SHOULD: the suite runs under the SYSTEM interpreter, currently 446 passed / 3 skipped, not .venv",
+      "MUST: an inserted child generates no line terminator and no indentation of its own; its whitespace is a verbatim copy of a sibling's, so an output's counts of CRLF and of bare LF equal its base file's (DL-128)",
+      "MUST: an inserted child is placed by the fixed ENTRY child order LOCATION, ALBUM, MODIFICATION_INFO, INFO rather than appended, because nothing asserts Traktor reads its children in any other order (DL-127)",
+      "MUST: traktor_nml/README.md's Design Decisions section carries DL-104 through DL-126, absorbing the eleven statements the conflict-resolution plan's unlanded M-005 owes, so no cited id resolves to nothing (DL-129)"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "A guard that asserts the source's value appears in the output passes while the output holds two entries for one file - which is exactly what the nine M-002 guards did through a green 446-test suite. A new guard written in that shape would hide the same defect again.",
+        "mitigation": "Every acceptance criterion for a source pick reads a count or a structure the defect changes - the COLLECTION's ENTRY count and its ENTRIES attribute, the multiplicity of each LOCATION value, the child order of a patched entry, the counts of CRLF and of bare LF - rather than a substring of the output. The two standing guards gain the assertion that base's diverged value is absent.",
+        "anchor": "tests/test_splice.py:208-247",
+        "decision_ref": "DL-126"
+      },
+      {
+        "id": "R-002",
+        "risk": "This is the first work to put newly generated text inside base_source rather than only move spans of it, so an LF composed into a fragment on a CRLF base file produces mixed endings that parse cleanly and that no existing criterion reads.",
+        "mitigation": "Inserted children compose no whitespace at all: the byte run preceding a sibling is copied verbatim, so terminators can only be bytes that came out of an input. One fixture collection is written CRLF and the other LF, and both the unit guard and the gate run count CRLF and bare LF in the output against base's own.",
+        "anchor": "traktor_nml/textpatch.py",
+        "decision_ref": "DL-128"
+      },
+      {
+        "id": "R-003",
+        "risk": "The reconstruction block declares its replacements list inside itself and after two early returns. Hoisting the list and the apply out of that block moves code across two abort paths, and an apply left above an abort would build a rewritten base_source that no return path can carry.",
+        "mitigation": "The list is declared above the block and applied below it, with both aborts returning between the two; a guard runs a source pick together with a reconstruction that hits duplicate_playlist_name and asserts output None with errors populated and nothing written.",
+        "anchor": "traktor_nml/splice.py:317-382",
+        "decision_ref": "DL-121"
+      },
+      {
+        "id": "R-004",
+        "risk": "span_indexes[0] is measured against the text the pre-pass replaces, so any base-side span lookup after the apply reads offsets into a string that no longer exists at them.",
+        "mitigation": "The plan records that no base-side span lookup occurs after the apply and that the contribution lookups below it read span_indexes at index one and above; base_root is re-parsed once whenever the combined list is non-empty, because the COLLECTION ENTRIES count is read from it downstream.",
+        "anchor": "traktor_nml/splice.py:414",
+        "decision_ref": "DL-121"
+      },
+      {
+        "id": "R-005",
+        "risk": "Traktor's tolerance of an out-of-order ENTRY child is asserted nowhere, so a wrongly placed inserted ALBUM could be accepted by every XML parser in the suite and rejected or ignored by Traktor itself, where nothing in this project can observe it.",
+        "mitigation": "Insertion follows a fixed child order anchored on LOCATION, which every entry a patch can name holds; guards assert the resulting child tag names and their order rather than only that the value parses back.",
+        "anchor": "traktor_nml/textpatch.py",
+        "decision_ref": "DL-127"
+      },
+      {
+        "id": "R-006",
+        "risk": "traktor_nml/README.md's text stands at DL-103 while DL-104 through DL-115 are cited across six files, so a plan writing only DL-116 onward would ship a log with eleven dangling citations.",
+        "mitigation": "M-004 carries DL-104 through DL-115 from the conflict-resolution plan's retained planning_context alongside DL-116 through DL-126, and its acceptance greps every cited id back to a statement.",
+        "anchor": "traktor_nml/README.md:64",
+        "decision_ref": "DL-129"
+      },
+      {
+        "id": "R-007",
+        "risk": "gui/ is guarded by AST walk rather than by rendered DOM and the suite's system interpreter has no nicegui, so a change that reads correct in the core can still be unusable on the page.",
+        "mitigation": "The served-page gate from C:/codex/traktor-nml-tool-gate is an acceptance criterion of M-003 rather than a follow-up, and a BASE-pick baseline is recorded beside the fixture so the unaffected direction is compared byte-for-byte rather than judged by eye.",
+        "anchor": "traktor_nml/gui/app.py:1460",
+        "decision_ref": "DL-125"
+      }
+    ],
+    "decision_id_start": 116
+  },
+  "invisible_knowledge": {
+    "system": "splice assembles an output by copying byte spans out of its inputs rather than by re-serialising a tree (DL-007). base_source is the base file's bytes decoded UTF-8; SpanIndex measures every element's extent against that string; OutputBuilder concatenates verbatim slices with transplanted fragments and writes the result back as UTF-8 bytes. Nothing in the path translates newlines, so an output's line endings are whatever bytes its inputs carried. Track identity across inputs is a union-find over the shared record_keys tier cascade, and a group's name is derived from its members' content rather than from its union-find root (DL-114), because the root is a positional index that moves when an input is added. A conflict is a group whose members disagree on one of six tracked attributes; those six sit on three different tags - ARTIST and TITLE on ENTRY, FILESIZE, PLAYTIME_FLOAT and BITRATE on its INFO child, album on its ALBUM child's TITLE - and collection_records reads an absent INFO or ALBUM as the empty string, which is why an attribute base simply lacks still counts as divergent. The one place a run may rewrite base_source is the pre-pass in assemble_output, which runs after old_to_new_key exists and before any builder call has consumed a span.",
+    "invariants": [
+      "output is None exactly when errors is non-empty - SpliceResult's documented invariant; a partial write is not a shape this module has",
+      "The merged COLLECTION holds at most one entry per LOCATION: the primary key is derived from the location, so two entries for one file cannot be told apart by key and a playlist PRIMARYKEY naming that file resolves against both (DL-004)",
+      "Every entry a patch can name holds a LOCATION child, because collection_records skips any entry without one; a COLLECTION ENTRY reaching the patch path is therefore never self-closing and always carries a child an insertion can anchor against",
+      "Every line terminator in an output is a byte copied from an input: base bytes are decoded UTF-8, spliced as text and re-encoded UTF-8 with no newline translation, and inserted fragments copy their whitespace rather than composing it",
+      "old_to_new_key holds only keys a resolution actually redirected; a key with no mapping passes through as the raw key rather than erroring (DL-101)",
+      "Every span offset a run uses against base_source is measured by span_indexes[0] over the original text, so all base-side rewriting happens in one reverse-ordered pass and no base-side span lookup occurs after it",
+      "The base input files on disk are byte-identical before and after every run; what a resolution changes is the output's copy of base's entry",
+      "The conflict report is written whether or not the run writes an output, and an undecided divergence aborts the whole write (DL-008)"
+    ],
+    "tradeoffs": [
+      "The splice module docstring's scope note was a v1 tradeoff record, not a physical law: it read that base's bytes are never rewritten, while the reconstruction work had already rewritten base_source in memory for playlist nodes since DL-096. It is brought into agreement with the code rather than left to be worked around",
+      "A source pick rewrites base's entry in place rather than replacing it, which keeps the entry's identity and its position in the collection and keeps any base attribute the source does not carry - at the cost of an output whose entry is neither input's bytes exactly",
+      "Patching the divergent subset rather than all six tracked attributes produces identical output bytes and touches fewer of them; the subset is also what the operator was shown, so the code and the screen agree on what a pick was about",
+      "An empty winning value is written as an empty attribute rather than by removing the carrier, which keeps sibling attributes the pick says nothing about at the cost of leaving an empty ALBUM or INFO attribute in the file",
+      "Serving the page is the only gate that has ever caught a defect in gui/, and it caught this one after a green 446-test suite; the suite guards the core and the gate guards the operator's experience of it (DL-084)",
+      "Apply patches from FILES written as BYTES then git apply; capture git diff as BYTES and decode UTF-8 explicitly - subprocess(text=True) decodes via cp1252 on this machine",
+      "The gate fixture for the reconnect flow is committed and must never be regenerated; the /reconstruct conflict fixture is separate and is the one this work extends"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 2,
+      "number": 1,
+      "name": "The ENTRY-span attribute rewrite",
+      "files": [
+        "traktor_nml/textpatch.py",
+        "tests/test_entry_patch.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "A function in textpatch.py takes one ENTRY element's span text and a mapping of tracked attribute name to value and returns the span text with those values in place",
+        "The mapping is expressed in the tracked-attribute vocabulary artist/title/album/filesize/playtime_float/bitrate and the function knows which tag each lands on: ARTIST and TITLE on the ENTRY opening tag; FILESIZE PLAYTIME_FLOAT and BITRATE on its INFO child; album on its ALBUM child's TITLE",
+        "A value whose attribute the carrier tag already holds replaces that attribute's value in place with every other byte of the span retained",
+        "A value whose carrier tag exists without that attribute has the attribute written into that opening tag",
+        "A non-empty value whose carrier element is absent from the span has a minimal ALBUM or INFO child holding just that attribute written into the ENTRY",
+        "An empty value is substituted where base's carrier tag holds the attribute and is otherwise a no-op: no attribute is removed no element is removed and no carrier is created",
+        "An inserted child is placed by the fixed ENTRY child order LOCATION ALBUM MODIFICATION_INFO INFO immediately after the last child present that precedes it in that order",
+        "An inserted child generates no line terminator and no indentation: it is preceded by a verbatim copy of the exact whitespace byte run that precedes the sibling it is placed before or by nothing where no such run exists",
+        "Attribute values are XML-escaped on the same rule apply_text_patches escapes on and the quote character each attribute already uses is retained",
+        "apply_text_patches ElemPatch location_patch and primarykey_patch read as they read: the tag set stays LOCATION and PRIMARYKEY and no caller of them changes"
+      ],
+      "acceptance_criteria": [
+        "A guard rewrites BITRATE on a span whose INFO carries it and the returned span differs from the original at exactly that value",
+        "A guard inserts ALBUM into a span whose children read LOCATION MODIFICATION_INFO INFO TEMPO and asserts the returned span's child tag names read LOCATION ALBUM MODIFICATION_INFO INFO TEMPO in that order",
+        "A guard inserts INFO into a span holding LOCATION and ALBUM and asserts the child tag names read LOCATION ALBUM INFO in that order",
+        "A guard over a CRLF-terminated multi-line entry span asserts the returned span's count of CRLF equals the original's and its count of bare LF is zero and the inserted child's line is indented with the exact byte run its following sibling's line carries",
+        "A guard over a single-line entry span asserts the returned span holds no line terminator at all",
+        "A guard rewrites artist on a span whose ENTRY tag holds ARTIST and every other byte of the span is identical",
+        "A guard passes an empty value for an attribute whose carrier element the span lacks and asserts the returned span is byte-identical to the original",
+        "A guard passes an empty value for an attribute the carrier tag holds and asserts that attribute reads empty and the carrier's sibling attributes are unchanged",
+        "A guard pins that a value carrying an ampersand or a double quote round-trips through a parse of the returned span",
+        "Every guard's docstring records the mutation applied to make it fail and the output that mutation produced",
+        "pytest tests/ -q under the system interpreter passes"
+      ],
+      "tests": [
+        "tests/test_entry_patch.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 2,
+          "file": "traktor_nml/textpatch.py",
+          "function": "patch_entry_attributes",
+          "behavior": "Takes one ENTRY element's span text and a mapping from tracked attribute name to value and returns that span text carrying those values. The tracked names map to their carriers: artist and title to ARTIST and TITLE on the ENTRY opening tag, filesize playtime_float and bitrate to FILESIZE PLAYTIME_FLOAT and BITRATE on the ENTRY's INFO child, album to TITLE on its ALBUM child. Where the carrier tag holds the attribute the value is substituted inside that opening tag with every other byte of the span retained; where the carrier tag holds no such attribute the attribute is written into that opening tag; where the carrier element is absent and the value is non-empty an ALBUM or INFO child carrying only that attribute is written into the ENTRY. An empty value is substituted where the carrier tag holds the attribute and is otherwise a no-op - it removes no attribute, removes no element and creates no carrier. An inserted child is placed by the fixed ENTRY child order LOCATION, ALBUM, MODIFICATION_INFO, INFO: immediately after the last child present that precedes it in that order, an anchor that always resolves because every entry a patch can name holds a LOCATION child. The insertion generates no bytes of whitespace of its own: the child is written before its anchor's following sibling preceded by a verbatim copy of the exact whitespace byte run that precedes that sibling, or inline against the anchor's closing angle bracket where no such run exists, so an inserted child carries its siblings' indentation and its file's line terminator by construction and a single-line entry gains no line. Values are escaped on _xml_escape_attr's rule and each attribute keeps the quote character it already uses. The unit is the span, so every substitution and every insertion is bounded to the one entry.",
+          "decision_refs": [
+            "DL-119",
+            "DL-120",
+            "DL-127",
+            "DL-128"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 1,
+          "file": "traktor_nml/textpatch.py",
+          "function": "module docstring",
+          "behavior": "The docstring states that the module carries two things: attribute substitution over LOCATION and PRIMARYKEY located by original attributes across a whole document, and the ENTRY-span rewrite whose unit is one element's span text. The no-element-insertion rule it states applies to apply_text_patches and its whole-document scan, which has no notion of element extent; the span function's insertions are bounded by the span it is handed. The two write paths and the lxml preference read as they read.",
+          "decision_refs": [
+            "DL-120"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 2,
+          "file": "tests/test_entry_patch.py",
+          "function": "the ENTRY-span rewrite guards",
+          "behavior": "Guards over patch_entry_attributes: a substitution on an INFO attribute that exists; an insertion of an attribute into a carrier tag that exists without it; an ALBUM insertion into an entry whose children read LOCATION MODIFICATION_INFO INFO TEMPO asserting the resulting child tag names and their order; an INFO insertion into an entry holding LOCATION and ALBUM asserting the same; a CRLF multi-line entry span asserting the returned span's CRLF count is the original's, its bare-LF count is zero and the inserted child's indentation is the exact byte run its following sibling carries; a single-line span asserting the returned span holds no line terminator; a substitution on the ENTRY tag's own ARTIST leaving every other byte identical; an empty value for an attribute whose carrier is absent leaving the span byte-identical; an empty value for an attribute the carrier holds leaving the carrier's sibling attributes untouched; and a value carrying an ampersand and a double quote round-tripping through a parse of the returned span. Each guard's docstring records the mutation applied to make it fail and the output that mutation produced.",
+          "decision_refs": [
+            "DL-119",
+            "DL-120",
+            "DL-127",
+            "DL-128"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "The source pick patches base's entry",
+      "files": [
+        "traktor_nml/splice.py",
+        "tests/test_splice.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "_resolve_conflicts routes a group to the non-base picker on base_member is None alone",
+        "A group with a base record and a source resolution keeps base's record as its winner and contributes no record to new_entries",
+        "_resolve_conflicts returns the entry patches a run must apply: for each such group the base record whose entry is patched and the divergent attribute values the winning non-base member carries",
+        "The attributes patched are the group's divergent attributes and no others",
+        "A group holding more than one base record patches the first base record's entry and its non-base primary keys stay in ambiguous_keys",
+        "assemble_output holds one replacement list declared above the reconstruction block and seeded with the entry patches as span replacements over base_source taken from the base SpanIndex",
+        "The reconstruction block extends that same list and the combined list is applied to base_source in reverse offset order below the block with base_root re-parsed once when the combined list is non-empty",
+        "The duplicate_playlist_name and ambiguous_redirect aborts return before the apply so entry patches are discarded with the run and no rewritten base_source reaches an output",
+        "No base-side span lookup occurs after the apply because span_indexes[0] is measured against the text the apply replaces",
+        "The replacement pass runs for a run carrying entry patches with reconstruct unset as well as for a run carrying both",
+        "old_to_new_key for such a group maps the losing members' primary keys to base's own primary key exactly as a base pick does",
+        "The module docstring's scope note states what a source pick rewrites inside base's COLLECTION and states that the base input file is untouched",
+        "conflict_rows records the resolution token source for such a group as it stands"
+      ],
+      "acceptance_criteria": [
+        "A guard asserts a source pick over a track present in both collections leaves the output COLLECTION holding exactly as many ENTRY elements as base held and its ENTRIES attribute reading that number",
+        "A guard asserts the output holds one ENTRY whose LOCATION names the conflicting file and that its divergent attribute reads the source's value while base's value is absent",
+        "A guard asserts a non-divergent tracked attribute on that entry keeps base's value",
+        "A guard asserts a source pick on a divergent attribute whose carrier element base's entry lacks writes that value into base's entry at the position the fixed child order gives it",
+        "A guard asserts a source pick whose winning value is empty leaves base's carrier element present with its sibling attributes intact and that attribute reading empty",
+        "A guard over a CRLF base file asserts the output's count of CRLF equals base's and its count of bare LF is zero",
+        "A guard asserts stats collection_entries_added after a source pick equals the value a base pick over the same inputs leaves",
+        "A guard asserts a group carrying no base record still transplants its picked non-base ENTRY under keep-first and under keep-last",
+        "A guard asserts a source pick with reconstruct unset patches base's entry",
+        "A guard asserts a source pick together with a playlist reconstruction over the same base yields an output whose patched entry and whose rebuilt playlist are both correct and whose playlist span sits where base put it",
+        "A guard asserts a run whose reconstruction hits duplicate_playlist_name and which also carries a source pick returns output None with errors populated and writes nothing",
+        "A guard asserts a source pick on a group holding two base records patches the first base record's entry only leaves the second base entry's attributes untouched and keeps the group's non-base keys reaching the reconstruction path as an ambiguous_redirect abort",
+        "A guard asserts the base input file on disk is byte-identical before and after a run that patches",
+        "Every guard's docstring records the mutation applied to make it fail and the output that mutation produced",
+        "pytest tests/ -q under the system interpreter passes at 446 passed or more with 3 skipped"
+      ],
+      "tests": [
+        "tests/test_splice.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 1,
+          "file": "traktor_nml/splice.py",
+          "function": "_resolve_conflicts",
+          "behavior": "The branch that hands a group to the keep-first/keep-last picker and appends the winner to new_entries is entered on base_member is None. A group holding a base record and named source by the resolutions mapping keeps base's record as its winner, contributes nothing to new_entries, and yields an entry patch: the base record whose ENTRY is rewritten paired with the divergent attributes' values taken from the non-base member the same picker names. A group holding more than one base record patches base_members[0]'s entry and keeps its non-base primary keys in ambiguous_keys. The patched attributes are the group's divergent_attrs and no others. The entry patches are returned as a named element of the tuple, and old_to_new_key maps the losing members' primary keys to base's own key exactly as a base pick does.",
+          "decision_refs": [
+            "DL-116",
+            "DL-117",
+            "DL-118",
+            "DL-122",
+            "DL-124"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 2,
+          "file": "traktor_nml/splice.py",
+          "function": "assemble_output",
+          "behavior": "One replacement list is declared above the reconstruction block and seeded with the entry patches: for each the base record's entry span from span_indexes[0] paired with the text patch_entry_attributes returns for that span. The reconstruction block extends that same list with its playlist replacements, and the combined list is applied to base_source below the block in reverse offset order with base_root re-parsed once when the list is non-empty - guarded on the combined list rather than the reconstruction list alone, because the COLLECTION ENTRIES count is read from base_root downstream. Both spans come from span_indexes[0] over the original base_source and COLLECTION and PLAYLISTS spans are disjoint, so one reverse-ordered pass leaves every offset reading the text it was measured on. The duplicate_playlist_name and ambiguous_redirect aborts return above the apply, so a refused run discards its entry patches with everything else and no rewritten base_source reaches an output - SpliceResult carries no partial shape. span_indexes[0] is stale from the apply onward and no base-side span lookup occurs after it; the contribution lookups below read span_indexes at index one and above. The pass is entered on entry patches alone, so it is reachable with reconstruct unset. The COLLECTION's ENTRIES count is base's own entry count plus the transplanted entries, so a source pick on a group base already owns leaves it where a base pick leaves it, and stats collection_entries_added follows.",
+          "decision_refs": [
+            "DL-121",
+            "DL-124"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "traktor_nml/splice.py",
+          "function": "module docstring scope note",
+          "behavior": "The scope note states that base is authoritative for its own COLLECTION and playlists: its entries keep their positions and their identities, the merged collection holds at most one entry per LOCATION, and the only bytes of a base entry a run rewrites are the attribute values a resolution names. The base input file itself is never written. A source resolution names which record supplies those values; --on-conflict's keep-first/keep-last still only disambiguates among duplicates not shared with base.",
+          "decision_refs": [
+            "DL-116",
+            "DL-123"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 2,
+          "file": "tests/test_splice.py",
+          "function": "the source-resolution guards",
+          "behavior": "Guards over assemble_output with a source resolution: the output COLLECTION holds exactly base's entry count and its ENTRIES attribute reads it; exactly one ENTRY names the conflicting LOCATION; that entry's divergent attribute reads the source's value and base's value is absent from the output; a non-divergent tracked attribute keeps base's value; a divergent attribute whose carrier element base's entry lacks is written at the position the fixed child order gives it; a divergent attribute whose winning value is empty leaves base's carrier present with its sibling attributes intact; a CRLF base file yields an output whose CRLF count is base's and whose bare-LF count is zero; stats collection_entries_added matches the base pick's; a base-less group still transplants under keep-first and keep-last; a source pick with reconstruct unset patches; a source pick together with a reconstruction over the same base yields both the patched entry and the rebuilt playlist in base's own position; a run whose reconstruction hits duplicate_playlist_name while also carrying a source pick returns output None with errors populated and writes nothing; a source pick on a group holding two base records patches the first base entry only, leaves the second untouched, and still reaches the reconstruction path's ambiguous_redirect abort; and the base input file on disk is byte-identical across a patching run. The two standing guards that assert the source record's attributes appear in the output gain the assertion that base's diverged value does not. Each guard's docstring records the mutation applied to make it fail and the output that mutation produced.",
+          "decision_refs": [
+            "DL-116",
+            "DL-118",
+            "DL-119",
+            "DL-121",
+            "DL-122",
+            "DL-124",
+            "DL-127",
+            "DL-128"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "The served-page gate over a SOURCE pick",
+      "files": [
+        "C:/codex/traktor-nml-tool-gate/reconstruct_fixture.py",
+        "C:/codex/traktor-nml-tool-gate/serve_reconstruct.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "The reconstruct-conflict fixture carries a third conflicting track whose base entry has no ALBUM child and whose source entry carries an ALBUM",
+        "The fixture carries a fourth conflicting track whose source entry reads a tracked attribute empty while base carries a value",
+        "One of the fixture's collection files is written with CRLF terminators and the other with LF so the per-file line-ending rule is exercised",
+        "The fixture's headless probe reports the conflicting group count and the divergent attributes per group so the fixture's shape is read back",
+        "The serve script drives the real /reconstruct page with the fixture's base and source and writes an output",
+        "The gate procedure reads the written output back and reports the COLLECTION ENTRIES attribute the ENTRY element count every LOCATION value with its multiplicity and the counts of CRLF and of bare LF",
+        "A BASE-pick output is written and kept beside the fixture as the recorded baseline the SOURCE run is read against",
+        "The fixture for the reconnect flow under fixture/w002gatefix2 is untouched and no parity manifest is regenerated"
+      ],
+      "acceptance_criteria": [
+        "A served run picking SOURCE on every conflicting group writes an output whose COLLECTION holds the same number of ENTRY elements base held and whose ENTRIES attribute reads that number",
+        "No LOCATION value appears twice in the written output",
+        "Each conflicting track's entry in the written output carries the source's value for the attribute the row showed and base's value for the attributes it did not",
+        "The track whose base entry had no ALBUM child carries the source's album in the written output with ALBUM sitting immediately after LOCATION",
+        "The track whose source read a tracked attribute empty carries that attribute empty in the written output with its carrier element still present",
+        "The written output's count of CRLF and of bare LF equals the base file's own",
+        "A served run picking BASE on every group writes a file byte-identical to the recorded BASE-pick baseline kept beside the fixture",
+        "The run is recorded with a matches or differs verdict per named surface as DL-084 requires"
+      ],
+      "tests": [
+        "C:/codex/traktor-nml-tool-gate/reconstruct_fixture.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 2,
+          "file": "C:/codex/traktor-nml-tool-gate/reconstruct_fixture.py",
+          "function": "the fixture and its probe",
+          "behavior": "The fixture carries a third conflicting track whose base entry has no ALBUM child at all and whose source entry carries one, and a fourth whose source reads a tracked attribute empty while base carries a value, alongside the BITRATE and ALBUM divergences it already holds. One of its two collection files is written with CRLF terminators and the other with LF, so a run exercises the per-file line-ending rule. A BASE-pick output is written beside the fixture as the recorded baseline a later SOURCE run is read against. The headless probe runs assemble_output over the pair and prints the conflicting group count with the divergent attributes per group, so the fixture's shape is read back rather than assumed. It writes only into fixture/reconstruct-conflict/ and leaves fixture/w002gatefix2 alone.",
+          "decision_refs": [
+            "DL-119",
+            "DL-126",
+            "DL-127",
+            "DL-128"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 2,
+          "file": "C:/codex/traktor-nml-tool-gate/serve_reconstruct.py",
+          "function": "the served gate run",
+          "behavior": "The script serves the real /reconstruct page over the fixture and, after a run, reads the written output back and reports the COLLECTION ENTRIES attribute, the ENTRY element count, every LOCATION value with its multiplicity, and the counts of CRLF and of bare LF, so the acceptance evidence is the file rather than a substring of it. The gate procedure it supports is: preview, pick SOURCE on every conflicting group, write, read back; and separately, pick BASE on every group and compare the written file byte-for-byte against the recorded baseline. A guard asserting the source's value appears in the output is what passed while the output held two entries for one file, so the entry count, the LOCATION multiplicities and the terminator counts are what the run is judged on.",
+          "decision_refs": [
+            "DL-125",
+            "DL-126",
+            "DL-128"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 2,
+      "number": 4,
+      "name": "Decision log and retained plan",
+      "files": [
+        "traktor_nml/README.md",
+        "docs/plans/2026-08-31-source-resolution/plan.json",
+        "docs/plans/2026-08-31-source-resolution/context.json"
+      ],
+      "flags": [],
+      "requirements": [
+        "The Design Decisions section carries DL-104 through DL-126 each with its decision and the reasoning chain reaching it continuing the log above its DL-103 high-water mark",
+        "DL-104 through DL-115 are carried from docs/plans/2026-08-31-conflict-resolution/plan.json's planning_context decisions which hold their decision and reasoning as written",
+        "The statement DL-007 and the splice scope note carry about base's bytes reads as the code stands: base's COLLECTION keeps its own entries in their own positions with their own identities and the only bytes of them a run rewrites are the attribute values an operator named",
+        "The Invariants section states that the merged COLLECTION holds at most one entry per LOCATION and names DL-004 as why",
+        "The Invariants section states that every entry a patch can name holds a LOCATION child because collection_records skips any entry without one so a COLLECTION ENTRY is never self-closing and always has a child to anchor an insertion against",
+        "The Invariants section states that every line terminator in an output is a byte copied from an input so an output's line-ending profile is its base file's own",
+        "The retained plan carries the overview the decision log from DL-116 and the milestones with their files requirements acceptance criteria tests and code intents",
+        "Every sentence describes the code as it stands with no previously no now does no no longer and no added"
+      ],
+      "acceptance_criteria": [
+        "A grep for each of DL-104 through DL-126 in traktor_nml/README.md returns one statement each",
+        "A grep across splice.py gui/conflict_model.py gui/app.py and the three test modules citing DL-104 through DL-115 finds every cited id resolving to a statement in traktor_nml/README.md",
+        "A grep for previously and now does and no longer and added across the touched documentation returns nothing",
+        "docs/plans/2026-08-31-source-resolution/ holds plan.json and context.json",
+        "The splice module docstring and the README statement it traces to say the same thing"
+      ],
+      "tests": [
+        "none - documentation milestone"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 2,
+          "file": "traktor_nml/README.md",
+          "function": "the Design Decisions section",
+          "behavior": "The section carries DL-104 through DL-126, each with its decision and the reasoning chain reaching it, continuing the log above its DL-103 high-water mark. DL-104 through DL-115 are carried from docs/plans/2026-08-31-conflict-resolution/plan.json's planning_context decisions, which hold their decision and reasoning as written, so the eleven ids splice.py, gui/conflict_model.py, gui/app.py and three test modules cite each resolve to a statement. DL-004's statement stands as written and these read against it: the merged COLLECTION holds at most one entry per LOCATION, so a source pick rewrites base's entry rather than adding one beside it. The statement DL-007 and the splice scope note carry about base's bytes reads as the code stands. Every sentence describes the code as it stands.",
+          "decision_refs": [
+            "DL-116",
+            "DL-117",
+            "DL-118",
+            "DL-119",
+            "DL-120",
+            "DL-121",
+            "DL-122",
+            "DL-123",
+            "DL-124",
+            "DL-125",
+            "DL-126",
+            "DL-127",
+            "DL-128",
+            "DL-129"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 2,
+          "file": "traktor_nml/README.md",
+          "function": "the Invariants section",
+          "behavior": "Invariants state three things this work rests on. The merged COLLECTION holds at most one entry per LOCATION, citing DL-004: the primary key is derived from the location, so two entries for one file cannot be told apart and a playlist PRIMARYKEY naming that file resolves against both. Every entry a patch can name holds a LOCATION child, because collection_records skips any entry without one, so a COLLECTION ENTRY reaching the patch path is never self-closing and always carries a child an insertion can anchor against. Every line terminator in an output is a byte copied from an input - the base file is read as bytes, decoded UTF-8, spliced as text and re-encoded UTF-8 with no newline translation, and inserted fragments copy their whitespace rather than composing it - so an output's line-ending profile is its base file's own.",
+          "decision_refs": [
+            "DL-116",
+            "DL-127",
+            "DL-128"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "version": 1,
+          "file": "docs/plans/2026-08-31-source-resolution/plan.json",
+          "function": "the retained plan",
+          "behavior": "The retained plan carries the overview, the decision log from DL-116, and the milestones with their files, requirements, acceptance criteria, tests and code intents, in the shape docs/plans/2026-08-31-conflict-resolution/plan.json holds. It carries no code_changes and no waves.",
+          "decision_refs": [
+            "DL-125"
+          ]
+        },
+        {
+          "id": "CI-M-004-004",
+          "version": 1,
+          "file": "docs/plans/2026-08-31-source-resolution/context.json",
+          "function": "the retained context",
+          "behavior": "The context carries the task spec, the constraints, the entry points, the measured defect and the invisible knowledge this plan was designed against, so the reasoning behind the retained plan is legible without the session that produced it.",
+          "decision_refs": [
+            "DL-125"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [],
+  "diagram_graphs": [
+    {
+      "id": "DIAG-001",
+      "type": "dataflow",
+      "scope": "overview",
+      "title": "How a SOURCE pick reaches base's entry",
+      "nodes": [
+        {
+          "id": "groups",
+          "label": "group_identities: cross-input identity groups",
+          "type": "process"
+        },
+        {
+          "id": "resolve",
+          "label": "_resolve_conflicts: winner per group",
+          "type": "process"
+        },
+        {
+          "id": "newentries",
+          "label": "new_entries: base-less winners transplanted as spans",
+          "type": "datastore"
+        },
+        {
+          "id": "patches",
+          "label": "entry patches: base record + divergent values",
+          "type": "datastore"
+        },
+        {
+          "id": "prepass",
+          "label": "assemble_output pre-pass: one reverse-ordered replacement over base_source",
+          "type": "process"
+        },
+        {
+          "id": "reparse",
+          "label": "re-parsed base_root and rewritten base_source",
+          "type": "datastore"
+        },
+        {
+          "id": "builder",
+          "label": "OutputBuilder: COLLECTION span + transplanted entries",
+          "type": "process"
+        }
+      ],
+      "edges": [
+        {
+          "source": "groups",
+          "target": "resolve",
+          "label": "one group per track identity",
+          "protocol": null
+        },
+        {
+          "source": "resolve",
+          "target": "newentries",
+          "label": "group holds no base record",
+          "protocol": null
+        },
+        {
+          "source": "resolve",
+          "target": "patches",
+          "label": "group holds a base record and reads source",
+          "protocol": null
+        },
+        {
+          "source": "patches",
+          "target": "prepass",
+          "label": "span of base's ENTRY rewritten by patch_entry_attributes",
+          "protocol": null
+        },
+        {
+          "source": "prepass",
+          "target": "reparse",
+          "label": "applied in reverse offset order then parsed once",
+          "protocol": null
+        },
+        {
+          "source": "newentries",
+          "target": "builder",
+          "label": "verbatim ENTRY spans from their own input",
+          "protocol": null
+        },
+        {
+          "source": "reparse",
+          "target": "builder",
+          "label": "base entry count and base's own bytes",
+          "protocol": null
+        }
+      ],
+      "ascii_render": null
+    }
+  ],
+  "readme_entries": [
+    {
+      "path": "docs/plans/2026-08-31-source-resolution",
+      "content": "# 2026-08-31 source resolution\n\nA SOURCE pick on the /reconstruct conflict screen transplanted the source collection's ENTRY into the merged COLLECTION beside base's own, so a base holding three tracks wrote an output holding four, two of them carrying one LOCATION. The primary key is derived from the location, so both answered to the same key and the playlist's PRIMARYKEY for that track resolved against both - the shape DL-004 forbids. A SOURCE pick means base's own entry carries the source's values for the attributes that diverged.\n\n| File | What |\n| --- | --- |\n| `plan.json` | The plan: overview, DL-116 through DL-129, and four milestones with their files, requirements, acceptance criteria, tests and code intents. No code_changes and no waves. |\n| `context.json` | The task spec, constraints, entry points, the measured defect and the invisible knowledge the plan was designed against. |\n\nIt follows directly from `docs/plans/2026-08-31-conflict-resolution/`, which is implemented and committed as far as its M-004. That plan's M-005 has not landed, so `traktor_nml/README.md`'s own text stands at DL-103 while DL-104 through DL-115 are minted and cited across six files. M-004 here writes DL-104 through DL-126, absorbing the eleven statements that plan owes, so no cited id resolves to nothing.\n\nThe acceptance step is a served-page gate run from `C:\\codex\\traktor-nml-tool-gate` over the reconstruct-conflict fixture, judged on the written file's entry count, its LOCATION multiplicities and its line-terminator counts rather than on a substring of it.\n"
+    }
+  ]
+}

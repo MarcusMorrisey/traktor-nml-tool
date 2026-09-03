@@ -21,6 +21,14 @@ understanding that the stdlib path will silently change the file's
 formatting. This module implements only attribute substitution; it has no
 concept of element extent and must not be extended to insert or remove whole
 elements (splice/split use spans.py instead - see its module docstring).
+
+patch_entry_attributes is the module's second write path. Its unit is one
+ENTRY element's span text rather than a whole document, so every substitution
+and every insertion it makes is bounded by the span it is handed. That bound
+is what lets it write a missing ALBUM or INFO child into the entry: the
+no-element-insertion rule above is a property of apply_text_patches' scan,
+which matches a locator anywhere in the file and has no notion of where one
+element ends and the next begins.
 """
 
 from __future__ import annotations
@@ -162,3 +170,129 @@ def location_patch(elem, old, changes: list[tuple[str, str, str]]) -> ElemPatch:
 
 def primarykey_patch(elem, old_key: str, new_key: str) -> ElemPatch:
     return ElemPatch(elem.sourceline, "PRIMARYKEY", (("KEY", old_key),), [("KEY", old_key, new_key)])
+
+
+_ENTRY_CHILD_ORDER = ("LOCATION", "ALBUM", "MODIFICATION_INFO", "INFO")
+
+# The tracked-attribute vocabulary of splice._TRACKED_ATTRS mapped to the tag
+# that carries each one and the attribute name on that tag. ARTIST and TITLE
+# sit on the ENTRY opening tag itself; the rest sit on a child element.
+_ENTRY_CARRIERS: dict[str, tuple[str, str]] = {
+    "artist": ("ENTRY", "ARTIST"),
+    "title": ("ENTRY", "TITLE"),
+    "album": ("ALBUM", "TITLE"),
+    "filesize": ("INFO", "FILESIZE"),
+    "playtime_float": ("INFO", "PLAYTIME_FLOAT"),
+    "bitrate": ("INFO", "BITRATE"),
+}
+
+
+def _find_tag_start(span: str, tag_name: str) -> int | None:
+    match = re.search(r"<" + re.escape(tag_name) + r"(?=[\s/>])", span)
+    return None if match is None else match.start()
+
+
+def _element_end(span: str, start: int, tag_name: str) -> int:
+    """Offset one past the last byte of the element opening at ``start``.
+
+    ENTRY's children carry no children of their own, so a close tag search
+    needs no depth counter; a self-closed opening tag ends at its own '>'."""
+    open_end = _find_opening_tag_end(span, start)
+    if span[open_end - 1] == "/":
+        return open_end + 1
+    close = span.index("</" + tag_name, open_end)
+    return _find_opening_tag_end(span, close) + 1
+
+
+def _set_attr_in_tag(tag_text: str, attr_name: str, value: str) -> str:
+    """Return ``tag_text`` carrying ``attr_name=value``.
+
+    An attribute the tag already holds keeps its own quote character and its
+    position among the tag's attributes; one the tag lacks is written in
+    ahead of the tag's closing angle bracket."""
+    pattern = re.compile(r"(\b" + re.escape(attr_name) + r"\s*=\s*)([\"'])(.*?)\2", re.DOTALL)
+
+    def replace(match: re.Match[str]) -> str:
+        quote = match.group(2)
+        escaped = _xml_escape_attr(value)
+        if quote == "'":
+            escaped = escaped.replace("'", "&apos;")
+        return f"{match.group(1)}{quote}{escaped}{quote}"
+
+    patched, count = pattern.subn(replace, tag_text, count=1)
+    if count:
+        return patched
+    body = tag_text[1:-1].rstrip("/").rstrip()
+    tail = "/>" if tag_text.endswith("/>") else ">"
+    return f'<{body} {attr_name}="{_xml_escape_attr(value)}"{tail}'
+
+
+def _insert_child(span: str, tag_name: str, attr_name: str, value: str) -> str:
+    """Write a minimal ``tag_name`` child holding only ``attr_name`` into the
+    ENTRY span, placed by _ENTRY_CHILD_ORDER: immediately after the last child
+    present that precedes ``tag_name`` in that order. That anchor always
+    resolves, because collection_records skips an entry with no LOCATION child
+    and LOCATION precedes both insertable tags.
+
+    The insertion composes no whitespace of its own. The whitespace byte run
+    that follows the anchor - the run that indents the anchor's following
+    sibling - is copied verbatim ahead of the new child, so the child carries
+    its siblings' indentation and its file's line terminator, and an entry
+    written on one line gains no line."""
+    order = _ENTRY_CHILD_ORDER[: _ENTRY_CHILD_ORDER.index(tag_name)]
+    anchor_end = None
+    for candidate in order:
+        start = _find_tag_start(span, candidate)
+        if start is not None:
+            anchor_end = _element_end(span, start, candidate)
+    if anchor_end is None:
+        raise ValueError(f"no anchor child precedes {tag_name} in the entry span")
+
+    run_end = anchor_end
+    while run_end < len(span) and span[run_end].isspace():
+        run_end += 1
+    whitespace = span[anchor_end:run_end]
+    child = f'<{tag_name} {attr_name}="{_xml_escape_attr(value)}"></{tag_name}>'
+    return span[:anchor_end] + whitespace + child + span[anchor_end:]
+
+
+def patch_entry_attributes(span: str, values: dict[str, str]) -> str:
+    """Return one ENTRY element's span text carrying ``values``.
+
+    ``values`` is keyed by the tracked-attribute vocabulary artist, title,
+    album, filesize, playtime_float and bitrate. Each name's carrier is read
+    from _ENTRY_CARRIERS: artist and title land on the ENTRY opening tag,
+    album on the TITLE attribute of its ALBUM child, and filesize,
+    playtime_float and bitrate on its INFO child.
+
+    Where the carrier tag holds the attribute the value is substituted inside
+    that opening tag and every other byte of the span is retained; where the
+    carrier tag exists without it the attribute is written into that tag;
+    where the carrier element is absent and the value is non-empty a child
+    holding only that attribute is written into the ENTRY. An empty value is
+    substituted where the carrier tag holds the attribute and is otherwise a
+    no-op: it removes no attribute, removes no element and creates no
+    carrier. Values are escaped on _xml_escape_attr's rule and each attribute
+    keeps the quote character it already uses."""
+    by_carrier: dict[str, list[tuple[str, str]]] = {}
+    for name, value in values.items():
+        carrier, attr_name = _ENTRY_CARRIERS[name]
+        by_carrier.setdefault(carrier, []).append((attr_name, value))
+
+    for carrier in ("ENTRY", *_ENTRY_CHILD_ORDER):
+        edits = by_carrier.get(carrier)
+        if not edits:
+            continue
+        if _find_tag_start(span, carrier) is None:
+            # An empty value creates no carrier, and where a sibling value
+            # creates one it writes nothing into it either.
+            edits = [(attr_name, value) for attr_name, value in edits if value]
+            if not edits:
+                continue
+            attr_name, value = edits[0]
+            span = _insert_child(span, carrier, attr_name, value)
+        for attr_name, value in edits:
+            start = _find_tag_start(span, carrier)
+            end = _find_opening_tag_end(span, start) + 1
+            span = span[:start] + _set_attr_in_tag(span[start:end], attr_name, value) + span[end:]
+    return span

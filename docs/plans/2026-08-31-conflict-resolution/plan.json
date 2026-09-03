@@ -1,0 +1,698 @@
+{
+  "plan_id": "92531041-5e85-4db6-9ab4-818fd1a6e146",
+  "created_at": "2026-08-31T06:54:38.840267",
+  "frozen_at": null,
+  "overview": {
+    "problem": "A reconstruction over two collections sharing tracks whose tags diverge refuses the whole write: assemble_output returns output None with the bare token unresolved_conflicts, the page renders that token and discards the conflict rows the run already computed, and the write control then reports 'Preview first' for a preview that ran and refused.",
+    "approach": "Keep DL-008's abort as what an undecided divergence does and make resolution additive: _resolve_conflicts and assemble_output take a named resolutions mapping from identity key to base or source, defaulting empty, alongside the run-wide on_conflict they already take. The decisions, the row projection, the bulk actions and the write-refusal reason live in a nicegui-free traktor_nml/gui/conflict_model.py mirroring review_model.py and wizard_state.py; the /reconstruct page renders hand-rolled ui.row rows against them. The screen is drawn into Specs first and built to. Two cheap unblocks - the conflict rows rendered in place of the bare token and a run-wide conflict choice on the page - stand ahead of the rest inside the page milestone, which shares app.py with them. The splice subcommand keeps only its run-wide flag. The target repository keeps its own decision log in traktor_nml/README.md at high-water mark DL-103, so this plan mints from DL-104."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-104",
+        "version": 1,
+        "decision": "Per-key conflict resolutions reach the core as a named resolutions mapping on _resolve_conflicts and assemble_output, keyed by the identity-group key, valued base or source; the run-wide on_conflict parameter keeps its meaning and applies only where no per-key entry names that group",
+        "reasoning": "_resolve_conflicts already computes one ConflictRow per divergent group and already carries the identity key that names it -> a per-key mapping needs no new grouping pass and no second identity notion, only a lookup at the point the abort is raised -> the mapping is added as a named keyword parameter and the widened return is a named element, never an appended positional, with every caller enumerated by grep first (assemble_output in traktor_nml/splice.py, _handle_splice in traktor_nml/commands/splice_cmd.py, the direct uses in tests/test_splice.py and the GUI call in traktor_nml/gui/app.py), following DL-100's precedent"
+      },
+      {
+        "id": "DL-105",
+        "version": 1,
+        "decision": "A group carrying divergent attributes with neither a per-key resolution nor a run-wide on_conflict keeps DL-008's abort exactly: output is None, errors carries unresolved_conflicts, conflict_rows is populated, and nothing is written",
+        "reasoning": "DL-008's abort exists because _resolve_conflicts picks one winner per group, so resolving a divergence arbitrarily writes a plausible but wrong collection -> a per-key mapping supplies a winner the operator named rather than one the tool guessed, which is the only thing that makes writing safe -> resolution is additive and the abort remains the behaviour for every group nobody has decided, so the shape DL-008 named is extended rather than replaced and a run with an empty mapping is byte-identical to one made without the parameter"
+      },
+      {
+        "id": "DL-106",
+        "version": 1,
+        "decision": "The conflict decision state and the row derivation live in traktor_nml/gui/conflict_model.py, a nicegui-free module, mirroring review_model.py and wizard_state.py's split of what the tool found from what the operator said",
+        "reasoning": "DL-069 puts every rule worth testing below the nicegui boundary because the suite's system interpreter has no nicegui -> resolution logic placed in app.py would be unreachable from the suite and would fail tests/test_gui_view_boundary.py's AST walk -> conflict_model.py holds ConflictDecisions (per identity key: undecided, base, source), the row projection over a ConflictRow plus its decision, the bulk all-base/all-source application, and the outstanding count, and imports no nicegui"
+      },
+      {
+        "id": "DL-107",
+        "version": 1,
+        "decision": "Per-track picks are held in session state keyed by the identity key, surviving a re-preview after an output path change or an added source, and lost on app restart",
+        "reasoning": "the identity key is what _resolve_conflicts groups on and what ConflictRow already carries, so it is stable across two runs over the same inputs -> keying decisions on it lets a re-preview re-attach every decision without a second identifier or a sidecar file -> ConflictDecisions is held beside the /reconstruct page's other holders, discarded with the process, matching how state.decisions holds the reconnect flow's picks"
+      },
+      {
+        "id": "DL-108",
+        "version": 1,
+        "decision": "The splice CLI keeps only the run-wide --on-conflict keep-first|keep-last flag; the per-key resolutions parameter has the GUI as its sole caller",
+        "reasoning": "a per-key mapping expressed on a command line needs a file format, a parser and a report of keys that matched nothing -> that surface serves no operator the tool has, since the operator resolving track-by-track is the one looking at rendered rows -> splice_cmd.py passes no resolutions and its argument list is unchanged, and the core's default of an empty mapping keeps the CLI path identical"
+      },
+      {
+        "id": "DL-109",
+        "version": 1,
+        "decision": "The conflict-resolution screen is drawn into design/reconnect-wizard/Specs.dc.html before it is built, and built to what Specs then says",
+        "reasoning": "DL-071 makes Specs the cross-screen contract for what the operator sees, and a screen disagreeing with Specs is fixed in Specs -> a screen Specs has never described would either carve an exception to that rule or be reconciled after the fact against a contract written to match the code -> Specs gains the conflict screen first, so the page is built to a contract that already exists"
+      },
+      {
+        "id": "DL-110",
+        "version": 1,
+        "decision": "The conflict table renders hand-rolled ui.row rows per conflicting track, one row showing the base version against the source version with a base/source pick, alongside run-wide all-base and all-source actions",
+        "reasoning": "DL-079 rejected ui.aggrid for the review table because aggrid claims the arrow keys Specs binds over that same table -> the conflict table sits in the same wizard surface under the same keyboard contract, so adopting aggrid here would reintroduce exactly that collision -> rows are hand-rolled the way the review step's rows are, and a conflict set of hundreds of rows is made tractable by bulk actions rather than by a grid widget"
+      },
+      {
+        "id": "DL-111",
+        "version": 1,
+        "decision": "The write control refuses on a reason the model returns, distinguishing a preview that never ran from a preview that ran and refused, and naming the outstanding conflict count when it refuses for that",
+        "reasoning": "write_output tests only result.output is None, and output is None exactly when errors is non-empty, which is SpliceResult's documented invariant -> that one test therefore reads a completed refusal and an absent run as the same thing and says 'Preview first' for both -> conflict_model.py returns the refusal reason from the held result plus the outstanding count, and the control renders it, so a refusal names the conflicts still to decide"
+      },
+      {
+        "id": "DL-112",
+        "version": 1,
+        "decision": "The conflict rows the run produced are rendered on the abort path in place of the bare token, and the run-wide choice is offered on the page, as the first landing increment before per-row picks exist",
+        "reasoning": "conflict_rows are already computed and already returned on the abort path and the page discards them at the render -> rendering what is already returned, and passing the CLI's existing on_conflict through the page's own control, needs no core change at all -> those two land first inside the page milestone, so the operator can complete a reconstruction before the per-key mapping and the per-row picks arrive"
+      },
+      {
+        "id": "DL-113",
+        "version": 1,
+        "decision": "The page milestone is accepted by a served-page gate run from the gate repository exercising a conflicting collection pair end to end - preview then per-row picks then a bulk action then a write",
+        "reasoning": "DL-084 records that gui/ defects are found only by serving the page - the suite's system interpreter has no nicegui and app.py is guarded by AST walk rather than by rendered DOM -> a conflict table whose rows and picks are never rendered would pass every guard this plan adds while being unusable -> the gate run is an acceptance criterion of the page milestone rather than an optional follow-up, run before the change lands"
+      },
+      {
+        "id": "DL-114",
+        "version": 1,
+        "decision": "ConflictRow carries a content-derived identity key - the group's sole base-input record's primary key, or the sorted tuple of the group's member primary keys where the group holds no base record - in place of the union-find root index str(key) it carries as the group label",
+        "reasoning": "group_identities keys its groups on find(i), an index into the flat all_records list built as base records followed by each contribution's records in order -> that root index is positional: adding a source collection lengthens the list, shifts every later record's index, and can move a group's root, so the same track's group is labelled differently between two previews and a decision keyed on the old label attaches to a different group or to none -> the key is derived from record content instead, which is what the operator's pick is actually about, and the derivation is total: every conflicting group holds at least two records spanning at least two inputs, so both branches always yield a value"
+      },
+      {
+        "id": "DL-115",
+        "version": 1,
+        "decision": "A held decision survives a re-preview only when its content-derived key names a group whose member primary keys are the identical set; a group whose membership changed, and a key naming no group at all, return the row to undecided and count toward outstanding",
+        "reasoning": "record_keys cascades through every tier and group_identities unions across them, so an added source can merge two previously distinct groups into one or pull a record into a group it was not in -> the operator's pick was made against the versions of one specific member set and says nothing about a set that has since grown, so re-attaching it by key alone would write a winner nobody chose for the tracks that joined -> membership is compared as a set of primary keys and only an exact match re-attaches; every other outcome is undecided, which is counted as outstanding, so a re-preview after adding a source refuses the write and shows the row again rather than silently writing a stale pick"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Expose --on-conflict keep-first|keep-last on the page as the whole answer",
+        "rejection_reason": "All-or-nothing for an entire run, so one edited tag forces every other track's winner too; it survives as the early unblock inside the page milestone rather than as the destination",
+        "decision_ref": "DL-104"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Do nothing and drive the repair from the CLI",
+        "rejection_reason": "Unblocks this one job and leaves the page unable to ever complete a reconstruction over a realistic collection pair",
+        "decision_ref": "DL-104"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "ui.aggrid for the conflict table",
+        "rejection_reason": "Rejected for the review table already: aggrid claims the arrow keys Specs binds over that surface (DL-079), and the conflict table sits under the same contract",
+        "decision_ref": "DL-110"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Put the resolution logic in traktor_nml/gui/app.py",
+        "rejection_reason": "Above the nicegui boundary and unreachable from the suite's system interpreter, which carries no nicegui (DL-069)",
+        "decision_ref": "DL-106"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "A --resolutions file on the splice subcommand",
+        "rejection_reason": "Needs a format, a parser and an unmatched-key report to serve an operator who is looking at rendered rows rather than a command line",
+        "decision_ref": "DL-108"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Keep ConflictRow.identity_key as the union-find root index and key decisions on it",
+        "rejection_reason": "The root index is positional in the flat all_records list, so adding a source shifts it and a held pick attaches to a different group or to none",
+        "decision_ref": "DL-114"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "Re-attach a held decision whenever its key still names a group, without comparing membership",
+        "rejection_reason": "An added source can merge groups, so the pick would be applied to records it was never made against",
+        "decision_ref": "DL-115"
+      }
+    ],
+    "constraints": [
+      "New conflict-resolution logic sits below the nicegui boundary in its own nicegui-free module: review_model.py, wizard_state.py, theme.py, keymap.py, announce.py and conflict_model.py import no nicegui; app.py, file_picker.py and __main__.py are the only three that may (DL-069, AST-guarded by tests/test_gui_view_boundary.py)",
+      "DL-008 is reconciled explicitly: an unresolved conflict aborts the whole write and the conflict report is produced either way, and no new shape silently replaces that",
+      "_resolve_conflicts' widened return and parameter list are NAMED elements, never appended positionals, and every caller is enumerated by grep first (DL-100's precedent; assemble_output in traktor_nml/splice.py, _handle_splice in traktor_nml/commands/splice_cmd.py, tests/test_splice.py, traktor_nml/gui/app.py)",
+      "Every guard is made to FAIL first and its docstring records the specific mutation applied and the specific output observed",
+      "A gate run from C:\\codex\\traktor-nml-tool-gate happens before the change lands: gui/ defects are found only by serving the page (DL-084)",
+      "traktor_nml/gui/app.py stays 100% CRLF at 1388 CRLF and 0 bare LF; the rest of the tree is not uniform, so it is read and written with newline=''",
+      "New decisions start at DL-104, continuing traktor_nml/README.md's log above its DL-103 high-water mark",
+      "Documentation describes the code as it stands: no 'previously', 'now does', 'no longer' or 'added'",
+      "The plan is delivered as docs/plans/2026-08-31-conflict-resolution/ holding plan.json and context.json, matching 2026-08-29-playlist-reconstruction's shape",
+      "MUST NOT regenerate the parity manifest (tests/baselines/manifest.json, pinned to exact bytes by .gitattributes) or the gate fixture: a failing parity or gate comparison is evidence about the change and regenerating either destroys that evidence instead of reading it",
+      "MUST NOT restore a file with git checkout: an unwanted edit is reverted by editing it back, so no uncommitted work sharing that file is discarded along with it",
+      "The conflict surface is modelled on the reconnect review step - hand-rolled ui.row rows per record, never ui.aggrid, which claims the arrow keys Specs binds (DL-079)",
+      "The suite runs under the SYSTEM interpreter at 417 passed and 3 skipped, not .venv at 418/2; .venv is the only interpreter carrying nicegui and is what serves the app for a gate run"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "A per-key resolutions mapping is read as superseding DL-008's abort, and a run with conflicts nobody decided writes a plausible but wrong collection",
+        "mitigation": "Resolution is additive and the abort is the behaviour for every group the mapping does not name; a guard asserts that an empty mapping reproduces the omitted-parameter output byte for byte, and another asserts that a partially resolved run still returns output None with unresolved_conflicts",
+        "anchor": "traktor_nml/splice.py:_resolve_conflicts",
+        "decision_ref": "DL-105"
+      },
+      {
+        "id": "R-002",
+        "risk": "Decisions keyed on ConflictRow.identity_key as it stands re-attach to the wrong group after a source is added, because that value is the positional union-find root index rather than anything about the track",
+        "mitigation": "The key is derived from group content before any decision is keyed on it, and membership is compared as a set of primary keys on re-attachment; guards cover a re-preview with an added source, a merged group and a vanished key",
+        "anchor": "traktor_nml/splice.py:_resolve_conflicts",
+        "decision_ref": "DL-114"
+      },
+      {
+        "id": "R-003",
+        "risk": "A re-preview silently carries a stale pick into a group whose membership changed, writing a winner the operator never chose for the records that joined it",
+        "mitigation": "Any membership change returns the row to undecided and counts it outstanding, so the write refuses and the row is shown again; a guard asserts the refusal rather than the write",
+        "anchor": "traktor_nml/gui/conflict_model.py",
+        "decision_ref": "DL-115"
+      },
+      {
+        "id": "R-004",
+        "risk": "A conflict set of hundreds of rows makes per-row picking unusable and the operator abandons the page for the CLI",
+        "mitigation": "All-base and all-source bulk actions sit above the rows and leave an explicitly decided row standing, and the outstanding count names what is left; the gate run exercises a bulk action on a real collection pair",
+        "anchor": "traktor_nml/gui/app.py:_build_reconstruct_page",
+        "decision_ref": "DL-110"
+      },
+      {
+        "id": "R-005",
+        "risk": "Editing traktor_nml/gui/app.py through a tool defaulting to LF introduces bare LF into a file that is 100% CRLF, so the diff swamps the change",
+        "mitigation": "The file is read and written with newline='' and tests/test_gui_line_endings.py is an acceptance criterion of the page milestone",
+        "anchor": "traktor_nml/gui/app.py",
+        "decision_ref": "DL-113"
+      },
+      {
+        "id": "R-006",
+        "risk": "Resolution logic drifts into app.py where the suite's system interpreter cannot reach it, and the rules ship untested",
+        "mitigation": "conflict_model.py holds every projection, count and transition; tests/test_gui_view_boundary.py's AST walk and a page-controls guard asserting no inline decision arithmetic are both acceptance criteria",
+        "anchor": "traktor_nml/gui/conflict_model.py",
+        "decision_ref": "DL-106"
+      },
+      {
+        "id": "R-007",
+        "risk": "The page renders correctly to every AST guard and is unusable when served, since app.py is guarded by source inspection rather than rendered DOM",
+        "mitigation": "A gate run from the gate repository carries a conflicting collection pair through preview, per-row picks, a bulk action and a write before the change lands",
+        "anchor": "traktor_nml/gui/app.py",
+        "decision_ref": "DL-113"
+      },
+      {
+        "id": "R-008",
+        "risk": "The conflict screen is built first and Specs is reconciled to it afterwards, hollowing out DL-071's precedence rule",
+        "mitigation": "The Specs milestone stands ahead of the page milestone and the page milestone's criteria name the controls Specs describes",
+        "anchor": "design/reconnect-wizard/Specs.dc.html",
+        "decision_ref": "DL-109"
+      }
+    ],
+    "decision_id_start": 104
+  },
+  "invisible_knowledge": {
+    "system": "splice is span assembly: unrenamed and unredirected fragments are transplanted as verbatim source byte spans, and reconstruction stays on that span path rather than routing through write_nml_safely (DL-007, DL-008). group_identities unions records across every record_keys tier; _resolve_conflicts picks one winner per group, which is why an arbitrary resolution writes a plausible but wrong collection and why the check runs before any span is rewritten. The GUI's rules sit below a nicegui boundary guarded by an AST walk: app.py, file_picker.py and __main__.py are the only modules that may import nicegui or pywebview, and the suite's system interpreter has neither, so anything worth testing lives in the framework-free modules beside them.",
+    "invariants": [
+      "SpliceResult.output is None exactly when errors is non-empty; a partial write is not a shape this module has",
+      "conflict_rows are populated on every run regardless of outcome, including a clean one (DL-008)",
+      "old_to_new_key holds only keys a resolution actually redirected; a missing mapping passes through as the raw key rather than erroring (DL-101)",
+      "review_model.py, wizard_state.py, theme.py, keymap.py, announce.py and conflict_model.py import no nicegui and no pywebview (DL-069)",
+      "design/reconnect-wizard/Specs.dc.html is the cross-screen contract; a screen disagreeing with Specs is fixed in Specs (DL-071)",
+      "traktor_nml/gui/app.py is 100% CRLF; the rest of the tree is not uniform, so reads and writes use newline=''",
+      "a widened core signature adds a named element, never an appended positional, and every caller is enumerated by grep first (DL-100)"
+    ],
+    "tradeoffs": [
+      "Per-track picks live in session state keyed by the identity key: a re-preview keeps them, an app restart does not, and no sidecar file exists to go stale against the collections",
+      "The CLI keeps only the run-wide --on-conflict flag; the per-key mapping's sole caller is the GUI, because a command-line expression of it would need a file format, a parser and an unmatched-key report serving no operator the tool has",
+      "The conflict table is hand-rolled ui.row rows rather than ui.aggrid, trading grid features for the arrow keys Specs binds over that surface (DL-079)",
+      "Accessibility work is outside this version: mouse and clicking is the bar, and no screen-reader verification or new keyboard binding is part of it",
+      "app.py carries both the cheap unblocks and the per-row resolution because a file belongs to one milestone; the unblocks are sequenced first inside it"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 2,
+      "number": 1,
+      "name": "Conflict screen in Specs",
+      "files": [
+        "design/reconnect-wizard/Specs.dc.html"
+      ],
+      "flags": [],
+      "requirements": [
+        "Specs describes the conflict-resolution screen for /reconstruct",
+        "the screen names the per-track row with the base version against the source version and its two-state pick",
+        "the screen names the bulk all-base and all-source actions the outstanding count and the write refusal wording",
+        "the screen uses the palette type-scale spacing and radius tokens the other Specs screens use"
+      ],
+      "acceptance_criteria": [
+        "design/reconnect-wizard/Specs.dc.html holds a conflict-resolution screen naming every control the page renders",
+        "each row on that screen names the identity key the divergent attribute names and both sides' values",
+        "the screen names no colour size spacing step or radius that theme.py does not already carry",
+        "the file reads as the other tracked .dc.html sources do and the gitignored canvas bundle seeds from it",
+        "the full suite under the SYSTEM interpreter reports 417 passed and 3 skipped"
+      ],
+      "tests": [
+        "no executable guard: a design source is checked by the page milestone building to it"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "design/reconnect-wizard/Specs.dc.html",
+          "function": null,
+          "behavior": "Specs carries a conflict-resolution screen for the /reconstruct route: a heading naming the two collections; one row per conflicting track carrying the identity key, the names of the divergent attributes, the base version's values and the source version's values side by side, and a two-state pick naming base or source. Above the rows sit an all-base action, an all-source action and a count of tracks still undecided; below them the write control and the refusal text shown while any track is undecided. Colours, type sizes, spacing steps and radii are the tokens the other screens use, so theme.py carries every token the screen names.",
+          "decision_refs": [
+            "DL-109",
+            "DL-110",
+            "DL-111"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null,
+      "decision_refs": [
+        "DL-109",
+        "DL-110",
+        "DL-111"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "Per-key resolutions in the splice core",
+      "files": [
+        "traktor_nml/splice.py",
+        "traktor_nml/commands/splice_cmd.py",
+        "tests/test_splice.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "assemble_output and _resolve_conflicts accept a per-key resolutions mapping defaulting empty",
+        "a divergent group named by the mapping resolves to the named side and its ConflictRow records that resolution",
+        "a divergent group named by neither the mapping nor on_conflict aborts as DL-008 describes",
+        "the splice subcommand's arguments and output are what they are with the parameter absent",
+        "ConflictRow's identity key is derived from the group's member records rather than from the group's position"
+      ],
+      "acceptance_criteria": [
+        "an assemble_output call with an empty resolutions mapping produces bytes identical to a call omitting the parameter over the same inputs",
+        "a divergent group whose identity key maps to base resolves to the base record and the run produces an output",
+        "a divergent group whose identity key maps to source resolves to the non-base record",
+        "a run resolving some groups and leaving one undecided returns output None with errors carrying unresolved_conflicts",
+        "conflict_rows carry one row per divergent group on the abort path and on the clean path alike",
+        "a resolutions key naming no identity group leaves the run's result unchanged rather than raising",
+        "on_conflict keep-first and keep-last produce what they produce with no resolutions mapping present",
+        "a per-key entry governs its own group while on_conflict governs every group the mapping does not name",
+        "every existing guard in tests/test_splice.py passes unchanged",
+        "grep over the tree names every _resolve_conflicts and assemble_output caller and each is read against the widened signature",
+        "the full suite under the SYSTEM interpreter reports 417 passed and 3 skipped plus this milestone's guards",
+        "a group whose member primary keys are unchanged carries the same identity key across a run with one source and a run with two",
+        "a group the second source enlarges carries a different identity key from the one it carried before",
+        "the identity key is derivable for every conflicting group with no group left unkeyed"
+      ],
+      "tests": [
+        "tests/test_splice.py a base resolution writes the base record's attributes",
+        "tests/test_splice.py a source resolution writes the non-base record's attributes",
+        "tests/test_splice.py a mixed run resolves the named groups and aborts on the unnamed one",
+        "tests/test_splice.py an empty mapping reproduces the omitted-parameter output byte for byte",
+        "tests/test_splice.py a resolutions key naming no group is inert",
+        "tests/test_splice.py a per-key entry takes precedence over on_conflict for its own group",
+        "tests/test_splice.py conflict_rows are populated on the abort path and the clean path alike",
+        "full suite run under the SYSTEM interpreter",
+        "tests/test_splice.py the identity key of an unchanged group survives an added source",
+        "tests/test_splice.py an enlarged group carries a different identity key"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 2,
+          "file": "traktor_nml/splice.py",
+          "function": "_resolve_conflicts",
+          "behavior": "_resolve_conflicts takes resolutions, a mapping from an identity-group key to the token base or source, defaulting to an empty mapping. For a group whose tracked attributes diverge the mapping is consulted first: base picks the group's base-input record; source picks the group's non-base record chosen by the run-wide picker; and the group's ConflictRow records that resolution rather than the unresolved token. A divergent group the mapping does not name falls to on_conflict, and a group neither names sets unresolved and contributes a ConflictRow carrying the unresolved token. resolutions is a named keyword parameter rather than an appended positional, and every caller found by grep - assemble_output in traktor_nml/splice.py, _handle_splice in traktor_nml/commands/splice_cmd.py, the direct uses in tests/test_splice.py and the call in traktor_nml/gui/app.py - is read against the widened signature in the same change. ConflictRow carries a content-derived identity key rather than the group's union-find root index: the primary key of the group's sole base-input record where it holds one, and the sorted tuple of the group's member primary keys where it holds none. Every conflicting group spans at least two inputs and so holds at least two records, which makes the derivation total. resolutions is looked up on that same derived key, so what the mapping names is a set of records rather than a position in the flat all_records list.",
+          "decision_refs": [
+            "DL-104",
+            "DL-105",
+            "DL-114"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "traktor_nml/splice.py",
+          "function": "assemble_output",
+          "behavior": "assemble_output takes resolutions as a named keyword parameter defaulting to an empty mapping and hands it to _resolve_conflicts. The abort path is reached exactly when a divergent group is left undecided by both resolutions and on_conflict and returns SpliceResult with output None, errors carrying unresolved_conflicts and conflict_rows populated, before any span is rewritten, so output is None exactly when errors is non-empty. The module docstring's account of the merge names the per-key mapping alongside on_conflict as the two ways a divergence is settled and keeps DL-008's abort as what an undecided divergence does.",
+          "decision_refs": [
+            "DL-104",
+            "DL-105"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "traktor_nml/commands/splice_cmd.py",
+          "function": null,
+          "behavior": "The splice subcommand's parser carries --on-conflict with its keep-first and keep-last choices and no resolutions argument, and _handle_splice calls assemble_output without a resolutions mapping, so the command's behaviour over any input is what it is with the parameter absent.",
+          "decision_refs": [
+            "DL-108"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 2,
+          "file": "tests/test_splice.py",
+          "function": null,
+          "behavior": "Guards cover a base resolution, a source resolution, a mixed run that resolves some groups and aborts on another, an empty mapping reproducing the omitted-parameter bytes, an inert unmatched resolutions key, the precedence of a per-key entry over on_conflict for its own group, and conflict_rows populated on both paths. Each guard is made to fail first and its docstring records the specific mutation applied to the module and the specific output observed under it. A further guard runs the same base collection twice - once against one source and once against that source plus a second - and asserts that the identity key of a group whose member set is unchanged is identical across both runs, and that a group whose member set the second source enlarged carries a different key.",
+          "decision_refs": [
+            "DL-104",
+            "DL-105",
+            "DL-114"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null,
+      "decision_refs": [
+        "DL-104",
+        "DL-105",
+        "DL-108",
+        "DL-114",
+        "DL-115"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "The nicegui-free conflict model",
+      "files": [
+        "traktor_nml/gui/conflict_model.py",
+        "tests/test_gui_conflict_model.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "the conflict decision states the row projection the bulk resolution and the write-refusal reason sit below the nicegui boundary",
+        "the resolutions mapping handed to the core omits undecided keys and keys the current rows do not name",
+        "a held decision re-attaches only where the identity key names a group with the identical member primary keys",
+        "a changed member set or a vanished key leaves the row undecided and counted outstanding"
+      ],
+      "acceptance_criteria": [
+        "traktor_nml/gui/conflict_model.py imports neither nicegui nor webview and tests/test_gui_view_boundary.py passes over it unchanged",
+        "a fresh decision set reports every key undecided and an outstanding count equal to the number of conflict rows",
+        "resolving a key to base or to source reads that side back and resetting it reads back what a fresh set reads",
+        "all-base and all-source set every undecided key and leave a key already decided the other way standing",
+        "the resolutions mapping omits undecided keys entirely",
+        "a decision for a key absent from the current conflict rows contributes nothing to the resolutions mapping",
+        "the write refusal separates no preview held from a held preview that refused and names the outstanding count in the second",
+        "a held preview carrying output yields no refusal",
+        "the full suite under the SYSTEM interpreter reports 417 passed and 3 skipped plus this milestone's guards",
+        "a decision whose group's member primary keys are unchanged re-attaches across a second conflict-row list",
+        "a decision whose group an added source enlarged reads back undecided and raises the outstanding count",
+        "a re-preview after an added source that enlarges a decided group yields a refusal rather than a write"
+      ],
+      "tests": [
+        "tests/test_gui_conflict_model.py a row projects the identity key the divergent attribute names and both sides' values",
+        "tests/test_gui_conflict_model.py resolving to base and to source reads back",
+        "tests/test_gui_conflict_model.py a fresh set and one reset key by key behave identically",
+        "tests/test_gui_conflict_model.py bulk all-base leaves an explicit source pick standing",
+        "tests/test_gui_conflict_model.py the resolutions mapping carries only decided and still-present keys",
+        "tests/test_gui_conflict_model.py the refusal separates never-previewed from refused-with-conflicts-outstanding",
+        "tests/test_gui_view_boundary.py the AST walk over the package",
+        "tests/test_gui_conflict_model.py a decision re-attaches when the group's member set is unchanged",
+        "tests/test_gui_conflict_model.py a decision on a group an added source enlarged returns to undecided",
+        "tests/test_gui_conflict_model.py a vanished key contributes nothing to the resolutions mapping"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 2,
+          "file": "traktor_nml/gui/conflict_model.py",
+          "function": null,
+          "behavior": "The module holds the operator's conflict decisions and the rows they produce and imports no nicegui and no webview, so the suite's system interpreter reaches every rule in it. A decision set maps an identity key to undecided, base or source; a key absent from the mapping reads back undecided, so a fresh set and one reset key by key behave identically. resolve sets one key; resolve_all sets every undecided key to one side and leaves an explicitly decided key standing; the resolutions projection returns only decided keys restricted to the keys the current conflict rows name, so a decision for a vanished key contributes nothing. The row projection turns a ConflictRow plus its decision into what the page renders: the identity key, the divergent attribute names, the base side's values, the source side's values and the decision. outstanding counts the undecided rows. write_refusal returns the reason a write cannot proceed - no preview held, or a held preview that refused with a named count of conflicts outstanding - and returns nothing when the held result carries output. What the tool found stays apart from what the operator said, the way review_model.py keeps status apart from decision. Re-attachment across a re-preview compares membership rather than trusting the key alone: a held decision stands only where its identity key names a group whose member primary keys are the identical set, and a key naming no group, or a group whose member set differs, leaves the row undecided and counted toward outstanding. A re-preview after a source is added therefore refuses the write and shows the affected rows again rather than applying a pick made against a member set that has since changed.",
+          "decision_refs": [
+            "DL-106",
+            "DL-107",
+            "DL-111",
+            "DL-112",
+            "DL-114",
+            "DL-115"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 2,
+          "file": "tests/test_gui_conflict_model.py",
+          "function": null,
+          "behavior": "Guards cover the row projection, the three decision states, bulk resolution over a mixed decision set, the resolutions mapping's restriction to decided and still-present keys, re-attachment across a second conflict-row list, and the three write-refusal outcomes. Each guard is made to fail first and its docstring records the specific mutation applied and the specific output observed under it, matching the register tests/test_gui_wizard_state.py uses. Three further guards cover re-attachment: an unchanged member set keeps its decision; a group the added source enlarged returns to undecided and raises the outstanding count; and a key naming no group in the new rows contributes nothing to the resolutions mapping.",
+          "decision_refs": [
+            "DL-106",
+            "DL-107",
+            "DL-111",
+            "DL-112",
+            "DL-114",
+            "DL-115"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null,
+      "decision_refs": [
+        "DL-106",
+        "DL-107",
+        "DL-111",
+        "DL-112",
+        "DL-114",
+        "DL-115"
+      ],
+      "depends_on": [
+        "M-002"
+      ]
+    },
+    {
+      "id": "M-004",
+      "version": 2,
+      "number": 4,
+      "name": "Conflict resolution on the /reconstruct page",
+      "files": [
+        "traktor_nml/gui/app.py",
+        "tests/test_gui_conflict_page_controls.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "the abort path renders the conflict rows in place of the bare token",
+        "a run-wide conflict choice is offered on the page",
+        "per-track rows carry a base-or-source pick alongside bulk actions and an outstanding count",
+        "the write control's refusal names why it refused",
+        "the page's two parts are sequenced: the conflict-row rendering and the run-wide choice land ahead of the per-row picks that rest on M-002 and M-003"
+      ],
+      "acceptance_criteria": [
+        "a preview that refuses renders one row per conflicting track carrying the identity key the divergent attribute names and both sides' values",
+        "no bare unresolved_conflicts token stands alone on the page",
+        "the page's run-wide conflict control reaches assemble_output's on_conflict parameter with keep-first and keep-last as its choices",
+        "the page's per-track picks reach assemble_output's resolutions parameter and nothing else",
+        "a re-preview after changing the output path keeps every pick, and a re-preview after adding a source keeps every pick whose group membership is unchanged while showing the rest undecided",
+        "the write control refuses a never-run preview and a refused preview with different text and the second names the outstanding count",
+        "a preview resolving every conflict yields a result the write control writes",
+        "the rows are hand-rolled ui.row rows and traktor_nml/gui/app.py holds no ui.aggrid call",
+        "no decision projection or count arithmetic lives in traktor_nml/gui/app.py; it is read from traktor_nml/gui/conflict_model.py",
+        "traktor_nml/gui/app.py is 100% CRLF with zero bare LF and tests/test_gui_line_endings.py passes",
+        "tests/test_gui_view_boundary.py passes over app.py",
+        "a gate run from the gate repository serves the page and carries a conflicting collection pair through preview then per-row picks then a bulk action then a write",
+        "the full suite under the SYSTEM interpreter reports 417 passed and 3 skipped plus this milestone's guards",
+        "the conflict-row rendering and the run-wide choice are demonstrable with no resolutions mapping present"
+      ],
+      "tests": [
+        "tests/test_gui_conflict_page_controls.py the conflict rendering reads conflict_model's row projection",
+        "tests/test_gui_conflict_page_controls.py the write refusal reads write_refusal rather than testing result.output against None",
+        "tests/test_gui_conflict_page_controls.py the run-wide control's choices match the splice subcommand's own",
+        "tests/test_gui_conflict_page_controls.py no ui.aggrid call appears in app.py",
+        "tests/test_gui_conflict_page_controls.py no decision arithmetic is written inline in app.py",
+        "tests/test_gui_line_endings.py app.py line endings",
+        "tests/test_gui_view_boundary.py the AST walk over app.py",
+        "gate run from the gate repository over a conflicting collection pair"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 2,
+          "file": "traktor_nml/gui/app.py",
+          "function": "_build_reconstruct_page",
+          "behavior": "The /reconstruct page holds a conflict decision set beside its base, source and result holders, so picks outlive a re-preview and are discarded with the process. preview passes the page's run-wide conflict choice as on_conflict and the decision set's resolutions projection as resolutions. On a refused run the report renders the rows conflict_model projects - one hand-rolled ui.row per conflicting track carrying the identity key, the divergent attribute names and the base and source values, with a two-state pick per row - above an all-base action, an all-source action and the outstanding count. Error tokens other than the conflict abort keep rendering as the tokens they are. The write control renders conflict_model's write_refusal reason when it refuses, so a preview that ran and refused reads differently from one that never ran, and writes the held output otherwise. Rows are hand-rolled rather than ui.aggrid, and every count, projection and decision transition is imported from conflict_model rather than computed here. The page's work is sequenced in two parts because a file belongs to one milestone. The first part depends on no core change and lands before the rest: the conflict rows rendered in place of the bare token, and the run-wide conflict choice reaching on_conflict. The second part rests on the core's derived identity key and on conflict_model, and carries the per-row picks, the bulk actions, the outstanding count and the refusal reason. A re-preview shows again, undecided, every row whose group membership the run changed. The file is read and written with newline='' so its CRLF line endings stay whole.",
+          "decision_refs": [
+            "DL-104",
+            "DL-106",
+            "DL-107",
+            "DL-109",
+            "DL-110",
+            "DL-111",
+            "DL-112",
+            "DL-113"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 1,
+          "file": "tests/test_gui_conflict_page_controls.py",
+          "function": null,
+          "behavior": "An AST walk over traktor_nml/gui/app.py guards what the page delegates: the conflict rendering reads conflict_model's row projection; the write refusal reads write_refusal rather than testing result.output against None; the run-wide control's choices match the splice subcommand's keep-first and keep-last; no ui.aggrid call appears; and no decision arithmetic is written inline. Each guard is made to fail first and its docstring records the specific mutation applied to app.py's source and the specific output observed under it, matching the register tests/test_gui_view_boundary.py uses.",
+          "decision_refs": [
+            "DL-110",
+            "DL-111",
+            "DL-113"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null,
+      "decision_refs": [
+        "DL-104",
+        "DL-106",
+        "DL-107",
+        "DL-109",
+        "DL-110",
+        "DL-111",
+        "DL-112",
+        "DL-113",
+        "DL-115"
+      ],
+      "depends_on": [
+        "M-001",
+        "M-002",
+        "M-003"
+      ]
+    },
+    {
+      "id": "M-005",
+      "version": 2,
+      "number": 5,
+      "name": "Decision log and retained plan",
+      "files": [
+        "traktor_nml/README.md",
+        "traktor_nml/gui/CLAUDE.md",
+        "docs/plans/2026-08-31-conflict-resolution/plan.json",
+        "docs/plans/2026-08-31-conflict-resolution/context.json"
+      ],
+      "flags": [],
+      "requirements": [
+        "the decision log carries DL-104 onward continuing its own numbering",
+        "the gui file map carries conflict_model.py and its boundary paragraph names it",
+        "the plan is retained in the shape docs/plans/README.md describes"
+      ],
+      "acceptance_criteria": [
+        "traktor_nml/README.md's decision log runs DL-001 through DL-113 with no gap and no duplicate",
+        "DL-008's entry and the entries added here read together without contradiction",
+        "traktor_nml/gui/CLAUDE.md's file table carries conflict_model.py with what it holds and when to read it",
+        "the nicegui boundary paragraph in traktor_nml/gui/CLAUDE.md names conflict_model.py among the modules importing neither framework",
+        "docs/plans/2026-08-31-conflict-resolution/ holds plan.json and context.json in the shape 2026-08-29-playlist-reconstruction holds",
+        "no sentence in either README describes a change rather than the code as it stands",
+        "the full suite under the SYSTEM interpreter reports 417 passed and 3 skipped plus the earlier milestones' guards"
+      ],
+      "tests": [
+        "no executable guard: documentation is read against the code the other milestones land"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-005-001",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": null,
+          "behavior": "The Design Decisions section carries DL-104 through DL-113, each with its decision and the reasoning chain reaching it, continuing the log above DL-103. DL-008's entry stands as written and the entries here read against it: an undecided divergence aborts the write with the conflict report produced either way, and a resolution is a winner the operator named rather than one the tool chose. Every sentence describes the code as it stands.",
+          "decision_refs": [
+            "DL-104",
+            "DL-105",
+            "DL-106",
+            "DL-107",
+            "DL-108",
+            "DL-109",
+            "DL-110",
+            "DL-111",
+            "DL-112",
+            "DL-113"
+          ]
+        },
+        {
+          "id": "CI-M-005-002",
+          "version": 1,
+          "file": "traktor_nml/gui/CLAUDE.md",
+          "function": null,
+          "behavior": "The file table carries conflict_model.py: the conflict decision states, the row projection, the bulk resolution, the resolutions mapping and the write-refusal reason, read when any of those change. The nicegui boundary paragraph lists conflict_model.py among the modules importing neither nicegui nor pywebview and reachable from the suite's system interpreter.",
+          "decision_refs": [
+            "DL-106"
+          ]
+        },
+        {
+          "id": "CI-M-005-003",
+          "version": 1,
+          "file": "docs/plans/2026-08-31-conflict-resolution/plan.json",
+          "function": null,
+          "behavior": "The retained plan carries the overview, the decision log from DL-104, and the milestones with their files, requirements, acceptance criteria, tests and code intents, in the shape docs/plans/2026-08-29-playlist-reconstruction/plan.json holds.",
+          "decision_refs": [
+            "DL-105"
+          ]
+        },
+        {
+          "id": "CI-M-005-004",
+          "version": 1,
+          "file": "docs/plans/2026-08-31-conflict-resolution/context.json",
+          "function": null,
+          "behavior": "The retained context carries the task spec, the constraints, the entry points, the rejected alternatives, the settled assumptions and the invisible knowledge the plan was built from, in the shape the sibling plan directory holds.",
+          "decision_refs": [
+            "DL-105"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null,
+      "decision_refs": [
+        "DL-104",
+        "DL-105",
+        "DL-106",
+        "DL-107",
+        "DL-108",
+        "DL-109",
+        "DL-110",
+        "DL-111",
+        "DL-112",
+        "DL-113",
+        "DL-114",
+        "DL-115"
+      ],
+      "depends_on": [
+        "M-001",
+        "M-002",
+        "M-003",
+        "M-004"
+      ]
+    }
+  ],
+  "waves": [],
+  "diagram_graphs": [],
+  "readme_entries": []
+}

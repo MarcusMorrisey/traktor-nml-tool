@@ -1,0 +1,155 @@
+{
+  "phase": "plan-design",
+  "iteration": 4,
+  "verdict": "REVISE",
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every non-obvious choice in the approach has a logged decision with a multi-step reasoning chain",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "DL-104..DL-113; each reasoning is premise -> implication -> conclusion"
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every decision_ref in every code_intent resolves to a decision in planning_context.decisions",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "13 code_intents, 0 dangling refs"
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Every logged decision is referenced by at least one code_intent",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "0 unused decisions"
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "No milestone is an orphan (every milestone carries at least one code_intent)",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "M-001:1 M-002:4 M-003:2 M-004:2 M-005:4"
+    },
+    {
+      "id": "qa-005",
+      "scope": "diagram_graphs",
+      "check": "No orphan nodes / invalid edge refs / invalid scope refs",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "diagram_graphs empty; no nodes to orphan"
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "No policy default is asserted without operator/Tier-1 backing",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "session-only persistence (DL-107), CLI unchanged (DL-108), Specs-first (DL-109) all trace to SETTLED-by-operator assumptions in context.json"
+    },
+    {
+      "id": "qa-007",
+      "scope": "DL-105",
+      "check": "The plan reconciles DL-008 explicitly rather than silently replacing it",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "DL-105 keeps abort as undecided-divergence behaviour; empty-mapping byte-identity is an acceptance criterion in M-002"
+    },
+    {
+      "id": "qa-008",
+      "scope": "DL-104",
+      "check": "The widened core signature is a named element with callers enumerated",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "named keyword, callers enumerated: assemble_output, _handle_splice, tests/test_splice.py"
+    },
+    {
+      "id": "qa-009",
+      "scope": "planning_context.constraints",
+      "check": "All constraints from context.json are documented in the plan",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "planning_context.constraints is empty; 13 MUST/SHOULD constraints (nicegui boundary DL-069, CRLF, fail-first guards, gate run, 417/3 suite, DL-104 start, delivery path, no-regeneration of parity manifest / no git checkout) live only in context.json. Most are traceable through decisions or acceptance criteria, but the MUST NOT pair (never regenerate the parity manifest or gate fixture; never restore a file with git checkout) appears nowhere in plan.json.",
+      "version": 3
+    },
+    {
+      "id": "qa-010",
+      "scope": "planning_context.risks",
+      "check": "Risks are identified and each carries a mitigation",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "risks list is empty. Unstated risks the plan visibly carries: (a) a large conflict set rendered as hand-rolled ui.row rows (hundreds) has no stated page-performance mitigation beyond bulk actions; (b) identity-key stability across a re-preview after a source is ADDED is asserted by DL-107 but group membership can change when a new input joins a group, which could silently re-key or invalidate a decision; (c) M-001 and M-005 have no executable guard.",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "Rejected alternatives are carried into the plan with their reasons",
+      "status": "PASS",
+      "severity": "COULD",
+      "note": "empty in plan.json; the 4 alternatives from context.json (page-wide --on-conflict as the whole answer, CLI-only, ui.aggrid, logic in app.py) survive only inside decision reasoning (DL-108, DL-110, DL-112, DL-106)",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "milestones[]",
+      "check": "Milestone-level decision_refs are present",
+      "status": "FAIL",
+      "severity": "COULD",
+      "note": "no milestone carries decision_refs; coverage exists only at code_intent level",
+      "version": 2,
+      "finding": "No milestone in plan.json has a decision_refs field; M-001..M-005 lack the key entirely despite DL-007/008/069/071/079/084/100 bearing on them."
+    },
+    {
+      "id": "qa-013",
+      "scope": "M-004",
+      "check": "The sequencing DL-112 asserts (two cheap unblocks land first inside the page milestone) is expressed in the plan structure",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "CI-M-004-001 bundles the unblocks and the per-row picks into one intent over app.py; the 'first' ordering is stated only in prose, and M-004 also depends on M-002/M-003 with no dependency field and waves empty",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "invisible_knowledge",
+      "check": "Invisible knowledge is captured with system, invariants and tradeoffs",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "system paragraph + 7 invariants + 5 tradeoffs; carries the DL-101 missing-mapping passthrough and the output-is-None-iff-errors invariant"
+    },
+    {
+      "id": "qa-015",
+      "scope": "*",
+      "check": "No reasoning chain is a bare premise without an implication",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "all ten use the explicit -> chain form"
+    },
+    {
+      "id": "qa-016",
+      "scope": "DL-113",
+      "check": "The served-page gate run is an acceptance criterion rather than an optional follow-up",
+      "status": "PASS",
+      "severity": "SHOULD"
+    },
+    {
+      "id": "qa-017",
+      "scope": "planning_context.decision_id_start",
+      "check": "New decisions start at DL-104",
+      "status": "PASS",
+      "severity": "MUST"
+    },
+    {
+      "id": "qa-018",
+      "scope": "*",
+      "check": "Out-of-scope items (accessibility, reconnect review step, TODO.md gaps, sibling repo) are not smuggled back into milestones",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "accessibility named as an explicit tradeoff; waves and code_changes empty as the spec requires"
+    }
+  ]
+}
