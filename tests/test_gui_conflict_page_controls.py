@@ -1,9 +1,10 @@
-"""Guards what the /reconstruct page's conflict surface delegates,
-without importing nicegui - the suite runs on the system interpreter,
-which has none. What is tested here is app.py's source, by AST walk,
-matching the register tests/test_gui_view_boundary.py uses: each guard
-constructs its scenario over the real source and its docstring records
-the mutation applied to app.py and the output observed under it.
+"""Guards what the conflict surface of the page registered at '/'
+delegates, without importing nicegui - the suite runs on the system
+interpreter, which has none. What is tested here is app.py's source, by
+AST walk, matching the register tests/test_gui_view_boundary.py uses:
+each guard constructs its scenario over the real source and its
+docstring records the mutation applied to app.py and the output
+observed under it.
 
 The rule these five guards hold together is one rule: the page renders
 and the model decides. The conflict rows come from conflict_model's row

@@ -892,3 +892,108 @@ def test_button_focus_ring_declares_inside_quasars_own_layer():
     assert _button_focus_ring_layers(sheet) == ["quasar_importants"]
     renamed = sheet.replace("@layer quasar_importants", "@layer wizard_overrides")
     assert _button_focus_ring_layers(renamed) == ["wizard_overrides"]
+
+
+# The five rules the header row, its brand mark, its divider and its
+# two tab states are painted by. Held here as a tuple rather than a
+# pattern so a rule dropped from page_stylesheet() is reported by name.
+_HEADER_AND_TAB_SELECTORS = (
+    "wizard-header-bar",
+    "wizard-brand",
+    "wizard-header-divider",
+    "wizard-tab",
+    "wizard-tab-selected",
+)
+
+
+def _rule_body(sheet: str, selector: str) -> str:
+    """One .wizard-* rule's own declaration block, read out of the
+    emitted stylesheet by the same _CLASS_RULE regex the class scan
+    above uses."""
+    for name, body in _CLASS_RULE.findall(sheet):
+        if name == selector:
+            return body
+    raise AssertionError(f".{selector} rule not found in the stylesheet")
+
+
+def test_header_and_tab_selectors_are_present_and_number_five():
+    """Each of .wizard-header-bar, .wizard-brand,
+    .wizard-header-divider, .wizard-tab and .wizard-tab-selected starts
+    a rule tinycss2 parses out of the emitted stylesheet, and the count
+    of those parsed selectors is five - the count is what a '#' line
+    swallowing one of them changes without changing the string.
+
+    Mutation: the .wizard-header-divider rule's line was deleted from
+    theme.py and this guard rerun. Observed:
+        AssertionError: header and tab rules missing from the parsed
+        stylesheet: ['wizard-header-divider']
+        assert ['wizard-header-divider'] == []
+    """
+    parsed = _parsed_wizard_selectors(theme.page_stylesheet())
+    present = [name for name in _HEADER_AND_TAB_SELECTORS if name in parsed]
+    missing = [name for name in _HEADER_AND_TAB_SELECTORS if name not in parsed]
+    assert missing == [], f"header and tab rules missing from the parsed stylesheet: {missing}"
+    assert len(present) == 5
+
+
+def test_no_stylesheet_line_begins_with_a_hash():
+    """CSS has no '#' comment form: a line opening with '#' is an ID
+    selector whose block is the text following it, so it swallows the
+    next rule and raises nothing (DL-136). No line of the emitted
+    string has '#' as its first non-space character.
+
+    Mutation: the /* */ note above the .wizard-tab-selected rule was
+    replaced with the line '# Main.dc.html:25 .st.now' in theme.py and
+    this guard rerun. Observed:
+        AssertionError: stylesheet line opens an ID selector:
+        ['# Main.dc.html:25 .st.now']
+        assert ['# Main.dc.html:25 .st.now'] == []
+    Under the same mutation _parsed_wizard_selectors no longer carries
+    'wizard-tab-selected', which is the rule that '#' line consumed.
+    """
+    offending = [
+        line for line in theme.page_stylesheet().splitlines()
+        if line.strip().startswith("#")
+    ]
+    assert offending == [], f"stylesheet line opens an ID selector: {offending}"
+
+
+def test_selected_tab_rule_declares_the_measured_ground_and_ink():
+    """.wizard-tab-selected paints Main.dc.html:25's .st.now treatment:
+    theme.SURFACE_4 as its background and theme.TEXT as its colour,
+    read out of the rule's own declaration block rather than asserted
+    over the whole sheet.
+
+    Mutation: the rule's background was changed from SURFACE_4 to
+    SURFACE_3 in theme.py and this guard rerun. Observed:
+        AssertionError: assert '#1F2225' == '#22262A'
+    """
+    body = _rule_body(theme.page_stylesheet(), "wizard-tab-selected")
+    background = _BACKGROUND_DECL.search(body)
+    colour = _COLOUR_DECL.search(body)
+    assert background is not None, "wizard-tab-selected declares no background"
+    assert colour is not None, "wizard-tab-selected declares no colour"
+    assert background.group(1) == theme.SURFACE_4
+    assert colour.group(1) == theme.TEXT
+
+
+def test_unselected_tab_rule_declares_faint_ink_and_no_background():
+    """.wizard-tab paints Main.dc.html:22's .st: theme.TEXT_FAINT ink
+    and no background of its own, so an unselected tab reads on the
+    header row's own ground and the selected state is the only one
+    carrying a ground.
+
+    Mutation: 'background: {SURFACE_2}; ' was inserted into the
+    .wizard-tab rule in theme.py and this guard rerun. Observed:
+        AssertionError: wizard-tab declares a background: #17191C
+        assert <re.Match object; span=(1, 20),
+        match='background: #17191C'> is None
+    """
+    body = _rule_body(theme.page_stylesheet(), "wizard-tab")
+    colour = _COLOUR_DECL.search(body)
+    assert colour is not None, "wizard-tab declares no colour"
+    assert colour.group(1) == theme.TEXT_FAINT
+    background = _BACKGROUND_DECL.search(body)
+    assert background is None, (
+        f"wizard-tab declares a background: {background.group(1) if background else None}"
+    )

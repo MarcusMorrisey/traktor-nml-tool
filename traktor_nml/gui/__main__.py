@@ -1,4 +1,4 @@
-"""Entry point that starts the reconnect wizard: `python -m traktor_nml.gui`.
+"""Entry point that starts the application: `python -m traktor_nml.gui`.
 
 Lives here rather than as a traktor_nml/commands/ subcommand because
 commands/__init__.py imports every command module at CLI startup, before
@@ -16,4 +16,4 @@ from .app import build_wizard
 build_wizard()
 
 if __name__ in {"__main__", "__mp_main__"}:
-    ui.run(title="traktor-nml-tool - reconnect wizard", native=True, reload=False)
+    ui.run(title="traktor-nml-tool", native=True, reload=False)

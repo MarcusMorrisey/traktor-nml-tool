@@ -52,6 +52,7 @@ from ..model import collection_records
 from ..rewrite import read_and_parse_source, write_bytes_atomically
 from ..splice import assemble_output
 from . import conflict_model
+from . import navigation
 from . import review_model
 # theme.py is the only source for a colour or size literal in this module (DL-078).
 from . import wizard_state
@@ -153,20 +154,56 @@ def _rows_for_filter(state: _WizardPageState, filter_key: str):
     return rows
 
 
-def _page_chrome() -> None:
+def _page_chrome(active_route: str) -> None:
     """The colour, dark-mode and stylesheet preamble every page in this
-    module applies. Shared so a second route cannot drift from the
-    wizard's own theme (DL-078, DL-085)."""
+    module applies, followed by the header the active route selects a
+    tab in. Shared so a second route cannot drift from the wizard's own
+    theme (DL-078, DL-085) and so the tab set cannot fork: both pages
+    build their header from this one call site (DL-134)."""
     # Quasar's primary set carries theme.ACTION; dark/dark-page are fed
     # from the ground and surface tokens so Quasar's own dark components
     # land on the measured surfaces rather than a framework default.
     ui.colors(primary=theme.ACTION, dark=theme.SURFACE_2, dark_page=theme.GROUND)
     ui.dark_mode(True)
     ui.add_head_html(f"<style>{theme.page_stylesheet()}</style>")
+    _build_header(active_route)
+
+
+def _build_header(active_route: str) -> None:
+    """The brand mark, the divider and the section tab strip, in that
+    order. One ui.link per record navigation.header_tabs(active_route)
+    returns, in the order it returns them: the record's route is the
+    link's target, its class string reaches .classes() and its
+    aria-current value - present on the selected record alone - is
+    rendered as a prop.
+
+    Neither a route nor a label is written here. navigation.SECTIONS is
+    the one place either is written and navigation.header_tabs decides
+    which record is selected, so this function renders and decides
+    nothing (DL-139, DL-144). The class strings it carries are
+    navigation.TAB_CLASS and navigation.TAB_SELECTED_CLASS, whose
+    values are theme.py's own "wizard-tab" and "wizard-tab-selected"
+    rules.
+
+    The class string is computed below the framework boundary, so it
+    reaches .classes() through its add= parameter as a value rather
+    than as a literal at this call site; what each tab actually carries
+    is read back from a recording stub in
+    tests/test_gui_header_tabs.py."""
+    with ui.row().classes("w-full items-center gap-3 wizard-header-bar"):
+        ui.label("traktor-nml-tool").classes("wizard-brand")
+        ui.element("span").classes("wizard-header-divider")
+        with ui.element("nav").props('aria-label="Sections"').classes(
+            "flex items-center gap-1"
+        ):
+            for tab in navigation.header_tabs(active_route):
+                link = ui.link(tab.label, tab.route).classes(add=tab.classes)
+                if tab.aria_current is not None:
+                    link.props(f'aria-current="{tab.aria_current}"')
 
 
 def build_wizard() -> None:
-    """Registers the wizard's single page at '/'. Called from
+    """Registers the reconnect wizard at '/reconnect'. Called from
     __main__.py; kept separate from ui.run() so a test importing this
     module (which itself imports nicegui) is never exercised by the
     nicegui-free suite - only __main__.py calls both this and ui.run."""
@@ -184,18 +221,17 @@ def build_wizard() -> None:
 
     _build_reconstruct_page()
 
-    @ui.page("/")
+    @ui.page("/reconnect")
     def index() -> None:
         # Quasar's primary set carries theme.ACTION; dark/dark-page are
         # fed from the ground and surface tokens so Quasar's own dark
         # components land on the measured surfaces rather than a
         # framework default (DL-078, DL-085).
-        _page_chrome()
+        _page_chrome("/reconnect")
 
         state = _WizardPageState()
 
         with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
-            ui.label("Reconnect wizard").classes("text-xl font-semibold")
             # Created once per page load, before any step that announces into them.
             state.polite_region, state.assertive_region = build_live_regions()
             stepper = ui.stepper().props("vertical").classes("w-full")
@@ -204,7 +240,6 @@ def build_wizard() -> None:
                 _build_scan_step(state, stepper)
                 _build_review_step(state, stepper)
                 _build_write_step(state, stepper)
-            ui.link("Reconstruct playlists from another collection", "/reconstruct")
 
 
 def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
@@ -1212,13 +1247,14 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         render()
 
 # The error token assemble_output reports when a divergent identity group
-# is left unresolved. The /reconstruct page renders the rows the same run
+# is left unresolved. The page the reconstruct screen answers, '/',
+# renders the rows the same run
 # returned in its place, so the token itself never reaches the operator.
 _CONFLICT_ABORT_TOKEN = "unresolved_conflicts"
 
 
 def _build_reconstruct_page() -> None:
-    """Registers the playlist-reconstruction screen at '/reconstruct'.
+    """Registers the playlist-reconstruction screen at '/'.
 
     Its own route rather than a step in the reconnect stepper: the two
     operations share no pipeline. Reconnection scans a disk and reviews
@@ -1229,9 +1265,9 @@ def _build_reconstruct_page() -> None:
     and the file picker are shared; the flow is not.
     """
 
-    @ui.page("/reconstruct")
+    @ui.page("/")
     def reconstruct() -> None:
-        _page_chrome()
+        _page_chrome("/")
 
         base_holder: dict = {"path": None}
         source_holder: list = []
@@ -1247,7 +1283,6 @@ def _build_reconstruct_page() -> None:
         decisions = conflict_model.ConflictDecisions()
 
         with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
-            ui.label("Reconstruct playlists").classes("text-xl font-semibold")
             ui.label(
                 "My playlists kept their names but lost their contents; an older "
                 "collection still has them."

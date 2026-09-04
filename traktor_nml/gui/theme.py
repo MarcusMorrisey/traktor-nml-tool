@@ -124,6 +124,12 @@ SPACE_12 = "12px"
 # (5px, between its value and its key).
 SPACE_5 = "5px"
 SPACE_11 = "11px"
+# Main.dc.html:22's .st vertical padding (6px 12px), :19's .bar
+# height, and :16's .hd horizontal padding (0 24px) - the three
+# spacing steps the header row, its divider and its tabs measure at.
+SPACE_6 = "6px"
+SPACE_16 = "16px"
+SPACE_24 = "24px"
 RADIUS_SM = "4px"
 RADIUS_MD = "5px"
 RADIUS_LG = "6px"
@@ -213,6 +219,24 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-row:nth-child(odd) {{ background: {SURFACE_1}; }}
 .wizard-row:nth-child(even) {{ background: {SURFACE_5}; }}
 .wizard-row-focused {{ outline: {FOCUS_RING}; outline-offset: {FOCUS_RING_OFFSET}; background: {BORDER_SUBTLE_5}; border-color: {BORDER_SUBTLE_7}; }}
+/* Main.dc.html:16's .hd - the header's own row: the SURFACE_2 ground,
+   the BORDER bottom rule and the 24px horizontal padding it carries. */
+.wizard-header-bar {{ display: flex; align-items: center; gap: {SPACE_12}; background: {SURFACE_2}; border-bottom: 1px solid {BORDER}; padding: 0 {SPACE_24}; }}
+/* Main.dc.html:18's .brand: the mono face at TYPE_11_5 in TEXT_FAINT
+   at the letter spacing it carries. */
+.wizard-brand {{ font: 500 {TYPE_11_5}/1 {FONT_MONO}; color: {TEXT_FAINT}; letter-spacing: .05em; white-space: nowrap; }}
+/* Main.dc.html:19's .bar: a one pixel BORDER_STRONG rule at its height. */
+.wizard-header-divider {{ width: {SPACE_1}; height: {SPACE_16}; background: {BORDER_STRONG}; flex: none; }}
+/* Main.dc.html:22's .st: TEXT_FAINT ink at TYPE_12_5 with its padding
+   and radius and no background of its own, so an unselected tab reads
+   on the header row's own ground. */
+.wizard-tab {{ display: flex; align-items: center; padding: {SPACE_6} {SPACE_12}; border-radius: {RADIUS_LG}; font-size: {TYPE_12_5}; color: {TEXT_FAINT}; text-decoration: none; white-space: nowrap; }}
+/* Main.dc.html:25's .st.now: the SURFACE_4 ground, the inset one pixel
+   BORDER_STRONG border, TEXT ink and weight 600. It carries ground,
+   border, ink and weight together because nothing else separates the
+   two tab states, and it is declared after .wizard-tab so the ink of
+   the selected tab wins at equal specificity. */
+.wizard-tab-selected {{ background: {SURFACE_4}; color: {TEXT}; box-shadow: inset 0 0 0 {SPACE_1} {BORDER_STRONG}; font-weight: 600; }}
 .wizard-title {{ font-size: {TYPE_21}; font-weight: 700; margin-bottom: {SPACE_8}; }}
 .wizard-subtle-1 {{ color: {TEXT_SUBTLE_1}; }}
 .wizard-subtle-2 {{ color: {TEXT_SUBTLE_2}; }}
