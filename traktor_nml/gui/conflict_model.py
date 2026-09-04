@@ -4,42 +4,53 @@ framework import.
 Two axes are kept apart throughout this module, the way review_model.py
 keeps the matcher's status apart from the operator's decision: a
 ConflictGroup is what the run found - one identity group's key, its
-divergent attribute names, its member primary keys and each side's
-values - and ConflictDecisions is what the operator said about it, one
-of undecided, base or source per identity key. A key absent from the
-decision mapping reads back undecided, so a fresh set and one reset key
-by key behave identically.
+divergent attribute names, its member primary keys and the distinct
+answers its records offer - and ConflictDecisions is what the operator
+said about it, either undecided or a candidate reference naming one of
+those answers. A key absent from the decision mapping reads back
+undecided, so a fresh set and one reset key by key behave identically.
 
-Re-attachment across a re-preview compares membership rather than
-trusting the key alone. record_keys cascades through every tier and
+A candidate reference is an (input index, primary key) pair, which is
+what _resolve_conflicts reads and what tells apart two records for one
+file in two inputs, whose primary keys are identical because the key is
+derived from the location (DL-004, DL-148). base and source survive here
+as operator-facing words on the page's labels and in the refusal
+sentence; they are no decision value this module carries.
+
+Re-attachment across a re-preview compares the answers on offer rather
+than trusting the key alone. record_keys cascades through every tier and
 group_identities unions across them, so an added source can pull a
-record into a group or merge two groups into one; a pick made against
-one member set says nothing about a larger one. A held decision stands
-only where its identity key names a group whose member primary keys are
-the identical set, and a key naming no group at all, or a group whose
-member set differs, leaves the row undecided and counted toward
-outstanding. A re-preview after a source is added therefore refuses the
-write and shows the affected rows again rather than applying a stale
-pick (DL-114, DL-115).
+record into a group, merge two groups into one, or add an answer to a
+group whose member primary keys do not change at all - a source holding
+one file at a location an existing member already holds contributes the
+primary key the group already carries, so the frozenset is the same set.
+A held pick therefore stands only where its identity key names a group
+whose member primary keys are the identical set AND whose candidates are
+the identical tuple; a key naming no group, a group whose membership
+differs, or a group whose answers differ leaves the row undecided and
+counted toward outstanding. A re-preview after a source is added refuses
+the write and shows the affected rows again rather than applying a pick
+made against answers that are no longer the answers on offer (DL-114,
+DL-115, DL-158).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
-from ..splice import ConflictRow, SpliceResult
+from ..splice import ConflictCandidate, ConflictRow, SpliceResult
 
-# The three decision states one identity key can carry. base and source
-# are the two tokens _resolve_conflicts' resolutions mapping accepts;
-# undecided is this module's own reading of a key the mapping omits, and
-# is never handed to the core.
+# The one decision state this module owns as a token. A decided key
+# carries an (input index, primary key) pair instead; undecided is this
+# module's own reading of a key the decision mapping omits, and is never
+# handed to the core.
 UNDECIDED = "undecided"
-BASE = "base"
-SOURCE = "source"
 
-SIDES = frozenset({BASE, SOURCE})
+# A reference to one answer a group offers: the (input index, primary
+# key) pair _resolve_conflicts reads to name the record that wins.
+CandidateRef = tuple[int, str]
 
 # The reasons a write cannot proceed, as write_refusal returns them.
 NO_PREVIEW = "no_preview"
@@ -53,41 +64,33 @@ IS_THE_BASE = "is_the_base"
 IS_A_SOURCE = "is_a_source"
 CONFLICTS_OUTSTANDING = "conflicts_outstanding"
 
-# Where a group holds more than one record on a side, that side's cell
-# names every distinct value it carries rather than picking one, since
-# the pick is exactly what the operator has not made yet.
-_VALUE_SEPARATOR = " / "
-
-# What a side holding no record at all reads as: a group with no base
-# record is settled by the run-wide picker over its non-base members, so
-# its base column has nothing to show.
-ABSENT = ""
-
 
 @dataclass(frozen=True)
 class ConflictGroup:
     """One conflicting identity group as the run reported it.
 
-    member_keys is the set the re-attachment rule compares: the primary
-    keys of every record the group holds, across every input.
+    member_keys and candidates are the two sets re-attachment compares:
+    the primary keys of every record the group holds across every input,
+    and one candidate per distinct answer over attrs, each naming the
+    records that supply it. Neither alone sees every change a re-preview
+    can make to a group (DL-158).
     """
 
     identity_key: str
     attrs: tuple[str, ...]
     member_keys: frozenset[str]
-    base_values: tuple[str, ...]
-    source_values: tuple[str, ...]
+    candidates: tuple[ConflictCandidate, ...]
 
 
 @dataclass(frozen=True)
 class ConflictRowView:
-    """One rendered row: the group plus the operator's decision on it."""
+    """One rendered row: the group's answers plus the operator's decision
+    over them. decision is UNDECIDED or the candidate reference picked."""
 
     identity_key: str
     attrs: tuple[str, ...]
-    base_values: tuple[str, ...]
-    source_values: tuple[str, ...]
-    decision: str
+    candidates: tuple[ConflictCandidate, ...]
+    decision: object
 
 
 @dataclass(frozen=True)
@@ -100,11 +103,40 @@ class WriteRefusal:
     outstanding: Optional[int] = None
 
 
-def _displayed(values: tuple[tuple[str, ...], ...]) -> tuple[str, ...]:
-    """One side's cells: each attribute's distinct values joined into the
-    one string that attribute's cell shows. An attribute the side carries
-    no value for joins to ABSENT."""
-    return tuple(_VALUE_SEPARATOR.join(distinct) for distinct in values)
+def candidate_reference(candidate: ConflictCandidate) -> CandidateRef:
+    """The pair a pick on this candidate records: its contributor of
+    lowest input index. The contributors agree on every divergent
+    attribute by construction, so the values written are the same
+    whichever one is named, and naming the lowest makes the recorded pair
+    deterministic (DL-150)."""
+    return candidate.members[0]
+
+
+def candidate_holding_input(
+    candidates: Iterable[ConflictCandidate], input_index: int
+) -> Optional[ConflictCandidate]:
+    """The answer the collection at this input index supplies, or None
+    where it holds no record in the group at all. A bulk action reads
+    this to settle the groups its collection has an answer for and to
+    leave the rest alone (DL-154)."""
+    for candidate in candidates:
+        if any(idx == input_index for idx, _ in candidate.members):
+            return candidate
+    return None
+
+
+def reference_from_input(
+    input_index: int,
+) -> Callable[[tuple[ConflictCandidate, ...]], Optional[CandidateRef]]:
+    """The predicate a bulk action for one collection hands resolve_all:
+    it answers the reference of the candidate that collection supplies,
+    or None for a group the collection holds no record in."""
+
+    def predicate(candidates: tuple[ConflictCandidate, ...]) -> Optional[CandidateRef]:
+        candidate = candidate_holding_input(candidates, input_index)
+        return None if candidate is None else candidate_reference(candidate)
+
+    return predicate
 
 
 # The attrs a ConflictRow carries when it reports something other than a
@@ -118,12 +150,11 @@ def conflict_groups(conflict_rows: Iterable[ConflictRow]) -> list[ConflictGroup]
     """The conflicting identity groups a run reported, projected from the
     rows the run itself produced.
 
-    Each row carries the membership and the per-side values the run's own
+    Each row carries the membership and the candidates the run's own
     grouping derived, so this is a projection and no grouping happens
-    here: the identity keys and the member sets are exactly the ones
-    _resolve_conflicts settled on, and cannot drift from them. Only the
-    display join belongs to this module - splice carries the distinct
-    values, this decides how a cell reads.
+    here: the identity keys, the member sets and the answers are exactly
+    the ones _resolve_conflicts settled on, and cannot drift from them.
+    No record and no MatchConfidence enters this call.
 
     A row that names no identity group a per-key resolution can settle is
     left out: the duplicate-playlist-name and ambiguous-redirect rows the
@@ -144,8 +175,7 @@ def conflict_groups(conflict_rows: Iterable[ConflictRow]) -> list[ConflictGroup]
                 identity_key=row.identity_key,
                 attrs=tuple(row.attrs.split(",")),
                 member_keys=row.member_keys,
-                base_values=_displayed(row.base_values),
-                source_values=_displayed(row.source_values),
+                candidates=row.candidates,
             )
         )
     return groups
@@ -153,11 +183,13 @@ def conflict_groups(conflict_rows: Iterable[ConflictRow]) -> list[ConflictGroup]
 
 @dataclass(frozen=True)
 class _Decision:
-    """One identity key's pick together with the member primary keys it
-    was made against - the set re-attachment compares."""
+    """One identity key's pick together with what it was made against -
+    the member primary keys and the answers on offer, which are the two
+    things re-attachment compares."""
 
-    side: str
+    reference: CandidateRef
     member_keys: frozenset[str]
+    candidates: tuple[ConflictCandidate, ...]
 
 
 class ConflictDecisions:
@@ -171,52 +203,88 @@ class ConflictDecisions:
     def __init__(self) -> None:
         self._decisions: dict[str, _Decision] = {}
 
-    def resolve(self, group: ConflictGroup, side: str) -> None:
-        """Set one group to base or source, recording the member set the
-        pick is made against. Any other token is a programming error in
-        the caller, not an operator-reachable state."""
-        if side not in SIDES:
-            raise ValueError(f"side must be one of {sorted(SIDES)}, got {side!r}")
-        self._decisions[group.identity_key] = _Decision(side, group.member_keys)
+    def resolve(self, group: ConflictGroup, reference: CandidateRef) -> None:
+        """Pick one of this group's answers, recording the member set and
+        the candidate set the pick is made against.
+
+        The reference names any contributor of one candidate, and the
+        pick recorded is that candidate's own reference, so two
+        collections supplying one answer record the same pair (DL-150). A
+        reference no candidate of the group carries is a programming
+        error in the caller rather than stale operator input: this module
+        builds the mapping from the groups it holds, so it never emits a
+        pair its group does not carry (DL-159).
+        """
+        for candidate in group.candidates:
+            if tuple(reference) in candidate.members:
+                self._decisions[group.identity_key] = _Decision(
+                    candidate_reference(candidate), group.member_keys, group.candidates
+                )
+                return
+        raise ValueError(
+            f"reference {reference!r} names no candidate of group {group.identity_key!r}"
+        )
 
     def reset(self, identity_key: str) -> None:
         """Return one key to undecided, whether or not it is decided."""
         self._decisions.pop(identity_key, None)
 
-    def decision(self, group: ConflictGroup) -> str:
-        """The pick held for this group, or undecided.
+    def decision(self, group: ConflictGroup) -> object:
+        """The pick held for this group as a candidate reference, or
+        UNDECIDED.
 
         A held pick stands only where the group's member primary keys are
-        the identical set it was made against; a changed set reads back
-        undecided (DL-115).
+        the identical set and its candidates are the identical tuple it
+        was made against; either one differing reads back undecided,
+        since a source added at a location an existing member already
+        holds leaves the member set untouched while changing the answers
+        on offer (DL-115, DL-158).
         """
         held = self._decisions.get(group.identity_key)
-        if held is None or held.member_keys != group.member_keys:
+        if held is None:
             return UNDECIDED
-        return held.side
+        if held.member_keys != group.member_keys or held.candidates != group.candidates:
+            return UNDECIDED
+        return held.reference
 
-    def resolve_all(self, groups: Iterable[ConflictGroup], side: str) -> None:
-        """Set every undecided group to one side, leaving a group already
-        decided the other way standing."""
+    def resolve_all(
+        self,
+        groups: Iterable[ConflictGroup],
+        predicate: Callable[[tuple[ConflictCandidate, ...]], Optional[CandidateRef]],
+    ) -> None:
+        """Settle every undecided group the predicate answers a reference
+        for, leaving a group already decided standing and leaving a group
+        the predicate answers None for undecided.
+
+        A bulk action for one collection hands the predicate built by
+        reference_from_input, so a group that collection holds no record
+        in keeps no value of anyone else's and stays counted by
+        outstanding (DL-154).
+        """
         for group in groups:
-            if self.decision(group) == UNDECIDED:
-                self.resolve(group, side)
+            if self.decision(group) != UNDECIDED:
+                continue
+            reference = predicate(group.candidates)
+            if reference is not None:
+                self.resolve(group, reference)
 
     def outstanding(self, groups: Iterable[ConflictGroup]) -> int:
         """How many of these groups read undecided - which counts a group
-        whose membership no longer matches its held pick."""
+        whose membership or whose answers no longer match its held
+        pick."""
         return sum(1 for group in groups if self.decision(group) == UNDECIDED)
 
-    def resolutions(self, groups: Iterable[ConflictGroup]) -> dict[str, str]:
-        """The mapping _resolve_conflicts takes: only decided keys, only
-        keys these groups name. An undecided key is omitted rather than
-        carrying a token, so on_conflict settles it or the run aborts, and
-        a decision for a key no group names contributes nothing."""
-        mapping: dict[str, str] = {}
+    def resolutions(self, groups: Iterable[ConflictGroup]) -> dict[str, CandidateRef]:
+        """The mapping _resolve_conflicts takes: an (input index, primary
+        key) pair per decided key, only for keys these groups name. An
+        undecided key is omitted entirely rather than carrying a token, so
+        on_conflict settles it or the run aborts, and a decision for a key
+        no group names contributes nothing."""
+        mapping: dict[str, CandidateRef] = {}
         for group in groups:
-            side = self.decision(group)
-            if side != UNDECIDED:
-                mapping[group.identity_key] = side
+            decision = self.decision(group)
+            if decision != UNDECIDED:
+                mapping[group.identity_key] = decision  # type: ignore[assignment]
         return mapping
 
     def rows(self, groups: Iterable[ConflictGroup]) -> list[ConflictRowView]:
@@ -226,8 +294,7 @@ class ConflictDecisions:
             ConflictRowView(
                 identity_key=group.identity_key,
                 attrs=group.attrs,
-                base_values=group.base_values,
-                source_values=group.source_values,
+                candidates=group.candidates,
                 decision=self.decision(group),
             )
             for group in groups
@@ -257,15 +324,18 @@ def write_refusal(
 
 def write_refusal_sentence(refusal: WriteRefusal) -> str:
     """The operator-facing sentence for one refusal, naming what is wrong
-    and which control fixes it. Falls back to naming the raw reason
-    rather than raising, so an unmapped reason degrades to a bare but
-    visible label instead of breaking the render."""
+    and which control fixes it. The conflict sentence names choosing a
+    collection for each row, which is what the row's controls offer - one
+    control per answer, each naming the collections that supply it
+    (DL-160). Falls back to naming the raw reason rather than raising, so
+    an unmapped reason degrades to a bare but visible label instead of
+    breaking the render."""
     if refusal.reason == NO_PREVIEW:
         return "No preview has been run. Run Preview to see what this merge would write."
     if refusal.reason == CONFLICTS_OUTSTANDING:
         return (
             f"The preview refused: {refusal.outstanding} conflict(s) still to decide. "
-            "Choose base or source for each row above, then run Preview again."
+            "Choose a collection for each row above, then run Preview again."
         )
     return f"Write refused: {refusal.reason}"
 

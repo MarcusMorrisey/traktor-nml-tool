@@ -3,8 +3,8 @@
 Scope note: the base input is authoritative for its own COLLECTION and
 playlists - its entries keep their positions and their identities, and the
 merged collection holds at most one entry per LOCATION (DL-004). The only
-bytes of a base ENTRY a run rewrites are the attribute values an operator's
-source resolution names, substituted inside base's own entry span; the base
+bytes of a base ENTRY a run rewrites are the attribute values the record an
+operator's resolution names carries, substituted inside base's own entry span; the base
 input file on disk is never written (DL-123).
 
 Track identity across inputs uses the shared record_keys tier ordering,
@@ -13,7 +13,7 @@ top-tier key) so two copies of one track that happen to agree on a lower tier
 but not the top one still land in the same identity group, since splice needs
 N-way grouping rather than pairwise old-vs-new comparison. When a base record and a
 non-base record share an identity, the base record always wins and keeps its
-entry; a source resolution names which record supplies that entry's tracked
+entry; a resolution names which record supplies that entry's tracked
 attribute values, and --on-conflict's keep-first/keep-last only disambiguates
 among duplicates that are *not* shared with base. A metadata conflict (any
 differing attribute between two copies of one identity) is settled either
@@ -47,18 +47,35 @@ from .xmlio import ET, parse_xml_bytes
 _TRACKED_ATTRS = ("artist", "title", "album", "filesize", "playtime_float", "bitrate")
 
 
+@dataclass(frozen=True)
+class ConflictCandidate:
+    """One distinct answer a metadata-diverging group offers.
+
+    values holds one value per name in the row's attrs, in that order.
+    members names every record supplying exactly those values, as
+    (input index, primary key) pairs sorted by input index: the primary
+    key is derived from the location (DL-004), so two records for one
+    file in two inputs carry the identical key and the input index is
+    what tells them apart (DL-148).
+    """
+
+    values: tuple[str, ...]
+    members: tuple[tuple[int, str], ...]
+
+
 @dataclass
 class ConflictRow:
     """One row a run reports about a group it could not merge silently.
 
     identity_key, attrs and resolution are the three columns the CSV
-    conflict report writes. member_keys and the two value tuples are what
-    the interactive page needs to show and re-attach the row without
-    grouping the collections a second time: member_keys is the primary
-    key of every record the group holds across every input, and
-    base_values/source_values hold one entry per name in attrs, in that
-    order, each entry being that side's distinct values sorted. A row
-    reporting something other than a metadata divergence names no
+    conflict report writes. member_keys and candidates are what the
+    interactive page needs to show and re-attach the row without grouping
+    the collections a second time: member_keys is the primary key of every
+    record the group holds across every input, and candidates holds one
+    entry per distinct tuple of divergent-attribute values, each naming
+    the records that supply it, so two inputs agreeing on every divergent
+    attribute present as one answer rather than two (DL-149, DL-150). A
+    row reporting something other than a metadata divergence names no
     identity group, and keeps the empty defaults.
     """
 
@@ -66,8 +83,7 @@ class ConflictRow:
     attrs: str
     resolution: str
     member_keys: frozenset[str] = frozenset()
-    base_values: tuple[tuple[str, ...], ...] = ()
-    source_values: tuple[tuple[str, ...], ...] = ()
+    candidates: tuple[ConflictCandidate, ...] = ()
 
 
 @dataclass
@@ -170,17 +186,21 @@ class ResolvedConflicts(tuple):
         return self
 
 
-def _side_values(
+def _candidates(
     members: list[tuple[int, EntryRecord]], attrs: list[str]
-) -> tuple[tuple[str, ...], ...]:
-    """One side's values for a conflict row: one tuple per name in attrs,
-    in that order, holding the distinct values that side's records carry
-    for it, sorted. A side holding no record at all yields one empty
-    tuple per attribute, which says the side has nothing to show rather
-    than that it agrees."""
+) -> tuple[ConflictCandidate, ...]:
+    """The distinct answers a group offers over attrs: one candidate per
+    distinct tuple of values, in the order the group first supplies them,
+    each naming its contributing (input index, primary key) pairs sorted
+    by input index. Records agreeing on every name in attrs collapse into
+    one candidate carrying both contributors (DL-150)."""
+    grouped: dict[tuple[str, ...], list[tuple[int, str]]] = {}
+    for input_idx, record in members:
+        values = tuple(str(getattr(record, attr)) for attr in attrs)
+        grouped.setdefault(values, []).append((input_idx, record.primary_key))
     return tuple(
-        tuple(sorted({str(getattr(record, attr)) for _, record in members}))
-        for attr in attrs
+        ConflictCandidate(values, tuple(sorted(contributors)))
+        for values, contributors in grouped.items()
     )
 
 
@@ -191,15 +211,14 @@ def _metadata_conflict_row(
     resolution: Optional[str],
 ) -> ConflictRow:
     """The row one metadata-diverging group reports, carrying the group's
-    membership and each side's values off the members already grouped.
-    Input 0 is the base side; every other input is the source side."""
+    membership and its candidates off the members already grouped, in one
+    pass and with no second look at the records."""
     return ConflictRow(
         identity_key,
         ",".join(divergent_attrs),
         resolution,
         member_keys=frozenset(record.primary_key for _, record in members),
-        base_values=_side_values([m for m in members if m[0] == 0], divergent_attrs),
-        source_values=_side_values([m for m in members if m[0] != 0], divergent_attrs),
+        candidates=_candidates(members, divergent_attrs),
     )
 
 
@@ -207,14 +226,17 @@ def _resolve_conflicts(
     groups: dict[int, list[tuple[int, EntryRecord]]],
     on_conflict: Optional[str],
     *,
-    resolutions: Optional[dict[str, str]] = None,
+    resolutions: Optional[dict[str, tuple[int, str]]] = None,
 ) -> ResolvedConflicts:
     """Return (old_to_new_key, conflict_rows, unresolved, new_entries,
     ambiguous_keys).
 
-    resolutions maps an identity-group key to the token base or source and
-    settles that one group; on_conflict settles every group the mapping does
-    not name. It is a keyword parameter rather than an appended positional,
+    resolutions maps an identity-group key to an (input index, primary key)
+    pair naming one record of that group, and settles that one group;
+    on_conflict settles every group the mapping does not name. A pair naming
+    no member of the group settles nothing and the group falls through to
+    on_conflict, or to the unresolved abort where on_conflict is None, the
+    way an identity key naming no group does (DL-105, DL-153). It is a keyword parameter rather than an appended positional,
     so the positional callers read the arguments they read (DL-100's
     precedent, DL-104).
 
@@ -233,12 +255,15 @@ def _resolve_conflicts(
     span from, since two distinct records can carry identical field values.
 
     entry_patches, reached by name off the result, lists (base_record,
-    values) for every group a source resolution settles while the group
-    holds a base record: the base record whose ENTRY the run rewrites in
-    place, paired with the group's divergent attributes read off the
-    non-base record the run-wide picker names. Such a group's winner is
-    base's own record and it contributes nothing to new_entries, so the
-    merged COLLECTION keeps one entry per LOCATION (DL-004, DL-116).
+    values) for every group a resolution settles while the group holds a
+    base record: base_members[0], whose ENTRY the run rewrites in place,
+    paired with the group's divergent attribute values read off the record
+    the pair names. Such a group's winner is base's own record and it
+    contributes nothing to new_entries, so the merged COLLECTION keeps one
+    entry per LOCATION (DL-004, DL-116) and the redirect target below stays
+    base_members[0]. Where the group holds no base record the pair names the
+    winner appended to new_entries, so there and only there a pick moves the
+    redirect target (DL-151, DL-152).
     """
     old_to_new_key: dict[str, str] = {}
     conflict_rows: list[ConflictRow] = []
@@ -261,8 +286,21 @@ def _resolve_conflicts(
             attr for attr in _TRACKED_ATTRS if len({getattr(r, attr) for _, r in members}) > 1
         ]
         # A key naming no group is absent from this lookup, so an unmatched
-        # entry is inert rather than an error (DL-105).
-        resolution = resolutions.get(identity_key) if divergent_attrs else None
+        # entry is inert rather than an error (DL-105), and a pair naming no
+        # member of the group it does name is inert the same way (DL-153):
+        # picked stays None and the group falls through below.
+        pair = resolutions.get(identity_key) if divergent_attrs else None
+        picked = next(
+            (
+                (idx, record)
+                for idx, record in members
+                if pair is not None and (idx, record.primary_key) == pair
+            ),
+            None,
+        )
+        # The label the row and the CSV report carry for a settled group is
+        # the pair itself, as "input index:primary key".
+        resolution = None if picked is None else "%d:%s" % (picked[0], picked[1].primary_key)
         if divergent_attrs and resolution is None and on_conflict is None:
             unresolved = True
             conflict_rows.append(
@@ -281,9 +319,9 @@ def _resolve_conflicts(
         base_member = base_members[0] if base_members else None
 
         def pick_non_base() -> tuple[int, EntryRecord]:
-            """The non-base record the run-wide picker names, whether it is
-            answering which non-base copy survives or which one supplies a
-            source pick's attribute values."""
+            """The non-base copy the run-wide picker names as the survivor,
+            which is the answer for the groups no resolution names (DL-108,
+            DL-117)."""
             candidates = [(idx, r) for idx, r in members if idx != 0] or members
             policy = on_conflict or "keep-first"
             picker = min if policy == "keep-first" else max
@@ -294,17 +332,17 @@ def _resolve_conflicts(
         # already occupies the collection slot, so the transplant branch is
         # entered on base_member is None alone (DL-117).
         if base_member is None:
-            winner_idx, winner = pick_non_base()
+            winner_idx, winner = picked if picked is not None else pick_non_base()
             new_entries.append((winner_idx, winner))
         else:
             winner_idx, winner = base_member
-            if resolution == "source":
-                # base keeps its entry and the source pick is carried by
+            if picked is not None and picked[1] is not winner:
+                # base keeps its entry and the pick is carried by
                 # substituting the group's divergent attribute values - and
                 # no others (DL-118) - inside that entry's own span.
-                _, source_record = pick_non_base()
+                _, named_record = picked
                 entry_patches.append(
-                    (winner, {attr: getattr(source_record, attr) for attr in divergent_attrs})
+                    (winner, {attr: getattr(named_record, attr) for attr in divergent_attrs})
                 )
 
         for _, record in members:
@@ -335,7 +373,7 @@ def assemble_output(
     on_conflict: Optional[str] = None,
     reconstruct: bool = False,
     *,
-    resolutions: Optional[dict[str, str]] = None,
+    resolutions: Optional[dict[str, tuple[int, str]]] = None,
 ) -> SpliceResult:
     """Merge every contribution into base_source: build cross-input
     identity groups, resolve conflicts (aborting with zero output on any
@@ -343,8 +381,8 @@ def assemble_output(
     spans, then hand off to playlist import for the PLAYLISTS tree
     (DL-007, DL-008).
 
-    resolutions maps an identity-group key to base or source and settles
-    that group alone. An empty mapping leaves every group to on_conflict,
+    resolutions maps an identity-group key to an (input index, primary key)
+    pair naming one record of that group, and settles that group alone. An empty mapping leaves every group to on_conflict,
     which is what the parameter's absence leaves them to, so the bytes a
     call with an empty mapping produces are the bytes a call omitting it
     produces (DL-104)."""

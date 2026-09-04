@@ -1251,6 +1251,49 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 # is left unresolved. The page the reconstruct screen answers, '/',
 # renders the rows the same run
 # returned in its place, so the token itself never reaches the operator.
+def _source_labels(sources) -> list[str]:
+    """One operator-facing name per source collection, in the order the
+    operator added them.
+
+    A name is the shortest trailing run of path segments that tells its
+    source apart from every other listed source: the file name where
+    nothing collides, the file name plus as many parent segments as it
+    takes otherwise, and the whole resolved path where nothing shorter
+    separates them. The walk terminates because the full resolved path
+    always distinguishes - conflict_model.source_refusal has already
+    refused any collection whose resolved path equals one already listed,
+    so no two listed sources share one - and no input index is needed,
+    since the path itself carries the distinction the operator chose the
+    file by (DL-161).
+    """
+    resolved = [Path(path).resolve() for path in sources]
+    labels: list[str] = []
+    for path in resolved:
+        parts = path.parts
+        depth = len(parts)
+        for run_length in range(1, len(parts) + 1):
+            trailing = parts[-run_length:]
+            if sum(1 for other in resolved if other.parts[-run_length:] == trailing) == 1:
+                depth = run_length
+                break
+        if depth == len(parts):
+            labels.append(str(path))
+        elif depth == 1:
+            labels.append(parts[-1])
+        else:
+            labels.append(f"{parts[-1]} ({'/'.join(parts[-depth:-1])})")
+    return labels
+
+
+def _collection_labels(sources) -> tuple[str, ...]:
+    """The name of every collection a run reads, positioned at that
+    collection's input index: the collection being repaired first, then
+    the sources in the order the operator added them. A candidate's
+    contributors are named by indexing this tuple with the input index
+    each contributor carries (DL-148, DL-150)."""
+    return ("base", *_source_labels(sources))
+
+
 _CONFLICT_ABORT_TOKEN = "unresolved_conflicts"
 
 
@@ -1459,10 +1502,10 @@ def _build_reconstruct_page() -> None:
 
             def _render_conflicts(groups) -> None:
                 """One hand-rolled ui.row per conflicting track, carrying the
-                identity key, the attribute names that diverge, each side's
-                values and a two-state pick, under an all-base action, an
-                all-source action and the outstanding count (Specs.dc.html,
-                "Splice conflicts").
+                identity key, the attribute names that diverge and one
+                control per answer the track offers, under the bulk strip
+                and the outstanding count (Specs.dc.html, "Splice
+                conflicts").
 
                 Hand-rolled rather than ui.aggrid, which claims the arrow
                 keys Specs binds over this same table (DL-079, DL-110).
@@ -1477,6 +1520,10 @@ def _build_reconstruct_page() -> None:
                     "Nothing is written while any of them is unsettled."
                 ).classes("wizard-body-13")
                 table = ui.column().classes("w-full gap-0")
+                # One name per input index, the collection being repaired at
+                # index 0 and each source at its position in the list the
+                # operator built (DL-154, DL-161).
+                labels = _collection_labels(source_holder)
 
                 def draw() -> None:
                     """Redraws the table over the current decisions - the
@@ -1486,16 +1533,16 @@ def _build_reconstruct_page() -> None:
                     table.clear()
                     with table:
                         with ui.row().classes("w-full items-center gap-2"):
-                            ui.button(
-                                "All base",
-                                on_click=lambda: bulk(conflict_model.BASE),
-                                color=None,
-                            ).classes("wizard-control")
-                            ui.button(
-                                "All source",
-                                on_click=lambda: bulk(conflict_model.SOURCE),
-                                color=None,
-                            ).classes("wizard-control")
+                            # One bulk action per collection the run reads,
+                            # each settling the undecided groups its own
+                            # collection holds a record in and leaving the
+                            # rest undecided (DL-154).
+                            for input_index, label in enumerate(labels):
+                                ui.button(
+                                    f"All {label}",
+                                    on_click=lambda _e=None, index=input_index: bulk(index),
+                                    color=None,
+                                ).classes("wizard-control")
                             ui.label(
                                 f"{decisions.outstanding(groups)} of {len(groups)}"
                                 " still undecided"
@@ -1503,41 +1550,45 @@ def _build_reconstruct_page() -> None:
                         for group, view in zip(groups, decisions.rows(groups)):
                             row(group, view)
 
-                def bulk(side: str) -> None:
-                    decisions.resolve_all(groups, side)
+                def bulk(input_index: int) -> None:
+                    decisions.resolve_all(
+                        groups, conflict_model.reference_from_input(input_index)
+                    )
                     draw()
 
-                def pick(group, side: str) -> None:
-                    decisions.resolve(group, side)
+                def pick(group, reference) -> None:
+                    decisions.resolve(group, reference)
                     draw()
 
                 def row(group, view) -> None:
-                    """One track's row. The decision the view carries indexes
-                    the selected class straight onto the side it names, so
-                    the chosen side alone carries the selected fill and this
-                    module holds no reading of what a decision means."""
+                    """One track's row, offering one control per answer the
+                    group carries. The decision the view holds indexes the
+                    selected class straight onto the candidate reference the
+                    view names, so the chosen answer alone carries the
+                    selected fill and this module holds no reading of what a
+                    decision means."""
                     selected = {view.decision: "wizard-decision-accept"}
                     with ui.row().classes("w-full items-center gap-3 wizard-row"):
                         ui.label(view.identity_key).classes(
                             "font-mono wizard-body-12 grow"
                         )
                         ui.label(", ".join(view.attrs)).classes("wizard-label")
-                        ui.button(
-                            f"BASE {' | '.join(view.base_values)}",
-                            on_click=lambda: pick(group, conflict_model.BASE),
-                            color=None,
-                        ).classes(
-                            "wizard-control font-mono wizard-body-12 "
-                            f"{selected.get(conflict_model.BASE, 'wizard-tag-action-outline')}"
-                        )
-                        ui.button(
-                            f"SOURCE {' | '.join(view.source_values)}",
-                            on_click=lambda: pick(group, conflict_model.SOURCE),
-                            color=None,
-                        ).classes(
-                            "wizard-control font-mono wizard-body-12 "
-                            f"{selected.get(conflict_model.SOURCE, 'wizard-tag-action-outline')}"
-                        )
+                        for candidate in view.candidates:
+                            reference = conflict_model.candidate_reference(candidate)
+                            supplied_by = ", ".join(
+                                labels[index] for index, _ in candidate.members
+                            )
+                            ui.button(
+                                f"{supplied_by} {' | '.join(candidate.values)}",
+                                on_click=(
+                                    lambda _e=None, chosen=group, named=reference:
+                                    pick(chosen, named)
+                                ),
+                                color=None,
+                            ).classes(
+                                "wizard-control font-mono wizard-body-12 "
+                                f"{selected.get(reference, 'wizard-tag-action-outline')}"
+                            )
 
                 draw()
 

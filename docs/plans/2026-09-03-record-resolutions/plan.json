@@ -1,0 +1,618 @@
+{
+  "plan_id": "fb0a3988-8f8c-4cfa-bd87-2a811e239336",
+  "created_at": "2026-09-04T04:45:56.270444",
+  "frozen_at": null,
+  "overview": {
+    "problem": "A conflict resolution maps an identity key to the token base or source. On a run carrying more than one source collection a source token resolves to whichever record the run-wide picker names, so an operator holding three disagreeing answers for one track can express two, and the third is written silently. Measured on base plus two sources disagreeing three ways on BITRATE: the row source_values reads ((064, 128),), the page displays 064 / 128, and a source resolution applies bitrate=128 - keep-first answer - with no way to choose 064. The display join exists precisely because the pick cannot express which source, so several answers were collapsed into one cell.",
+    "approach": "A resolution maps an identity key to the (input index, primary key) pair of the winning record. The pair rather than the bare key, because the primary key is derived from the location (DL-004) and two records for one file in two inputs carry the identical key while grouping unions them into one group - the commonest conflict shape has member_keys of size one and two members. ConflictRow carries candidates, one per distinct tuple of divergent-attribute values, each naming its contributing pairs, in place of the two per-side value tuples that discarded which record held which value; identity_key, attrs and resolution keep their meaning and the conflict report CSV columns. Where a group holds a base record the pick supplies values for an entry patch against base_members[0] and base keeps its own ENTRY (DL-116), so the redirect target and ambiguous_keys are what DL-122 leaves them. Where a group holds no base record the pick names the winner, which the token vocabulary could not do. Bulk actions read All base plus one action per source collection, labelled from that source path stem. Decision numbering continues the traktor_nml/README.md decision log, whose high-water mark reads DL-147, so plan decisions run DL-148 to DL-157. Re-attachment is corrected as part of this work rather than assumed intact: measured at aa6ab76, adding a second source at a path an existing member already holds leaves member_keys identical while the answers on offer change, so DL-115 as shipped cannot see it and the comparison widens to the candidate set (DL-158). Plan decisions run DL-148 to DL-161. Milestones are delivered as no waves per the delivery contract; the dependency order is M-001 before M-002 before M-003, M-004 alongside M-003, and M-005 last, since the core vocabulary must exist before the model reads it and the documentation describes the code as it stands."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-148",
+        "version": 1,
+        "decision": "A resolution maps an identity key to an (input index, primary key) pair rather than to a bare primary key",
+        "reasoning": "The primary key is derived from the location (DL-004) -> two records for one file in two inputs carry the identical primary key, and group_identities unions them through the location tier into one group -> a group of base plus a source holding the same path has member_keys of size one while holding two records -> a bare primary key cannot name which record wins in the commonest conflict shape -> the input index is the disambiguator splice already relies on for exactly this reason, since new_entries carries (input_idx, record) because two distinct records can carry identical field values"
+      },
+      {
+        "id": "DL-149",
+        "version": 1,
+        "decision": "ConflictRow carries a candidates tuple in place of base_values and source_values",
+        "reasoning": "base_values and source_values are per-side and _side_values folds each side down to distinct sorted values -> which record held which value is discarded before the row leaves splice -> a page offering one option per candidate cannot be built from the row -> the row carries one candidate per distinct value-tuple, each holding its contributing (input index, primary key) pairs and its values in divergent-attribute order; identity_key, attrs and resolution keep their meaning so _write_conflict_report reads the three CSV columns it reads"
+      },
+      {
+        "id": "DL-150",
+        "version": 1,
+        "decision": "Two records agreeing on every divergent attribute present as one candidate carrying both contributors",
+        "reasoning": "Candidates are keyed by their tuple of divergent-attribute values -> two sources that agree with each other collapse to one entry -> the operator sees one option per distinct answer rather than two identical buttons, and the option names every collection that supplies it -> the pick stores the lowest input index among the contributors, so the recorded value is deterministic and the values written are the same whichever contributor is named"
+      },
+      {
+        "id": "DL-151",
+        "version": 2,
+        "decision": "A resolution moves the redirect target only where the group holds no base record; where it holds one, base_members[0] stays the target and the pick supplies values",
+        "reasoning": "splice.py:310-312 sets old_to_new_key[record.primary_key] = winner.primary_key for every non-winner -> the winner IS the redirect target and the playlist PRIMARYKEY rewrite behind it -> where the group holds a base record the winner is base_member and DL-116 keeps base own ENTRY, so the pick reaches only entry_patches and the target is unmoved -> where the group holds no base record the winner is the record the resolution names (DL-152), so the pick moves the target and every other member redirects to it, which is the whole point of letting the operator name the survivor -> DL-122 conclusion is untouched either way, since that rule is about groups holding several BASE records and about ambiguous_keys, and a multi-base group always takes the base branch"
+      },
+      {
+        "id": "DL-152",
+        "version": 1,
+        "decision": "A group holding no base record consults its resolution for the winner, which the base-token vocabulary could not do",
+        "reasoning": "_resolve_conflicts computes resolution before the branch, then enters `if base_member is None` and calls pick_non_base() for the winner without reading resolution at all -> the resolution suppresses the unresolved abort and labels the conflict row while the run-wide picker decides the outcome -> the reported claim is true as written and the failed reproduction is explained by fixture shape, since such a group needs two or more inputs none of which is input 0, and any fixture where base holds the track puts index 0 in the group -> the transplant branch reads the resolution and appends the named record to new_entries, falling back to pick_non_base where no resolution names a member (DL-117 stands: the picker still answers the groups no resolution names)"
+      },
+      {
+        "id": "DL-153",
+        "version": 1,
+        "decision": "A resolution naming a pair no member of the group carries is inert",
+        "reasoning": "DL-105 already makes an identity key naming no group inert rather than an error -> a pair naming no member is the same shape of stale input, reachable after a re-preview changes membership -> the group falls through to on_conflict or to the unresolved abort, the way an omitted key does"
+      },
+      {
+        "id": "DL-154",
+        "version": 1,
+        "decision": "Bulk actions read All base plus one action per source collection, labelled from the source path stem",
+        "reasoning": "app.py holds the operator-chosen source paths in the order they were added, and the input index of a source is its position in that list plus one -> the label is Path(p).stem, which is the name the operator picked the file by -> a bulk action settles every undecided group that collection holds a record in and leaves every other group untouched, so a group the collection has no record in stays undecided and counts toward outstanding rather than silently taking someone else values"
+      },
+      {
+        "id": "DL-155",
+        "version": 1,
+        "decision": "conflict_model decision vocabulary becomes UNDECIDED plus a candidate reference; BASE and SOURCE stop being mapping values",
+        "reasoning": "resolve, resolve_all, resolutions, decision and _Decision all carry the token string today and SIDES guards it -> the mapping value changes shape, so each is enumerated and takes a candidate reference -> base and source survive as operator-facing words on the labels and in write_refusal_sentence, where they name what the operator sees rather than what the core reads"
+      },
+      {
+        "id": "DL-156",
+        "version": 1,
+        "decision": "The gate fixture grows a second source collection that disagrees with the first and with base",
+        "reasoning": "Serving the page is the only gate that has ever caught a defect in gui/ (DL-084) -> the defect being repaired is invisible with one source, since base|source and a per-record pick agree there -> reconstruct_fixture.py holds base plus two sources disagreeing three ways on a tracked attribute, and the read-back reports which of the three values landed -> the parity manifest and fixture/w002gatefix2 are untouched"
+      },
+      {
+        "id": "DL-157",
+        "version": 1,
+        "decision": "The display join in conflict_model stops collapsing several answers into one cell",
+        "reasoning": "_VALUE_SEPARATOR exists because the pick the operator was asked for could not express which source -> one option per candidate gives each answer its own cell -> the join survives only inside a single candidate whose contributing records disagree on nothing divergent, which cannot happen by construction, so the separator and ABSENT leave with the two side fields"
+      },
+      {
+        "id": "DL-158",
+        "version": 1,
+        "decision": "DL-115 re-attachment compares the candidate set, not member_keys alone - a correction to a rule already in the tree",
+        "reasoning": "Measured at aa6ab76: base plus one source at C:/:Music/:track.mp3 gives member_keys={C:/:Music/:track.mp3} and source_values=((32,),(128,)); adding a SECOND source at the same path leaves member_keys IDENTICAL while source_values becomes ((32,),(064,128)) -> the primary key is derived from the location (DL-004), so records for one file in two inputs collide in the frozenset and a source addition is invisible to the comparison -> a held pick survives a re-preview whose available answers changed underneath it, which is the silently-wrong-value defect this work repairs, reached by a second route -> re-attachment compares the group candidate set (each candidate contributing pairs and its values) together with member_keys, so a pick stands only where the answers it was made against are the answers on offer -> this corrects behaviour shipped in the tree rather than only shaping new work, and carries its own fail-first guard over the two-source-same-path fixture above"
+      },
+      {
+        "id": "DL-159",
+        "version": 1,
+        "decision": "An inert pair is inert at the core and refused at the model, and the plan says which boundary sees which",
+        "reasoning": "resolutions.get(identity_key) returns None for a key naming no group and the group falls through to on_conflict or the unresolved abort (DL-105, DL-153) -> that is the core reading a mapping it did not build, where a stale entry must not abort a run -> conflict_model builds the mapping from groups it holds, so a candidate reference naming no candidate of its own group is a caller error rather than stale operator input, and resolve refuses it -> the two behaviours are the same rule read from two sides: the model never emits a pair its group does not carry, and the core never trusts that it did not"
+      },
+      {
+        "id": "DL-160",
+        "version": 1,
+        "decision": "write_refusal_sentence names the controls the page renders rather than base or source",
+        "reasoning": "The sentence reads Choose base or source for each row above -> the row offers one control per candidate and the strip offers All base plus one action per source collection -> wording naming two sides describes controls the page does not hold -> the sentence names choosing a collection for each row, and its guard asserts the rendered wording against the rendered controls"
+      },
+      {
+        "id": "DL-161",
+        "version": 2,
+        "decision": "A bulk-action label is the shortest trailing run of path segments that tells its source apart from every other listed source, falling back to the full resolved path",
+        "reasoning": "source_refusal (gui/conflict_model.py:280) refuses only a candidate whose RESOLVED path is already listed -> two collections sharing a file name in different folders are both admissible, and so are two sharing a file name AND a parent, since /a/music/collection.nml and /b/music/collection.nml differ only further up -> a stem, or a stem plus one parent, is a rule with a collision it cannot break, so it is not total -> the label is built by walking leftward from the file name one segment at a time and stopping at the first length that is unique among the listed sources, which gives collection where nothing collides, collection (music) where a stem collides, collection (a/music) where stem and parent both collide, and so on -> the walk terminates because the full resolved path is always distinguishing: source_refusal has already refused any candidate whose resolved path equals a listed one, so no two listed sources share one -> in the worst case, two sources differing only at the drive or the root, the label is each source's full resolved path, which is long but never ambiguous, and no input index is needed because the path itself carries the distinction the operator chose the file by"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Keep base|source and refuse what it cannot express: the page names the disagreeing sources and refuses to settle the group",
+        "rejection_reason": "Rejected by the operator: it makes the defect visible without letting them choose",
+        "decision_ref": "DL-148"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Leave it and record it in the decision log and TODO.md",
+        "rejection_reason": "Rejected by the operator: the wrong value still gets written silently on a multi-source run",
+        "decision_ref": "DL-148"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Keep base|source and add a second run-wide flag naming which source wins",
+        "rejection_reason": "A run-wide answer to a per-track question, which is the shape the per-key mapping already replaced",
+        "decision_ref": "DL-148"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Bulk actions reduced to All base and All first source",
+        "rejection_reason": "Rejected by the operator in favour of one action per source collection",
+        "decision_ref": "DL-154"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Drop bulk actions on multi-source runs",
+        "rejection_reason": "Rejected by the operator: a large conflict set would become per-row work",
+        "decision_ref": "DL-154"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Leave DL-115 comparing member_keys alone and argue a colliding-key re-preview cannot change the answers",
+        "rejection_reason": "Refused by measurement: at aa6ab76 a second source added at an existing member path leaves member_keys identical while the answers go from one to two, so the argument is false",
+        "decision_ref": "DL-158"
+      }
+    ],
+    "constraints": [
+      "MUST: ConflictRow identity_key, attrs and resolution keep their current meaning: splice_cmd._write_conflict_report writes exactly those three as the conflict report CSV columns and the CLI does not change [context.json; verified at commands/splice_cmd.py:22-24]",
+      "MUST: Every caller and guard naming base or source as a resolutions mapping VALUE is enumerated and updated; the operator-facing words base and source may remain as labels [context.json]",
+      "MUST: A resolution naming a record that is not a member of that group is inert rather than an error, the way an unmatched identity key is (DL-105) [context.json]",
+      "MUST: DL-115 re-attachment still refuses a stale pick; the comparison is widened to the candidate set because the member set alone cannot see the change (DL-158) [context.json, amended by measurement]",
+      "MUST: A pick naming a non-base record keeps base own ENTRY and rewrites only the divergent attribute values; the merged COLLECTION holds at most one entry per LOCATION (DL-116, DL-004) [context.json]",
+      "MUST: The nicegui boundary: conflict_model.py imports no nicegui; app.py, file_picker.py and __main__.py are the only three that may (DL-069) [context.json]",
+      "MUST: app.py stays 100 percent CRLF (1636 CRLF, 0 bare LF); splice.py, conflict_model.py and the tests are LF. Read and write with newline set to the empty string [context.json]",
+      "MUST: Every guard is made to FAIL first, and its docstring records the specific mutation applied and the specific output observed [context.json]",
+      "MUST: A served-page gate run before the change lands, over a fixture carrying at least two source collections that disagree with each other and with base (DL-084, DL-113) [context.json]",
+      "MUST: New decisions continue from the current high-water mark in traktor_nml/README.md, which reads DL-147; plan decisions run DL-148 to DL-161 [context.json; read and confirmed]",
+      "MUST: Documentation describes the code as it stands: no previously, now does, no longer, added [context.json]",
+      "MUST NOT: Do not regenerate the parity manifest or the gate fixture under fixture/w002gatefix2; never restore a file with git checkout [context.json]",
+      "SHOULD: The suite runs under the SYSTEM interpreter, currently 503 passed / 3 skipped, not .venv [context.json]"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "A guard asserting the right value appeared passes while the output is wrong. Nine guards were green while the output held two COLLECTION entries for one LOCATION",
+        "mitigation": "Every acceptance criterion touching the written output asserts a COUNT or a structure, not only that the expected value is present. M-001 asserts one ENTRY per LOCATION as a count after any pick",
+        "decision_ref": "DL-151"
+      },
+      {
+        "id": "R-002",
+        "risk": "A GUI guard passes because the named source and the keep-first source coincide in the fixture, so the page proves nothing about the defect being repaired",
+        "mitigation": "Every GUI-side fixture places the named source at an input index the run-wide picker would NOT choose, stated as an acceptance criterion on M-002 and M-003",
+        "decision_ref": "DL-155"
+      },
+      {
+        "id": "R-003",
+        "risk": "A hand-written enumeration of the base_values and source_values consumers misses a reference, and a module never named in a milestone breaks",
+        "mitigation": "The enumeration is produced by grep over traktor_nml/ and tests/ and resolves to exactly five files, each named in a milestone: splice.py, conflict_model.py, app.py, tests/test_splice.py, tests/test_gui_conflict_model.py",
+        "decision_ref": "DL-149"
+      },
+      {
+        "id": "R-004",
+        "risk": "A plan names a test module that does not exist, and the work lands in a file nobody reads",
+        "mitigation": "Every file named in a milestone is confirmed present in the tree before the plan is written; the conflict guards live in tests/test_splice.py, tests/test_gui_conflict_model.py and tests/test_gui_conflict_page_controls.py",
+        "decision_ref": null
+      },
+      {
+        "id": "R-005",
+        "risk": "Widening the re-attachment comparison makes a held pick read back undecided more often, and a large conflict set becomes per-row work again after any re-preview",
+        "mitigation": "The widening fires only where the candidate set actually changed; a re-preview adding a source that agrees with an existing answer collapses into the same candidate and leaves the pick standing (DL-150)",
+        "decision_ref": "DL-158"
+      },
+      {
+        "id": "R-006",
+        "risk": "Serving the page is the only gate that has ever caught a defect in gui/, and a green suite has passed over a wrong output before",
+        "mitigation": "M-004 runs the served page over a two-source fixture and reads the written file back surface by surface, before the change lands",
+        "decision_ref": "DL-156"
+      }
+    ],
+    "decision_id_start": 148
+  },
+  "invisible_knowledge": {
+    "system": "A conflict resolution is a per-identity-key answer the operator gives; on_conflict is the run-wide answer for every group no resolution names (DL-108). The core reports what it grouped and the page projects rows from those reports - conflict_groups takes a ConflictRow alone, no records and no MatchConfidence, so the page and the core cannot drift apart by regrouping. A resolution reaches the core as a mapping value, and the pick lands as either an entry_patch against base ENTRY or a winner in new_entries, never as a transplanted ENTRY beside base own.",
+    "invariants": [
+      "The merged COLLECTION holds at most one entry per LOCATION. Transplanting a source ENTRY produced two entries sharing one LOCATION, so a source pick rewrites base entry in place - the defect a served-page gate run caught after a green suite (DL-004, DL-116)",
+      "The primary key is derived from the location, so two entries for one file cannot be told apart by key. Measured: base plus one source at C:/:Music/:track.mp3 and base plus two sources at that path both report member_keys of exactly one key, while the answers on offer go from one to two",
+      "Serving the page is the only gate that has ever caught a defect in gui/ (DL-084)",
+      "A guard asserting the right value appeared can pass while the output is wrong - assert the count, the structure, or the thing the defect would change. Nine guards were green while the output held two entries for one file",
+      "conflict_groups projects a group from a ConflictRow alone and takes no records and no MatchConfidence; the page and the core agree because the core reports what it grouped rather than the page regrouping",
+      "old_to_new_key holds only keys a resolution actually redirected; a key with no mapping passes through as the raw key rather than erroring (DL-101)",
+      "Quasar no-outline carries outline:0 !important inside a layer the page orders last; an unlayered add_head_html rule loses at every specificity (DL-086 ladder)",
+      "A token class carrying background and ink together needs color=None at the constructor"
+    ],
+    "tradeoffs": [
+      "The resolution value is an (input index, primary key) pair rather than a bare key: the pair is wider and the index is positional, but a bare key cannot name a winner in the commonest conflict shape, where two records for one file carry the identical key (DL-148)",
+      "Candidates collapse records that agree, so the operator sees one option per distinct answer rather than one per record: fewer controls and a deterministic stored pick, at the cost of the row no longer naming every record individually (DL-150)",
+      "Re-attachment comparing the candidate set refuses more held picks than member_keys alone, which is the point: it refuses exactly the picks whose answers changed underneath them (DL-158)",
+      "A bulk action per source collection scales with the number of sources rather than staying at two buttons, which is the shape the operator chose over All base plus All first source (DL-154)"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 2,
+      "number": 1,
+      "name": "The candidate vocabulary in the core",
+      "files": [
+        "traktor_nml/splice.py",
+        "tests/test_splice.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "ConflictRow carries candidates in place of base_values and source_values: one candidate per distinct tuple of divergent-attribute values, each naming its contributing (input index, primary key) pairs sorted by lowest index",
+        "identity_key, attrs and resolution keep their meaning and their types, so splice_cmd._write_conflict_report reads the three CSV columns it reads (verified by grep: it touches only those three, at lines 22-24)",
+        "_resolve_conflicts reads a resolutions mapping whose values are (input index, primary key) pairs",
+        "A pick on a group holding a base record patches base_members[0] and leaves the old_to_new_key redirect target unmoved",
+        "A pick on a group holding no base record names the winner appended to new_entries and therefore names the redirect target",
+        "A pair naming no member of the group is inert, the group falling through to on_conflict or to the unresolved abort",
+        "pick_non_base answers only the groups no resolution names, and its docstring answers one question rather than two"
+      ],
+      "acceptance_criteria": [
+        "Base plus two sources disagreeing three ways on BITRATE, with the named source at an input index keep-first would NOT choose: a pick naming the second source writes that source's value, not the keep-first answer",
+        "After any pick the merged COLLECTION holds exactly one ENTRY for the LOCATION, asserted as a count rather than as a value (DL-004, DL-116)",
+        "A group of base and a source at the identical path has two members whose primary keys are equal, and the pair distinguishes them",
+        "A no-base group of two sources honours the pair for BOTH the values written and the old_to_new_key redirect target, and falls back to the picker where no resolution names it (DL-151, DL-152)",
+        "A multi-base group patched by a non-base pick still reports every non-base primary key in ambiguous_keys and the reconstruction path still refuses it (DL-122)",
+        "A pair naming no member leaves the group settled by on_conflict, or aborts unresolved where on_conflict is None (DL-105, DL-159)",
+        "Every guard docstring records the specific mutation applied and the specific output observed, and each guard is seen to fail before it passes"
+      ],
+      "tests": [
+        "Files: tests/test_splice.py",
+        "Type: unit",
+        "Backing: pytest under the system interpreter, not .venv (currently 503 passed / 3 skipped)",
+        "normal: A pick naming the second source writes that source's value while keep-first names the first",
+        "edge: Base and a source at the identical path: two members, one primary key, distinguished by the pair",
+        "edge: A no-base group of two sources: the pick sets both the values and the redirect target",
+        "edge: A multi-base group under a non-base pick keeps every non-base key ambiguous",
+        "error: A pair naming no member falls through to on_conflict, or aborts unresolved where on_conflict is None"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 2,
+          "file": "traktor_nml/splice.py",
+          "function": null,
+          "behavior": "ConflictRow carries candidates in place of base_values and source_values: one entry per distinct tuple of divergent-attribute values, each holding the (input index, primary key) pairs of every record supplying it, sorted by lowest input index, with the values in divergent-attribute order. identity_key, attrs and resolution keep their meaning and their CSV columns. The sites the grep enumerates in this file are the module docstring at line 59, the ConflictRow fields at 69-70, _side_values at 173 (which gives way to a candidate builder) and _metadata_conflict_row at 201-202, which builds the tuple off the members already grouped and takes no second pass over the records",
+          "decision_refs": [
+            "DL-149",
+            "DL-150",
+            "DL-157"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 2,
+          "file": "traktor_nml/splice.py",
+          "function": null,
+          "behavior": "_resolve_conflicts reads a resolutions mapping whose values are (input index, primary key) pairs. Where the group holds a base record, the named record supplies the divergent attribute values for an entry_patch against base_members[0], base keeps its own ENTRY (DL-116, DL-004), the winner and therefore the old_to_new_key redirect target at lines 310-312 stay base_members[0], and ambiguous_keys is untouched so DL-122 still refuses a multi-base group on the reconstruction path. Where the group holds no base record, the named record becomes the winner appended to new_entries, and every other member redirects to it through those same lines - so a pick moves the redirect target in this branch and only in this branch. pick_non_base answers only the groups no resolution names, which is the run-wide policy DL-108 and DL-117 describe, and its docstring answers one question rather than two. A pair naming no member of the group is inert: resolutions.get returns nothing for it and the group falls through to on_conflict, or aborts unresolved where on_conflict is None, the way an unmatched identity key does (DL-105)",
+          "decision_refs": [
+            "DL-148",
+            "DL-151",
+            "DL-152",
+            "DL-153",
+            "DL-159"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 2,
+          "file": "tests/test_splice.py",
+          "function": null,
+          "behavior": "The module two per-side assertions are rewritten onto candidates rather than deleted: the guard at lines 275-282 that asserts the value tuples line up with attrs position by position, and the row-shape assertions at 313-317. Guards over base plus two sources disagreeing three ways on BITRATE, with the named source placed at an input index keep-first would NOT choose: a pair naming that source writes its value and not the keep-first answer; a pair naming a base record writes base values; the merged COLLECTION holds exactly one entry for the LOCATION after any pick, asserted as a count; a group of base and a source at the identical path has two members whose primary keys are equal and the pair distinguishes them; a no-base group of two sources honours the pair for both the values written and the old_to_new_key redirect target, and falls back to the picker where no resolution names it; a multi-base group patched by a non-base pick still reports every non-base key in ambiguous_keys. Each guard docstring records the mutation applied and the output observed",
+          "decision_refs": [
+            "DL-148",
+            "DL-149",
+            "DL-151",
+            "DL-152",
+            "DL-157"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "The decision model over candidates",
+      "files": [
+        "traktor_nml/gui/conflict_model.py",
+        "tests/test_gui_conflict_model.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "ConflictGroup and ConflictRowView carry candidates; conflict_groups projects them off the row without regrouping and without reading records or MatchConfidence",
+        "ConflictDecisions holds a candidate reference per key beside the member set and the candidate set the pick was made against",
+        "Re-attachment compares the candidate set together with member_keys (DL-158)",
+        "resolve refuses a reference naming no candidate of the group; resolutions emits (input index, primary key) pairs and omits undecided keys",
+        "resolve_all takes a predicate over candidates so a bulk action settles only the groups a collection holds a record in",
+        "write_refusal_sentence names the controls the page renders rather than base or source",
+        "_VALUE_SEPARATOR and ABSENT leave with the two side fields",
+        "The module imports no nicegui (DL-069)"
+      ],
+      "acceptance_criteria": [
+        "Adding a second source at the SAME path as an existing member leaves member_keys identical while the candidate set gains an answer, and the held pick reads back undecided - this guard fails against the member_keys-only comparison shipped at aa6ab76 (DL-158)",
+        "A group whose two sources agree presents one candidate; a group with three distinct answers presents three",
+        "A bulk action for a collection leaves a group that collection has no record in undecided and counted by outstanding",
+        "A candidate reference naming no candidate of the group is refused at resolve (DL-159)",
+        "The resolutions mapping's values are pairs and undecided keys are omitted",
+        "The refusal sentence names choosing a collection per row and matches the rendered controls (DL-160)",
+        "Every guard docstring records the mutation and the observation, and each guard is seen to fail first"
+      ],
+      "tests": [
+        "Files: tests/test_gui_conflict_model.py",
+        "Type: unit",
+        "Backing: pytest under the system interpreter",
+        "normal: Two agreeing sources present one candidate; three distinct answers present three",
+        "edge: A second source added at an existing member's path leaves member_keys identical and the held pick reads back undecided (DL-158)",
+        "edge: A bulk action leaves a group its collection has no record in undecided",
+        "error: resolve refuses a candidate reference naming no candidate of the group"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 2,
+          "file": "traktor_nml/gui/conflict_model.py",
+          "function": null,
+          "behavior": "ConflictGroup and ConflictRowView carry candidates rather than base_values and source_values; conflict_groups projects them off the row without regrouping and without reading records or MatchConfidence. The sites the grep enumerates in this file are the ConflictGroup fields at 78-79, the ConflictRowView fields at 88-89, _displayed at 106-107, conflict_groups at 147-148 and rows at 229-230; _VALUE_SEPARATOR and ABSENT leave with the two fields. ConflictDecisions holds a candidate reference per key beside the member set AND the candidate set the pick was made against, and re-attachment compares both: member_keys alone cannot see a source added at a path an existing member already holds, because the primary keys collide in the frozenset. resolve refuses a reference naming no candidate of the group; resolutions emits the pairs the core reads and omits undecided keys; UNDECIDED stays this module reading of an absent key and is never handed to the core. resolve_all takes a predicate over candidates so a bulk action settles the groups a collection holds a record in and leaves the rest undecided and counted by outstanding. write_refusal_sentence names choosing a collection for each row rather than choosing base or source. base and source survive as operator-facing words only. The module imports no nicegui (DL-069)",
+          "decision_refs": [
+            "DL-149",
+            "DL-150",
+            "DL-154",
+            "DL-155",
+            "DL-157",
+            "DL-158",
+            "DL-159",
+            "DL-160"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 2,
+          "file": "tests/test_gui_conflict_model.py",
+          "function": null,
+          "behavior": "The module assertions on the two side fields are rewritten onto candidates rather than deleted, including the join assertion at lines 443-470 that DL-157 retires and the field assertions at 100-101, 115-116, 182, 483-484 and 503. New guards: a re-preview that adds a second source at the SAME path as an existing member leaves member_keys identical while the candidate set gains an answer, and the held pick reads back undecided - the guard is seen to fail against the member_keys-only comparison shipped at aa6ab76, whose measured behaviour is member_keys frozenset of one key across both runs while the answers go from one to two; a group whose two sources agree presents one candidate and a group with three distinct answers presents three; a bulk action for a collection leaves a group that collection has no record in undecided and counted in outstanding; a candidate reference naming no candidate of the group is refused at resolve; the resolutions mapping values are pairs and omit undecided keys; the refusal sentence names the controls the page renders. Each docstring records the mutation and the observation",
+          "decision_refs": [
+            "DL-150",
+            "DL-154",
+            "DL-155",
+            "DL-157",
+            "DL-158",
+            "DL-159",
+            "DL-160"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "The conflict rows and the per-collection bulk controls",
+      "files": [
+        "traktor_nml/gui/app.py",
+        "tests/test_gui_conflict_page_controls.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "_render_conflicts draws one button per candidate per row, labelled with the collections supplying it and that candidate's values, the held pick carrying the selected fill by indexing the candidate reference",
+        "The bulk strip reads All base plus one action per source collection, in the order the operator added them",
+        "A bulk label is the shortest trailing run of path segments that tells its source apart from every other listed source, falling back to the full resolved path, which always distinguishes because source_refusal refuses a duplicate resolved path (DL-161)",
+        "app.py holds no reading of what a decision means beyond indexing the class onto the candidate the view names (DL-069, DL-106)",
+        "app.py stays 100 percent CRLF, read and written with newline set to the empty string"
+      ],
+      "acceptance_criteria": [
+        "A fixture placing the named source at an input index the run-wide picker would NOT choose: driving the page control for that collection reaches resolutions carrying that source's pair, and a run through it writes that source's value rather than the keep-first answer",
+        "The row offers one control per candidate, and a group with two agreeing sources offers one control naming both collections",
+        "Bulk labels are distinct in every arrangement: two sources sharing a file name, two sharing a file name and a parent directory, and sources separating only at the root, which label as their full resolved paths",
+        "A bulk action for one collection leaves rows it holds no record in undecided",
+        "app.py's CRLF count is unchanged and its bare LF count is 0",
+        "No aggrid call appears in app.py (DL-079, DL-110)"
+      ],
+      "tests": [
+        "Files: tests/test_gui_conflict_page_controls.py",
+        "Type: unit",
+        "Backing: pytest under the system interpreter; tests/test_gui_line_endings.py covers the CRLF profile",
+        "normal: Driving the control for the named source reaches resolutions with that source's pair, over a fixture where keep-first would choose a different source",
+        "edge: Two sources sharing a file name, and two sharing a file name AND a parent directory, all carry distinguishable bulk labels",
+        "edge: A group with two agreeing sources offers one control naming both",
+        "error: A bulk action for a collection leaves rows it holds no record in undecided"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 3,
+          "file": "traktor_nml/gui/app.py",
+          "function": null,
+          "behavior": "_render_conflicts draws one button per candidate on each row, labelled with the collection names supplying it and that candidate values, with the held pick carrying the selected fill by indexing the candidate reference - the two per-side labels at lines 1526 and 1534 give way to the candidate loop. The bulk strip reads All base plus one action per source collection, in the order the operator added them, each settling every undecided group that collection holds a record in; a label is the shortest trailing run of path segments that tells its source apart from every other listed source - the file name alone where nothing collides, the file name plus as many parent segments as it takes otherwise, and the full resolved path where nothing shorter separates them. The walk terminates because source_refusal has already refused any candidate whose resolved path equals a listed one, so the full path always distinguishes and no input index is needed. The outstanding count sits beside the strip. The file stays 100 percent CRLF, read and written with newline set to the empty string, and holds no reading of what a decision means beyond indexing the class onto the candidate the view names",
+          "decision_refs": [
+            "DL-149",
+            "DL-150",
+            "DL-154",
+            "DL-155",
+            "DL-161"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 3,
+          "file": "tests/test_gui_conflict_page_controls.py",
+          "function": null,
+          "behavior": "The module per-track-picks-reach-resolutions guard at line 191 is extended onto candidate references, over a fixture that places the named source at an input index the run-wide picker would NOT choose - so a page control resolving through keep-first fails the guard rather than coinciding with it. Its conflict-rendering guard at line 95 asserts one control per candidate and one control naming both collections where two sources agree. Further guards: the bulk strip names each source collection; two sources sharing a file name carry distinguishable labels; two sources sharing BOTH a file name and a parent directory still carry distinguishable labels, which is the case a stem-plus-one-parent rule cannot break; and three sources whose paths separate only at the root each carry their full resolved path; a bulk action for one collection leaves rows it holds no record in undecided; the no-aggrid guard at line 231 and the no-inline-decision-arithmetic guard at line 253 stand. app.py line endings are covered by tests/test_gui_line_endings.py, which asserts the CRLF profile",
+          "decision_refs": [
+            "DL-154",
+            "DL-155",
+            "DL-161"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 2,
+      "number": 4,
+      "name": "The two-source gate fixture and the served-page run",
+      "files": [
+        "C:/codex/traktor-nml-tool-gate/reconstruct_fixture.py",
+        "C:/codex/traktor-nml-tool-gate/serve_reconstruct.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "The fixture writes base.nml plus two source collections disagreeing with each other and with base on a tracked attribute for at least one shared LOCATION",
+        "The source the gate run names sits at an input index keep-first would NOT choose",
+        "base.nml keeps CRLF and the sources LF",
+        "The expected-pick table names what each of the three answers leaves in the output",
+        "fixture/w002gatefix2 and the parity manifest are untouched, and no file is restored with git checkout"
+      ],
+      "acceptance_criteria": [
+        "A served-page run drives a pick naming the second source on a group where keep-first names the first, and --read-back reports that source's value in the entry",
+        "--read-back reports the COLLECTION holding exactly one entry for that LOCATION",
+        "The output's CRLF and bare-LF counts equal base's own (DL-128)",
+        "The run happens before the change lands (DL-084, DL-113)"
+      ],
+      "tests": [
+        "Files: C:/codex/traktor-nml-tool-gate/serve_reconstruct.py",
+        "Type: gate",
+        "Backing: A served-page run judged as the gate README describes; the suite is not a substitute, since serving the page is the only gate that has ever caught a defect in gui/ (DL-084)",
+        "normal: A pick naming the second source, read back from the written file",
+        "edge: The COLLECTION holds exactly one entry for the LOCATION; CRLF and bare-LF counts equal base's"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 1,
+          "file": "C:/codex/traktor-nml-tool-gate/reconstruct_fixture.py",
+          "function": null,
+          "behavior": "The fixture writes base.nml plus two source collections that disagree with each other and with base on a tracked attribute for at least one shared LOCATION, keeping base CRLF and the sources LF so an output line-ending profile is still base own (DL-128). The expected-pick table names what each of the three answers leaves in the output. fixture/w002gatefix2 and the parity manifest are untouched",
+          "decision_refs": [
+            "DL-156"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 1,
+          "file": "C:/codex/traktor-nml-tool-gate/serve_reconstruct.py",
+          "function": null,
+          "behavior": "The served page is driven through a pick naming the second source on a group where keep-first names the first, and --read-back reports the written surface: which of the three values landed in the entry, and that the COLLECTION holds one entry for that LOCATION. The run happens before the change lands (DL-084, DL-113)",
+          "decision_refs": [
+            "DL-156"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-005",
+      "version": 2,
+      "number": 5,
+      "name": "The decision log, the spec and the file map",
+      "files": [
+        "traktor_nml/README.md",
+        "traktor_nml/gui/CLAUDE.md",
+        "design/reconnect-wizard/Specs.dc.html"
+      ],
+      "flags": [],
+      "requirements": [
+        "The decision log carries DL-148 through DL-161, continuing the DL-147 high-water mark read from traktor_nml/README.md",
+        "The entries describing the base-or-source token vocabulary read as the candidate vocabulary the code holds",
+        "The DL-115 entry reads as the candidate-set comparison the code performs, correcting a rule shipped at aa6ab76 (DL-158)",
+        "Specs.dc.html's Splice conflicts section describes one control per candidate and the bulk strip the page renders",
+        "gui/CLAUDE.md names conflict_model's responsibility and the three nicegui importers"
+      ],
+      "acceptance_criteria": [
+        "Every DL number the plan mints resolves to its own entry and collides with no existing entry",
+        "No documentation string reads previously, now does, no longer or added",
+        "Each documented behaviour is checked against the code as it stands, and DL-004, DL-105, DL-108, DL-115, DL-116, DL-117 and DL-122 are re-read against it"
+      ],
+      "tests": [
+        "Type: documentation",
+        "Backing: The suite's documentation guards plus the repository's temporal-contamination check",
+        "normal: Every minted DL number resolves to its own entry",
+        "edge: No temporal wording appears in any changed documentation string"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-005-001",
+          "version": 2,
+          "file": "traktor_nml/README.md",
+          "function": null,
+          "behavior": "The decision log carries DL-148 through DL-161, continuing the DL-147 high-water mark read from this file, and the entries describing the base-or-source token vocabulary read as the candidate vocabulary the code holds. Every decision this plan mints has its own entry: the candidate vocabulary and the pair-valued resolution (DL-148 to DL-153, DL-157), the bulk actions (DL-154, DL-155), the gate fixture (DL-156), the inert-pair reading at each side of the boundary (DL-159), the refusal sentence (DL-160) and the bulk-label rule with its full-path fallback (DL-161). DL-004, DL-105, DL-108, DL-116, DL-117 and DL-122 are re-read against the code as it stands. No previously, now does, no longer or added",
+          "decision_refs": [
+            "DL-148",
+            "DL-149",
+            "DL-150",
+            "DL-151",
+            "DL-152",
+            "DL-153",
+            "DL-154",
+            "DL-155",
+            "DL-156",
+            "DL-157",
+            "DL-159",
+            "DL-160",
+            "DL-161"
+          ]
+        },
+        {
+          "id": "CI-M-005-002",
+          "version": 1,
+          "file": "design/reconnect-wizard/Specs.dc.html",
+          "function": null,
+          "behavior": "The Splice conflicts - Reconstruct playlists section describes one control per candidate and a bulk strip of All base plus one action per source collection, matching what the page renders",
+          "decision_refs": [
+            "DL-149",
+            "DL-155"
+          ]
+        },
+        {
+          "id": "CI-M-005-003",
+          "version": 1,
+          "file": "traktor_nml/gui/CLAUDE.md",
+          "function": null,
+          "behavior": "The file map names conflict_model responsibility as the candidate vocabulary and the nicegui boundary stands with app.py, file_picker.py and __main__.py as the only three importers",
+          "decision_refs": [
+            "DL-154"
+          ]
+        },
+        {
+          "id": "CI-M-005-004",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": null,
+          "behavior": "The DL-115 entry describes re-attachment comparing the group candidate set together with its member primary keys, and the Invariants section reads the location-derived primary key as the reason the member set alone cannot see a source added at a path an existing member holds. This corrects a rule shipped in the tree at aa6ab76 rather than only describing new work, and the plan says so plainly",
+          "decision_refs": [
+            "DL-158"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [],
+  "diagram_graphs": [],
+  "readme_entries": [],
+  "milestone_dependencies": {
+    "diagram_ascii": "M-001 --> M-002 --> M-003 --> M-005\n                        M-004 --> M-005",
+    "waves": []
+  }
+}

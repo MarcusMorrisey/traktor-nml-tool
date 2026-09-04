@@ -1,0 +1,75 @@
+{
+  "task_spec": [
+    "SUBJECT: Let a conflict resolution name the record that wins, so an operator merging from more than one source collection can say WHICH source supplies a track's values, instead of a base|source token that silently resolves to whichever source keep-first names.",
+    "SETTLED by the operator: a resolution maps an identity key to the winning record's primary key rather than to the token 'base' or 'source'. One vocabulary covers base-vs-source, source-vs-source, and a group holding no base record.",
+    "SETTLED by the operator: the bulk actions become All base plus one action per source collection, named for that collection, each settling every group that collection holds a record in. They currently read All base / All source.",
+    "scope: traktor_nml/splice.py (_resolve_conflicts' resolution branch, ConflictRow, the entry-patch path), traktor_nml/gui/conflict_model.py (the decision states, the row projection, the bulk resolution, the resolutions mapping), traktor_nml/gui/app.py (the conflict rows and the bulk controls on the reconstruct page), design/reconnect-wizard/Specs.dc.html, tests/, traktor_nml/README.md, and the gate repository's reconstruct fixture",
+    "out-of-scope: accessibility work - no screen-reader verification, no NVDA, no new keyboard bindings. Mouse and clicking is this version's bar",
+    "out-of-scope: the reconnect wizard's own four steps and its review table",
+    "out-of-scope: the run-wide --on-conflict keep-first|keep-last CLI flag, which stays as it is and keeps governing groups no resolution names (DL-108)",
+    "out-of-scope: the quadratic replacement-application loop in assemble_output, which is a separate known finding"
+  ],
+  "constraints": [
+    "MUST: ConflictRow's identity_key, attrs and resolution fields keep their current meaning - traktor_nml/commands/splice_cmd.py's _write_conflict_report writes exactly those three as the conflict report's CSV columns, and the CLI is not changing",
+    "MUST: the resolutions mapping's values change vocabulary, so every caller and guard naming 'base' or 'source' as a mapping VALUE is enumerated and updated; the operator-facing words base and source may remain as labels",
+    "MUST: a resolution naming a record that is not a member of that group is inert rather than an error, the way an unmatched identity key already is (DL-105)",
+    "MUST: DL-115's re-attachment rule still holds - a held pick re-attaches only where the group's member primary keys are the identical set - and its guards pass unchanged",
+    "MUST: DL-116 still holds - a pick that names a base record keeps base's own ENTRY and rewrites only the divergent attribute values; the merged COLLECTION holds at most one entry per LOCATION (DL-004)",
+    "MUST: the nicegui boundary (DL-069) - conflict_model.py imports no nicegui; app.py, file_picker.py and __main__.py are the only three that may",
+    "MUST: app.py stays 100% CRLF (1636 CRLF, 0 bare LF); splice.py, conflict_model.py and the tests are LF. Read and write with newline=''",
+    "MUST: every guard is made to FAIL first, and its docstring records the specific mutation applied and the specific output observed",
+    "MUST: a served-page gate run before the change lands, over a fixture carrying at least two source collections that disagree with each other and with base (DL-084, DL-113)",
+    "MUST: new decisions continue from the current high-water mark in traktor_nml/README.md - re-read and confirm it rather than assuming",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+    "MUST NOT: regenerate the parity manifest or the gate fixture under fixture/w002gatefix2; never restore a file with git checkout",
+    "SHOULD: the suite runs under the SYSTEM interpreter, currently 503 passed / 3 skipped, not .venv"
+  ],
+  "entry_points": [
+    "traktor_nml/splice.py:_resolve_conflicts - `resolution = resolutions.get(identity_key)`, the `if resolution == 'source'` branch that calls pick_non_base() for the values, and pick_non_base itself, whose docstring says it answers both which non-base copy survives and which supplies a source pick's values",
+    "traktor_nml/splice.py:_metadata_conflict_row and _side_values - the row already carries member_keys and one tuple of that side's distinct values per divergent attribute; the record identity the new vocabulary needs is the primary key, which _side_values currently discards",
+    "traktor_nml/splice.py:ConflictRow - identity_key, attrs, resolution, member_keys, base_values, source_values",
+    "traktor_nml/gui/conflict_model.py:ConflictGroup, ConflictDecisions, conflict_groups, rows, resolve, resolve_all, outstanding, resolutions, write_refusal - BASE/SOURCE/UNDECIDED are the current decision vocabulary",
+    "traktor_nml/gui/app.py:_render_conflicts and its draw/bulk/pick/row closures - two buttons per row and two bulk actions",
+    "traktor_nml/commands/splice_cmd.py:_write_conflict_report - the three CSV columns that must not change",
+    "C:\\codex\\traktor-nml-tool-gate/reconstruct_fixture.py - builds the conflict fixture; it holds one source today and the gate run needs two that disagree",
+    "C:\\codex\\traktor-nml-tool-gate/serve_reconstruct.py - serves /, stubs the file chooser by call order, and its --read-back reports the written file surface by surface"
+  ],
+  "rejected_alternatives": [
+    "Keep base|source and refuse what it cannot express - the page would name the disagreeing sources and refuse to settle the group. Rejected by the operator: it makes the defect visible without letting them choose",
+    "Leave it and record it in the decision log and TODO.md - rejected by the operator; the wrong value still gets written silently on a multi-source run",
+    "Keep base|source and add a second run-wide flag naming which source wins - a run-wide answer to a per-track question, which is the shape the per-key mapping already replaced",
+    "Bulk actions reduced to All base and All first source - rejected by the operator in favour of one action per source collection",
+    "Drop bulk actions on multi-source runs - rejected by the operator; a large conflict set would become per-row work"
+  ],
+  "current_understanding": [
+    "measured today, base plus two sources disagreeing three ways on BITRATE: the row's source_values reads (('064', '128'),), the page displays '064 / 128', and a 'source' resolution applies {'bitrate': '128'} - keep-first's answer - with no way for the operator to choose 064",
+    "the join with ' / ' exists in conflict_model precisely because the pick the operator is asked for cannot express which source, so the display had to collapse several answers into one cell",
+    "pick_non_base() serves two different questions: which non-base copy survives when no base record exists, and which non-base record supplies a source pick's values. Only the second is wrong; the first is the run-wide policy doing its job",
+    "the review also claimed a group holding NO base record accepts a pick the core ignores. I tried to reproduce it and did not - my fixture still grouped base into the set - so that half is UNVERIFIED and the plan should establish it by reading rather than repeat it",
+    "resolutions values are currently the literals 'base' and 'source'; splice compares `resolution == 'source'` and conflict_model's BASE/SOURCE constants carry the same two strings",
+    "ConflictRow already carries member_keys, so the members' primary keys are already in the row - what is missing is which value belongs to which record"
+  ],
+  "assumptions": [
+    "The row needs one option per distinct candidate record, each with its own values, rather than two sides - the plan should settle the shape (M)",
+    "A group holding several base records already redirects to base_members[0] and keeps its non-base keys ambiguous (DL-122); a resolution naming one of those non-base records interacts with that rule and the plan must say how (M)",
+    "Two sources that agree with each other but differ from base should still present as one option rather than two identical ones (M)",
+    "The bulk action per source collection needs a label; the page holds the source paths, so the file name is available (H)"
+  ],
+  "invisible_knowledge": [
+    "A SOURCE pick keeps base's ENTRY and rewrites the divergent attribute values inside it, because transplanting the source's ENTRY produced two COLLECTION entries sharing one LOCATION, which DL-004 forbids - the defect a served-page gate run caught after a green suite",
+    "Serving the page is the only gate that has ever caught a defect in gui/ (DL-084)",
+    "A guard asserting the right value appeared can pass while the output is wrong - assert the count, the structure, or the thing the defect would change. Nine guards were green while the output held two entries for one file",
+    "conflict_groups projects a group from a ConflictRow alone and takes no records and no MatchConfidence; the page and the core agree because the core reports what it grouped rather than the page regrouping",
+    "old_to_new_key holds only keys a resolution actually redirected; a key with no mapping passes through as the raw key rather than erroring (DL-101)",
+    "The primary key is derived from the location, so two entries for one file cannot be told apart by key",
+    "Quasar's no-outline carries outline:0 !important inside a layer the page orders last; an unlayered add_head_html rule loses at every specificity (DL-086's ladder)",
+    "A token class carrying background and ink together needs color=None at the constructor"
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - the decision log and the authority; DL-004, DL-069, DL-084, DL-101, DL-104, DL-105, DL-108, DL-113, DL-115, DL-116, DL-117, DL-118, DL-122 all bear",
+    "traktor_nml/gui/CLAUDE.md - the nicegui boundary and the file map",
+    "docs/plans/2026-08-31-conflict-resolution/ and docs/plans/2026-08-31-source-resolution/ - the two plans this work continues",
+    "design/reconnect-wizard/Specs.dc.html - the conflict screen's contract, section 'Splice conflicts - Reconstruct playlists'",
+    "C:\\codex\\traktor-nml-tool-gate/README.md - the gate's scripts and how a run is judged"
+  ]
+}

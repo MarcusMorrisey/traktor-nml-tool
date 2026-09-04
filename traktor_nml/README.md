@@ -868,8 +868,9 @@ statement of the same decision would only give it two copies to drift apart.
   nicegui, so resolution logic in `app.py` would be unreachable from the
   suite and would fail `tests/test_gui_view_boundary.py`'s AST walk.
   `conflict_model.py` holds `ConflictDecisions` (per identity key:
-  undecided, base, source), the row projection over a `ConflictRow` plus
-  its decision, the bulk all-base/all-source application and the
+  `UNDECIDED`, or a candidate reference naming one of the answers the
+  group offers), the row projection over a `ConflictRow` plus its
+  decision, the bulk application of one collection's answers and the
   outstanding count, and imports no nicegui (DL-106).
 - Per-track picks are held in session state keyed by the identity key,
   surviving a re-preview after an output path change or a further source
@@ -895,8 +896,9 @@ statement of the same decision would only give it two copies to drift apart.
   exception to that rule or be reconciled after the fact against a
   contract written to match the code (DL-109).
 - The conflict table renders hand-rolled `ui.row` rows per conflicting
-  track, one row showing the base version against the source version with
-  a base/source pick, alongside run-wide all-base and all-source actions.
+  track, one row showing one control per answer the track offers,
+  alongside a run-wide bulk strip of one action per collection the run
+  reads.
   DL-079 rejected `ui.aggrid` for the review table because aggrid claims
   the arrow keys Specs binds over that same table, and the conflict table
   sits in the same wizard surface under the same keyboard contract, so
@@ -944,17 +946,19 @@ statement of the same decision would only give it two copies to drift apart.
   at least two records spanning at least two inputs, so both branches
   always yield a value (DL-114).
 - A held decision survives a re-preview only when its content-derived key
-  names a group whose member primary keys are the identical set; a group
-  whose membership differs, and a key naming no group at all, return the
-  row to undecided and count toward outstanding. `record_keys` cascades
-  through every tier and `group_identities` unions across them, so a
-  further source can merge two separate groups into one or
-  pull a record into a group it was not in, and the operator's pick was
-  made against the versions of one specific member set and says nothing
-  about a larger one. Membership is compared as a set of primary keys and
-  only an exact match re-attaches, so a re-preview after a further source
-  refuses the write and shows the row again rather than writing a stale
-  pick (DL-115).
+  names a group whose member primary keys are the identical set *and*
+  whose candidates are the identical tuple; a group whose membership
+  differs, a group whose answers differ, and a key naming no group at
+  all, return the row to undecided and count toward outstanding.
+  `record_keys` cascades through every tier and `group_identities` unions
+  across them, so a further source can merge two separate groups into
+  one, pull a record into a group it was not in, or add an answer to a
+  group whose member primary keys do not move at all, and the operator's
+  pick was made against one specific set of answers and says nothing
+  about a different one. Both sets are compared for exact equality and
+  only an exact match on both re-attaches, so a re-preview after a
+  further source refuses the write and shows the row again rather than
+  writing a stale pick (DL-115).
 - A source pick on a group holding a base record keeps base's own `ENTRY`
   as the collection's entry for that track and rewrites that entry's
   divergent attribute values to the winning non-base record's; no non-base
@@ -965,23 +969,24 @@ statement of the same decision would only give it two copies to drift apart.
   playlist reference to that track ambiguous - the served gate run over
   such a transplant wrote four COLLECTION entries where base held three,
   two of them at one `LOCATION`. The winner for a group with a base record
-  is always base's record and the operator's source pick is carried by
-  substituting attribute values inside base's own `ENTRY` span, so the
+  is always base's record and the operator's pick of another
+  collection's answer is carried by substituting attribute values inside
+  base's own `ENTRY` span, so the
   collection keeps one entry per track and the values the operator read
   are the values written (DL-116).
 - The keep-first/keep-last picker over non-base candidates selects the
   entry to transplant only where the group holds no base record: the
-  branch condition is `base_member is None` alone, and the `source` token
-  selects the attribute source rather than an entry to transplant. The
-  picker answers which of several non-base copies survives, a question
-  arising only where nothing base-side already occupies the collection
-  slot, so routing a source pick through it would conflate two questions
-  and make the transplant - correct for a base-less group - an addition
-  for a group base already owns. The base-less branch keeps the picker
-  and the transplant, and the source branch uses the same picker only to
-  name which non-base record supplies the attribute values patched into
-  base's entry (DL-117).
-- A source pick patches exactly the attributes the group's divergence was
+  branch condition is `base_member is None` alone. The picker answers
+  which of several non-base copies survives, a question arising only
+  where nothing base-side already occupies the collection slot, so
+  routing a pick on a group base already owns through it would conflate
+  two questions and make the transplant - correct for a base-less group -
+  an addition for a group base already owns. The base-less branch keeps
+  the transplant and falls back to the picker for the groups no
+  resolution names; the branch for a group holding a base record names
+  which non-base record supplies the attribute values patched into
+  base's entry, and reaches the picker not at all (DL-117).
+- A pick patches exactly the attributes the group's divergence was
   measured over - the divergent subset of `_TRACKED_ATTRS` - and no
   others. `divergent_attrs` is the tracked attributes whose value set
   across the group's members holds more than one element, so a tracked
@@ -1053,7 +1058,7 @@ statement of the same decision would only give it two copies to drift apart.
   because the COLLECTION `ENTRIES` count is read from `base_root`
   downstream, and `span_indexes[0]` is stale from the apply onward, so no
   base-side span lookup occurs after it (DL-121).
-- A source pick on a group holding more than one base record patches the
+- A pick on a group holding more than one base record patches the
   first base record's entry only, and the group's non-base primary keys
   stay in `ambiguous_keys`. Such a group has no single right redirect
   target, which is what `ambiguous_keys` records and what the
@@ -1379,7 +1384,152 @@ statement of the same decision would only give it two copies to drift apart.
   What stays in its own milestone is `navigation.py` and its guards,
   which import no framework and have no consumer to wait for, so the
   boundary follows the coupling the guard reports rather than the file
-  types (DL-147).
+  types (DL-147).- A resolution maps an identity key to an `(input index, primary key)`
+  pair rather than to a bare primary key. The primary key is derived from
+  the location (DL-004), so two records for one file in two inputs carry
+  the identical key, and `group_identities` unions them through the
+  location tier into one group: a group of base plus a source holding the
+  same path has a `member_keys` frozenset of size one while holding two
+  records, and a bare primary key therefore cannot name which record wins
+  in the commonest conflict shape. The input index is the disambiguator
+  `splice.py` already relies on for exactly this reason - `new_entries`
+  carries `(input_idx, record)` because two distinct records can carry
+  identical field values (DL-148).
+- `ConflictRow` carries a `candidates` tuple in place of per-side value
+  lists. A per-side pair of value lists folds each side down to its
+  distinct sorted values, so which record held which value is discarded
+  before the row leaves `splice.py` and a page offering one option per
+  answer cannot be built from the row. The row carries one
+  `ConflictCandidate` per distinct tuple of divergent-attribute values,
+  each holding its contributing `(input index, primary key)` pairs and
+  its values in divergent-attribute order; `identity_key`, `attrs` and
+  `resolution` keep their meaning, so `_write_conflict_report` reads the
+  same three CSV columns (DL-149).
+- Two records agreeing on every divergent attribute present as one
+  candidate carrying both contributors. Candidates are keyed by their
+  tuple of divergent-attribute values, so two sources that agree with
+  each other collapse to one entry and the operator sees one option per
+  distinct answer rather than two identical controls, with the option
+  naming every collection that supplies it. A pick stores the contributor
+  of lowest input index, so the recorded pair is deterministic and the
+  values written are the same whichever contributor is named (DL-150).
+- A resolution moves the redirect target only where the group holds no
+  base record; where it holds one, `base_members[0]` stays the target and
+  the pick supplies values. `_resolve_conflicts` sets
+  `old_to_new_key[record.primary_key] = winner.primary_key` for every
+  non-winner, so the winner is the redirect target and the playlist
+  `PRIMARYKEY` rewrite behind it. Where the group holds a base record the
+  winner is that base record and DL-116 keeps base's own `ENTRY`, so the
+  pick reaches only `entry_patches` and the target is unmoved; where the
+  group holds no base record the winner is the record the resolution
+  names (DL-152), so the pick moves the target and every other member
+  redirects to it, which is the point of letting the operator name the
+  survivor. DL-122's conclusion is untouched either way: that rule is
+  about groups holding several base records and about `ambiguous_keys`,
+  and a multi-base group always takes the base branch (DL-151).
+- A group holding no base record consults its resolution for the winner.
+  A vocabulary of two side tokens cannot name a winner among several
+  non-base copies, so such a group could only fall to the run-wide
+  picker while its resolution suppressed the unresolved abort and
+  labelled the conflict row. The transplant branch reads the resolution
+  and appends the named record to `new_entries`, falling back to
+  `pick_non_base()` where no resolution names a member, so DL-117 stands:
+  the picker still answers the groups no resolution names. Such a group
+  needs two or more inputs none of which is input 0, so any fixture where
+  base holds the track puts index 0 in the group and the branch is not
+  reached (DL-152).
+- A resolution naming a pair no member of the group carries is inert.
+  DL-105 already makes an identity key naming no group inert rather than
+  an error, and a pair naming no member is the same shape of stale input,
+  reachable after a re-preview changes membership: the group falls
+  through to `on_conflict` or to the unresolved abort, the way an omitted
+  key does (DL-153).
+- The bulk strip reads "All base" plus one action per source collection,
+  labelled from the source's path. `app.py` holds the operator-chosen
+  source paths in the order they were listed, and a source's input index
+  is its position in that list plus one. A bulk action settles every
+  undecided group its collection holds a record in and leaves every other
+  group untouched, so a group the collection has no record in stays
+  undecided and counts toward `outstanding` rather than silently taking
+  another collection's values (DL-154).
+- `conflict_model.py`'s decision vocabulary is `UNDECIDED` plus a
+  candidate reference, and no side token is a mapping value. `resolve`,
+  `resolve_all`, `resolutions`, `decision` and `_Decision` each carry the
+  mapping value, so each takes a candidate reference and the guard over a
+  fixed token set goes with them. The words base and source survive as
+  operator-facing labels and in `write_refusal_sentence`, where they name
+  what the operator sees rather than what the core reads (DL-155).
+- The served-page gate fixture holds a second source collection that
+  disagrees with the first and with base. Serving the page is the only
+  gate that has ever caught a defect in `gui/` (DL-084), and the defect
+  this work repairs is invisible with one source, since naming a side and
+  naming a record are the same pick there. `reconstruct_fixture.py` in
+  the gate repository builds base plus two sources disagreeing three ways
+  on a tracked attribute and the read-back reports which of the three
+  values landed; the parity manifest and the `w002gatefix2` fixture are
+  untouched (DL-156).
+- The display of a candidate's values joins one value per divergent
+  attribute and never several answers into one cell. A separator token
+  existed because the pick the operator was asked for could not express
+  which source, and one control per candidate gives each answer its own
+  cell; the join survives only inside a single candidate, whose
+  contributing records disagree on nothing divergent by construction, so
+  the separator and the absent-value marker leave with the two side
+  fields (DL-157).
+- DL-115's re-attachment compares the group's candidate set together with
+  its member primary keys - a correction to a rule shipped in the tree at
+  `aa6ab76`. Measured there: base plus one source at
+  `C:/:Music/:track.mp3` gives `member_keys={'C:/:Music/:track.mp3'}` and
+  one source-side answer; a second source at that same path leaves
+  `member_keys` identical while the answers become two. The primary key
+  is derived from the location (DL-004), so records for one file in two
+  inputs collide in the frozenset and a further source is invisible to a
+  comparison over the member set alone, letting a held pick survive a
+  re-preview whose available answers moved underneath it - the
+  silently-wrong-value defect this work repairs, reached by a second
+  route. Re-attachment therefore compares the candidate set, each
+  candidate carrying its contributing pairs and its values, together with
+  `member_keys`, so a pick stands only where the answers it was made
+  against are the answers on offer; the rule carries its own fail-first
+  guard over the two-sources-at-one-path shape above (DL-158).
+- An inert pair is inert at the core and refused at the model.
+  `resolutions.get(identity_key)` returns `None` for a key naming no
+  group and the group falls through to `on_conflict` or the unresolved
+  abort (DL-105, DL-153): that is the core reading a mapping it did not
+  build, where a stale entry must not abort a run. `conflict_model.py`
+  builds the mapping from groups it holds, so a candidate reference
+  naming no candidate of its own group is a caller error rather than
+  stale operator input, and `resolve` raises on it. The two behaviours
+  are one rule read from two sides: the model never emits a pair its
+  group does not carry, and the core never trusts that it did not
+  (DL-159).
+- `write_refusal_sentence` names the controls the page renders rather
+  than two sides. The row offers one control per candidate and the strip
+  offers "All base" plus one action per source collection, so wording
+  naming two sides would describe controls the page does not hold. The
+  sentence names choosing a collection for each row, and its guard
+  asserts the rendered wording against the rendered controls (DL-160).
+- A bulk-action label is the shortest trailing run of path segments that
+  tells its source apart from every other listed source, falling back to
+  the full resolved path. `conflict_model.source_refusal` refuses only a
+  candidate whose resolved path is already listed, so two collections
+  sharing a file name in different folders are both admissible, and so
+  are two sharing a file name and a parent, since `/a/music/collection.nml`
+  and `/b/music/collection.nml` differ only further up: a stem, or a stem
+  plus one parent, is a rule with a collision it cannot break. The label
+  is built by walking leftward from the file name one segment at a time
+  and stopping at the first length unique among the listed sources, which
+  gives `collection.nml` where nothing collides, `collection.nml (music)`
+  where the file name collides, `collection.nml (a/music)` where the file
+  name and its parent both collide, and so on. The walk terminates
+  because the full resolved path always distinguishes - `source_refusal`
+  has refused any candidate whose resolved path equals a listed one, so
+  no two listed sources share one. In the worst case, two sources
+  differing only at the drive or the root, the label is each source's
+  full resolved path, which is long but never ambiguous, and no input
+  index is needed because the path itself carries the distinction the
+  operator chose the file by (DL-161).
+
 ## Invariants
 
 - The merged COLLECTION holds at most one entry per `LOCATION`. The
@@ -1387,6 +1537,12 @@ statement of the same decision would only give it two copies to drift apart.
   cannot be told apart and a playlist `PRIMARYKEY` naming that file
   resolves against both, so a source pick on a group base already owns
   rewrites base's entry rather than adding one beside it (DL-004).
+- A held conflict pick is applied only to a group offering the same
+  answers it was made against. The primary key is derived from the
+  location, so two records for one file in two inputs carry one key and
+  collapse into a single member of a group's `member_keys` frozenset,
+  which is why that set alone cannot tell whether a pick still stands -
+  the comparison DL-115 states is what holds this invariant up.
 - Every entry a patch can name holds a `LOCATION` child, because
   `collection_records` skips any entry without one, so a COLLECTION
   `ENTRY` reaching the patch path is never self-closing and always

@@ -1,13 +1,16 @@
 """Guards for traktor_nml/gui/conflict_model.py's decision states, row
-projection, resolutions mapping, membership re-attachment and write
+projection, resolutions mapping, candidate re-attachment and write
 refusal. Each guard constructs its broken scenario in executable code
 and records the mutation applied and the output observed under it,
 matching the register tests/test_gui_wizard_state.py uses.
 
 The fixtures build EntryRecords directly and drive splice's own
-group_identities and _resolve_conflicts over them, so the identity keys
-and the membership under test are the ones the merge itself derives, not
-a copy of the derivation restated here.
+group_identities and _resolve_conflicts over them, so the identity keys,
+the membership and the candidates under test are the ones the merge
+itself derives, not a copy of the derivation restated here. Where a
+fixture names one source's answer, it names the source at input index 2,
+which the run-wide keep-first picker would not choose, so a guard cannot
+pass by coinciding with the picker's own answer.
 """
 
 from __future__ import annotations
@@ -18,7 +21,6 @@ import pytest
 
 from traktor_nml.gui.conflict_model import (
     ALREADY_LISTED,
-    BASE,
     IS_A_SOURCE,
     IS_THE_BASE,
     base_refusal,
@@ -26,15 +28,18 @@ from traktor_nml.gui.conflict_model import (
     CONFLICTS_OUTSTANDING,
     ConflictDecisions,
     NO_PREVIEW,
-    SOURCE,
     UNDECIDED,
+    candidate_holding_input,
+    candidate_reference,
     conflict_groups,
+    reference_from_input,
     write_refusal,
     write_refusal_sentence,
 )
 from traktor_nml.matching import MatchConfidence
 from traktor_nml.model import EntryRecord, LocationParts
 from traktor_nml.splice import (
+    ConflictCandidate,
     ConflictRow,
     SpliceResult,
     _resolve_conflicts,
@@ -91,17 +96,40 @@ def _two_track_inputs() -> list[list[EntryRecord]]:
     ]
 
 
-def test_a_row_projects_the_key_the_attrs_and_both_sides_values() -> None:
-    """One conflict row carries the identity key, the divergent attribute
-    names, the base side's values, the source side's values and the
-    decision.
+def _three_answer_inputs() -> list[list[EntryRecord]]:
+    """A base and two sources disagreeing with each other and with base,
+    so the group offers three distinct answers and the one at input index
+    2 is not the answer keep-first would name."""
+    return _one_track_inputs() + [[_record("/:Two/:", "064")]]
 
-    Observed with conflict_groups' source column fed base_members in
-    place of source_members (source_values=_side_values(base_members,
-    attrs)): AssertionError on `assert row.source_values == ("128",)`,
-    reported as `assert ('320',) == ('128',)` with `At index 0 diff:
-    '320' != '128'` - the row read the base side's own BITRATE in its
-    source column, so the two columns were indistinguishable.
+
+def _agreeing_sources_inputs() -> list[list[EntryRecord]]:
+    """A base and two sources that agree with each other and differ from
+    base, so the two sources supply one answer between them."""
+    return _one_track_inputs() + [[_record("/:Two/:", "128")]]
+
+
+def _reference_at(group, input_index: int):
+    """The candidate reference for the answer the collection at this
+    input index supplies."""
+    candidate = candidate_holding_input(group.candidates, input_index)
+    assert candidate is not None, f"input {input_index} supplies no answer"
+    return candidate_reference(candidate)
+
+
+def test_a_row_projects_the_key_the_attrs_and_the_candidates() -> None:
+    """One conflict row carries the identity key, the divergent attribute
+    names, one candidate per distinct answer with the records supplying
+    it, and the decision.
+
+    Observed with rows() handing the group's member keys through as its
+    candidates (`candidates=tuple(sorted(group.member_keys))`):
+    AssertionError on `assert row.candidates == groups[0].candidates`,
+    reported as `assert ('C:/:Base/:t...e/:track.mp3') ==
+    (ConflictCand...rack.mp3'),)))` with `At index 0 diff:
+    'C:/:Base/:track.mp3' != ConflictCandidate(values=('320',),
+    members=((0, 'C:/:Base/:track.mp3'),))` - the row named the records
+    without naming what any of them answered.
     """
     groups = _groups(_one_track_inputs())
     decisions = ConflictDecisions()
@@ -112,20 +140,65 @@ def test_a_row_projects_the_key_the_attrs_and_both_sides_values() -> None:
     row = rows[0]
     assert row.identity_key == "C:/:Base/:track.mp3"
     assert row.attrs == ("bitrate",)
-    assert row.base_values == ("320",)
-    assert row.source_values == ("128",)
+    assert row.candidates == groups[0].candidates
+    assert len(row.candidates) == 2
+    assert [candidate.values for candidate in row.candidates] == [("320",), ("128",)]
+    assert [candidate.members for candidate in row.candidates] == [
+        ((0, "C:/:Base/:track.mp3"),),
+        ((1, "C:/:One/:track.mp3"),),
+    ]
     assert row.decision == UNDECIDED
+
+
+def test_two_agreeing_sources_present_one_answer_and_three_disagreeing_present_three() -> None:
+    """Candidates are one per distinct answer, not one per record: two
+    sources agreeing with each other collapse into one candidate naming
+    both, while three disagreeing records present three (DL-150).
+
+    Observed with splice._candidates keyed by the contributor as well as
+    the values (`grouped.setdefault(values + (str(input_idx),), ...)`,
+    reverted after the run): AssertionError on `assert
+    len(agreeing.candidates) == 2`, reported as `assert 3 == 2`, the
+    three being `ConflictCandidate(values=('320', '0'), members=((0,
+    'C:/:Base/:track.mp3'),))`, `ConflictCandidate(values=('128', '1'),
+    members=((1, 'C:/:One/:track.mp3'),))` and
+    `ConflictCandidate(values=('128', '2'), members=((2,
+    'C:/:Two/:track.mp3'),))` - the two agreeing sources presented the
+    operator two buttons for one answer.
+    """
+    agreeing = _groups(_agreeing_sources_inputs())[0]
+    distinct = _groups(_three_answer_inputs())[0]
+
+    assert len(agreeing.candidates) == 2
+    assert [candidate.values for candidate in agreeing.candidates] == [("320",), ("128",)]
+    agreed = candidate_holding_input(agreeing.candidates, 1)
+    assert agreed is not None
+    assert agreed.members == (
+        (1, "C:/:One/:track.mp3"),
+        (2, "C:/:Two/:track.mp3"),
+    )
+    assert candidate_holding_input(agreeing.candidates, 2) is agreed
+
+    assert len(distinct.candidates) == 3
+    assert [candidate.values for candidate in distinct.candidates] == [
+        ("320",),
+        ("128",),
+        ("064",),
+    ]
+    assert [len(candidate.members) for candidate in distinct.candidates] == [1, 1, 1]
 
 
 def test_a_fresh_set_reports_every_key_undecided_and_counts_them_outstanding() -> None:
     """A fresh decision set reads every group undecided and its
     outstanding count equals the number of conflict rows.
 
-    Observed with ConflictDecisions.decision returning BASE in place of
-    UNDECIDED for an unheld key (`return BASE` under `if held is None or
-    held.member_keys != group.member_keys:`): AssertionError on the
-    decision list, reported as `assert ['base', 'base'] == ['undecided',
-    'undecided']` with `At index 0 diff: 'base' != 'undecided'`.
+    Observed with decision returning a fabricated reference in place of
+    UNDECIDED for an unheld key (`return (0, group.identity_key)` under
+    `if held is None:`): AssertionError on `assert
+    [decisions.decision(group) for group in groups] == [UNDECIDED,
+    UNDECIDED]`, reported as `assert [(0, 'C:/:Bas.../:other.mp3')] ==
+    ['undecided', 'undecided']` with `At index 0 diff: (0,
+    'C:/:Base/:track.mp3') != 'undecided'`.
     """
     groups = _groups(_two_track_inputs())
     decisions = ConflictDecisions()
@@ -135,60 +208,105 @@ def test_a_fresh_set_reports_every_key_undecided_and_counts_them_outstanding() -
     assert decisions.outstanding(groups) == len(groups)
 
 
-def test_resolving_to_base_and_to_source_reads_back() -> None:
-    """resolve sets one key and decision reads that same side back.
+def test_resolving_to_one_answer_reads_that_answer_back() -> None:
+    """resolve sets one key and decision reads that same answer's
+    reference back, for an answer the run-wide picker would not name.
 
-    Observed with resolve storing the literal BASE in place of the side
-    it is passed (`_Decision(BASE, group.member_keys)`): AssertionError
-    on `assert decisions.decision(group) == SOURCE`, reported as `assert
-    'base' == 'source'` - the source pick read back 'base'.
+    Observed with resolve storing the group's first candidate in place of
+    the one the reference names (`candidate_reference(
+    group.candidates[0])` in the store): AssertionError on `assert
+    decisions.decision(group) == (2, "C:/:Two/:track.mp3")`, reported as
+    `assert (0, 'C:/:Base/:track.mp3') == (2, 'C:/:Two/:track.mp3')` with
+    `At index 0 diff: 0 != 2` - every pick read back as base's own
+    answer.
     """
-    groups = _groups(_one_track_inputs())
-    group = groups[0]
+    group = _groups(_three_answer_inputs())[0]
     decisions = ConflictDecisions()
 
-    decisions.resolve(group, BASE)
-    assert decisions.decision(group) == BASE
+    decisions.resolve(group, _reference_at(group, 0))
+    assert decisions.decision(group) == (0, "C:/:Base/:track.mp3")
 
-    decisions.resolve(group, SOURCE)
-    assert decisions.decision(group) == SOURCE
+    decisions.resolve(group, _reference_at(group, 2))
+    assert decisions.decision(group) == (2, "C:/:Two/:track.mp3")
+    assert decisions.decision(group) != _reference_at(group, 1)
 
 
-def test_an_unknown_side_is_refused() -> None:
-    """resolve accepts only base and source; any other token is a
-    programming error in the caller.
+def test_a_pick_names_the_lowest_contributor_of_the_answer_it_settles() -> None:
+    """Where two collections supply one answer, naming either records the
+    same pair - the contributor of lowest input index - so the recorded
+    value does not depend on which button was pressed (DL-150).
 
-    Observed with resolve's side check dropped (the `if side not in
-    SIDES: raise ValueError(...)` block removed): `Failed: DID NOT RAISE
-    <class 'ValueError'>` - the token 'keep-first' was stored as though
-    it were a side.
+    Observed with candidate_reference answering the last contributor
+    (`return candidate.members[-1]`): AssertionError on `assert
+    by_second == (1, "C:/:One/:track.mp3")`, reported as `assert (2,
+    'C:/:Two/:track.mp3') == (1, 'C:/:One/:track.mp3')` with `At index 0
+    diff: 2 != 1` - the two buttons for one answer recorded two different
+    picks.
     """
-    groups = _groups(_one_track_inputs())
+    group = _groups(_agreeing_sources_inputs())[0]
+
+    first = ConflictDecisions()
+    first.resolve(group, (1, "C:/:One/:track.mp3"))
+    by_second = first.decision(group)
+
+    second = ConflictDecisions()
+    second.resolve(group, (2, "C:/:Two/:track.mp3"))
+    by_third = second.decision(group)
+
+    assert by_second == by_third
+    assert by_second == (1, "C:/:One/:track.mp3")
+
+
+def test_a_reference_naming_no_candidate_of_the_group_is_refused() -> None:
+    """resolve accepts only a pair one of the group's own candidates
+    carries. A pair naming a record of another group, or a record at an
+    input the group holds nothing from, is a programming error in the
+    caller rather than stale operator input (DL-159).
+
+    Observed with resolve's refusal replaced by storing the reference as
+    given (`self._decisions[group.identity_key] = _Decision(
+    tuple(reference), group.member_keys, group.candidates)` in place of
+    the `raise ValueError(...)`): `Failed: DID NOT RAISE <class
+    'ValueError'>` at the first `with pytest.raises(ValueError):` - the
+    pair (7, 'C:/:Nowhere/:track.mp3') was stored as a pick, and
+    resolutions would then emit it to the core.
+    """
+    group = _groups(_three_answer_inputs())[0]
     decisions = ConflictDecisions()
 
     with pytest.raises(ValueError):
-        decisions.resolve(groups[0], "keep-first")
+        decisions.resolve(group, (7, "C:/:Nowhere/:track.mp3"))
+
+    # The primary key is one a candidate carries; the input index is not.
+    with pytest.raises(ValueError):
+        decisions.resolve(group, (5, "C:/:Two/:track.mp3"))
+
+    assert decisions.decision(group) == UNDECIDED
+    assert decisions.resolutions([group]) == {}
 
 
 def test_a_fresh_set_and_one_reset_key_by_key_behave_identically() -> None:
     """Resetting every decided key reads back exactly what a fresh set
-    reads - the same decisions, the same outstanding count and the same
+    reads - the same rows, the same outstanding count and the same
     (empty) resolutions mapping.
 
     Observed with reset's body replaced by `pass`, so a decided key
     survives the reset: AssertionError on `assert decisions.rows(groups)
-    == fresh_rows`, reported as `At index 0 diff:
+    == fresh_rows`, reported with `At index 0 diff:
     ConflictRowView(identity_key='C:/:Base/:track.mp3',
-    attrs=('bitrate',), base_values=('320',), source_values=('128',),
-    decision='base') != ConflictRowView(... decision='undecided')`.
+    attrs=('bitrate',), candidates=(ConflictCandidate(values=('320',),
+    members=((0, 'C:/:Base/:track.mp3'),)),
+    ConflictCandidate(values=('128',), members=((1,
+    'C:/:One/:track.mp3'),))), decision=(0, 'C:/:Base/:track.mp3')) !=
+    ConflictRowView(... decision='undecided')`.
     """
     groups = _groups(_two_track_inputs())
     fresh = ConflictDecisions()
     fresh_rows = fresh.rows(groups)
 
     decisions = ConflictDecisions()
-    decisions.resolve(groups[0], BASE)
-    decisions.resolve(groups[1], SOURCE)
+    decisions.resolve(groups[0], _reference_at(groups[0], 0))
+    decisions.resolve(groups[1], _reference_at(groups[1], 1))
     for group in groups:
         decisions.reset(group.identity_key)
 
@@ -197,57 +315,100 @@ def test_a_fresh_set_and_one_reset_key_by_key_behave_identically() -> None:
     assert decisions.resolutions(groups) == {}
 
 
-def test_bulk_all_base_leaves_an_explicit_source_pick_standing() -> None:
-    """resolve_all sets every undecided key to one side and leaves a key
-    already decided the other way standing, in both directions.
+def test_a_bulk_action_leaves_an_explicit_pick_standing() -> None:
+    """resolve_all settles every undecided group its predicate answers
+    for and leaves a group already decided another way standing.
 
     Observed with resolve_all's guard dropped (the `if self.decision(
-    group) == UNDECIDED` test removed, so it resolves every group):
-    AssertionError on `assert decisions.decision(picked) == SOURCE`,
-    reported as `assert 'base' == 'source'` - the explicit source pick
-    was overwritten by the bulk action.
+    group) != UNDECIDED: continue` lines removed, so it resolves every
+    group): AssertionError on `assert decisions.decision(picked) ==
+    picked_reference`, reported as `assert (0, 'C:/:Base/:track.mp3') ==
+    (1, 'C:/:One/:track.mp3')` with `At index 0 diff: 0 != 1` - the
+    explicit pick on the source's answer was overwritten by the bulk
+    action for base.
     """
     groups = _groups(_two_track_inputs())
     picked, other = groups[0], groups[1]
+    picked_reference = _reference_at(picked, 1)
 
     decisions = ConflictDecisions()
-    decisions.resolve(picked, SOURCE)
-    decisions.resolve_all(groups, BASE)
+    decisions.resolve(picked, picked_reference)
+    decisions.resolve_all(groups, reference_from_input(0))
 
-    assert decisions.decision(picked) == SOURCE
-    assert decisions.decision(other) == BASE
+    assert decisions.decision(picked) == picked_reference
+    assert decisions.decision(other) == _reference_at(other, 0)
     assert decisions.outstanding(groups) == 0
 
-    reverse = ConflictDecisions()
-    reverse.resolve(picked, BASE)
-    reverse.resolve_all(groups, SOURCE)
 
-    assert reverse.decision(picked) == BASE
-    assert reverse.decision(other) == SOURCE
+def test_a_bulk_action_leaves_a_group_its_collection_has_no_record_in_undecided() -> None:
+    """A bulk action for one collection settles the groups that
+    collection holds a record in and leaves every other group undecided
+    and counted by outstanding, rather than folding someone else's answer
+    into a row the collection said nothing about (DL-154).
+
+    Observed with reference_from_input's predicate falling back to the
+    group's first candidate (`return candidate_reference(candidate if
+    candidate is not None else candidates[0])`): AssertionError on
+    `assert decisions.decision(untouched) == UNDECIDED`, reported as
+    `assert (0, 'C:/:Base/:track.mp3') == 'undecided'` - a bulk action
+    for the third collection settled a group that collection holds no
+    record in, on base's own answer.
+    """
+    inputs = [
+        [
+            _record("/:Base/:", "320"),
+            _record("/:Base/:", "320", title="Other", file_name="other.mp3", playtime="200.0"),
+        ],
+        [
+            _record("/:One/:", "128"),
+            _record("/:One/:", "128", title="Other", file_name="other.mp3", playtime="200.0"),
+        ],
+        [_record("/:Two/:", "064", title="Other", file_name="other.mp3", playtime="200.0")],
+    ]
+    groups = _groups(inputs)
+    held = {group.identity_key: group for group in groups}
+    covered = held["C:/:Base/:other.mp3"]
+    untouched = held["C:/:Base/:track.mp3"]
+
+    decisions = ConflictDecisions()
+    decisions.resolve_all(groups, reference_from_input(2))
+
+    assert candidate_holding_input(untouched.candidates, 2) is None
+    assert decisions.decision(covered) == (2, "C:/:Two/:other.mp3")
+    assert decisions.decision(untouched) == UNDECIDED
+    assert decisions.outstanding(groups) == 1
+    assert set(decisions.resolutions(groups)) == {"C:/:Base/:other.mp3"}
 
 
-def test_the_resolutions_mapping_omits_undecided_keys() -> None:
-    """The mapping handed to the core carries only decided keys; an
-    undecided key is absent from it entirely rather than carrying a
-    token.
+def test_the_resolutions_mapping_carries_pairs_and_omits_undecided_keys() -> None:
+    """The mapping handed to the core carries an (input index, primary
+    key) pair per decided key; an undecided key is absent from it
+    entirely rather than carrying a token.
 
     Observed with resolutions' guard dropped (`mapping[
-    group.identity_key] = side` written unconditionally): AssertionError
-    on `assert mapping == {decided.identity_key: BASE}`, reported as
-    `Left contains 1 more item: {'C:/:Base/:other.mp3': 'undecided'}` -
-    the undecided key reached the mapping carrying a token
-    _resolve_conflicts does not accept.
+    group.identity_key] = decision` written unconditionally):
+    AssertionError on `assert mapping == {decided.identity_key: (1,
+    "C:/:One/:track.mp3")}`, reported with `Left contains 1 more item:
+    {'C:/:Base/:other.mp3': 'undecided'}` - the undecided key reached the
+    mapping carrying a token _resolve_conflicts cannot read as a pair.
     """
     groups = _groups(_two_track_inputs())
     decided, undecided = groups[0], groups[1]
 
     decisions = ConflictDecisions()
-    decisions.resolve(decided, BASE)
+    decisions.resolve(decided, _reference_at(decided, 1))
 
     mapping = decisions.resolutions(groups)
 
-    assert mapping == {decided.identity_key: BASE}
+    assert mapping == {decided.identity_key: (1, "C:/:One/:track.mp3")}
     assert undecided.identity_key not in mapping
+    assert all(
+        isinstance(value, tuple)
+        and len(value) == 2
+        and isinstance(value[0], int)
+        and isinstance(value[1], str)
+        for value in mapping.values()
+    )
 
 
 def test_a_vanished_key_contributes_nothing_to_the_resolutions_mapping() -> None:
@@ -257,16 +418,16 @@ def test_a_vanished_key_contributes_nothing_to_the_resolutions_mapping() -> None
 
     Observed with resolutions iterating self._decisions in place of the
     groups passed in (`for key, held in self._decisions.items():
-    mapping[key] = held.side`): AssertionError on `assert
+    mapping[key] = held.reference`): AssertionError on `assert
     set(decisions.resolutions(second)) == {group.identity_key for group
-    in second}`, reported as `Extra items in the left set:
-    'C:/:Base/:track.mp3'` - the mapping named a group the second run
-    has no row for.
+    in second}`, reported with `Extra items in the left set:
+    'C:/:Base/:track.mp3'` - the mapping named a group the second run has
+    no row for.
     """
     first = _groups(_two_track_inputs())
     decisions = ConflictDecisions()
     for group in first:
-        decisions.resolve(group, BASE)
+        decisions.resolve(group, _reference_at(group, 1))
 
     # The second run's source holds only the second track, so the first
     # track's group is single-input and reports no conflict at all.
@@ -282,37 +443,38 @@ def test_a_vanished_key_contributes_nothing_to_the_resolutions_mapping() -> None
     assert "C:/:Base/:track.mp3" not in decisions.resolutions(second)
 
 
-def test_a_decision_re_attaches_when_the_member_set_is_unchanged() -> None:
+def test_a_decision_re_attaches_when_the_membership_and_the_answers_are_unchanged() -> None:
     """A decision stands across a second conflict-row list built from the
     same inputs: the identity key names a group whose member primary keys
-    are the identical set.
+    are the identical set and whose candidates are the identical tuple.
 
-    Observed with decision comparing the held member set to the group's
-    identity key (`if held is None or held.member_keys != frozenset({
-    group.identity_key})`): AssertionError on `assert second_decisions ==
-    ["base"]` - the re-attached row read 'undecided', because the held
-    set of two member keys never equals the one-element key set, so no
-    decision would ever survive a re-preview. Reported as `assert
-    ['undecided'] == ['base']`, `At index 0 diff: 'undecided' !=
-    'base'`.
+    Observed with decision comparing the held candidates to the group's
+    attrs (`held.candidates != group.attrs`): AssertionError on `assert
+    second_decisions == [reference]`, reported as `assert ['undecided']
+    == [(1, 'C:/:One/:track.mp3')]` with `At index 0 diff: 'undecided' !=
+    (1, 'C:/:One/:track.mp3')` - a tuple of candidates never equals a
+    tuple of attribute names, so no decision would survive a re-preview.
     """
     first = _groups(_one_track_inputs())
     decisions = ConflictDecisions()
-    decisions.resolve(first[0], BASE)
+    reference = _reference_at(first[0], 1)
+    decisions.resolve(first[0], reference)
 
     second = _groups(_one_track_inputs())
 
     assert second[0].member_keys == first[0].member_keys
+    assert second[0].candidates == first[0].candidates
     second_decisions = [decisions.decision(group) for group in second]
-    assert second_decisions == [BASE]
+    assert second_decisions == [reference]
     assert decisions.outstanding(second) == 0
-    assert decisions.resolutions(second) == {"C:/:Base/:track.mp3": BASE}
+    assert decisions.resolutions(second) == {"C:/:Base/:track.mp3": (1, "C:/:One/:track.mp3")}
 
 
 def _enlarged_inputs() -> list[list[EntryRecord]]:
     """The one-track inputs with a second source holding a third copy of
-    the same track: the union-find pulls it into the same group, so the
-    identity key is unchanged and the member set has grown."""
+    the same track at its own path: the union-find pulls it into the same
+    group, so the identity key is unchanged and the member set has
+    grown."""
     return _one_track_inputs() + [[_record("/:Two/:", "192")]]
 
 
@@ -321,16 +483,16 @@ def test_a_group_an_added_source_enlarged_returns_to_undecided() -> None:
     undecided and raises the outstanding count, even though the identity
     key is unchanged (DL-115).
 
-    Observed with decision trusting the key alone (`if held is None:
-    return UNDECIDED; return held.side`, dropping the member_keys
-    comparison): AssertionError on `assert decisions.decision(
-    enlarged[0]) == UNDECIDED`, reported as `assert 'base' ==
-    'undecided'` - a pick made against two records read back as standing
-    over three.
+    Observed with decision trusting the key alone (the `if
+    held.member_keys != group.member_keys or held.candidates !=
+    group.candidates: return UNDECIDED` lines deleted): AssertionError on
+    `assert decisions.decision(enlarged[0]) == UNDECIDED`, reported as
+    `assert (1, 'C:/:One/:track.mp3') == 'undecided'` - a pick made
+    against two records read back as standing over three.
     """
     first = _groups(_one_track_inputs())
     decisions = ConflictDecisions()
-    decisions.resolve(first[0], BASE)
+    decisions.resolve(first[0], _reference_at(first[0], 1))
 
     enlarged = _groups(_enlarged_inputs())
 
@@ -341,22 +503,106 @@ def test_a_group_an_added_source_enlarged_returns_to_undecided() -> None:
     assert decisions.resolutions(enlarged) == {}
 
 
+def _same_path_inputs() -> list[list[EntryRecord]]:
+    """A base and one source holding one file at ONE location, so both
+    records carry the identical primary key (DL-004)."""
+    return [[_record("/:Music/:", "320")], [_record("/:Music/:", "128")]]
+
+
+def _same_path_with_second_source() -> list[list[EntryRecord]]:
+    """The same file again from a third collection at that same location:
+    the added record's primary key is the one the group already holds, so
+    member_keys cannot see the addition and only the answers change."""
+    return _same_path_inputs() + [[_record("/:Music/:", "064")]]
+
+
+def test_a_source_added_at_an_existing_members_path_returns_the_pick_to_undecided() -> None:
+    """A source added at a location an existing member already holds
+    leaves member_keys IDENTICAL while adding an answer, and the held
+    pick reads back undecided because re-attachment compares the
+    candidate set too (DL-158).
+
+    Observed with decision comparing member_keys alone (`if
+    held.member_keys != group.member_keys: return UNDECIDED`, dropping
+    the candidate comparison - the rule shipped at aa6ab76):
+    AssertionError on `assert decisions.decision(after) == UNDECIDED`,
+    reported as `assert (1, 'C:/:Music/:track.mp3') == 'undecided'`, the
+    group printing `member_keys=frozenset({'C:/:Music/:track.mp3'})` and
+    three candidates - the pick made when two answers were on offer stood
+    while three were, and the write would have proceeded over an answer
+    set the operator never saw.
+    """
+    before = _groups(_same_path_inputs())[0]
+    decisions = ConflictDecisions()
+    decisions.resolve(before, _reference_at(before, 1))
+
+    after = _groups(_same_path_with_second_source())[0]
+
+    # The measurement this guard exists for: the membership is blind to
+    # the addition, the answers are not.
+    assert after.identity_key == before.identity_key
+    assert after.member_keys == before.member_keys == frozenset({"C:/:Music/:track.mp3"})
+    assert len(before.candidates) == 2
+    assert len(after.candidates) == 3
+    assert after.candidates[:2] == before.candidates
+    assert after.candidates[2].members == ((2, "C:/:Music/:track.mp3"),)
+
+    assert decisions.decision(after) == UNDECIDED
+    assert decisions.outstanding([after]) == 1
+    assert decisions.resolutions([after]) == {}
+
+
+def test_an_added_source_leaves_the_picks_on_the_groups_it_does_not_reach_standing() -> None:
+    """The widened comparison fires per group, not per re-preview: a
+    source added to one group leaves every group it holds no record in
+    carrying the same membership and the same answers, so those picks
+    stand and only the group whose answers changed returns to undecided
+    (R-005).
+
+    Observed with decision comparing every held pick's candidates rather
+    than this group's (`any(other.candidates != group.candidates for
+    other in self._decisions.values())` in place of `held.candidates !=
+    group.candidates`), so one changed row unsettles the rest:
+    AssertionError on `assert decisions.decision(untouched) == (1,
+    "C:/:One/:track.mp3")`, reported as `assert 'undecided' == (1,
+    'C:/:One/:track.mp3')` - a re-preview reaching one group sent the
+    operator back to a row it never touched.
+    """
+    before = _groups(_two_track_inputs())
+    decisions = ConflictDecisions()
+    for group in before:
+        decisions.resolve(group, _reference_at(group, 1))
+
+    added = _two_track_inputs() + [
+        [_record("/:Two/:", "064", title="Other", file_name="other.mp3", playtime="200.0")]
+    ]
+    after = {group.identity_key: group for group in _groups(added)}
+    untouched = after["C:/:Base/:track.mp3"]
+    reached = after["C:/:Base/:other.mp3"]
+
+    assert untouched.candidates == before[0].candidates
+    assert len(reached.candidates) == 3
+    assert decisions.decision(untouched) == (1, "C:/:One/:track.mp3")
+    assert decisions.decision(reached) == UNDECIDED
+    assert decisions.outstanding(list(after.values())) == 1
+
+
 def test_a_re_preview_after_an_added_source_refuses_the_write() -> None:
     """The re-preview after an added source enlarges a decided group runs
     with an empty resolutions mapping, so it aborts, and the refusal
     names the one conflict outstanding rather than a write proceeding.
 
-    Observed with decision trusting the key alone (`if held is None:
-    return UNDECIDED`, dropping the member_keys comparison):
-    AssertionError on `assert unresolved is True`, reported as `assert
-    False is True` - the stale pick reached the resolutions mapping and
-    settled the enlarged group, so the re-preview did not abort at all
-    and a winner nobody chose for the third copy would have been
-    written.
+    Observed with decision trusting the key alone (the `if
+    held.member_keys != group.member_keys or held.candidates !=
+    group.candidates: return UNDECIDED` lines deleted): AssertionError on
+    `assert unresolved is True`, reported as `assert False is True` - the
+    stale pick reached the resolutions mapping and settled the enlarged
+    group, so the re-preview did not abort at all and a winner nobody
+    chose for the third copy would have been written.
     """
     first = _groups(_one_track_inputs())
     decisions = ConflictDecisions()
-    decisions.resolve(first[0], BASE)
+    decisions.resolve(first[0], _reference_at(first[0], 1))
 
     enlarged_inputs = _enlarged_inputs()
     enlarged = _groups(enlarged_inputs)
@@ -393,7 +639,7 @@ def test_the_refusal_separates_never_previewed_from_refused_with_conflicts() -> 
     """
     groups = _groups(_two_track_inputs())
     decisions = ConflictDecisions()
-    decisions.resolve(groups[0], BASE)
+    decisions.resolve(groups[0], _reference_at(groups[0], 1))
 
     never_run = write_refusal(None, decisions, groups)
     assert never_run is not None
@@ -408,6 +654,35 @@ def test_the_refusal_separates_never_previewed_from_refused_with_conflicts() -> 
     assert refused.reason == CONFLICTS_OUTSTANDING
     assert refused.outstanding == 1
     assert never_run.reason != refused.reason
+
+
+def test_the_conflict_refusal_names_choosing_a_collection_per_row() -> None:
+    """The refusal sentence names the control the row actually renders -
+    one per answer, each naming the collections that supply it - so it
+    tells the operator to choose a collection for each row rather than
+    naming two sides the page does not offer (DL-160).
+
+    Observed with the sentence's second clause reading `Choose base or
+    source for each row above, then run Preview again.`: AssertionError
+    on `assert "collection" in sentence`, reported as `assert
+    'collection' in 'The preview refused: 1 conflict(s) still to decide.
+    Choose base or source for each row above, then run Preview again.'` -
+    the sentence named a two-sided control over a row offering three.
+    """
+    groups = _groups(_three_answer_inputs())
+    decisions = ConflictDecisions()
+    result = SpliceResult(output=None, stats={}, errors=["unresolved_conflicts"])
+
+    refusal = write_refusal(result, decisions, groups)
+    assert refusal is not None
+    sentence = write_refusal_sentence(refusal)
+
+    # The row renders one control per candidate, three here, so no
+    # sentence naming two sides describes it.
+    assert len(groups[0].candidates) == 3
+    assert "collection" in sentence
+    assert "base or source" not in sentence
+    assert "Preview" in sentence
 
 
 def test_a_held_preview_carrying_output_yields_no_refusal() -> None:
@@ -429,31 +704,39 @@ def test_a_held_preview_carrying_output_yields_no_refusal() -> None:
 
 def test_a_group_is_projected_from_the_row_alone_with_no_records_given() -> None:
     """conflict_groups is handed the run's rows and nothing else: a row
-    carrying its membership and both sides' values yields the group the
-    page shows, with no collection records anywhere in the call, so the
-    page cannot regroup under a rule that drifts from the run's.
+    carrying its membership and its candidates yields the group the page
+    shows, with no collection records and no MatchConfidence anywhere in
+    the call, so the page cannot regroup under a rule that drifts from
+    the run's.
 
-    Observed with conflict_groups' signature widened back to
-    `(conflict_rows, records_by_input=None, confidence=None)`:
-    AssertionError on `assert list(inspect.signature(conflict_groups)
-    .parameters) == ["conflict_rows"]`, reported as `assert
-    ['conflict_ro... 'confidence'] == ['conflict_rows']` with `Left
-    contains 2 more items, first extra item: 'records_by_input'`.
+    Observed with conflict_groups' signature widened to `(conflict_rows,
+    records_by_input=None, confidence=None)`: AssertionError on `assert
+    list(inspect.signature(conflict_groups).parameters) ==
+    ["conflict_rows"]`, reported as `assert ['conflict_ro...
+    'confidence'] == ['conflict_rows']` with `Left contains 2 more items,
+    first extra item: 'records_by_input'`.
 
-    Observed with `source_values=_displayed(row.source_values)` replaced
-    by `source_values=row.source_values`: AssertionError on `assert
-    group.source_values == ("32", "064 / 128")`, reported as `assert
-    (('32',), ('064', '128')) == ('32', '064 / 128')` with `At index 0
-    diff: ('32',) != '32'` - the per-attribute tuples reached the page
-    unjoined.
+    Observed with `candidates=row.candidates` replaced by
+    `candidates=tuple(c.values for c in row.candidates)`: AssertionError
+    on `assert group.candidates == row.candidates`, reported as `assert
+    (('16', '320'), ('32', '128')) == (ConflictCand...track.mp3'))))`
+    with `At index 0 diff: ('16', '320') !=
+    ConflictCandidate(values=('16', '320'), members=((0,
+    'C:/:Base/:track.mp3'),))` - the answers reached the page with
+    nothing saying which collection supplied them.
     """
     row = ConflictRow(
         "C:/:Base/:track.mp3",
         "filesize,bitrate",
         "unresolved",
         member_keys=frozenset({"C:/:Base/:track.mp3", "C:/:One/:track.mp3"}),
-        base_values=(("16",), ("320",)),
-        source_values=(("32",), ("064", "128")),
+        candidates=(
+            ConflictCandidate(("16", "320"), ((0, "C:/:Base/:track.mp3"),)),
+            ConflictCandidate(
+                ("32", "128"),
+                ((1, "C:/:One/:track.mp3"), (2, "C:/:Two/:track.mp3")),
+            ),
+        ),
     )
 
     assert list(inspect.signature(conflict_groups).parameters) == ["conflict_rows"]
@@ -466,8 +749,9 @@ def test_a_group_is_projected_from_the_row_alone_with_no_records_given() -> None
     assert group.member_keys == frozenset(
         {"C:/:Base/:track.mp3", "C:/:One/:track.mp3"}
     )
-    assert group.base_values == ("16", "320")
-    assert group.source_values == ("32", "064 / 128")
+    assert group.candidates == row.candidates
+    assert len(group.candidates) == 2
+    assert candidate_reference(group.candidates[1]) == (1, "C:/:One/:track.mp3")
 
 
 def test_a_row_naming_no_membership_names_no_group() -> None:
@@ -478,10 +762,9 @@ def test_a_row_naming_no_membership_names_no_group() -> None:
     Observed with `if not row.member_keys or row.identity_key in seen:`
     reduced to `if row.identity_key in seen:`: AssertionError on `assert
     conflict_groups([rootless]) == []`, reported as `assert
-    [ConflictGrou...ce_values=())] == []` with `Left contains one more
+    [ConflictGrou...andidates=())] == []` with `Left contains one more
     item: ConflictGroup(identity_key='C:/:Base/:track.mp3',
-    attrs=('bitrate',), member_keys=frozenset(), base_values=(),
-    source_values=())`.
+    attrs=('bitrate',), member_keys=frozenset(), candidates=())`.
     """
     rootless = ConflictRow("C:/:Base/:track.mp3", "bitrate", "unresolved")
 
@@ -497,11 +780,11 @@ def test_a_non_metadata_row_names_no_conflict_group() -> None:
     Observed with conflict_groups' `if row.attrs in
     NON_METADATA_ROW_ATTRS: continue` deleted: AssertionError on `assert
     conflict_groups([colliding]) == []`, reported as `assert
-    [ConflictGrou...ce_values=())] == []` with `Left contains one more
+    [ConflictGrou...andidates=())] == []` with `Left contains one more
     item: ConflictGroup(identity_key='C:/:Base/:track.mp3',
-    attrs=('playlist_name',), member_keys=frozenset({'C:/:Base/:track.mp3',
-    'C:/:One/:track.mp3'}), base_values=(), source_values=())` - the
-    literal was named as a divergent attribute of a real group.
+    attrs=('playlist_name',), member_keys=frozenset({'C:/:One/:track.mp3',
+    'C:/:Base/:track.mp3'}), candidates=())` - the literal was named as a
+    divergent attribute of a real group.
     """
     records_by_input = _one_track_inputs()
     identities = group_identities(records_by_input, MatchConfidence.STRICT)
