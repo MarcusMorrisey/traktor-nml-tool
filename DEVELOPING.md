@@ -60,7 +60,7 @@ Both are legitimate. Both are green. They are not interchangeable.
 |---|---|---|
 | Runs | the suite | the app and the gate |
 | Carries | `mutagen`, `lxml` | those plus `nicegui`, `webview`, `tinycss2` |
-| Suite | **416 passed, 3 skipped** | **417 passed, 2 skipped** |
+| Suite | **531 passed, 3 skipped** | **532 passed, 2 skipped** |
 
 The whole of that difference is `pyacoustid` and the chromaprint library it needs. Both
 runs are green; the two counts mean different things, so a count quoted without the
@@ -89,7 +89,7 @@ Never install into the system interpreter.
 This tree is deliberately not uniform: 320 files are LF, 100 are CRLF, three are mixed, and
 each is load-bearing somewhere.
 
-- `traktor_nml/gui/app.py` is wholly CRLF, 1649 of them and no bare LF.
+- `traktor_nml/gui/app.py` is wholly CRLF, 1686 of them and no bare LF.
   `tests/test_gui_line_endings.py` asserts it and `tools/preflight.py` reports it.
 - The patch sets under `docs/plans/*/scratch/` are CRLF because that is what they were
   captured from. A rewritten one produces phantom rejects when reapplied.

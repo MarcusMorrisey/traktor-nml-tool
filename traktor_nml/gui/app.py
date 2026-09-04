@@ -1294,9 +1294,6 @@ def _collection_labels(sources) -> tuple[str, ...]:
     return ("base", *_source_labels(sources))
 
 
-_CONFLICT_ABORT_TOKEN = "unresolved_conflicts"
-
-
 def _build_reconstruct_page() -> None:
     """Registers the playlist-reconstruction screen at '/'.
 
@@ -1628,7 +1625,7 @@ def _build_reconstruct_page() -> None:
                             # The conflict abort's token names rows this same
                             # run returned, so those rows stand in its place;
                             # every other token renders as the token it is.
-                            if error == _CONFLICT_ABORT_TOKEN and groups:
+                            if error == conflict_model.CONFLICT_ABORT_TOKEN and groups:
                                 _render_conflicts(groups)
                                 continue
                             ui.label(error).classes("font-mono wizard-body-12 text-warning")
@@ -1653,9 +1650,11 @@ def _build_reconstruct_page() -> None:
 
             async def write_output() -> None:
                 """Writes the output the held run produced, or names why it
-                cannot. A run that never happened and a run that happened and
-                refused are different refusals, and the second names how many
-                conflicts are still to decide (DL-111)."""
+                cannot. A run that never happened, a run that refused on
+                conflicts and a run that refused on anything else are three
+                distinct refusals; the conflict one names how many are still
+                to decide and the third names the run's own error, which the
+                report above the controls lists in full (DL-111)."""
                 result = result_holder["result"]
                 refusal = conflict_model.write_refusal(
                     result, decisions, conflict_holder

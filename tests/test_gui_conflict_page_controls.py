@@ -46,6 +46,8 @@ import types
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from traktor_nml.gui import conflict_model
+
 APP_PATH = Path(__file__).parent.parent / "traktor_nml" / "gui" / "app.py"
 
 PAGE = "_build_reconstruct_page"
@@ -53,9 +55,11 @@ PAGE = "_build_reconstruct_page"
 # The two choices traktor_nml/commands/splice_cmd.py gives --on-conflict.
 SPLICE_ON_CONFLICT_CHOICES = frozenset({"keep-first", "keep-last"})
 
-# The three decision tokens conflict_model owns. A page writing one of
-# these as a literal is reading a decision itself.
-DECISION_TOKENS = frozenset({"undecided", "base", "source"})
+# The one decision token conflict_model owns: UNDECIDED. base and source
+# are operator-facing words on the page's labels, not decision values, so
+# the guard pins the token the model actually owns. A page writing it as
+# a literal is reading a decision itself.
+DECISION_TOKENS = frozenset({conflict_model.UNDECIDED})
 
 _GUI_MODULES = ["traktor_nml.gui.app", "traktor_nml.gui.file_picker"]
 
@@ -858,3 +862,36 @@ def test_bulk_labels_fall_back_to_the_full_resolved_path_at_the_root() -> None:
         "sources separating only at the root must label as their full resolved paths"
     )
     assert len(set(labels)) == len(labels)
+
+
+def test_app_holds_no_second_definition_of_the_conflict_abort_token() -> None:
+    """The conflict abort token has one definition, in conflict_model, and
+    app.py reads it from there rather than declaring its own copy: two
+    copies can drift, and the page renders rows for one token while the
+    refusal is keyed on the other.
+
+    Observed with app.py's read at the abort render replaced by the
+    literal `if error == "unresolved_conflicts" and groups:`:
+    AssertionError reported as `app.py must read the conflict abort token
+    from conflict_model; it writes the literal 'unresolved_conflicts' on
+    line(s) [1628]`. app.py was restored by editing the literal back to
+    the attribute read, never via `git checkout`, and re-running
+    confirmed it passes.
+    """
+    source = _app_source()
+    tree = ast.parse(source)
+    literals = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and node.value == conflict_model.CONFLICT_ABORT_TOKEN
+    ]
+    assert not literals, (
+        "app.py must read the conflict abort token from conflict_model; it "
+        f"writes the literal {conflict_model.CONFLICT_ABORT_TOKEN!r} on "
+        f"line(s) {sorted(node.lineno for node in literals)}"
+    )
+    reads = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute) and node.attr == "CONFLICT_ABORT_TOKEN"
+    ]
+    assert reads, "app.py must read conflict_model.CONFLICT_ABORT_TOKEN"

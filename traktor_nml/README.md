@@ -908,15 +908,18 @@ statement of the same decision would only give it two copies to drift apart.
   aggrid here would reintroduce that collision; a conflict set of
   hundreds of rows is made tractable by the bulk actions rather than by a
   grid widget (DL-110).
-- The write control refuses on a reason the model returns, distinguishing
-  a preview that never ran from a preview that ran and refused, and
-  naming the outstanding conflict count when it refuses for that.
-  `write_output` tests only `result.output is None`, and `output` is
-  `None` exactly when `errors` is non-empty, which is `SpliceResult`'s
-  invariant, so that one test reads a completed refusal and an absent run
-  as the same thing; `conflict_model.py` returns the refusal reason off
-  the held result plus the outstanding count and the control renders it
-  (DL-111).
+- The write control refuses on a reason the model returns, and the
+  reason is read off the held run's errors rather than off `output`
+  alone. `output` is `None` exactly when `errors` is non-empty, which is
+  `SpliceResult`'s invariant, so `output` alone cannot tell an absent run
+  from a run that aborted, nor a conflict abort from any of the other
+  aborts `assemble_output` reports. `conflict_model.py` reads an absent
+  result as `no_preview`, errors carrying its own
+  `CONFLICT_ABORT_TOKEN` as `conflicts_outstanding` with the count of
+  rows still undecided, and every other abort as `run_refused` carrying
+  the run's own error strings, whose sentence names the first of them
+  and points at the report the page draws above the controls; the
+  control renders whichever sentence comes back (DL-111).
 - The conflict rows the run produced are rendered on the abort path in
   place of the bare token, and the run-wide choice is offered on the
   page, as the first landing increment before per-row picks exist.
@@ -1400,7 +1403,8 @@ statement of the same decision would only give it two copies to drift apart.
   What stays in its own milestone is `navigation.py` and its guards,
   which import no framework and have no consumer to wait for, so the
   boundary follows the coupling the guard reports rather than the file
-  types (DL-147).- A resolution maps an identity key to an `(input index, primary key)`
+  types (DL-147).
+- A resolution maps an identity key to an `(input index, primary key)`
   pair rather than to a bare primary key. The primary key is derived from
   the location (DL-004), so two records for one file in two inputs carry
   the identical key, and `group_identities` unions them through the

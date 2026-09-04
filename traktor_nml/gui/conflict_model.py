@@ -63,6 +63,14 @@ ALREADY_LISTED = "already_listed"
 IS_THE_BASE = "is_the_base"
 IS_A_SOURCE = "is_a_source"
 CONFLICTS_OUTSTANDING = "conflicts_outstanding"
+RUN_REFUSED = "run_refused"
+
+# The error token assemble_output reports when it aborts on conflicts the
+# resolutions did not settle. It is this module's own token: the page
+# reads it from here rather than declaring a second copy, so the token the
+# refusal is keyed on and the token the page renders rows for are one
+# string (DL-111).
+CONFLICT_ABORT_TOKEN = "unresolved_conflicts"
 
 
 @dataclass(frozen=True)
@@ -97,10 +105,15 @@ class ConflictRowView:
 class WriteRefusal:
     """Why a write cannot proceed. outstanding is the count of undecided
     conflict rows and is set only for CONFLICTS_OUTSTANDING, since a run
-    that never happened has no rows to count."""
+    that never happened has no rows to count. errors carries the held
+    run's own error strings and is set only for RUN_REFUSED, since that
+    is the reason whose sentence has to name what the run said; it is
+    empty for every other reason.
+    """
 
     reason: str
     outstanding: Optional[int] = None
+    errors: tuple[str, ...] = ()
 
 
 def candidate_reference(candidate: ConflictCandidate) -> CandidateRef:
@@ -312,14 +325,26 @@ def write_refusal(
     when errors is non-empty, so output alone cannot tell a run that
     aborted from a run that never happened. The absent result is read
     first and answers NO_PREVIEW; a held result carrying output refuses
-    nothing; a held result that aborted answers CONFLICTS_OUTSTANDING
-    with the count of rows still undecided (DL-111).
+    nothing.
+
+    A held result that aborted is read by its errors rather than by
+    output alone, because assemble_output aborts on many things besides
+    conflicts - an ambiguous playlist name, an ambiguous redirect, a
+    missing collection, a location collision, an unresolved reference.
+    Only errors carrying CONFLICT_ABORT_TOKEN answer
+    CONFLICTS_OUTSTANDING with the count of rows still undecided; every
+    other abort answers RUN_REFUSED carrying the run's own error strings,
+    so the sentence names what the run said instead of a conflict count
+    the run never reported (DL-111).
     """
     if result is None:
         return WriteRefusal(NO_PREVIEW)
     if result.output is not None:
         return None
-    return WriteRefusal(CONFLICTS_OUTSTANDING, decisions.outstanding(groups))
+    errors = tuple(result.errors)
+    if CONFLICT_ABORT_TOKEN in errors:
+        return WriteRefusal(CONFLICTS_OUTSTANDING, decisions.outstanding(groups))
+    return WriteRefusal(RUN_REFUSED, errors=errors)
 
 
 def write_refusal_sentence(refusal: WriteRefusal) -> str:
@@ -336,6 +361,16 @@ def write_refusal_sentence(refusal: WriteRefusal) -> str:
         return (
             f"The preview refused: {refusal.outstanding} conflict(s) still to decide. "
             "Choose a collection for each row above, then run Preview again."
+        )
+    if refusal.reason == RUN_REFUSED:
+        # The page has already drawn "Nothing was written." above the
+        # controls with one line per error token, so the sentence names
+        # the first of those tokens and sends the operator to that
+        # report for the rest rather than inventing a count.
+        named = refusal.errors[0] if refusal.errors else "the run reported no reason"
+        return (
+            f"The preview stopped: {named}. Nothing was written; see the "
+            "report above the controls for what stopped this run."
         )
     return f"Write refused: {refusal.reason}"
 

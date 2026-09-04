@@ -26,8 +26,10 @@ from traktor_nml.gui.conflict_model import (
     base_refusal,
     source_refusal,
     CONFLICTS_OUTSTANDING,
+    CONFLICT_ABORT_TOKEN,
     ConflictDecisions,
     NO_PREVIEW,
+    RUN_REFUSED,
     UNDECIDED,
     candidate_holding_input,
     candidate_reference,
@@ -882,3 +884,67 @@ def test_two_paths_naming_one_file_are_one_collection(tmp_path) -> None:
     (tmp_path / "sub").mkdir()
 
     assert source_refusal(roundabout, base, [listed]) == ALREADY_LISTED
+
+
+def test_a_non_conflict_abort_is_not_read_as_outstanding_conflicts() -> None:
+    """A run that aborted on something other than conflicts is not read as
+    a conflict refusal, and its sentence names the run's own error rather
+    than a conflict count.
+
+    assemble_output aborts on many things besides unresolved conflicts -
+    a location collision among them - and a refusal keyed on `output is
+    None` alone renders every one of them to the operator as a conflict
+    count, usually "0 conflict(s) still to decide".
+
+    Observed with write_refusal's token test in conflict_model.py
+    replaced by `if True:`, so every abort takes the conflict branch:
+    AssertionError on `assert refusal.reason == RUN_REFUSED`, reported as
+    `assert 'conflicts_outstanding' == 'run_refused'` - a location
+    collision answered as outstanding conflicts. conflict_model.py was
+    restored from a copy taken beforehand, never via `git checkout`, and
+    re-running confirmed it passes.
+    """
+    groups = _groups(_two_track_inputs())
+    decisions = ConflictDecisions()
+    result = SpliceResult(
+        output=None,
+        stats={},
+        errors=["entry_location_collision key=C:/:Music/:x.mp3"],
+    )
+
+    refusal = write_refusal(result, decisions, groups)
+    assert refusal is not None
+    assert refusal.reason == RUN_REFUSED
+    assert refusal.reason != CONFLICTS_OUTSTANDING
+    assert refusal.outstanding is None
+    assert refusal.errors == ("entry_location_collision key=C:/:Music/:x.mp3",)
+
+    sentence = write_refusal_sentence(refusal)
+    assert "entry_location_collision key=C:/:Music/:x.mp3" in sentence
+    assert "conflict(s) still to decide" not in sentence
+    assert "0" not in sentence
+
+
+def test_the_conflict_abort_still_answers_outstanding_conflicts() -> None:
+    """The conflict abort itself still answers CONFLICTS_OUTSTANDING with
+    the count of undecided rows: reading the errors narrows which aborts
+    take that branch and must not take the conflict abort out of it.
+
+    Observed with write_refusal's token test in conflict_model.py
+    replaced by `if False:`, so no abort reaches the conflict branch:
+    AssertionError on `assert refusal.reason == CONFLICTS_OUTSTANDING`,
+    reported as `assert 'run_refused' == 'conflicts_outstanding'` - the
+    conflict abort lost its count and its sentence. conflict_model.py was
+    restored from a copy taken beforehand, never via `git checkout`, and
+    re-running confirmed it passes.
+    """
+    groups = _groups(_two_track_inputs())
+    decisions = ConflictDecisions()
+    result = SpliceResult(output=None, stats={}, errors=[CONFLICT_ABORT_TOKEN])
+
+    refusal = write_refusal(result, decisions, groups)
+    assert refusal is not None
+    assert refusal.reason == CONFLICTS_OUTSTANDING
+    assert refusal.outstanding == len(groups)
+    assert refusal.errors == ()
+    assert f"{len(groups)} conflict(s) still to decide" in write_refusal_sentence(refusal)

@@ -25,6 +25,10 @@ Matching also **refutes** a candidate whose `FILESIZE` or `PLAYTIME_FLOAT` contr
 
 A rebuilt playlist keeps base's own node, UUID and folder position; its entries become base's own in their existing order, followed by every incoming entry not already among them, folded across each `--input` file in the order given and deduplicated. A playlist whose contents already match is left untouched and its incoming copy is not imported. Without the flag, a same-named incoming playlist is imported beside base's as `"<name> (2)"`, which is the default for every existing invocation.
 
+When two collections hold one track and disagree about its tags, `splice` refuses rather than picking for you. `--on-conflict keep-first` or `keep-last` settles every such track for the whole run; without it the run aborts and the `--conflict-report` CSV names each disagreement. The wizard's Reconstruct playlists screen resolves them one track at a time instead, offering the values each collection holds.
+
+`splice` also refuses to write an output that would break the collection it assembled: two entries for one file, an entry count that does not match what it merged, or a playlist key naming no entry. Each is reported and nothing is written.
+
 Two situations abort the run with nothing written, rather than resolving by document order: a playlist `NAME` appearing more than once inside a single file, and an incoming entry whose track identity matches more than one entry in base. Both are reported through the same `--conflict-report` CSV as a merge conflict. Track identity is resolved through the same cascade the merge itself uses, so a base and an older collection referring to one track at different paths still pair up.
 
 `build-playlist` is deliberately not in that list even though it runs the same cascade: a plain-text track list carries no size or duration, so there is nothing for the check to contradict and it can never fire. A flag there would do nothing.
