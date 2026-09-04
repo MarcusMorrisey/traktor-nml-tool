@@ -18,17 +18,21 @@ stdlib fallback (when lxml is absent):
 
 The lxml path is preferred. Do not remove it to simplify the code without
 understanding that the stdlib path will silently change the file's
-formatting. This module implements only attribute substitution; it has no
-concept of element extent and must not be extended to insert or remove whole
-elements (splice/split use spans.py instead - see its module docstring).
+formatting. apply_text_patches implements only attribute substitution and
+must not be extended to insert or remove whole elements: its scan matches a
+locator anywhere in the file and has no notion of where one element ends and
+the next begins (splice/split use spans.py instead - see its module
+docstring).
 
 patch_entry_attributes is the module's second write path. Its unit is one
 ENTRY element's span text rather than a whole document, so every substitution
 and every insertion it makes is bounded by the span it is handed. That bound
-is what lets it write a missing ALBUM or INFO child into the entry: the
-no-element-insertion rule above is a property of apply_text_patches' scan,
-which matches a locator anywhere in the file and has no notion of where one
-element ends and the next begins.
+is what lets it write a missing ALBUM or INFO child into the entry. Where it
+needs an element's extent - the end of the anchor child a new child is
+written after - it calls spans.find_element_span rather than scanning for a
+close tag itself, so a comment, CDATA section or processing instruction
+holding tag-like text inside the anchor cannot end the extent early, and a
+same-named descendant cannot end it either.
 """
 
 from __future__ import annotations
@@ -37,6 +41,7 @@ import html
 import re
 
 from .model import ElemPatch
+from .spans import find_element_span
 
 
 def _xml_escape_attr(value: str) -> str:
@@ -196,23 +201,6 @@ _CARRIER_TAGS = ("ENTRY",) + tuple(
 )
 
 
-def _find_tag_start(span: str, tag_name: str) -> int | None:
-    match = re.search(r"<" + re.escape(tag_name) + r"(?=[\s/>])", span)
-    return None if match is None else match.start()
-
-
-def _element_end(span: str, start: int, tag_name: str) -> int:
-    """Offset one past the last byte of the element opening at ``start``.
-
-    ENTRY's children carry no children of their own, so a close tag search
-    needs no depth counter; a self-closed opening tag ends at its own '>'."""
-    open_end = _find_opening_tag_end(span, start)
-    if span[open_end - 1] == "/":
-        return open_end + 1
-    close = span.index("</" + tag_name, open_end)
-    return _find_opening_tag_end(span, close) + 1
-
-
 def _set_attr_in_tag(tag_text: str, attr_name: str, value: str) -> str:
     """Return ``tag_text`` carrying ``attr_name=value``.
 
@@ -251,9 +239,9 @@ def _insert_child(span: str, tag_name: str) -> str:
     order = _ENTRY_CHILD_ORDER[: _ENTRY_CHILD_ORDER.index(tag_name)]
     anchor_end = None
     for candidate in order:
-        start = _find_tag_start(span, candidate)
-        if start is not None:
-            anchor_end = _element_end(span, start, candidate)
+        anchor = find_element_span(span, candidate)
+        if anchor is not None:
+            anchor_end = anchor.end
     if anchor_end is None:
         raise ValueError(f"no anchor child precedes {tag_name} in the entry span")
 
@@ -292,7 +280,7 @@ def patch_entry_attributes(span: str, values: dict[str, str]) -> str:
         edits = by_carrier.get(carrier)
         if not edits:
             continue
-        if _find_tag_start(span, carrier) is None:
+        if find_element_span(span, carrier) is None:
             # An empty value creates no carrier, and where a sibling value
             # creates one it writes nothing into it either.
             edits = [(attr_name, value) for attr_name, value in edits if value]
@@ -300,7 +288,7 @@ def patch_entry_attributes(span: str, values: dict[str, str]) -> str:
                 continue
             span = _insert_child(span, carrier)
         for attr_name, value in edits:
-            start = _find_tag_start(span, carrier)
+            start = find_element_span(span, carrier).start
             end = _find_opening_tag_end(span, start) + 1
             span = span[:start] + _set_attr_in_tag(span[start:end], attr_name, value) + span[end:]
     return span

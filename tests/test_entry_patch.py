@@ -158,3 +158,49 @@ def test_markup_characters_round_trip() -> None:
     root = ET.fromstring(out)
     assert root.attrib["ARTIST"] == value
     assert root.find("ALBUM").attrib["TITLE"] == value
+
+
+def test_insertion_anchor_spans_a_child_attribute_holding_a_close_tag() -> None:
+    """The INFO lands after ALBUM whose child attribute holds the text </ALBUM.
+
+    Made to fail by restoring the hand-rolled scanner _insert_child's anchor
+    loop once used - a _find_tag_start regex plus an _element_end that took
+    span.index("</" + tag_name) as the close tag and ran
+    _find_opening_tag_end from there: patch_entry_attributes raised
+    ValueError: unclosed opening tag at offset 80, the scan having entered
+    the SUB attribute value and consumed the rest of the span looking for a
+    '>' outside quotes.
+    """
+    span = (
+        '<ENTRY ARTIST="A">'
+        '<LOCATION FILE="a.mp3"></LOCATION>'
+        '<ALBUM TITLE="X"><SUB NOTE="</ALBUM"></SUB></ALBUM>'
+        '</ENTRY>'
+    )
+    out = patch_entry_attributes(span, {"filesize": "4200"})
+    assert out == span.replace(
+        "</ALBUM></ENTRY>", '</ALBUM><INFO FILESIZE="4200"></INFO></ENTRY>'
+    )
+
+
+def test_insertion_anchor_spans_a_comment_holding_a_close_tag() -> None:
+    """The INFO lands after ALBUM whose own content holds a </ALBUM comment.
+
+    Made to fail by restoring that same hand-rolled scanner: the returned
+    span read
+    <ENTRY ARTIST="A"><LOCATION FILE="a.mp3"></LOCATION><ALBUM TITLE="X">
+    <!-- </ALBUM --><INFO FILESIZE="4200"></INFO></ALBUM></ENTRY>
+    (on one line), the anchor extent having ended inside the comment so the
+    new INFO was written into ALBUM's content rather than after it.
+    """
+    span = (
+        '<ENTRY ARTIST="A">'
+        '<LOCATION FILE="a.mp3"></LOCATION>'
+        '<ALBUM TITLE="X"><!-- </ALBUM --></ALBUM>'
+        '</ENTRY>'
+    )
+    out = patch_entry_attributes(span, {"filesize": "4200"})
+    assert out == span.replace(
+        "</ALBUM></ENTRY>", '</ALBUM><INFO FILESIZE="4200"></INFO></ENTRY>'
+    )
+    assert child_tags(out) == ["LOCATION", "ALBUM", "INFO"]

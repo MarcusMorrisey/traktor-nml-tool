@@ -19,9 +19,12 @@ Two write mechanisms coexist and never mix within one command:
 - Byte-span assembly (`spans.py`, used by `splice.py`/`split.py`):
   concatenates verbatim source byte ranges, re-serialising only the
   specific fragments a rename or PRIMARYKEY redirect actually changes
-  (DL-007) - `textpatch.py` has no concept of element extent, so
+  (DL-007) - `apply_text_patches` has no concept of element extent, so
   structural insert/remove could not go through it without falling back
-  to a full, format-losing serialisation.
+  to a full, format-losing serialisation. Where `textpatch.py` does need
+  an extent - `patch_entry_attributes` writing a missing child after an
+  anchor child - it calls `spans.find_element_span` rather than scanning
+  for a close tag itself.
 
 `commands/` holds one module per subcommand; `cli.py` discovers them by
 iterating the package rather than listing them, so adding a subcommand
