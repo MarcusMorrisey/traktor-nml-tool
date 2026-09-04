@@ -365,6 +365,35 @@ def _entry_span_text(source_text: str, span_index: SpanIndex, record: EntryRecor
     return span_index.span_of(record.entry).text(source_text)
 
 
+def _apply_replacements(text: str, replacements: list[tuple[int, int, str]]) -> str:
+    """Return ``text`` with each ``(start, end, fragment)`` span replaced.
+
+    One forward pass in ascending offset order collects the untouched runs
+    and the fragments and joins them once, the shape
+    textpatch.apply_text_patches uses, so the document is built once rather
+    than rebuilt per replacement. Nothing is mutated mid-loop, so every
+    offset keeps reading the text it was measured on and the ordering of
+    the caller's list carries no meaning beyond the sort here.
+
+    The spans must be disjoint. A span starting before the previous one's
+    end would otherwise contribute an empty run in place of the text
+    between them - the slice runs backwards - so the bytes the two spans
+    straddle would be dropped and the document silently garbled. It raises
+    naming both offsets instead."""
+    segments: list[str] = []
+    cursor = 0
+    for start_at, end_at, fragment in sorted(replacements):
+        if start_at < cursor:
+            raise ValueError(
+                f"overlapping replacement spans: offset {start_at} starts inside "
+                f"the span ending at offset {cursor}"
+            )
+        segments.extend((text[cursor:start_at], fragment))
+        cursor = end_at
+    segments.append(text[cursor:])
+    return "".join(segments)
+
+
 def assemble_output(
     base_source: str,
     base_root: ET.Element,
@@ -426,8 +455,9 @@ def assemble_output(
     # entry patches and extended below by the reconstruction block's rebuilt
     # playlists. Every offset in it is measured by span_indexes[0] against
     # the original base_source, and a COLLECTION span and a PLAYLISTS span
-    # are disjoint, so one reverse-ordered pass below the block leaves every
-    # offset reading the text it was measured on. The list is declared here
+    # are disjoint, so one forward pass below the block - which collects
+    # segments and never mutates the text mid-loop - leaves every offset
+    # reading the text it was measured on. The list is declared here
     # rather than inside the block because a run carrying entry patches and
     # no reconstruction must still reach the apply (DL-121).
     replacements: list[tuple[int, int, str]] = []
@@ -543,14 +573,17 @@ def assemble_output(
 
     # Applied below both of the block's aborts, which return with output
     # None: a refused run discards its entry patches with everything else
-    # and no rewritten base_source reaches an output (DL-121). The re-parse
-    # is guarded on the combined list rather than the reconstruction's own,
-    # because the COLLECTION ENTRIES count is read from base_root below.
-    # span_indexes[0] is stale from here on and no base-side span lookup
-    # follows it; the contribution lookups below read index one and above.
-    for start_at, end_at, fragment in sorted(replacements, reverse=True):
-        base_source = base_source[:start_at] + fragment + base_source[end_at:]
+    # and no rewritten base_source reaches an output (DL-121).
+    # _apply_replacements makes one forward pass over the original
+    # base_source, which is the text span_indexes[0] measured every offset
+    # on, and enforces the disjointness of the COLLECTION and PLAYLISTS
+    # spans rather than assuming it. The re-parse is guarded on the
+    # combined list rather than the reconstruction's own, because the
+    # COLLECTION ENTRIES count is read from base_root below. span_indexes[0]
+    # is stale from here on and no base-side span lookup follows it; the
+    # contribution lookups below read index one and above.
     if replacements:
+        base_source = _apply_replacements(base_source, replacements)
         base_root = parse_xml_bytes(base_source.encode("utf-8"))
 
     stats["playlists_reconstructed"] = len(reconstructed)

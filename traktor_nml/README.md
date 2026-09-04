@@ -1039,25 +1039,38 @@ statement of the same decision would only give it two copies to drift apart.
   contract and its callers untouched (DL-120).
 - Entry patches and playlist reconstruction replacements share one
   replacement list declared before the reconstruction block and applied
-  after it, in reverse offset order, followed by one re-parse of
+  after it by `_apply_replacements`, followed by one re-parse of
   `base_root` guarded on that combined list being non-empty; on the
   `duplicate_playlist_name` and `ambiguous_redirect` abort paths the
   function returns before the apply, so the entry patches are discarded
   with everything else and no rewritten `base_source` reaches an output.
-  Every span offset in play is measured against the original
-  `base_source` by `span_indexes[0]`, so two independent rewrite passes
-  over that text would apply the second's offsets to text the first had
-  shifted, and the reconstruction block declares its own list inside
-  itself and after two early returns, where entry patches - which must
-  apply with reconstruct unset - cannot live. The two aborts return
-  `output` `None` with `errors` populated, which is the whole of
-  `SpliceResult`'s shape for a refusal, so discarding the patches with
-  the run costs nothing, while applying them before an abort would build
-  a rewritten `base_source` no return path can carry; the re-parse is
-  guarded on the combined list rather than the reconstruction list alone
-  because the COLLECTION `ENTRIES` count is read from `base_root`
-  downstream, and `span_indexes[0]` is stale from the apply onward, so no
-  base-side span lookup occurs after it (DL-121).
+  `_apply_replacements` makes one forward pass in ascending offset order,
+  collecting the untouched runs of the original text and the fragments
+  into a list and joining once, so the document is built a single time
+  rather than rebuilt per replacement - a bulk action over several
+  hundred conflicting tracks would otherwise copy a multi-megabyte
+  collection once per entry. Every span offset in play is measured
+  against the original `base_source` by `span_indexes[0]`, and a pass
+  that never mutates the text mid-loop reads exactly that text, so no
+  offset is ever applied to bytes an earlier fragment has shifted and the
+  list's own order carries no meaning beyond the sort. The spans it is
+  handed are disjoint - a COLLECTION entry span and a PLAYLISTS
+  `PLAYLIST` span cannot overlap - and the pass enforces that rather than
+  assuming it, raising on a span that starts before its predecessor's end
+  and naming both offsets, because a forward join would otherwise slice
+  backwards, drop the bytes the two spans straddle and emit a silently
+  garbled document. The list is shared rather than split in two because
+  the reconstruction block declares its own list inside itself and after
+  two early returns, where entry patches - which must apply with
+  reconstruct unset - cannot live. The two aborts return `output` `None`
+  with `errors` populated, which is the whole of `SpliceResult`'s shape
+  for a refusal, so discarding the patches with the run costs nothing,
+  while applying them before an abort would build a rewritten
+  `base_source` no return path can carry; the re-parse is guarded on the
+  combined list rather than the reconstruction list alone because the
+  COLLECTION `ENTRIES` count is read from `base_root` downstream, and
+  `span_indexes[0]` is stale from the apply onward, so no base-side span
+  lookup occurs after it (DL-121).
 - A pick on a group holding more than one base record patches the
   first base record's entry only, and the group's non-base primary keys
   stay in `ambiguous_keys`. Such a group has no single right redirect

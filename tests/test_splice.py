@@ -5,9 +5,16 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 from traktor_nml.confidence import MatchConfidence
 from traktor_nml.model import collection_records
-from traktor_nml.splice import _resolve_conflicts, assemble_output, group_identities
+from traktor_nml.splice import (
+    _apply_replacements,
+    _resolve_conflicts,
+    assemble_output,
+    group_identities,
+)
 from traktor_nml.xmlio import parse_xml_bytes
 from tests.conftest import run_tool
 
@@ -1292,14 +1299,16 @@ def test_a_source_pick_with_reconstruct_unset_patches_bases_entry() -> None:
 
 def test_a_source_pick_and_a_reconstruction_share_one_replacement_pass() -> None:
     """Entry patches and rebuilt playlists are applied to base_source in one
-    reverse-ordered pass over offsets measured on the original text, so both
-    land and base's PLAYLIST keeps its own node and position (DL-121).
+    forward pass whose cursor reads the original text every offset was
+    measured on, so both land and base's PLAYLIST keeps its own node and
+    position (DL-121).
 
-    Observed with the apply reading `sorted(replacements)` in place of
-    `sorted(replacements, reverse=True)`, so the rebuilt playlist was written
-    at an offset the longer entry patch had already shifted:
-    lxml.etree.XMLSyntaxError: Specification mandates value for attribute T,
-    line 2, column 583, raised re-parsing base_source.
+    Observed with _apply_replacements' `cursor = end_at` changed to
+    `cursor = start_at + len(fragment)`, so the cursor advanced by the
+    fragment's length in the rewritten text rather than to the replaced
+    span's end in the original: lxml.etree.XMLSyntaxError: Opening and
+    ending tag mismatch: COLLECTION line 2 and ENTRY, line 2, column 471,
+    raised re-parsing base_source.
     """
     track_key = "C:" + "/:Music/:" + "track.mp3"
     two_key = "C:" + "/:Music/:" + "two.mp3"
@@ -1309,8 +1318,9 @@ def test_a_source_pick_and_a_reconstruction_share_one_replacement_pass() -> None
         _playlist("MySet", [track_key], "uuid-base"),
     )
     # The source carries an ALBUM base's entry lacks, so the entry patch is
-    # longer than the span it replaces and a playlist offset measured on the
-    # original text only survives an apply that runs in reverse offset order.
+    # longer than the span it replaces, so the later playlist offset lands
+    # correctly only under an apply that measures against the original text
+    # rather than against the text the earlier fragment has already grown.
     source_text = _nml(
         _album_entry("A", "Song", "track.mp3", "Disc", time="100.0", bitrate="128") + two, 2,
         _playlist("MySet", [two_key, track_key], "uuid-prev"),
@@ -1329,6 +1339,23 @@ def test_a_source_pick_and_a_reconstruction_share_one_replacement_pass() -> None
         == base_text[base_text.index("</COLLECTION>"): base_text.index("<PLAYLIST ")]
     )
     assert "uuid-prev" not in result.output
+
+
+def test_an_overlapping_replacement_span_is_refused_rather_than_written() -> None:
+    """The forward apply enforces the disjointness the COLLECTION and
+    PLAYLISTS spans have rather than assuming it: a span starting before its
+    predecessor's end raises naming both offsets, where a silent pass would
+    drop the bytes the two spans straddle (DL-121).
+
+    Observed with the `if start_at < cursor: raise ValueError(...)` check
+    deleted from _apply_replacements: `Failed: DID NOT RAISE <class
+    'ValueError'>`, the call returning 'AA<first><second>E' - the 'CD' the
+    two spans straddle dropped and no error raised.
+    """
+    with pytest.raises(ValueError) as excinfo:
+        _apply_replacements("AABBCCDE", [(2, 6, "<first>"), (4, 7, "<second>")])
+    assert "offset 4" in str(excinfo.value)
+    assert "offset 6" in str(excinfo.value)
 
 
 def test_a_duplicate_playlist_name_abort_discards_the_source_picks_patch() -> None:
