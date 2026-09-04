@@ -151,6 +151,27 @@ main{padding:20px 24px 24px;display:grid;grid-template-columns:376px 1fr 1fr;gap
 
     <div class="col">
       <section class="sec">
+        <div class="sec-h"><h2 class="sec-t">App header &mdash; brand, divider, section tabs</h2><span class="lbl">Every screen</span></div>
+        <div class="sec-b">
+          <p class="p">The header reads left to right as the <strong>brand mark</strong>, then the <span class="mono" style="font-size:11px">.bar</span> divider, then the <strong>section tab strip</strong>. The strip carries one tab per operation, <strong>Reconstruct playlists</strong> leftmost and <strong>Reconnect wizard</strong> second, and it is the whole of the header: the brand, the divider and the strip.</p>
+          <div class="hd" style="height:42px;padding:0 14px;justify-content:flex-start;border:1px solid #2A2E32;border-radius:6px">
+            <span class="brand">traktor-nml-tool</span><span class="bar"></span>
+            <nav aria-label="Sections" style="display:flex;gap:2px;align-items:center">
+              <a href="/" aria-current="page" style="display:flex;align-items:center;padding:6px 12px;border-radius:6px;font-size:12.5px;background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600;text-decoration:none">Reconstruct playlists</a>
+              <a href="/reconnect" style="display:flex;align-items:center;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;text-decoration:none">Reconnect wizard</a>
+            </nav>
+          </div>
+          <ul class="ul">
+            <li><span class="dot"></span><span><b>A tab is an anchor, and its <span class="mono" style="font-size:11px">href</span> is that operation&rsquo;s route.</b> <span class="mono" style="font-size:11px">/</span> carries Reconstruct playlists and <span class="mono" style="font-size:11px">/reconnect</span> carries Reconnect wizard, so following a tab is a page load and each operation keeps the address it is reachable by.</span></li>
+            <li><span class="dot"></span><span><b>The selected tab takes the <span class="mono" style="font-size:11px">.st.now</span> treatment</b> the wizard artboard paints: the <span class="mono" style="font-size:11px">#22262A</span> ground, an inset 1px <span class="mono" style="font-size:11px">#3C4248</span> border, and <span class="mono" style="font-size:11px">#E8EBED</span> ink at weight 600.</span></li>
+            <li><span class="dot"></span><span><b>An unselected tab is <span class="mono" style="font-size:11px">#8E979E</span> ink on the header&rsquo;s own <span class="mono" style="font-size:11px">#17191C</span> ground</b>, with no background of its own. Nothing else separates the two states, so the treatment carries ground, border, ink and weight together.</span></li>
+            <li><span class="dot"></span><span><b>The selected tab carries <span class="mono" style="font-size:11px">aria-current=&quot;page&quot;</span>, and exactly one tab carries it per page</b> &mdash; the tab naming the route that page answers. Two tabs carrying it, or none, is a defect.</span></li>
+            <li><span class="dot"></span><span><b>The header names the screen through the selected tab and carries no <span class="mono" style="font-size:11px">.task</span> element.</b> The strip already names both operations and marks which one is open, so a second name beside it would come from a source that can disagree with the first with no rule saying which wins. <span class="mono" style="font-size:11px">.task</span> and <span class="mono" style="font-size:11px">.rail</span> belong to the wizard artboard&rsquo;s own screen.</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="sec">
         <div class="sec-h"><h2 class="sec-t">Confidence — four levels, three channels</h2></div>
         <div class="sec-b" style="gap:0;padding-top:6px">
           <div class="tok">

@@ -1,0 +1,73 @@
+{
+  "task_spec": [
+    "SUBJECT: Give the app a header bar carrying two tabs - Reconstruct playlists and Reconnect wizard - so both operations are visible at once and the operator can see which one they are on, styled from the design set's own header rather than from a link at the bottom of the page.",
+    "SETTLED by the operator: Reconstruct playlists is the LEFTMOST tab and the DEFAULT - the route the app opens on. The reconnect wizard is the second, optional one.",
+    "SETTLED by the operator: the shell is Main.dc.html's header bar (.hd - brand mark, divider, task) plus the tabs, applied to both routes. The page bodies stay as they are; the footer action bar and the card treatment are NOT in scope.",
+    "SETTLED by the operator: the header and its tab states are drawn into design/reconnect-wizard/Specs.dc.html FIRST and built to, keeping DL-071 intact.",
+    "scope: traktor_nml/gui/app.py (the two routes and _page_chrome), traktor_nml/gui/theme.py (header and tab rules built from tokens it already carries), design/reconnect-wizard/Specs.dc.html, tests/, traktor_nml/README.md, and the gate repository's serve_w002.py and README.md",
+    "out-of-scope: accessibility work - no screen-reader verification, no NVDA, no new keyboard bindings. Mouse and clicking is this version's bar. The existing keyboard contract and announcements stay as they are",
+    "out-of-scope: the four wizard steps' own layout, the conflict screen, the footer action bar, the card treatment",
+    "out-of-scope: any new colour - theme.py already carries every colour Main.dc.html's header uses"
+  ],
+  "constraints": [
+    "MUST: swapping the routes is the whole of 'default selected' - the reconstruct page answers '/' and the reconnect wizard moves to its own path. Every caller of the old paths is enumerated and updated in the same change",
+    "MUST: the gate's serve_w002.py drives the reconnect wizard and its recorded procedure opens it at '/' on port 8115 - that script and C:\\codex\\traktor-nml-tool-gate/README.md are updated with the route, and the change is stated rather than left for a later session to trip on",
+    "MUST: docs/2026-08-28-w002-browser-record.md and docs/2026-08-29-w004-focus-ring-record.md are RECORDS of runs already taken - they are not rewritten to match a new route; anything said about them describes what they recorded",
+    "MUST: new header and tab rules are built from tokens theme.py already carries (GROUND, SURFACE_2, BORDER, BORDER_STRONG, TEXT, TEXT_FAINT, ACTION, SURFACE_4 and the type scale); no hex literal reaches app.py, which a guard enforces",
+    "MUST: the nicegui boundary (DL-069) - theme.py imports no nicegui and holds the stylesheet; app.py may import nicegui. Any rule worth testing sits below the boundary",
+    "MUST: app.py stays 100% CRLF (1612 CRLF, 0 bare LF); theme.py and the tests are LF. Read and write with newline=''",
+    "MUST: every guard is made to FAIL first, and its docstring records the specific mutation applied and the specific output observed",
+    "MUST: a served-page gate run before the change lands - gui/ defects are only ever found by serving the page (DL-084), and both routes are driven",
+    "MUST: new decisions continue from the current high-water mark in traktor_nml/README.md (DL-128 at the time of writing - re-read and confirm)",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+    "MUST NOT: regenerate the parity manifest or the gate fixture; never restore a file with git checkout",
+    "SHOULD: the suite runs under the SYSTEM interpreter, currently 473 passed / 3 skipped, not .venv (474/2)",
+    "SHOULD: a tab is a link the browser can follow, not a client-side toggle - the two routes are separate pages and each is reachable by its own URL"
+  ],
+  "entry_points": [
+    "traktor_nml/gui/app.py:_page_chrome (~156) - the colour, dark-mode and stylesheet preamble both routes already share, and the natural place a shared header is rendered from",
+    "traktor_nml/gui/app.py:build_wizard (~168) - registers the reconnect wizard at '/' and ends with ui.link('Reconstruct playlists from another collection', '/reconstruct') at line 207, the link this work replaces",
+    "traktor_nml/gui/app.py:_build_reconstruct_page (~1230) - registers the reconstruct page at '/reconstruct'",
+    "traktor_nml/gui/theme.py:page_stylesheet - the string every rule is built into; a '#' comment inside it is an ID selector that swallows the rule after it with no parse error",
+    "design/reconnect-wizard/Main.dc.html - the header the operator asked for: .hd, .hd-l, .brand, .bar, .task, and the .rail/.st step treatment whose active state (.st.now - SURFACE_4 ground, inset border, TEXT ink) is the pattern a selected tab follows",
+    "design/reconnect-wizard/Specs.dc.html - the cross-screen contract, which describes no app-level navigation",
+    "C:\\codex\\traktor-nml-tool-gate/serve_w002.py - serves the reconnect wizard on port 8115; its recorded driving order opens '/'",
+    "C:\\codex\\traktor-nml-tool-gate/serve_reconstruct.py - serves the reconstruct page on port 8116 and already opens '/reconstruct'"
+  ],
+  "rejected_alternatives": [
+    "Keep the bottom link and add tabs beside it - two ways to reach one page, and the link is what the operator asked to replace",
+    "A client-side tab toggle rendering both operations on one page - the two share no pipeline and /reconstruct is a separate route for that reason (app.py's own docstring); a toggle would also cost each operation its own URL",
+    "Redirect '/' to '/reconstruct' and leave the wizard registered at '/' as well - two paths answering for one page, and a redirect the gate has to know about anyway",
+    "Take the whole shell - header, footer action bar and card treatment - rejected by the operator as scope for this change"
+  ],
+  "current_understanding": [
+    "the operator reaches the second operation through ui.link('Reconstruct playlists from another collection', '/reconstruct') at the bottom of the wizard page, and there is no link back",
+    "nothing on either page names the other operation or says which one is open",
+    "the reconstruct page is the operator's own critical use case, which is why it is the one they want to land on",
+    "_page_chrome is already shared by both routes precisely so a second route cannot drift from the wizard's theme (DL-078, DL-085), so a header rendered there reaches both by construction",
+    "theme.py carries every colour Main.dc.html's header uses; this is layout and structure rather than a new palette",
+    "app.py carries no hex literal, comments included, and a guard enforces it"
+  ],
+  "assumptions": [
+    "The reconnect wizard's new path is '/reconnect' (M) - the plan should name it and check nothing else claims it",
+    "The header shows the brand mark and the two tabs; Main.dc.html's .task element names the screen, which the tabs make redundant, so the plan should decide whether .task appears at all (M)",
+    "The gate's serve_w002.py needs only its recorded driving order updated with the wizard's path, not a code change, because it serves whatever app.py registers (M) - establish by reading",
+    "The four wizard steps and the conflict screen are unaffected because the header sits above the page body (H)"
+  ],
+  "invisible_knowledge": [
+    "Serving the page is the only gate that has ever caught a defect in gui/ (DL-084), and it caught the duplicate-entry defect after a green 473-test suite",
+    "A guard asserting the right value appeared can pass while the output is wrong - assert the count, the structure, or the thing a defect would change",
+    "Quasar's no-outline carries outline:0 !important inside a layer the page orders last and names quasar_importants; for !important the EARLIER layer wins, so an unlayered add_head_html rule loses at every specificity - DL-086's ladder, rung two, is re-opening Quasar's own layer",
+    "A token class carrying background and ink together wins only with color=None at the constructor",
+    "Tailwind's JIT emits rules asynchronously; NiceGUI's stepper unmounts inactive steps",
+    "The design set's own precedence rule: if a screen and Specs.dc.html disagree, fix Specs first, otherwise a per-screen fix silently forks the rule for every screen sharing it",
+    "design/reconnect-wizard/reconnect-wizard.html is the gitignored bundle seeded from the sources; only the .dc.html sources and canvas.json are committed"
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - the decision log and the authority; DL-069, DL-071, DL-078, DL-084, DL-085, DL-086 all bear",
+    "traktor_nml/gui/CLAUDE.md - the nicegui boundary, the file map, and where Specs and nicegui-gui-analysis.md disagree",
+    "design/reconnect-wizard/README.md - the design brief and its Specs-first precedence rule",
+    "design/reconnect-wizard/Main.dc.html - the header being adopted",
+    "C:\\codex\\traktor-nml-tool-gate/README.md - the gate's files, its path resolution and its recorded driving orders"
+  ]
+}

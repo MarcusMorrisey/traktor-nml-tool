@@ -1,0 +1,882 @@
+{
+  "plan_id": "d900aafc-6462-47d3-80b1-654de4f8c2db",
+  "created_at": "2026-09-03T23:27:41.456548",
+  "frozen_at": null,
+  "overview": {
+    "problem": "The reconnect wizard answers '/' and the playlist-reconstruction screen answers '/reconstruct', and the only path between them is one ui.link at the bottom of the wizard page reading 'Reconstruct playlists from another collection' with no link back. Nothing on either page names the other operation and nothing says which one is open. The reconstruct screen is the operator's own critical use case yet it is the one reached by scrolling past a four-step stepper. The design set already carries the shell the operator wants: Main.dc.html's header bar - a brand mark, a divider and a strip whose selected item takes the SURFACE_4 ground, an inset border and TEXT ink - while the app draws no header at all.",
+    "approach": "The app gains a header bar carrying two tabs, applied to both routes from the one preamble both routes already call. Eight things are settled rather than left implicit.\n\nThe routes swap and the wizard takes '/reconnect' (DL-129). 'Default selected' is not a rendering state: a tab is a link the browser follows, so the tab selected on open is whichever one names the route '/' resolves to. The places naming the old arrangement are produced by a recorded command rather than by recall (DL-145), because two rounds of hand-listing each missed one: git --no-pager grep -nE over a pattern matching a slash, then recon, then struct or nect, then any character that is not a letter, digit, hyphen or underscore - run at each repository root, and in the tool repository over traktor_nml, tests, design, tools and CLAUDE.md so the historical plan documents under docs/ stay outside it. The trailing character class is what does the work: without it reconnect_run.py, reconnect_render.py and design/reconnect-wizard/ flood the output, and the same pattern with no pathspec returns 107 lines against the recorded command's 9. That command returns the same 9 lines with MSYS_NO_PATHCONV=1 set and unset, measured both ways, so the variable is a precaution against a different shape of the search and not a property of this one. The shape it guards reproduces exactly: git --no-pager grep -n -F \"/reconstruct\" returns nothing at exit 1 while the same command under MSYS_NO_PATHCONV=1 returns 34 lines, because a bare leading-slash argument is rewritten into a Windows path before git sees it - the probe python -c \"import sys;print(sys.argv[1:])\" -F \"/reconstruct\" prints the rewritten path, and the -E pattern, carrying parentheses and a bracket class, is passed through unchanged. What it returns in the tool repository is app.py:207's ui.link, app.py:1215's comment, app.py:1221's docstring, app.py:1232's registration, tests/test_gui_conflict_page_controls.py:1's docstring, Specs.dc.html:260's section heading and traktor_nml/README.md:880 and :1096 - three of them in a comment, a test docstring and prose, where the AST guard of DL-144 cannot see them, since an ast.Constant walk reads string literals and never a '#' comment. CLAUDE.md:25 matches the pattern, reads 'rewrite/reconnect/splice', and is recorded as reviewed and excluded. The wizard-at-root side is app.py:187, app.py:169's docstring and traktor_nml/gui/__main__.py, whose docstring reads 'Entry point that starts the reconnect wizard' and whose ui.run passes title='traktor-nml-tool - reconnect wizard' with native=True, so the product's own window opens whatever '/' resolves to. The entry point's title reads 'traktor-nml-tool' (DL-140), because the window holds both operations and the header's selected tab names the open one. That '/reconnect' is unclaimed is established by enumeration (DL-130): traktor_nml/ holds exactly two @ui.page registrations; nicegui mounts only '/_nicegui_ws/', '/_nicegui/{version}/...' and '/favicon.ico'; no '/reconnect' route string exists in the sources. '/reconstruct' is then registered by nothing and answers the framework's own 404 (DL-141): keeping it alive by a second registration or a redirect means two paths answering one page, which is the shape this change removes, and what makes the 404 safe is the enumeration rather than a redirect. Re-running both commands after the change is an acceptance criterion, and any hit the plan does not name is reported rather than silently changed.\n\nThe header carries the brand mark, the divider and the tab strip, and no .task element (DL-131). Main.dc.html puts .task beside the progress rail to name the screen; the tab strip names both operations and marks which is open, so the selected tab already carries that name and a .task beside it would name the screen twice from two sources with no rule saying which wins. Because this is a cross-screen contract rather than one artboard's layout it is drawn into design/reconnect-wizard/Specs.dc.html first, per the design set's own precedence rule (DL-071), and Main.dc.html keeps every byte.\n\nA tab is an anchor whose href is the route it names (DL-132), so each operation keeps its own URL and the browser performs a real page load. The selected one carries aria-current='page' and wizard-tab-selected. The mechanism that reads that back is named rather than assumed (DL-133, DL-139): the suite runs on the system interpreter, where `import nicegui` raises ModuleNotFoundError and tests/test_gui_view_boundary.py records that app.py is untested by interaction because no pytest harness drives rendered DOM - so a guard claiming to render the header would quietly degrade to a source read or a MagicMock call log. Instead the tab table and the selection rule move into a nicegui-free module, traktor_nml/gui/navigation.py, beside review_model.py and wizard_state.py, and three mechanisms carry the rule with their reach stated. One: a pure unit guard runs navigation.header_tabs with no framework present and resolves all four cases - right tab, wrong tab, both, none - and cannot establish that app.py uses the result. Two: a recording stub, in the register tests/test_gui_module_imports.py already establishes by installing minimal nicegui and webview stand-ins into sys.modules and restoring them in a finally, records each ui.link's target and its handle's .classes() and .props() strings, calls app.py's header builder per route, and asserts the collected marker targets equal exactly that route - it establishes that app.py emits two links in table order and marks the right one, and cannot establish that nicegui renders an anchor or that the class survives Quasar's layers. Three: the served-page gate run, the only mechanism that reads the rendered DOM. In every mechanism the comparison is equality against exactly one route - never membership, never any() - and a second marker on one anchor counts. An AST guard in the register tests/test_gui_view_boundary.py uses keeps app.py free of any route literal outside its two ui.page arguments and of either tab label (DL-144). The header renders from _page_chrome, which takes the active route (DL-134), because that function is already the single preamble both routes call so a second route cannot drift from the wizard's theme (DL-078, DL-085).\n\nThe milestone boundary follows the coupling a guard already reports (DL-147): tests/test_gui_theme.py:333 asserts every .wizard-* class page_stylesheet() defines appears in app.py's source, and the five header and tab classes have exactly one consumer - the header builder - so theme.py and tests/test_gui_theme.py sit in the milestone that writes app.py. Parking a class in _KNOWN_UNATTACHED_CLASSES to clear a milestone gate is refused by that list's own comment at tests/test_gui_theme.py:321-330, which says its single entry is there because no milestone builds a consumer for it and that entries are named one at a time so a forgotten class cannot hide under the same excuse. navigation.py keeps a milestone of its own because it imports no framework and waits on no consumer. The five header and tab rules are built in theme.py from tokens it already carries - SURFACE_2, SURFACE_4, BORDER, BORDER_STRONG, TEXT, TEXT_FAINT and the type scale (DL-135) - so no hex reaches app.py. Every note inside page_stylesheet is a /* */ block (DL-136): a '#' line inside that string is an ID selector whose block is the rule following it, so the next rule is swallowed and nothing raises. app.py is the one CRLF file in the package at 1612 CRLF and zero bare LF while theme.py, __main__.py, navigation.py and the tests are LF, and every edit preserves that with newline='' and a byte check (DL-142).\n\nNo gate script takes a code change (DL-137), established by reading each end to end and by running the same enumeration over that repository. The enumeration returns six lines there - .gitignore:10, reconstruct_fixture.py:1 and :190, and serve_reconstruct.py:1, :10 and :16 - and serve_w002.py's docstring and README.md:29 are not among them, since neither carries the token; those two are in M-004 on the strength of reading them, which is how a file naming a port and a page without naming a route is found at all. serve_w002.py holds no route string at all; serve_reconstruct.py's only ones sit in its module docstring at lines 1, 10 and 16; reconstruct_fixture.py names the screen by its route at lines 1 and 190; the README's serve_w002.py table row at line 29 is the only line naming port 8115, and there is no line-by-line driving order there to edit; and .gitignore line 10's comment describes what 'a /reconstruct gate run' writes. Every executable body stands and the change is prose in those five files. SCREEN-READER-PASS.md is excluded and keeps every byte (DL-146): its line 4 reads as a procedure, but line 109 of the same file says it is 'kept as a record of the pass that ran on 2026-08-29, not as an invitation to run another' and line 107 puts accessibility work out of scope for this version, so the later and more specific statement governs. Its line 75 Edge launch is the launch that pass actually used, and the reading it produced - docs/2026-08-29-w004-focus-ring-record.md - is frozen byte for byte here, so repointing line 75 would make the two files disagree about what was driven and aim a do-not-run procedure at a route no recorded pass ever used. That record and docs/2026-08-28-w002-browser-record.md keep every byte; the run this plan takes drives '/', '/reconnect' and '/reconstruct' and is written into a new dated record (DL-138, DL-143).\n\ntraktor_nml/README.md's own high-water mark reads DL-128, confirmed by reading the file, so this plan mints DL-129 through DL-146. Per the task spec it carries no code_changes and no waves: the four milestones run in order M-001, M-002, M-003, M-004."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-129",
+        "version": 3,
+        "decision": "The reconstruct page answers '/' and the reconnect wizard answers '/reconnect'",
+        "reasoning": "The operator's settled requirement is that reconstruct is the leftmost tab and the route the app opens on -> a default selected tab is not a rendering state but the route '/' resolves to because a tab is a link the browser follows -> swapping the two @ui.page registrations is the mechanism and every place naming the old arrangement is found by the recorded enumeration of DL-145 rather than by recall. In the tool repository the enumeration returns app.py:207's ui.link; app.py:1215's COMMENT reading 'The /reconstruct page renders the rows the same run'; app.py:1221's docstring; app.py:1232's registration; tests/test_gui_conflict_page_controls.py:1's docstring 'Guards what the /reconstruct page's conflict surface delegates'; design/reconnect-wizard/Specs.dc.html:260's section heading 'Splice conflicts - /reconstruct'; and traktor_nml/README.md:880 and :1096. CLAUDE.md:25 matches the pattern and is not a route - it reads 'rewrite/reconnect/splice' - and is recorded as reviewed and excluded. The wizard-at-root side is app.py:187's registration; app.py:169's docstring 'Registers the wizard's single page at /'; and traktor_nml/gui/__main__.py whose docstring reads 'Entry point that starts the reconnect wizard' and whose ui.run passes title='traktor-nml-tool - reconnect wizard' with native=True so the product's own window opens whatever '/' resolves to. The gate repository's hits are enumerated in DL-137. Three of these sit in a comment a test docstring and markdown prose where no AST guard can see them which is why the enumeration is a text grep and DL-145 records the command."
+      },
+      {
+        "id": "DL-130",
+        "version": 1,
+        "decision": "'/reconnect' is unclaimed and the enumeration of route owners is the evidence",
+        "reasoning": "A second route can only collide with a path something else already answers -> the owners of paths in this app are the @ui.page registrations in the package and the routes nicegui mounts for itself -> grep for 'ui.page(' over traktor_nml/ returns exactly two registrations app.py:187 '/' and app.py:1232 '/reconstruct' and neither is '/reconnect'; nicegui's own mounts read from nicegui/nicegui.py as '/_nicegui_ws/' '/_nicegui/{version}/...' and '/favicon.ico'; a grep for the literal '/reconnect' across the tree's .py .md and .html sources outside .venv build/lib and dist/ returns prose about the reconnect wizard and the design directory name and no route string. The path is therefore free and the guard that keeps it free is the route-set assertion in M-003."
+      },
+      {
+        "id": "DL-131",
+        "version": 1,
+        "decision": "The header carries the brand mark the divider and the two tabs and no .task element",
+        "reasoning": "Main.dc.html's header is brand + bar + .task on the left and the .rail progress strip on the right where .task names the screen -> the tab strip names both operations and marks which one is open so the selected tab already carries the screen's name -> a .task beside it would name the screen twice from two sources that can disagree with no rule saying which wins. The header therefore renders .brand and .bar and the tab strip. Because this is a cross-screen contract rather than one screen's layout it is written into design/reconnect-wizard/Specs.dc.html first per the design set's own precedence rule (DL-071)."
+      },
+      {
+        "id": "DL-132",
+        "version": 1,
+        "decision": "A tab is an anchor the browser follows and its href is the route it names",
+        "reasoning": "The two operations are separate pages registered at separate routes and share no pipeline -> a client-side toggle would render one page for two routes and cost each operation the URL it is reachable by -> each tab is a ui.link whose target is that operation's own route so the browser performs a page load and the address bar carries the route. The tab strip is a nav element labelled Sections holding exactly two anchors: '/' labelled Reconstruct playlists first and '/reconnect' labelled Reconnect wizard second."
+      },
+      {
+        "id": "DL-133",
+        "version": 2,
+        "decision": "The selected tab is marked by aria-current='page' and wizard-tab-selected and three mechanisms of stated reach read it back",
+        "reasoning": "A selected state expressed only as a colour is a state no guard can read and a guard asserting the marker merely appears passes while the wrong tab carries it -> the state must name WHICH tab carries it AND the guard reading it must be a mechanism that exists on the interpreter the suite runs on -> the system interpreter has no nicegui (import nicegui raises ModuleNotFoundError) and tests/test_gui_view_boundary.py records that app.py is untested by interaction because no pytest harness drives rendered DOM, so a guard claiming to render the header would degrade to a source read or a MagicMock call log. Three mechanisms carry the rule and each states what it establishes and what it cannot. Mechanism one is a pure unit guard over navigation.header_tabs which computes the tab records with no framework present: it establishes that for each route exactly one record is selected and it is the record whose route equals the active route in the order the table declares - the four cases resolve here - and it cannot establish that app.py uses the result. Mechanism two is a recording stub following the register tests/test_gui_module_imports.py already establishes - minimal nicegui and webview stand-ins installed into sys.modules for the duration of the test - whose ui.link records its label and target and whose returned handle records its .classes() and .props() strings: it calls app.py's header builder for each route and collects the recorded targets the targets carrying aria-current='page' and the targets carrying wizard-tab-selected, establishing that app.py emits two links in table order with the right targets and marks exactly the right one, and it cannot establish that nicegui renders ui.link as an anchor or that the class survives Quasar's layers. Mechanism three is the served-page gate run which reads the rendered DOM and is the only one that establishes what a browser has. In every mechanism the collected markers are compared by equality against exactly the one route under test - never by membership and never by any() - and a second marker on the same anchor counts, so the wrong tab both tabs and no tab each fail."
+      },
+      {
+        "id": "DL-134",
+        "version": 1,
+        "decision": "_page_chrome renders the header and takes the active route as its argument",
+        "reasoning": "_page_chrome is already the one preamble both routes call precisely so a second route cannot drift from the wizard's theme (DL-078 DL-085) -> a header rendered anywhere else would be two call sites that can disagree about the tab set -> _page_chrome takes the active route and renders the header after the stylesheet is installed so both pages carry one header built from one tab table. The tab table is a module-level constant of route-and-label pairs and the active route selects from it rather than each page naming its own tabs."
+      },
+      {
+        "id": "DL-135",
+        "version": 1,
+        "decision": "The header and tab rules are built in theme.py from tokens it already carries",
+        "reasoning": "theme.py holds the stylesheet and imports no nicegui (DL-069) and app.py carries no hex literal which tests/test_gui_theme.py enforces by scanning app.py's source -> a rule expressed in app.py would either repeat a colour or be untestable below the boundary -> the header bar the tab and the selected tab are classes in page_stylesheet built from GROUND SURFACE_2 SURFACE_4 BORDER BORDER_STRONG TEXT TEXT_FAINT and the existing type scale. The selected tab follows Main.dc.html's .st.now treatment: the SURFACE_4 ground the inset BORDER_STRONG border and TEXT ink at weight 600. No colour is added to theme.py and no hex reaches app.py."
+      },
+      {
+        "id": "DL-136",
+        "version": 1,
+        "decision": "page_stylesheet carries no '#' comment and a guard asserts the count of rules the stylesheet defines",
+        "reasoning": "The stylesheet is one f-string of CSS and CSS has no '#' comment form -> a '#' line inside it parses as an ID selector whose block is the text following it so the rule after it is swallowed and no parse error is raised anywhere -> every note inside page_stylesheet is written in /* */ form and a guard asserts that each header and tab class name appears as a selector at the start of a rule in the returned string and that the string holds no line whose first non-space character is '#'. The mutation that makes it fail replaces one /* */ note with a '#' line."
+      },
+      {
+        "id": "DL-137",
+        "version": 4,
+        "decision": "No gate script takes a code change and the prose in five gate files takes the routes",
+        "reasoning": "A gate script that names a route would fail on the swap and one that does not would keep serving whatever app.py registers -> every gate file was read and the DL-145 enumeration was run over that repository too, the enumeration returning six lines - .gitignore:10, reconstruct_fixture.py:1 and :190, and serve_reconstruct.py:1, :10 and :16 - while serve_w002.py's docstring and README.md:29 carry no such token and are here on the strength of reading them instead -> serve_w002.py calls gui_app.build_wizard() and ui.run(port=8115) and holds no route string at all; serve_reconstruct.py calls gui_app.build_wizard() and ui.run(port=8116) and its only route strings sit in its module docstring at lines 1 10 and 16; reconstruct_fixture.py names the screen by its route in its module docstring at line 1 and in a function docstring at line 190; the README's serve_w002.py table row at line 29 is the only line in that file naming port 8115 and there is no line-by-line driving order in it to edit; and .gitignore line 10's comment describes the files 'a /reconstruct gate run' writes. Every executable body stands and what changes is prose in those five files. serve_w002.py stays CRLF and the rest LF as the gate's own '* -text' setting preserves. SCREEN-READER-PASS.md is a record and is excluded by DL-146. The gate README's file table naming five scripts and not serve_reconstruct.py predates this change and stands."
+      },
+      {
+        "id": "DL-138",
+        "version": 1,
+        "decision": "Acceptance is a served-page gate run that opens both routes and reads the header back off each",
+        "reasoning": "A gui/ defect has only ever been found by serving the page (DL-084) and the duplicate-entry defect surfaced there after a green suite -> a header is exactly the class of change a stylesheet layer or a framework default can defeat while the unit guards stay green -> the gate run serves the app from C:\\codex\\traktor-nml-tool-gate opens 'http://localhost:8115/' and 'http://localhost:8115/reconnect' and reads back per route which anchor hrefs the header holds which one carries aria-current='page' and the computed background of the selected tab against theme.SURFACE_4. The run is recorded in a new dated record under docs/ rather than into either existing record."
+      },
+      {
+        "id": "DL-139",
+        "version": 1,
+        "decision": "The tab table and the selection rule sit in traktor_nml/gui/navigation.py below the nicegui boundary",
+        "reasoning": "The rule that decides which tab is selected is the one thing in this change a defect can silently invert -> a rule expressed inside a @ui.page body can only be read back through a framework the suite does not have -> the table of route-and-label pairs and the function that turns an active route into tab records move into a new nicegui-free module beside review_model.py wizard_state.py and conflict_model.py which are already model modules below the boundary that tests/test_gui_view_boundary.py enforces. header_tabs(active_route) returns one record per table row carrying the route the label whether it is selected the class string and the aria-current value or None so the selection rule is a pure computation a guard runs directly. navigation.py is LF and imports no nicegui; app.py renders what it returns and decides nothing."
+      },
+      {
+        "id": "DL-140",
+        "version": 1,
+        "decision": "__main__.py's window title and docstring name the application rather than one of its operations",
+        "reasoning": "__main__.py calls ui.run(title='traktor-nml-tool - reconnect wizard' native=True) and native mode opens whatever '/' resolves to -> after the swap '/' is the reconstruct page so the product's own window would open the reconstruct screen under a title naming the wizard -> the title reads 'traktor-nml-tool' and the module docstring states that the entry point starts the application. The window holds both operations and the header's selected tab names the one that is open so a title naming either operation contradicts the header on the other route. The docstring's second paragraph - why this lives here rather than in commands/ - stands word for word. __main__.py is LF at zero CRLF and is written as such."
+      },
+      {
+        "id": "DL-141",
+        "version": 1,
+        "decision": "'/reconstruct' is registered by nothing and answers nicegui's own 404",
+        "reasoning": "A path that answered a page and then answers nothing is a dead link for any bookmark or procedure still holding it -> the two ways to keep it alive are registering the page at both paths or redirecting one to the other and both mean two paths answering for one page which is the shape this change exists to remove -> nothing is registered at '/reconstruct' and a request for it gets the framework's own 404. What makes that safe is the enumeration rather than a redirect: every reference to '/reconstruct' in either repository is named in DL-129 and updated in the same change so no procedure this project owns still holds the path. A bookmark a person kept is outside what either repository can fix and a redirect would not tell that person the app was rearranged."
+      },
+      {
+        "id": "DL-142",
+        "version": 1,
+        "decision": "Every edit to app.py preserves its 100% CRLF and every other touched Python file its LF",
+        "reasoning": "app.py is the one Python file in the package written CRLF throughout at 1612 CRLF and zero bare LF while theme.py __main__.py the model modules and the tests are LF -> an editor or a helper that normalises on write silently converts the file and the diff swallows the whole module -> every read and write of app.py passes newline='' and a guard asserts app.py's bytes hold zero bare LF and that navigation.py __main__.py and theme.py hold zero CRLF. The gate's serve_w002.py is CRLF and its other scripts LF under that repository's own '* -text' setting and a byte check reports each after the edit."
+      },
+      {
+        "id": "DL-143",
+        "version": 1,
+        "decision": "The served-page gate run drives three URLs and reads back what the DOM has",
+        "reasoning": "The unit mechanisms stop at what app.py emits and cannot see a framework defeat a rule -> the rendered page is the only place the header's anchors their hrefs the marker and the painted colour exist together -> the run serves the app and opens http://localhost:8115/ and http://localhost:8115/reconnect and reads back per route the header's anchor hrefs in order which single href carries aria-current='page' which single href carries wizard-tab-selected and the computed background of the selected tab against theme.SURFACE_4 and the computed colour of an unselected tab against theme.TEXT_FAINT with a matches-or-differs verdict per named surface. It also opens http://localhost:8115/reconstruct and records the status the framework returns for a path nothing registers. The run is written into a new dated record; the two existing browser records keep every byte."
+      },
+      {
+        "id": "DL-144",
+        "version": 2,
+        "decision": "The header builder is the only place in app.py naming a route or a tab label and the AST guard reaching that sees string literals only",
+        "reasoning": "Two places naming a route is the shape that lets one page carry a tab set the other does not -> the table sits in navigation.py so any route string left in app.py is a second source -> app.py imports the table calls navigation.header_tabs(active_route) and passes each record's route to ui.link's target its class string to .classes() and its aria-current to .props(). An AST guard in the register tests/test_gui_view_boundary.py already uses asserts that the only string literals matching a route shape in app.py are the two @ui.page arguments and that neither tab label appears in app.py at all. Its reach is stated rather than assumed: an ast.Constant walk sees string literals and a docstring which is one and it does NOT see a '#' comment - app.py:1215's comment naming the old route is invisible to it and was found by the DL-145 text grep instead. The guard establishes source-level single sourcing for literals; the enumeration covers comments and prose; neither establishes behaviour which is what DL-139's three mechanisms are for."
+      },
+      {
+        "id": "DL-145",
+        "version": 2,
+        "decision": "The enumeration of route references is produced by a recorded command and acceptance is re-running it",
+        "reasoning": "Two rounds of hand-listing the places that name a route each missed one -> a list written by recall is not evidence and a later reader cannot tell a complete list from an incomplete one -> the enumeration is a command written into the plan and into traktor_nml/README.md so it can be re-run: git --no-pager grep -nE with the pattern matching a slash then recon then struct or nect then any character that is not a letter digit hyphen or underscore or end of line; run at the root of each repository and in the tool repository restricted to traktor_nml tests design tools and CLAUDE.md so the historical plan documents under docs/ - records of plans already taken - stay outside it. The load-bearing part is the trailing character class: without it traktor_nml/reconnect_run.py traktor_nml/reconnect_render.py and design/reconnect-wizard/ flood the output, and the same pattern with no pathspec at all returns 107 lines against the 9 the recorded command returns. Measured in Git Bash at C:/codex/traktor-nml-tool: the recorded command returns 9 lines and returns the same 9 with MSYS_NO_PATHCONV=1 set and unset, so that variable is no part of what makes it work. It is a precaution against a different shape of the same search rather than a property of this one, and that shape reproduces exactly: git --no-pager grep -n -F \"/reconstruct\" returns nothing and exits 1, while MSYS_NO_PATHCONV=1 git --no-pager grep -n -F \"/reconstruct\" returns 34 lines. The cause is visible one level down - python -c \"import sys;print(sys.argv[1:])\" -F \"/reconstruct\" prints ['-F' 'C:/Users/marcu/AppData/Local/Programs/Git/reconstruct'] and the same invocation under MSYS_NO_PATHCONV=1 prints ['-F' '/reconstruct'] - so a bare leading-slash argument is rewritten into a Windows path before git sees it. The -E pattern escapes that conversion because it carries parentheses a pipe a bracket class and a dollar, which the same probe confirms is passed through unchanged. A fixed-string search for a route therefore reads as a clean tree while the tree is full of hits, which is why the recorded command is the -E one. Acceptance is that re-running it in both repositories after the change returns only the lines this plan names as intentionally keeping the old token and that any other hit is reported rather than silently changed."
+      },
+      {
+        "id": "DL-146",
+        "version": 1,
+        "decision": "SCREEN-READER-PASS.md is a record and keeps every byte",
+        "reasoning": "The file's line 4 says it is written down so the next pass is a re-run rather than a rediscovery which reads as a procedure -> line 109 of the same file says it is 'kept as a record of the pass that ran on 2026-08-29 not as an invitation to run another' and 'Do not fetch NVDA for this project' and line 107 says accessibility work is out of scope for this version -> the later and more specific statement governs and the file is a record. Its line 75 Edge launch at http://localhost:8115 is the launch the 2026-08-29 pass actually used and the reading it produced is docs/2026-08-29-w004-focus-ring-record.md which this plan freezes byte for byte; rewriting line 75 would make the two files disagree about what was driven and would point a do-not-run procedure at a route no recorded pass ever used. The file is therefore untouched and sits in no milestone's files. What a later session needs is in the places that are live: the gate README's serve_w002.py row names the wizard's URL and traktor_nml/README.md carries the route statement. This entry also records the citation error it corrects - the earlier reading cited line 4 alone for a classification line 109 contradicts."
+      },
+      {
+        "id": "DL-147",
+        "version": 1,
+        "decision": "A stylesheet class and its only consumer land in one milestone",
+        "reasoning": "tests/test_gui_theme.py:333 test_every_wizard_class_reaches_app_py asserts every .wizard-* class page_stylesheet() defines appears in app.py's source -> the five header and tab classes have exactly one consumer and it is the header builder in app.py -> a milestone adding the rules without the builder cannot go green, so theme.py and tests/test_gui_theme.py sit in the milestone that writes app.py rather than in one of their own. The alternative - entering a class in _KNOWN_UNATTACHED_CLASSES to get past a milestone gate - is refused by that list's own comment at tests/test_gui_theme.py:321-330, which says its single entry is there because no milestone in that plan builds a consumer for it and that entries are named one at a time rather than by a pattern precisely so a genuinely forgotten class cannot slip through under the same excuse; a class whose consumer lands one milestone later is not an unattached class. What is left in its own milestone is navigation.py and its guards, which import no framework and have no consumer to wait for, so the boundary follows the coupling the guard reports rather than the file types."
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Keep the bottom link and add tabs beside it",
+        "rejection_reason": "Two ways to reach one page, and the link is the thing the operator asked to replace",
+        "decision_ref": "DL-132"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "A client-side tab toggle rendering both operations on one page",
+        "rejection_reason": "The two share no pipeline and '/reconstruct' is a separate route for that reason, as app.py's own docstring records; a toggle would also cost each operation its own URL",
+        "decision_ref": "DL-132"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Redirect '/' to the reconstruct route and leave the wizard registered at '/' as well",
+        "rejection_reason": "Two paths answering for one page, and a redirect the gate has to know about anyway",
+        "decision_ref": "DL-129"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Adopt the whole shell - header, footer action bar and card treatment",
+        "rejection_reason": "Rejected by the operator as scope for this change",
+        "decision_ref": "DL-131"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Keep Main.dc.html's .task element in the app header beside the tabs",
+        "rejection_reason": "The selected tab already names the screen, so .task names it a second time from a source that can disagree with the first",
+        "decision_ref": "DL-131"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "Give serve_w002.py a route argument or a hard-coded wizard path",
+        "rejection_reason": "Reading it end to end shows it holds no route string and serves whatever app.py registers, so a route in the gate script would be a second place the path is written",
+        "decision_ref": "DL-137"
+      },
+      {
+        "id": "RA-007",
+        "alternative": "A unit guard that renders the header and reads its anchors out of the DOM",
+        "rejection_reason": "The system interpreter that runs the suite has no nicegui and there is no pytest harness driving rendered DOM, so such a guard degrades to a source read or a MagicMock call log that passes while the wrong tab is marked",
+        "decision_ref": "DL-139"
+      },
+      {
+        "id": "RA-008",
+        "alternative": "Keep '/reconstruct' alive by registering the page at both paths or redirecting it",
+        "rejection_reason": "Two paths answering for one page is the shape this change removes; the enumeration of every reference in both repositories is what makes the plain 404 safe",
+        "decision_ref": "DL-141"
+      },
+      {
+        "id": "RA-009",
+        "alternative": "Treat SCREEN-READER-PASS.md as a procedure and repoint its Edge launch at the wizard's new route",
+        "rejection_reason": "Its line 109 states it is kept as a record of the pass that ran on 2026-08-29 and not an invitation to run another and its line 107 puts accessibility work out of scope for this version; line 4's 'so the next one is a re-run' was the only line the earlier reading cited. Line 75 is the launch that pass actually used and the reading it produced is frozen byte for byte, so repointing it would make the two files disagree about what was driven",
+        "decision_ref": "DL-146"
+      },
+      {
+        "id": "RA-010",
+        "alternative": "Enumerate the places that name a route by reading the files and writing the list down",
+        "rejection_reason": "Two rounds of hand-listing each missed a hit - a comment invisible to an AST guard and a test docstring - so the enumeration is a recorded command a later reader re-runs",
+        "decision_ref": "DL-145"
+      }
+    ],
+    "constraints": [
+      "New header and tab rules are built from tokens theme.py already carries; no hex literal reaches app.py, which a guard enforces",
+      "theme.py imports no nicegui and holds the stylesheet; any rule worth testing sits below that boundary (DL-069)",
+      "app.py stays 100% CRLF at zero bare LF; theme.py and the tests are LF; reads and writes pass newline=''",
+      "Every guard is made to FAIL first and its docstring records the specific mutation applied and the specific output observed",
+      "A served-page gate run lands before the change is called done, and both routes are driven (DL-084)",
+      "docs/2026-08-28-w002-browser-record.md and docs/2026-08-29-w004-focus-ring-record.md are records of runs already taken and are not rewritten",
+      "The header and its tab states are drawn into design/reconnect-wizard/Specs.dc.html first, keeping DL-071 intact",
+      "New decisions continue from traktor_nml/README.md's own high-water mark, read as DL-128, so this plan mints from DL-129",
+      "Documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+      "The parity manifest and the gate fixture are never regenerated and no file is restored with git checkout",
+      "Accessibility work is out of scope: no screen-reader verification, no new keyboard bindings; the existing keyboard contract and announcements stand",
+      "The four wizard steps, the conflict screen, the footer action bar and the card treatment are out of scope",
+      "The suite runs under the system interpreter at 473 passed and 3 skipped, not .venv",
+      "Swapping the routes is the whole of 'default selected': the reconstruct page answers '/' and the reconnect wizard answers '/reconnect', with all ten references to the old arrangement across both repositories enumerated and updated in the same change",
+      "A guard names the mechanism it reads with and what that mechanism cannot establish; no guard claims a rendered DOM the suite has no harness to produce",
+      "The list of places naming a route is produced by the recorded enumeration command and re-running it is an acceptance criterion; a hand-written list is not evidence"
+    ],
+    "risks": [
+      {
+        "id": "RISK-001",
+        "risk": "A note written with '#' inside page_stylesheet's string parses as an ID selector and swallows the rule after it with no parse error anywhere",
+        "mitigation": "Notes inside that string are /* */ blocks and a guard asserts no line of the returned string begins with '#' and that all five header and tab selectors are present",
+        "anchor": "traktor_nml/gui/theme.py:163",
+        "decision_ref": "DL-136"
+      },
+      {
+        "id": "RISK-002",
+        "risk": "A selected-state guard that asserts aria-current merely appears passes while the wrong tab carries it",
+        "mitigation": "The guards collect the hrefs of the anchors carrying each marker and assert that collection equals exactly the route under test, so the wrong tab, both tabs and no tab each fail",
+        "anchor": "tests/test_gui_header_tabs.py",
+        "decision_ref": "DL-133"
+      },
+      {
+        "id": "RISK-003",
+        "risk": "Quasar's own layer defeats a header rule at every specificity because its !important sits in the layer the page orders last",
+        "mitigation": "The served-page run reads the computed background of the selected tab off the live page and reports it against theme.SURFACE_4 rather than inferring it from the stylesheet",
+        "anchor": "docs/2026-09-03-header-tabs-browser-record.md",
+        "decision_ref": "DL-138"
+      },
+      {
+        "id": "RISK-004",
+        "risk": "An editor rewrites app.py's line endings and the file stops being 100% CRLF",
+        "mitigation": "Every read and write passes newline='' and a guard asserts app.py's bytes hold zero bare LF",
+        "anchor": "traktor_nml/gui/app.py",
+        "decision_ref": "DL-142"
+      },
+      {
+        "id": "RISK-005",
+        "risk": "A colour or a font size added to Specs.dc.html is one theme.py does not name and the design-set scans in tests/test_gui_theme.py fail",
+        "mitigation": "The header and tab treatment reuses the values Main.dc.html's .hd, .brand, .bar, .st and .st.now already paint, every one of which theme.py names",
+        "anchor": "tests/test_gui_theme.py:356",
+        "decision_ref": "DL-131"
+      },
+      {
+        "id": "RISK-006",
+        "risk": "A later session opens a route from a stale reference and reads a 404 or the wrong screen as a defect",
+        "mitigation": "The enumeration command of DL-145 produces the list rather than recall it, the served run records what '/reconstruct' returns, and re-running the command after the change is an acceptance criterion in both repositories",
+        "anchor": "C:/codex/traktor-nml-tool-gate/README.md",
+        "decision_ref": "DL-145"
+      },
+      {
+        "id": "RISK-007",
+        "risk": "A selected-tab guard is written against a rendered DOM the suite cannot produce and degrades to a source read or a MagicMock call log that passes while the wrong tab is marked",
+        "mitigation": "The selection rule sits in navigation.py where a pure unit guard resolves all four cases; app.py's forwarding is read by a recording stub in the register tests/test_gui_module_imports.py establishes; and the rendered DOM is read only by the served-page run - each mechanism states what it cannot establish",
+        "anchor": "tests/test_gui_navigation.py",
+        "decision_ref": "DL-139"
+      },
+      {
+        "id": "RISK-008",
+        "risk": "The product's own entry point opens the reconstruct screen under a window title naming the reconnect wizard",
+        "mitigation": "__main__.py's ui.run title reads 'traktor-nml-tool' and a guard asserts neither the title nor the docstring names one operation; the served run records the title the native window carries",
+        "anchor": "traktor_nml/gui/__main__.py:19",
+        "decision_ref": "DL-140"
+      },
+      {
+        "id": "RISK-009",
+        "risk": "The gate's reconstruct procedure opens a route nothing answers and reads a 404 as a broken page",
+        "mitigation": "serve_reconstruct.py's docstring and step-2 order name '/', the served run records what '/reconstruct' returns, and the acceptance criterion names all four gate files rather than forbidding the fix",
+        "anchor": "C:/codex/traktor-nml-tool-gate/serve_reconstruct.py:16",
+        "decision_ref": "DL-141"
+      },
+      {
+        "id": "RISK-010",
+        "risk": "A route enumeration written as a fixed-string search - git grep -n -F \"/reconstruct\" - returns nothing and exits 1 because the MSYS layer rewrites the bare leading-slash argument into a Windows path before git sees it, and the empty output reads as a clean tree",
+        "mitigation": "The recorded command is the -E form, whose pattern carries parentheses a pipe a bracket class and a dollar and is passed through unchanged - it returns the same 9 lines with MSYS_NO_PATHCONV=1 set or unset. The plan records the failing invocation its 0-line exit-1 result and the 34 lines the same search returns under MSYS_NO_PATHCONV=1, so a zero-hit run in a tree known to hold the Specs section heading is read as a broken invocation rather than a clean tree",
+        "anchor": "traktor_nml/README.md",
+        "decision_ref": "DL-145"
+      }
+    ],
+    "decision_id_start": 129
+  },
+  "invisible_knowledge": {
+    "system": "The GUI is a nicegui app whose two screens are two @ui.page registrations in traktor_nml/gui/app.py. theme.py sits below the nicegui boundary (DL-069): it imports no nicegui, names every colour and size as a module constant, and returns the whole stylesheet from page_stylesheet() as one f-string that app.py installs through ui.add_head_html. app.py carries no hex literal - tests/test_gui_theme.py enforces that by scanning app.py's source - and every class the stylesheet defines must reach app.py, which another guard in the same module enforces in the other direction. The design set under design/reconnect-wizard/ is committed primary source (DL-071): Specs.dc.html is the cross-screen contract and the artboards are the screens, with the set's own rule that a disagreement is fixed in Specs first, and reconnect-wizard.html is a gitignored bundle seeded from those sources. tests/test_gui_theme.py reads the design set at test time, so every colour an artboard paints and every px font size it specifies must already be named in theme.py. The suite runs on the system interpreter, which has neither nicegui nor pywebview: tests/test_gui_view_boundary.py reads gui/ by AST walk and states that app.py is deliberately untested by interaction because no pytest harness drives rendered DOM, while tests/test_gui_module_imports.py installs minimal nicegui and webview stand-ins into sys.modules - the nicegui stub answering arbitrary attribute access with a MagicMock except ui.dialog, which must be a real class because file_picker.py subclasses it - performs a genuine import of each gui/ module and restores sys.modules in a finally. A @ui.page body does not run at import time under that stub, only at request time, so anything a unit guard needs to read must be reachable without a request.",
+    "invariants": [
+      "theme.py imports no nicegui and app.py holds no six-digit hex literal, comments included - both are guarded",
+      "Every class page_stylesheet defines reaches app.py and every wizard- class app.py uses is defined in page_stylesheet",
+      "app.py is 100% CRLF at zero bare LF; theme.py and the tests are LF; every read and write uses newline=''",
+      "Every colour the design set paints is a constant in theme.py and every px font size it specifies is in the type scale, with one recorded 10.5px exclusion",
+      "_page_chrome is the only place either page installs the stylesheet, the Quasar colours or dark mode",
+      "The parity manifest and the gate fixture are never regenerated and no file is restored with git checkout",
+      "Only app.py, file_picker.py and __main__.py import nicegui or pywebview; every other gui/ module is importable on an interpreter that has neither"
+    ],
+    "tradeoffs": [
+      "A '#' line inside page_stylesheet's string is an ID selector that consumes the rule after it and raises nothing - notes inside that string are /* */ blocks and a guard asserts no line begins with '#'",
+      "A guard asserting that a marker appears passes while the wrong element carries it; the selected-tab guards assert which href carries the marker and how many do",
+      "Quasar's no-outline carries outline:0 !important inside a layer the page orders last and names quasar_importants; for !important the earlier layer wins, so an unlayered add_head_html rule loses at every specificity - DL-086's ladder, rung two, is re-opening Quasar's own layer",
+      "A token class carrying background and ink together wins only with color=None at the constructor",
+      "Tailwind's JIT emits rules asynchronously and NiceGUI's stepper unmounts inactive steps, so a rule read off a live page is read after the page settles",
+      "gui/ defects are only ever found by serving the page (DL-084): a green 473-test suite passed while the served page held the duplicate-entry defect",
+      "The suite's totals mean nothing without the interpreter beside them: 473 passed and 3 skipped under the system interpreter against 474 and 2 under .venv",
+      "A guard that claims to render DOM on this suite has no harness to render with: what it can reach is a pure function, an AST walk, or a recording stub, and each states what it cannot establish",
+      "SCREEN-READER-PASS.md line 4 reads as a procedure and line 109 says it is a record kept from the 2026-08-29 pass; the later and more specific statement governs, and a citation of line 4 alone is the shape this project refuses",
+      "A git grep whose whole pattern is a bare leading-slash string is rewritten by the MSYS path translation before git sees it and returns nothing: -F \"/reconstruct\" returns 0 lines at exit 1 while MSYS_NO_PATHCONV=1 with the same arguments returns 34. A pattern carrying regex metacharacters is passed through unchanged, so the -E enumeration returns its 9 lines either way"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 3,
+      "number": 1,
+      "name": "The header contract in the design set",
+      "files": [
+        "design/reconnect-wizard/Specs.dc.html"
+      ],
+      "flags": [],
+      "requirements": [
+        "Specs.dc.html states the app header as brand mark then divider then the section tab strip",
+        "Specs.dc.html states that the tab strip holds one tab per operation with Reconstruct playlists leftmost and Reconnect wizard second",
+        "Specs.dc.html states that a tab is an anchor whose href is that operation's route",
+        "Specs.dc.html states the selected tab's treatment as the .st.now treatment Main.dc.html paints - the SURFACE_4 ground the inset BORDER_STRONG border and TEXT ink at weight 600 - and the unselected tab's as TEXT_FAINT ink on the header's own ground",
+        "Specs.dc.html states that the selected tab carries aria-current='page' and that exactly one tab carries it per page",
+        "Specs.dc.html states that the header names the screen through the selected tab and carries no .task element",
+        "Every colour the added prose and markup paint is one theme.py already names and every px font size is one the type scale already carries",
+        "Main.dc.html keeps every byte it carries: its .task and its .rail describe the wizard artboard's own screen"
+      ],
+      "acceptance_criteria": [
+        "pytest tests/test_gui_theme.py -q under the system interpreter passes with test_every_design_set_colour_is_named_in_theme reading the edited Specs.dc.html",
+        "test_every_design_set_font_size_is_named_in_theme passes over the edited Specs.dc.html",
+        "git diff --stat names design/reconnect-wizard/Specs.dc.html and no other design file",
+        "A grep of Specs.dc.html for aria-current returns the tab statement"
+      ],
+      "tests": [
+        "tests/test_gui_theme.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 2,
+          "file": "design/reconnect-wizard/Specs.dc.html",
+          "function": "header and tab section",
+          "behavior": "A section of the interaction spec stating the app header: the brand mark the divider and the section tab strip; one tab per operation with Reconstruct playlists leftmost and Reconnect wizard second; a tab as an anchor whose href is that operation's route; the selected tab in the .st.now treatment - SURFACE_4 ground inset BORDER_STRONG border TEXT ink at weight 600 - and the unselected tab in TEXT_FAINT on the header's ground; aria-current='page' on the selected tab and on exactly one tab per page; and the header naming the screen through that selected tab rather than through a .task element. The 'Splice conflicts' section heading names the route the reconstruct screen answers. Every colour and size is one the design set already paints.",
+          "decision_refs": [
+            "DL-131",
+            "DL-132",
+            "DL-133",
+            "DL-129"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 3,
+      "number": 2,
+      "name": "The tab table and the selection rule",
+      "files": [
+        "traktor_nml/gui/navigation.py",
+        "tests/test_gui_navigation.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "navigation.py carries SECTIONS as an ordered table of route-and-label pairs holding ('/' 'Reconstruct playlists') first and ('/reconnect' 'Reconnect wizard') second and is the only place either route or either label is written",
+        "navigation.py carries header_tabs(active_route) returning one record per SECTIONS row in table order carrying that row's route and label whether it is the selected one the class string the tab renders with and the aria-current value or None",
+        "header_tabs marks selected exactly the record whose route equals active_route and marks no record when active_route matches no row",
+        "The selected record's class string carries wizard-tab and wizard-tab-selected and its aria-current reads page; an unselected record's class string carries wizard-tab alone and its aria-current is None",
+        "navigation.py imports no nicegui and is LF at zero CRLF"
+      ],
+      "acceptance_criteria": [
+        "A guard calls header_tabs('/') and asserts the list of routes whose record reads selected equals exactly ['/'] - compared by equality not by membership and not by any() - and its docstring records the mutation that made it fail and the output observed",
+        "A guard calls header_tabs('/reconnect') and asserts the same list equals exactly ['/reconnect']",
+        "A guard mutates the selection rule to mark the other row and records that the equality fails reporting the other route; a guard mutates it to mark both rows and records that the list holds two entries and fails; a guard mutates it to mark none and records that the list is empty and fails",
+        "A guard asserts header_tabs returns the routes in the order ['/' '/reconnect'] for either active route",
+        "A guard asserts the selected record's class string holds both wizard-tab and wizard-tab-selected and its aria-current reads page while an unselected record holds wizard-tab alone at aria-current None",
+        "A guard asserts header_tabs('/nowhere') marks no record selected",
+        "An AST guard asserts navigation.py imports neither nicegui nor webview",
+        "A byte check reports navigation.py at zero CRLF",
+        "pytest tests/ -q under the system interpreter passes: navigation.py is nicegui-free and has no consumer in app.py so this milestone goes green on its own"
+      ],
+      "tests": [
+        "tests/test_gui_navigation.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-003",
+          "version": 2,
+          "file": "traktor_nml/gui/navigation.py",
+          "function": "SECTIONS and header_tabs",
+          "behavior": "A nicegui-free model module beside review_model.py and wizard_state.py. SECTIONS is the ordered table of route-and-label pairs: ('/' 'Reconstruct playlists') then ('/reconnect' 'Reconnect wizard'). header_tabs(active_route) returns one record per row in table order carrying the row's route and label whether it is the selected row the class string it renders with - wizard-tab alone or wizard-tab together with wizard-tab-selected - and the aria-current value 'page' on the selected row and None elsewhere. The row whose route equals active_route is the selected one and an active_route matching no row selects nothing. The selection rule is a pure computation so a guard runs it with no framework present.",
+          "decision_refs": [
+            "DL-132",
+            "DL-133",
+            "DL-139",
+            "DL-147"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 2,
+          "file": "tests/test_gui_navigation.py",
+          "function": "selection rule guards",
+          "behavior": "Guards over header_tabs run on the system interpreter with no framework installed: for each route the list of routes whose record reads selected equals exactly that one route by equality rather than membership; the returned routes read in table order; the selected record's class string carries wizard-tab and wizard-tab-selected at aria-current 'page' while an unselected record carries wizard-tab alone at None; an active route matching no row selects nothing; and an AST guard asserts the module imports neither nicegui nor webview. The mutations recorded in the docstrings mark the other row mark both rows and mark none and each records the output observed.",
+          "decision_refs": [
+            "DL-133",
+            "DL-139",
+            "DL-147"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 4,
+      "number": 3,
+      "name": "The stylesheet the routes the header and the entry point",
+      "files": [
+        "traktor_nml/gui/theme.py",
+        "traktor_nml/gui/app.py",
+        "traktor_nml/gui/__main__.py",
+        "design/reconnect-wizard/Specs.dc.html",
+        "tests/test_gui_theme.py",
+        "tests/test_gui_header_tabs.py",
+        "tests/test_gui_conflict_page_controls.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "page_stylesheet defines wizard-header-bar as the header's own row: the SURFACE_2 ground the BORDER bottom rule and the horizontal padding Main.dc.html's .hd carries",
+        "page_stylesheet defines wizard-brand carrying the mono face at TYPE_11_5 in TEXT_FAINT with the letter spacing .brand carries",
+        "page_stylesheet defines wizard-header-divider as a one pixel BORDER_STRONG rule at the height .bar carries",
+        "page_stylesheet defines wizard-tab as TEXT_FAINT ink at TYPE_12_5 with the padding and radius .st carries and no background of its own",
+        "page_stylesheet defines wizard-tab-selected as the SURFACE_4 ground the inset one pixel BORDER_STRONG border TEXT ink and weight 600 that .st.now carries",
+        "Every value in the five rules is a constant theme.py already holds and theme.py gains no colour",
+        "Every note inside page_stylesheet is written in /* */ form and no line inside the returned string begins with '#'",
+        "theme.py imports no nicegui and holds no route string and is LF at zero CRLF",
+        "The reconstruct page is registered at '/' and the reconnect wizard is registered at '/reconnect' and nothing is registered at '/reconstruct'",
+        "_page_chrome takes the active route and renders the header after installing the stylesheet so both pages carry one header from one call site",
+        "The header renders a brand mark carrying wizard-brand then a divider carrying wizard-header-divider then a nav element labelled Sections holding one ui.link per record navigation.header_tabs returns in the order it returns them",
+        "Each tab's link target is that record's route its classes are that record's class string and a record carrying an aria-current value renders it as a prop",
+        "app.py names no route outside its two @ui.page arguments and names neither tab label at all",
+        "The wizard page carries no link into the reconstruct page below its stepper",
+        "build_wizard's docstring states that it registers the reconnect wizard at '/reconnect' and _build_reconstruct_page's states that it registers the playlist-reconstruction screen at '/'",
+        "__main__.py's ui.run passes title='traktor-nml-tool' and its module docstring states that the entry point starts the application while its paragraph on why it lives outside commands/ stands word for word",
+        "app.py carries no hex literal and no colour value",
+        "app.py stays 100% CRLF at zero bare LF and __main__.py stays LF at zero CRLF and both are read and written with newline=''",
+        "The four wizard steps the conflict screen the footer controls and the card treatment read as they read",
+        "app.py's comment above the conflict block names the route the reconstruct page answers",
+        "tests/test_gui_conflict_page_controls.py's module docstring names the route the conflict surface's page answers and its guards read as they read",
+        "Specs.dc.html's Splice conflicts section heading reads 'Splice conflicts - Reconstruct playlists' naming the screen; the route it answers is stated in the tab section M-001 landed. The file is shared with M-001 by intent: M-001 landed the header contract and this heading changes with the routes because it is what stops it naming one"
+      ],
+      "acceptance_criteria": [
+        "A guard asserts page_stylesheet's returned string holds a rule whose selector is each of .wizard-header-bar .wizard-brand .wizard-header-divider .wizard-tab and .wizard-tab-selected and that the count of those selectors is five",
+        "A guard asserts no line of the returned string has '#' as its first non-space character and its docstring records that replacing one /* */ note with a '#' line makes it fail and what the failing output read",
+        "A guard asserts the selected-tab rule's declared background equals theme.SURFACE_4 and its declared color equals theme.TEXT",
+        "A guard asserts wizard-tab's declared color equals theme.TEXT_FAINT and that wizard-tab declares no background",
+        "pytest tests/ -q under the system interpreter passes",
+        "A byte check reports theme.py at zero CRLF",
+        "test_every_wizard_class_reaches_app_py passes with the five header and tab classes reaching app.py which this milestone writes",
+        "test_app_py_carries_no_hex_literal passes",
+        "No class this milestone adds is entered in _KNOWN_UNATTACHED_CLASSES",
+        "An AST guard collects the arguments of every ui.page decorator in app.py and asserts the set equals {'/' '/reconnect'}",
+        "An AST guard asserts the route the reconstruct builder registers is '/' and the route the wizard builder registers is '/reconnect'",
+        "An AST guard asserts the only string literals in app.py matching a route shape are those two arguments and that neither tab label appears in app.py at all - it establishes single sourcing and nothing about rendering which the recording-stub guard and the gate run carry",
+        "A recording-stub guard installs minimal nicegui and webview stand-ins into sys.modules for the duration of the test as tests/test_gui_module_imports.py does whose ui.link records its label and target and whose returned handle records its .classes() and .props() strings and sys.modules is restored in a finally",
+        "That guard calls the header builder with '/' and asserts the recorded targets read ['/' '/reconnect'] in that order and that the targets carrying aria-current='page' equal exactly ['/'] and the targets carrying wizard-tab-selected equal exactly ['/'] - by equality not by membership not by any() and a second marker on one anchor counts",
+        "The same guard called with '/reconnect' asserts both marker collections equal exactly ['/reconnect']",
+        "A guard mutates the builder to mark the other record and records that the equality fails reporting the other route; to mark both and records a two-entry collection; to mark none and records an empty collection",
+        "A guard asserts the recorded links number exactly two",
+        "A guard asserts app.py holds no ui.link whose target is a route outside the header builder",
+        "A guard asserts __main__.py's ui.run title argument reads 'traktor-nml-tool' and that neither its docstring nor that argument names one operation",
+        "A guard asserts app.py's bytes hold zero bare LF and that __main__.py's hold zero CRLF",
+        "Every guard's docstring records the mutation applied to make it fail and the specific output observed",
+        "The enumeration is run before the milestone is called done and any hit it returns that this plan does not name is reported rather than silently changed",
+        "Re-running the enumeration command over traktor_nml tests design tools and CLAUDE.md returns CLAUDE.md:25 which is prose about the reconnect core and not a route and design/reconnect-wizard/Specs.dc.html:161 and :165 which are the tab specimen's href and the route statement M-001 landed - all three expected and no other hit"
+      ],
+      "tests": [
+        "tests/test_gui_theme.py",
+        "tests/test_gui_header_tabs.py",
+        "tests/test_gui_conflict_page_controls.py"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 2,
+          "file": "traktor_nml/gui/app.py",
+          "function": "header data",
+          "behavior": "app.py holds no tab table of its own: it imports navigation and calls navigation.header_tabs(active_route) so the routes and the labels have one source. The only route strings in app.py are its two ui.page arguments and neither tab label appears in it.",
+          "decision_refs": [
+            "DL-129",
+            "DL-139",
+            "DL-144"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 2,
+          "file": "traktor_nml/gui/app.py",
+          "function": "_page_chrome",
+          "behavior": "Takes the active route. Sets the Quasar colours and dark mode and installs theme.page_stylesheet() as it does then renders the header: a brand mark carrying wizard-brand a divider carrying wizard-header-divider and a nav labelled Sections holding one ui.link per record navigation.header_tabs(active_route) returns in the order it returns them - each link's target is that record's route its classes are that record's class string and a record carrying an aria-current value renders it as a prop. Both pages call it so the tab set cannot fork and the selection is decided below the boundary.",
+          "decision_refs": [
+            "DL-132",
+            "DL-133",
+            "DL-134",
+            "DL-139"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "version": 2,
+          "file": "traktor_nml/gui/app.py",
+          "function": "build_wizard",
+          "behavior": "Registers the reconnect wizard's page at '/reconnect' passing that route to _page_chrome and builds the four steps and the live regions as it builds them. Its docstring states the route it registers. The page body ends at the stepper: the operator reaches the reconstruct page through the header's own tab.",
+          "decision_refs": [
+            "DL-129",
+            "DL-130"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "version": 2,
+          "file": "traktor_nml/gui/app.py",
+          "function": "_build_reconstruct_page",
+          "behavior": "Registers the playlist-reconstruction screen at '/' passing that route to _page_chrome and states that route in its docstring. Nothing is registered at '/reconstruct' so a request for it gets the framework's own 404. The screen's own body its conflict surface and its controls read as they read.",
+          "decision_refs": [
+            "DL-129",
+            "DL-141"
+          ]
+        },
+        {
+          "id": "CI-M-003-005",
+          "version": 3,
+          "file": "tests/test_gui_header_tabs.py",
+          "function": "route and header guards",
+          "behavior": "Two mechanisms with stated reach. An AST walk in the register tests/test_gui_view_boundary.py uses collects app.py's ui.page arguments and asserts the set equals {'/' '/reconnect'}, asserts each builder registers its own route, and asserts app.py holds no other route-shaped string literal and neither tab label - establishing single sourcing for literals and nothing about rendering, and seeing no '#' comment, which is why the text enumeration of DL-145 covers comments and prose. A recording stub in the register tests/test_gui_module_imports.py uses installs minimal nicegui and webview stand-ins into sys.modules for the duration of the test and restores them in a finally; its ui.link records label and target and its returned handle records the .classes() and .props() strings. Calling the header builder for each route it collects the recorded targets and the targets carrying aria-current='page' and wizard-tab-selected and asserts each collection equals exactly the route under test by equality - never membership never any() and a second marker on one anchor counts - so the other tab both tabs and no tab each fail. It also asserts the links number two and read in table order. What it cannot establish - that nicegui renders a link as an anchor and that the class survives Quasar's layers - the served-page run carries. Line-ending guards assert app.py at zero bare LF and __main__.py at zero CRLF.",
+          "decision_refs": [
+            "DL-133",
+            "DL-139",
+            "DL-142",
+            "DL-144",
+            "DL-145"
+          ]
+        },
+        {
+          "id": "CI-M-003-006",
+          "version": 1,
+          "file": "traktor_nml/gui/__main__.py",
+          "function": "module docstring and ui.run",
+          "behavior": "The entry point starts the application: build_wizard() registers both pages and ui.run passes title='traktor-nml-tool' with native=True and reload=False. The native window opens whatever '/' resolves to which is the reconstruct screen and the header's selected tab names it so the title names the application rather than one operation. The docstring's paragraph on why this module lives here rather than in commands/ stands word for word. The file is LF at zero CRLF.",
+          "decision_refs": [
+            "DL-140",
+            "DL-142"
+          ]
+        },
+        {
+          "id": "CI-M-003-007",
+          "version": 1,
+          "file": "tests/test_gui_conflict_page_controls.py",
+          "function": "module docstring",
+          "behavior": "Names the route the conflict surface's page answers. Every guard in the file reads as it reads: what the page delegates to conflict_model is unchanged by a header and a route.",
+          "decision_refs": [
+            "DL-129",
+            "DL-145"
+          ]
+        },
+        {
+          "id": "CI-M-003-008",
+          "version": 2,
+          "file": "traktor_nml/gui/theme.py",
+          "function": "page_stylesheet",
+          "behavior": "Five further rules in the stylesheet string: .wizard-header-bar the header row on the SURFACE_2 ground with a BORDER bottom rule and .hd's horizontal padding; .wizard-brand the mono face at TYPE_11_5 in TEXT_FAINT with .brand's letter spacing; .wizard-header-divider a one pixel BORDER_STRONG rule at .bar's height; .wizard-tab TEXT_FAINT ink at TYPE_12_5 with .st's padding and radius and no background; .wizard-tab-selected the SURFACE_4 ground with an inset one pixel BORDER_STRONG border TEXT ink and weight 600 as .st.now carries. Every value is an existing constant. Notes are /* */ blocks because a '#' line inside this string is an ID selector that consumes the rule after it and raises nothing.",
+          "decision_refs": [
+            "DL-135",
+            "DL-136",
+            "DL-147"
+          ]
+        },
+        {
+          "id": "CI-M-003-009",
+          "version": 2,
+          "file": "tests/test_gui_theme.py",
+          "function": "header and tab rule guards",
+          "behavior": "Guards over page_stylesheet's returned string: the five header and tab selectors are present and number five; no line begins with '#'; the selected tab rule declares theme.SURFACE_4 as its background and theme.TEXT as its colour; the unselected tab rule declares theme.TEXT_FAINT and no background. Each docstring records the mutation applied to make the guard fail and the output that mutation produced.",
+          "decision_refs": [
+            "DL-135",
+            "DL-136",
+            "DL-147"
+          ]
+        },
+        {
+          "id": "CI-M-003-010",
+          "version": 1,
+          "file": "design/reconnect-wizard/Specs.dc.html",
+          "function": "the Splice conflicts section heading",
+          "behavior": "The heading reads 'Splice conflicts - Reconstruct playlists' and names the screen. The route that screen answers is stated once in the tab section rather than in a section title so a heading cannot disagree with the route table. Every other byte M-001 landed stands.",
+          "decision_refs": [
+            "DL-129",
+            "DL-145"
+          ],
+          "code_changes": [],
+          "documentation": {
+            "module_comment": null,
+            "docstrings": [],
+            "function_blocks": [],
+            "inline_comments": []
+          }
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 4,
+      "number": 4,
+      "name": "The gate the decision log and the served-page run",
+      "files": [
+        "C:/codex/traktor-nml-tool-gate/serve_w002.py",
+        "C:/codex/traktor-nml-tool-gate/serve_reconstruct.py",
+        "C:/codex/traktor-nml-tool-gate/reconstruct_fixture.py",
+        "C:/codex/traktor-nml-tool-gate/README.md",
+        "C:/codex/traktor-nml-tool-gate/.gitignore",
+        "traktor_nml/README.md",
+        "docs/2026-09-03-header-tabs-browser-record.md"
+      ],
+      "flags": [],
+      "requirements": [
+        "serve_w002.py's executable body reads as it reads: it holds no route string and serves whatever app.py registers",
+        "serve_w002.py's module docstring states that port 8115 serves the app and that the reconnect wizard is at /reconnect while '/' is the reconstruct page",
+        "serve_reconstruct.py's executable body reads as it reads: its only route strings sit in its module docstring",
+        "serve_reconstruct.py's module docstring names '/' as the reconstruct page in its opening paragraph its 'page under test' line and its step-2 driving order",
+        "The gate README's serve_w002.py table row at line 29 - the only line in that file naming port 8115 - names http://localhost:8115/reconnect as the wizard's URL",
+        "The gate README's file table naming five scripts and not serve_reconstruct.py stands as it stands",
+        "docs/2026-08-28-w002-browser-record.md and docs/2026-08-29-w004-focus-ring-record.md keep every byte they carry",
+        "traktor_nml/README.md carries DL-129 through DL-146 as statements of the code as it stands",
+        "A dated browser record under docs/ carries the served-page run: what was opened what was read back and a matches-or-differs verdict per named surface",
+        "No sentence in either README says previously or now does or no longer or added",
+        "reconstruct_fixture.py's module docstring at line 1 and its assemble_output docstring at line 190 name the route the reconstruct screen answers",
+        "The gate .gitignore's comment at line 10 names the run that writes the fixture outputs by its screen",
+        "SCREEN-READER-PASS.md keeps every byte it carries including its line 75 Edge launch because line 109 states it is kept as a record of the 2026-08-29 pass and not an invitation to run another",
+        "traktor_nml/README.md's two statements naming the reconstruct page by its route name the route that page answers",
+        "traktor_nml/README.md records the enumeration command so a later reader re-runs it rather than re-deriving the list"
+      ],
+      "acceptance_criteria": [
+        "A served-page run from C:/codex/traktor-nml-tool-gate serves the app and opens http://localhost:8115/ then http://localhost:8115/reconnect then http://localhost:8115/reconstruct",
+        "The run reads back per served route the header's anchor hrefs in order the single href carrying aria-current='page' the single href carrying wizard-tab-selected the computed background of the selected tab against theme.SURFACE_4 and the computed colour of the unselected tab against theme.TEXT_FAINT and reports each as matches or differs",
+        "The run records that the '/' page's selected href reads '/' and the '/reconnect' page's selected href reads '/reconnect' and that each page carries exactly two header anchors",
+        "The run records the status http://localhost:8115/reconstruct returns and that it is the framework's own response to a path nothing registers",
+        "The run records that the wizard page holds no anchor into the reconstruct page outside the header",
+        "The run records that the window a native launch opens carries the title traktor-nml-tool",
+        "git diff over docs/2026-08-28-w002-browser-record.md and docs/2026-08-29-w004-focus-ring-record.md is empty",
+        "A byte check reports serve_w002.py at zero bare LF and serve_reconstruct.py README.md and SCREEN-READER-PASS.md at zero CRLF",
+        "Every DL id cited anywhere in this plan's code and tests resolves to a statement in traktor_nml/README.md",
+        "pytest tests/ -q under the system interpreter passes",
+        "git status in C:/codex/traktor-nml-tool-gate names serve_w002.py serve_reconstruct.py reconstruct_fixture.py README.md and .gitignore - the files the enumeration and the reading of both scripts identify - and a file it does not name is reported and settled rather than left changed or left stale",
+        "git diff over C:/codex/traktor-nml-tool-gate/SCREEN-READER-PASS.md is empty",
+        "Re-running the enumeration command at the root of the gate repository returns nothing: each of the six lines it returns beforehand is either updated or is prose that stops naming the old route. SCREEN-READER-PASS.md:75 is not among them at any point - it launches Edge at http://localhost:8115 with no path so the pattern never matches it"
+      ],
+      "tests": [
+        "the served-page gate run recorded in docs/2026-09-03-header-tabs-browser-record.md"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 2,
+          "file": "C:/codex/traktor-nml-tool-gate/serve_w002.py",
+          "function": "module docstring",
+          "behavior": "States that the script serves the app on port 8115 with the file chooser stubbed and the build and scan calls wrapped and that the reconnect wizard is reached at /reconnect while '/' is the reconstruct page. The body is unchanged because it names no route: it calls gui_app.build_wizard() and ui.run(port=8115) and serves whatever app.py registers. The file is CRLF throughout.",
+          "decision_refs": [
+            "DL-137"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 3,
+          "file": "C:/codex/traktor-nml-tool-gate/README.md",
+          "function": "the serve_w002.py table row",
+          "behavior": "The serve_w002.py row at line 29 - the only line in the file naming port 8115 - names http://localhost:8115/reconnect as the wizard's URL and says that the same server answers '/' with the reconstruct page. The file's other rows its paths section and its fixture section stand as they stand and the table's omission of serve_reconstruct.py predates this change and stands.",
+          "decision_refs": [
+            "DL-137"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "version": 4,
+          "file": "traktor_nml/README.md",
+          "function": "decision log",
+          "behavior": "DL-129 through DL-147 written as statements of the code as it stands: the route assignment and the places the old arrangement is named; the command that enumerates them with the measurement behind it - the trailing character class it needs, and that it returns the same nine lines with MSYS_NO_PATHCONV=1 set or unset while a fixed-string search for the same route returns nothing at exit 1; the evidence that '/reconnect' is unclaimed; the header's contents and the absence of a .task element; the tab as an anchor; the selected state and the three mechanisms of stated reach that read it back; _page_chrome as the single header call site; the five token-built rules; the '#' comment trap; the tab table and the selection rule in navigation.py; the entry point's title; '/reconstruct' answering the framework's 404; the line-ending rule; the gate's prose-only change; SCREEN-READER-PASS.md as a record; the served-page run as the acceptance evidence; and the rule that a stylesheet class and its only consumer land together. Its two statements naming the reconstruct page by its route name the route that page answers. The log continues from DL-128 which is the file's own high-water mark.",
+          "decision_refs": [
+            "DL-129",
+            "DL-130",
+            "DL-131",
+            "DL-132",
+            "DL-133",
+            "DL-134",
+            "DL-135",
+            "DL-136",
+            "DL-137",
+            "DL-138",
+            "DL-139",
+            "DL-140",
+            "DL-141",
+            "DL-142",
+            "DL-143",
+            "DL-144",
+            "DL-145",
+            "DL-146",
+            "DL-147"
+          ]
+        },
+        {
+          "id": "CI-M-004-004",
+          "version": 2,
+          "file": "docs/2026-09-03-header-tabs-browser-record.md",
+          "function": "browser record",
+          "behavior": "The served-page run: the interpreter the port and the three URLs opened; per served route the header's anchor hrefs in order the single href carrying aria-current='page' the single href carrying wizard-tab-selected the computed background of the selected tab against theme.SURFACE_4 and the computed colour of an unselected tab against theme.TEXT_FAINT; the status '/reconstruct' returns; and the title the native window carries - each with a matches-or-differs verdict per named surface as DL-084 requires.",
+          "decision_refs": [
+            "DL-143"
+          ]
+        },
+        {
+          "id": "CI-M-004-005",
+          "version": 1,
+          "file": "C:/codex/traktor-nml-tool-gate/serve_reconstruct.py",
+          "function": "module docstring",
+          "behavior": "Names '/' as the reconstruct page in its opening paragraph in its 'The page under test' line and in its step-2 driving order 'serve open / load base and source Preview'. Its executable body stands: it stubs the chooser wraps assemble_output and write_bytes_atomically calls gui_app.build_wizard() and ui.run(port=8116) and names no route outside the docstring. The file is LF.",
+          "decision_refs": [
+            "DL-137"
+          ]
+        },
+        {
+          "id": "CI-M-004-007",
+          "version": 1,
+          "file": "C:/codex/traktor-nml-tool-gate/reconstruct_fixture.py",
+          "function": "docstrings",
+          "behavior": "The module docstring at line 1 and the assemble_output docstring at line 190 name the route the reconstruct screen answers. The fixture builder its probe and its recorded baseline stand: the fixture is never regenerated by this change.",
+          "decision_refs": [
+            "DL-137",
+            "DL-145"
+          ]
+        },
+        {
+          "id": "CI-M-004-008",
+          "version": 1,
+          "file": "C:/codex/traktor-nml-tool-gate/.gitignore",
+          "function": "the fixture-output comment",
+          "behavior": "The comment at line 10 names the run that writes base.nml source.nml and the written output by its screen rather than by a route the app no longer answers. The ignore patterns themselves stand.",
+          "decision_refs": [
+            "DL-137",
+            "DL-145"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [],
+  "diagram_graphs": [
+    {
+      "id": "DIAG-001",
+      "type": "dataflow",
+      "scope": "overview",
+      "title": "How a page load reaches a header with one tab selected",
+      "nodes": [
+        {
+          "id": "browser",
+          "label": "Browser: GET / or GET /reconnect",
+          "type": "external"
+        },
+        {
+          "id": "routes",
+          "label": "app.py: two @ui.page registrations",
+          "type": "process"
+        },
+        {
+          "id": "chrome",
+          "label": "_page_chrome(active_route): stylesheet then header",
+          "type": "process"
+        },
+        {
+          "id": "sections",
+          "label": "SECTIONS: route and label pairs",
+          "type": "datastore"
+        },
+        {
+          "id": "theme",
+          "label": "theme.page_stylesheet(): wizard-tab and wizard-tab-selected",
+          "type": "datastore"
+        },
+        {
+          "id": "header",
+          "label": "Header: brand divider and two anchors",
+          "type": "process"
+        },
+        {
+          "id": "body",
+          "label": "Page body: reconstruct screen or four-step stepper",
+          "type": "process"
+        }
+      ],
+      "edges": [
+        {
+          "source": "browser",
+          "target": "routes",
+          "label": "resolves the path",
+          "protocol": "HTTP"
+        },
+        {
+          "source": "routes",
+          "target": "chrome",
+          "label": "passes the route it is registered at",
+          "protocol": null
+        },
+        {
+          "source": "sections",
+          "target": "chrome",
+          "label": "one anchor per row in order",
+          "protocol": null
+        },
+        {
+          "source": "theme",
+          "target": "chrome",
+          "label": "installed into the head before the header renders",
+          "protocol": null
+        },
+        {
+          "source": "chrome",
+          "target": "header",
+          "label": "marks the row matching the route with aria-current=page",
+          "protocol": null
+        },
+        {
+          "source": "routes",
+          "target": "body",
+          "label": "builds the screen the route names",
+          "protocol": null
+        },
+        {
+          "source": "header",
+          "target": "browser",
+          "label": "an unselected tab href is a new page load",
+          "protocol": null
+        }
+      ],
+      "ascii_render": null
+    }
+  ],
+  "readme_entries": [
+    {
+      "path": "docs/plans/2026-09-03-header-tabs",
+      "content": "# 2026-09-03 header tabs\n\nThe app draws no header. The reconnect wizard answers `/`, the playlist-reconstruction screen answers `/reconstruct`, and the only path between them is one `ui.link` at the bottom of the wizard page with no link back; nothing on either page names the other operation or says which one is open. This plan gives both routes one header bar - the brand mark, a divider and two tabs - built from Main.dc.html's own header treatment, with the reconstruct screen answering `/` and the reconnect wizard moving to `/reconnect`.\n\n| File | What |\n| --- | --- |\n| `plan.json` | The plan: overview, DL-129 through DL-147, and four milestones with their files, requirements, acceptance criteria, tests and code intents. No code_changes and no waves. |\n| `context.json` | The task spec, the operator's settled decisions, the constraints, the entry points and the invisible knowledge the plan was designed against. |\n\nSix things it settles rather than leaves implicit.\n\n**The routes, and how the enumeration was produced.** The wizard's path is `/reconnect`. The places naming the old arrangement come from a recorded command rather than from recall, because two rounds of hand-listing each missed one: `git --no-pager grep -nE` over a pattern matching a slash, `recon`, `struct` or `nect`, then any character that is not a letter, digit, hyphen or underscore. The trailing class is what does the work: without it `reconnect_run.py`, `reconnect_render.py` and `design/reconnect-wizard/` flood the output, and the same pattern with no pathspec returns 107 lines against the recorded command's 9. Measured both ways, that command returns the same 9 lines with `MSYS_NO_PATHCONV=1` set and unset, so the variable is a precaution rather than a requirement here - it guards a different shape of the search, which does reproduce: `git --no-pager grep -n -F \"/reconstruct\"` returns nothing at exit 1 while the same command under `MSYS_NO_PATHCONV=1` returns 34 lines, because a bare leading-slash argument is rewritten into a Windows path before git sees it. It returns `app.py`'s link, comment, docstring and registration, `tests/test_gui_conflict_page_controls.py`'s docstring, `Specs.dc.html`'s section heading and two lines of `traktor_nml/README.md` - three of them in a comment, a test docstring and prose, invisible to the AST guard, which reads string literals and never a `#` comment. `CLAUDE.md:25` matches and is not a route; it is recorded as reviewed. The wizard-at-root side is `app.py`'s registration and docstring and `traktor_nml/gui/__main__.py`, whose `ui.run(title=\"traktor-nml-tool - reconnect wizard\", native=True)` opens whatever `/` resolves to. In the gate repository it returns six lines - `.gitignore:10`, `reconstruct_fixture.py:1` and `:190`, and `serve_reconstruct.py:1`, `:10` and `:16`. `serve_w002.py`'s docstring and `README.md:29` carry no such token and are in scope on the strength of reading them, not of the enumeration. Re-running both commands is an acceptance criterion. That `/reconnect` is unclaimed is established by enumeration: exactly two `@ui.page` registrations, nicegui's own mounts, and no `/reconnect` route string anywhere in the sources.\n\n**The entry point.** The native window title reads `traktor-nml-tool`: the window holds both operations and the header's selected tab names the open one, so a title naming either operation contradicts the header on the other route.\n\n**`/reconstruct` after the swap.** Nothing registers it and it answers the framework's own 404. A second registration or a redirect means two paths answering one page, which is the shape this change removes; what makes the 404 safe is the enumeration, not a redirect.\n\n**The `.task` element.** It does not appear in the app header - the selected tab names the screen, and `.task` beside it would name it twice from a source that can disagree. The contract is drawn into `design/reconnect-wizard/Specs.dc.html` first, per DL-071.\n\n**What a tab is, and how the selected state is read.** A tab is an anchor whose `href` is that operation's route; the selected one carries `aria-current=\"page\"` and `wizard-tab-selected`. The mechanism is named rather than assumed: the suite runs on the system interpreter, where `import nicegui` raises `ModuleNotFoundError` and `tests/test_gui_view_boundary.py` records that no pytest harness drives rendered DOM, so a guard claiming to render the header would degrade to a source read or a MagicMock call log. The tab table and the selection rule therefore sit in a nicegui-free `traktor_nml/gui/navigation.py`, and three mechanisms carry the rule with their reach stated: a pure unit guard over `header_tabs` resolving all four cases (right tab, wrong tab, both, none); a recording stub in the register `tests/test_gui_module_imports.py` already establishes, reading the targets and props app.py hands `ui.link`; and the served-page run, the only one that reads the rendered DOM. Every comparison is equality against exactly one route - never membership, never `any()`.\n\n**The gate.** Neither script takes a code change: `serve_w002.py` holds no route string and `serve_reconstruct.py`'s only ones sit in its docstring. Prose changes in five gate files - the two docstrings, the README's `serve_w002.py` table row at line 29 (the only line naming port 8115; there is no line-by-line driving order there), and `.gitignore`'s fixture comment. `SCREEN-READER-PASS.md` keeps every byte: line 4 reads as a procedure, but line 109 of the same file says it is kept as a record of the 2026-08-29 pass and not an invitation to run another, and line 75 is the launch that pass actually used - repointing it would contradict the reading this plan freezes.\n\n`traktor_nml/README.md`'s own high-water mark reads DL-128, so this plan mints DL-129 through DL-147. Acceptance is a served-page gate run driving `/`, `/reconnect` and `/reconstruct`, judged on what the live page reports, recorded in a new dated record. `docs/2026-08-28-w002-browser-record.md` and `docs/2026-08-29-w004-focus-ring-record.md` are records of runs already taken and keep every byte.\n\nThe milestone boundary follows a guard rather than the file types: `tests/test_gui_theme.py:333` requires every `.wizard-*` class the stylesheet defines to reach `app.py`, so `theme.py` lands with the header builder that consumes it, while `navigation.py` - framework-free and waiting on no consumer - keeps a milestone of its own (DL-147).\n"
+    }
+  ]
+}
