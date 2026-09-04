@@ -13,6 +13,8 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `LICENSE`                | GPL-2.0-only license text                                    | -                                                |
 | `pyproject.toml`         | Packaging metadata: `lxml` required, the `tags`/`fingerprint`/`gui`/`docs`/`all` extras, and the explicit `packages` list covering `traktor_nml`, `traktor_nml.commands` and `traktor_nml.gui` | Adding a dependency or an extra, or adding a subpackage that must be installed |
 | `pytest.ini`             | Pytest configuration                                          | Changing test discovery or markers              |
+| `traktor-nml-spike.spec` | PyInstaller spec building `spike/packaging/spike_app.py` into `dist/traktor-nml-spike`, the frozen-binary experiment `docs/2026-08-25-packaging-spike-results.md` records | Repeating the packaging spike, or changing what a frozen build bundles |
+| `spike-checks.spec`      | PyInstaller spec building `spike/packaging/spike_checks.py` into `dist/spike-checks`, the probe that reports what a frozen build can reach | Repeating the packaging spike's environment checks |
 | `.gitignore`             | Excludes caches, the personal collection fixture and its snapshots, tag caches, `/testing/`, the generated design bundle | Adding a new local-only artifact                |
 | `.gitattributes`         | Pins `tests/baselines/manifest.json` to exact bytes (`-text`) | Changing how the parity manifest is stored      |
 | `Dockerfile`             | Container image for running the CLI on a machine that holds the library; installs fpcalc AND libchromaprint1 so the fingerprint tier works | Running the tool on a server, or getting the fingerprint tier working |
