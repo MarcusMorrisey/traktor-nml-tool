@@ -14,19 +14,23 @@ decision logic below.
 | `theme.py`          | Specs' measured palette, type scale, spacing and radius tokens, and `page_stylesheet()`, the string built from them. Imports no `nicegui`. | Changing a colour, a font size, a spacing step or a radius |
 | `keymap.py`         | `ENTRIES` (one row per Specs key/scope/action/description), `dispatch` (the pure movement/range/pick arithmetic), `ACTION_NAMES`. Imports no `nicegui`. | Changing a key binding, adding an action, or changing dispatch arithmetic |
 | `announce.py`       | The announcement text builders (`progress_message`, `decision_message`, `error_message`, `completion_message`), `POLITENESS`, and `ProgressAnnouncer`'s two-second throttle. Imports no `nicegui`. | Changing announcement wording, politeness, or the progress throttle |
+| `conflict_model.py` | `ConflictGroup`/`ConflictDecisions` (the `/reconstruct` conflict screen's per-identity-key undecided/base/source states, re-attached across a re-preview only where the group's member primary keys are the identical set), `conflict_groups`, `rows`, `resolve_all`, `outstanding`, `resolutions` (the base/source mapping `_resolve_conflicts` takes, decided keys only), `write_refusal`/`write_refusal_sentence`, and `source_refusal`/`base_refusal`/`selection_refusal_sentence`. Imports no `nicegui`. | Changing a conflict decision state, the re-attachment rule, the resolutions mapping handed to splice, or a write/selection refusal |
+| `navigation.py`     | `SECTIONS` (the ordered route-and-label table - `/` for the reconstruct page, `/reconnect` for the wizard - and the one place either route or either label is written), `header_tabs(active_route)` (one `HeaderTab` per row carrying route, label, selected, class string and `aria-current`), `TAB_CLASS`/`TAB_SELECTED_CLASS`/`ARIA_CURRENT_SELECTED`. Imports no `nicegui`. | Adding or renaming a section, changing a route, or changing which tab reads as selected |
+| `_fs_nav.py`        | `LocalFilePicker`'s filesystem arithmetic: `DRIVE_LIST` (the sentinel for the virtual all-drives listing), `list_drive_roots` (the one-time Windows letter probe; empty on POSIX), `is_drive_root`, `parent_target` (where `..` leads, including from a drive root to `DRIVE_LIST`), `resolve_target` (the single computation both picker handlers call) and `entries_for` (the grid rows). Imports no `nicegui` or `webview`. | Changing drive navigation, what `..` resolves to, or which rows the picker lists |
 | `app.py`            | Builds the wizard's four steps and drives `run_reconnection`/`write_reconnect_result` under `nicegui.run.io_bound`; feeds `ui.log` from `reconnect_render`'s line-producing functions over `RenderedOutput` | Changing a wizard step, the scan/write wiring, or the log feed |
 | `file_picker.py`    | Server-side file/directory selection: pywebview's native dialog in native mode, NiceGUI's `local_file_picker` pattern otherwise | Changing file selection or the native/browser fallback |
 | `__main__.py`       | `python -m traktor_nml.gui` entry point                       | Changing how the wizard starts                    |
 
 ## The nicegui boundary
 
-`review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py` and
-`announce.py` import no `nicegui` or `pywebview` and are reachable from
-the test suite's system interpreter, which has no `nicegui` installed.
 `app.py`, `file_picker.py` and `__main__.py` are the only three modules
-in this package that import either; every rule worth testing sits below
-that boundary, in the nicegui-free modules, so the suite can reach it
-(DL-069; guarded by an AST walk in
+in this package that import `nicegui` or `pywebview`. Every other
+module - `review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py`,
+`announce.py`, `conflict_model.py`, `navigation.py`, `_fs_nav.py` and
+`__init__.py` - imports neither and is reachable from the test suite's
+system interpreter, which has no `nicegui` installed. Every rule worth
+testing sits below that boundary, in the nicegui-free modules, so the
+suite can reach it (DL-069; guarded by an AST walk in
 `tests/test_gui_view_boundary.py`).
 
 ## Why the wizard drives the cores directly

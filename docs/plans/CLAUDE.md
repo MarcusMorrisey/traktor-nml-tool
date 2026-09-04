@@ -1,0 +1,24 @@
+# docs/plans/
+
+Planner state, one directory per piece of work, each named for the date the plan was written and the work it covers; every directory holds `plan.json` and `context.json`, most hold `qr-*.json` quality-review passes, and some hold a `plan.md` rendering, a `README.md` or a `scratch/` of working files.
+
+## Files
+
+| File        | What                                                                                                                                                | When to read                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `README.md` | What each directory covers, what `plan.json`/`context.json`/`qr-*.json`/`scratch/` each contain, why these plans carry no replay machinery while the sibling wizard plan repository does, and that `traktor_nml/README.md`'s decision log is the authority over any decision restated here | Orienting before opening a plan, or adding a directory here      |
+
+## Subdirectories
+
+| Directory                              | What                                                                                                                                          | When to read                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `2026-08-22-disk-scan-reconnect/`       | Reconnecting stale collection paths by scanning the disk rather than only against a second NML; carries `plan.md` and three QR passes           | Changing `diskscan.py` or `reconnect.py`, or checking what disk-scan reconnection was contracted to do |
+| `2026-08-23-package-findings/`           | Eight confirmed findings across the package: correctness gaps and skipped checks                                                                | Looking up whether a suspected package defect was already found and scoped                  |
+| `2026-08-24-build-playlist/`             | `build-playlist`: an external `Artist - Title` list resolved against a collection into a playlist node. Prose form is `docs/2026-08-24-build-playlist-plan.md`; carries implementation-phase QR passes, `doc_diffs.json` and a `RESUME_PROMPT.md` | Changing `buildplaylist.py`, `tracklist.py` or the build-playlist insertion point            |
+| `2026-08-25-matching-tolerance/`         | Matching tolerances and the refutation check. Prose form is `docs/2026-08-25-matching-tolerance-decisions.md`                                    | Changing a match tier, a tolerance, or the confidence ladder                                 |
+| `2026-08-26-renderer-split/`             | Splitting stdout flattening out of the reconnect subcommands so one `ReconnectResult` feeds both renderers. Prose form is `docs/2026-08-26-renderer-split-plan.md` | Changing `reconnect_run.py` or `reconnect_render.py`, or the printless-command-layer convention |
+| `2026-08-27-reconnect-phase1/`           | The Phase 1 reconnect subcommands; carries `architect_notes.md` on the two-interpreter test harness and the nicegui-free `gui/` constraint that follows from it | Working on the reconnect subcommands, or on why GUI logic must stay importable without nicegui |
+| `2026-08-29-playlist-reconstruction/`    | `splice --reconstruct-playlists` and the `/reconstruct` wizard route (DL-091..DL-103)                                                            | Changing playlist reconstruction or the `/reconstruct` route                                 |
+| `2026-08-31-conflict-resolution/`        | Per-track conflict resolution: the `resolutions` mapping through the core and the `/reconstruct` conflict screen (DL-104..DL-115)                | Changing conflict resolution or the conflict screen                                          |
+| `2026-08-31-source-resolution/`          | A SOURCE pick rewriting base's own ENTRY in place rather than transplanting the source's beside it, so one LOCATION keeps one entry (DL-116..DL-129); carries a `README.md` stating the measured defect | Changing splice conflict picks, or following a DL-116..DL-129 citation                       |
+| `2026-09-03-header-tabs/`                | One header bar - brand mark, divider, two tabs - on both routes, with `/reconstruct` answering `/` and the reconnect wizard moving to `/reconnect`; the tab table and selection rule sit in a nicegui-free `gui/navigation.py`. Carries a `README.md` with the recorded enumeration commands | Changing the app's routes, the header, or the tab selection rule                             |

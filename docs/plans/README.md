@@ -17,6 +17,7 @@ milestone is shaped the way it is once its diffs are committed.
 | `2026-08-29-playlist-reconstruction` | `splice --reconstruct-playlists` and the `/reconstruct` wizard route (DL-091..DL-103) |
 | `2026-08-31-conflict-resolution` | Per-track conflict resolution: the `resolutions` mapping through the core and the `/reconstruct` conflict screen (DL-104..DL-115) |
 | `2026-08-31-source-resolution` | A SOURCE pick rewriting base's own ENTRY in place rather than transplanting the source's beside it (DL-116..DL-129) |
+| `2026-09-03-header-tabs` | The app header and its two section tabs: the reconstruct page at `/`, the reconnect wizard at `/reconnect`, and the tab strip that replaces the link between them (DL-129..DL-147) |
 
 The reconnect wizard's own plan is not here: it lives in the sibling
 `traktor-nml-tool-plan` repository (see [DEVELOPING.md](../../DEVELOPING.md#the-layout)),
