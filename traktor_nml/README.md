@@ -54,9 +54,10 @@ modules; `[tool.setuptools] packages` in `pyproject.toml` lists it
 explicitly (`packages = ["traktor_nml", "traktor_nml.commands",
 "traktor_nml.gui"]`), since that array is not automatic discovery and a
 package absent from it imports fine from a source checkout while missing
-from an installed wheel (DL-070). Within the package, `review_model.py`
-and `wizard_state.py` import no `nicegui` or `pywebview` and are reachable
-from the test suite's system interpreter; `app.py`, `file_picker.py` and
+from an installed wheel (DL-070). Within the package, `review_model.py`,
+`wizard_state.py`, `conflict_model.py` and `navigation.py` import no
+`nicegui` or `pywebview` and are reachable from the test suite's system
+interpreter; `app.py`, `file_picker.py` and
 `__main__.py` are the only modules that do import them, so the suite -
 which runs where `nicegui` is not installed - never crosses into the
 three (DL-069).
@@ -877,8 +878,7 @@ statement of the same decision would only give it two copies to drift apart.
   `_resolve_conflicts` groups on and what `ConflictRow` carries, so it is
   stable across two runs over the same inputs and lets a re-preview
   re-attach a decision without a second identifier or a sidecar file;
-  `ConflictDecisions` sits beside the `/reconstruct` page's other
-  holders, the way `state.decisions` holds the reconnect flow's picks
+  `ConflictDecisions` sits beside the other holders on the `/` page, the way `state.decisions` holds the reconnect flow's picks
   (DL-107).
 - The splice CLI carries only the run-wide `--on-conflict
   keep-first|keep-last` flag, and the per-key `resolutions` parameter has
@@ -1093,7 +1093,7 @@ statement of the same decision would only give it two copies to drift apart.
   shape and the call site are all untouched by what splice does with the
   token `source`; both stand as they are, established by reading the
   resolutions producer and its sole call site rather than assumed, and
-  the `/reconstruct` SOURCE control's wording stands because the
+  the `/` page's SOURCE control's wording stands because the
   behaviour is the wording (DL-125).
 - The served-page gate for this work runs from the gate repository over
   the reconstruct-conflict fixture, extended with a track whose base
@@ -1108,6 +1108,279 @@ statement of the same decision would only give it two copies to drift apart.
   output with a SOURCE pick on every conflicting group, re-reads it, and
   passes only when the COLLECTION holds as many entries as base held and
   no `LOCATION` appears twice (DL-126).
+- The reconstruct page answers `/` and the reconnect wizard answers
+  `/reconnect`. Reconstruction is the leftmost tab and the route the app
+  opens on, and a default selected tab is not a rendering state but the
+  route `/` resolves to, because a tab is a link the browser follows. The
+  two `@ui.page` registrations in `gui/app.py` carry the assignment -
+  `_build_reconstruct_page`'s at `/` and `build_wizard`'s at
+  `/reconnect` - and every other place naming a route is found by
+  re-running the enumeration command below rather than by recall, since
+  three of the places that named the earlier arrangement sat in a
+  comment, a test docstring and markdown prose where no AST guard can see
+  them (DL-129).
+- `/reconnect` is a path nothing else answers, and the enumeration of
+  route owners is what establishes that rather than an assumption. The
+  owners of paths in this app are the `@ui.page` registrations in the
+  package and the routes nicegui mounts for itself: a grep for `ui.page(`
+  over `traktor_nml/` returns exactly the two registrations, and
+  nicegui's own mounts are `/_nicegui_ws/`, `/_nicegui/{version}/...` and
+  `/favicon.ico`. The guard that keeps the path free is the route-set
+  assertion in `tests/test_gui_header_tabs.py`, which asserts the set of
+  `ui.page` arguments in `app.py` equals `{'/', '/reconnect'}` (DL-130).
+- The header carries the brand mark, the divider and the two tabs, and no
+  `.task` element. `Main.dc.html`'s header is brand plus bar plus `.task`
+  on the left with the `.rail` progress strip on the right, where `.task`
+  names the screen; the tab strip names both operations and marks which
+  one is open, so the selected tab already carries the screen's name. A
+  `.task` beside it would name the screen twice from two sources that can
+  disagree with no rule saying which wins. Because this is a cross-screen
+  contract rather than one screen's layout it is written into
+  `design/reconnect-wizard/Specs.dc.html` under the design set's own
+  precedence rule (DL-071), and `_build_header` renders the brand, the
+  divider and the strip in that order (DL-131).
+- A tab is an anchor the browser follows and its `href` is the route it
+  names. The two operations are separate pages registered at separate
+  routes and share no pipeline, so a client-side toggle would render one
+  page for two routes and cost each operation the URL it is reachable by.
+  Each tab is a `ui.link` whose target is that operation's own route, so
+  following one is a page load and the address bar carries the route. The
+  strip is a `nav` element labelled `Sections` holding exactly two
+  anchors: `/` labelled Reconstruct playlists first and `/reconnect`
+  labelled Reconnect wizard second (DL-132).
+- The selected tab is marked by `aria-current="page"` and the
+  `wizard-tab-selected` class, and three mechanisms of stated reach read
+  the marking back. A selected state expressed only as a colour is a
+  state no guard can read, and a guard asserting the marker merely
+  appears passes while the wrong tab carries it, so the state names which
+  tab carries it and each guard is a mechanism that exists on the
+  interpreter the suite runs on - the system interpreter has no nicegui,
+  and `tests/test_gui_view_boundary.py` records that `app.py` is untested
+  by interaction because no pytest harness drives rendered DOM. Mechanism
+  one is a pure unit guard over `navigation.header_tabs` in
+  `tests/test_gui_navigation.py`, which establishes that for each route
+  exactly one record is selected and it is the record whose route equals
+  the active route in the order the table declares, and cannot establish
+  that `app.py` uses the result. Mechanism two is the recording stub in
+  `tests/test_gui_header_tabs.py`, following the register
+  `tests/test_gui_module_imports.py` uses - minimal nicegui and webview
+  stand-ins installed into `sys.modules` for the duration of the test -
+  whose `ui.link` records its label and target and whose returned handle
+  records its `.classes()` and `.props()` strings; it establishes that
+  `app.py` emits two links in table order with the right targets and
+  marks exactly the right one, and cannot establish that nicegui renders
+  `ui.link` as an anchor or that the class survives Quasar's layers.
+  Mechanism three is the served-page gate run, the only one that
+  establishes what a browser has. In every mechanism the collected
+  markers are compared by equality against exactly the one route under
+  test, never by membership and never by `any()`, and a second marker on
+  the same anchor counts, so the wrong tab, both tabs and no tab each
+  fail (DL-133).
+- `_page_chrome` renders the header and takes the active route as its
+  argument. It is already the one preamble both routes call, precisely so
+  a second route cannot drift from the wizard's theme (DL-078, DL-085); a
+  header rendered anywhere else would be two call sites that can disagree
+  about the tab set. It takes the active route and renders the header
+  after the stylesheet is installed, so both pages carry one header built
+  from one tab table, and the active route selects from that table rather
+  than each page naming its own tabs (DL-134).
+- The header and tab rules are built in `theme.py` from the tokens it
+  already carries. `theme.py` holds the stylesheet and imports no nicegui
+  (DL-069), and `app.py` carries no hex literal, which
+  `tests/test_gui_theme.py` enforces by scanning `app.py`'s source, so a
+  rule expressed in `app.py` would either repeat a colour or be
+  untestable below the boundary. The header bar, the brand, the divider,
+  the tab and the selected tab are five classes in `page_stylesheet`
+  built from `GROUND`, `SURFACE_2`, `SURFACE_4`, `BORDER`,
+  `BORDER_STRONG`, `TEXT`, `TEXT_FAINT` and the existing type scale. The
+  selected tab follows `Main.dc.html`'s `.st.now` treatment: the
+  `SURFACE_4` ground, the inset `BORDER_STRONG` border and `TEXT` ink at
+  weight 600. No colour enters `theme.py` and no hex reaches `app.py`
+  (DL-135).
+- `page_stylesheet` carries no `#` comment, and a guard asserts what the
+  stylesheet defines. The stylesheet is one f-string of CSS and CSS has
+  no `#` comment form: a `#` line inside it parses as an ID selector
+  whose block is the text following it, so the rule after it is swallowed
+  and no parse error is raised anywhere. Every note inside
+  `page_stylesheet` is written in `/* */` form, and
+  `tests/test_gui_theme.py` asserts that each of the five header and tab
+  class names appears as a selector at the start of a rule in the
+  returned string and that no line of that string has `#` as its first
+  non-space character. The mutation that makes it fail replaces one
+  `/* */` note with a `#` line (DL-136).
+- No script in the gate repository takes a code change and the prose in
+  five of its files carries the routes. A gate script that named a route
+  would fail on the reassignment and one that does not keeps serving
+  whatever `app.py` registers, so every gate file was read and the
+  enumeration command below was run over that repository too.
+  `serve_w002.py` calls `gui_app.build_wizard()` and `ui.run(port=8115)`
+  and holds no route string at all; `serve_reconstruct.py` calls
+  `gui_app.build_wizard()` and `ui.run(port=8116)` and its only route
+  strings sit in its module docstring; `reconstruct_fixture.py` names the
+  screen by its route in its module docstring and in the
+  `assemble_output` docstring; the gate README's `serve_w002.py` table
+  row is the only line in that file naming port 8115, and there is no
+  line-by-line driving order in it; and the gate `.gitignore`'s comment
+  describes the files a gate run writes. Every executable body stands and
+  what carries the routes is prose in those five files. `serve_w002.py`
+  is CRLF and the rest LF under that repository's own `* -text` setting,
+  and the gate README's file table naming five scripts and not
+  `serve_reconstruct.py` predates this work and stands (DL-137).
+- Acceptance for the header is a served-page gate run over both routes
+  rather than the suite alone. A `gui/` defect has only ever been found
+  by serving the page (DL-084), and the duplicate-entry defect surfaced
+  there after a green suite; a header is exactly the class of change a
+  stylesheet layer or a framework default can defeat while the unit
+  guards stay green. The run serves the app from the gate repository and
+  reads the header back off each route, and it is recorded in its own
+  dated record under `docs/` rather than into either existing record
+  (DL-138).
+- The tab table and the selection rule sit in
+  `traktor_nml/gui/navigation.py`, below the nicegui boundary. The rule
+  that decides which tab is selected is the one thing here a defect can
+  silently invert, and a rule expressed inside a `@ui.page` body can only
+  be read back through a framework the suite does not have. `SECTIONS`,
+  the table of route-and-label pairs, and `header_tabs`, which turns an
+  active route into tab records, live in a nicegui-free module beside
+  `review_model.py`, `wizard_state.py` and `conflict_model.py`, under the
+  boundary `tests/test_gui_view_boundary.py` enforces.
+  `header_tabs(active_route)` returns one record per table row carrying
+  the route, the label, whether it is selected, the class string and the
+  `aria-current` value or `None`, so the selection rule is a pure
+  computation a guard runs directly. `navigation.py` is LF and imports no
+  nicegui; `app.py` renders what it returns and decides nothing (DL-139).
+- `__main__.py`'s window title and docstring name the application rather
+  than one of its operations. It calls `ui.run(title='traktor-nml-tool',
+  native=True)` and native mode opens whatever `/` resolves to, which is
+  the reconstruct page, while the window holds both operations and the
+  header's selected tab names the one that is open - so a title naming
+  either operation contradicts the header on the other route. The module
+  docstring states that the entry point starts the application, and its
+  second paragraph - why this lives here rather than in `commands/` -
+  stands word for word. `__main__.py` is LF at zero CRLF and is written
+  as such (DL-140).
+- `/reconstruct` is registered by nothing and answers nicegui's own 404.
+  The two ways to keep the path alive are registering the page at both
+  paths or redirecting one to the other, and both mean two paths
+  answering for one page, which is the shape this arrangement exists to
+  remove. What makes the plain 404 safe is the enumeration rather than a
+  redirect: every reference to the path in either repository is found by
+  the command below and carries the route the page answers, so no
+  procedure this project owns still holds it. A bookmark a person kept is
+  outside what either repository can fix, and a redirect would not tell
+  that person the app was rearranged (DL-141).
+- Every edit to `app.py` preserves its 100% CRLF and every other touched
+  Python file its LF. `app.py` is the one module in the package written
+  CRLF throughout, at zero bare LF, while `theme.py`, `navigation.py`,
+  `__main__.py`, the model modules and the tests are LF; an editor or a
+  helper that normalises on write silently converts the file and the diff
+  swallows the whole module. Every read and write of `app.py` passes
+  `newline=''`, and a guard in `tests/test_gui_header_tabs.py` asserts
+  that `app.py`'s bytes hold zero bare LF and that `navigation.py`,
+  `__main__.py` and `theme.py` hold zero CRLF. The gate's
+  `serve_w002.py` is CRLF and its other scripts LF under that
+  repository's own `* -text` setting, and a byte check reports each
+  (DL-142).
+- The served-page gate run drives three URLs and reads back what the DOM
+  has. The unit mechanisms stop at what `app.py` emits and cannot see a
+  framework defeat a rule, and the rendered page is the only place the
+  header's anchors, their hrefs, the marker and the painted colour exist
+  together. The run serves the app and opens `http://localhost:8115/` and
+  `http://localhost:8115/reconnect`, reading back per route the header's
+  anchor hrefs in order, which single href carries `aria-current="page"`,
+  which single href carries `wizard-tab-selected`, the computed
+  background of the selected tab against `theme.SURFACE_4` and the
+  computed colour of an unselected tab against `theme.TEXT_FAINT`, with a
+  matches-or-differs verdict per named surface. It also opens
+  `http://localhost:8115/reconstruct` and records the status the
+  framework returns for a path nothing registers. The run is written into
+  a new dated record; the two existing browser records keep every byte
+  (DL-143).
+- `_build_header` is the only place in `app.py` naming a route or a tab
+  label, and the AST guard reaching that sees string literals only. Two
+  places naming a route is the shape that lets one page carry a tab set
+  the other does not, and the table sits in `navigation.py`, so any route
+  string left in `app.py` is a second source. `app.py` calls
+  `navigation.header_tabs(active_route)` and passes each record's route
+  to `ui.link`'s target, its class string to `.classes()` and its
+  `aria-current` value to `.props()`. An AST guard in
+  `tests/test_gui_header_tabs.py` asserts that the only string literals
+  matching a route shape in `app.py` are the two `@ui.page` arguments and
+  that neither tab label appears in `app.py` at all. Its reach is stated
+  rather than assumed: an `ast.Constant` walk sees string literals and a
+  docstring, which is one, and it does not see a `#` comment - the
+  comment in `app.py` that named the earlier arrangement was invisible to
+  it and was found by the text enumeration instead. The guard establishes
+  source-level single sourcing for literals, the enumeration covers
+  comments and prose, and neither establishes behaviour, which is what
+  DL-133's three mechanisms are for (DL-144).
+- The enumeration of route references is produced by a recorded command
+  so a later reader re-runs it rather than re-deriving the list. Two
+  rounds of hand-listing the places that name a route each missed one: a
+  list written by recall is not evidence, and a later reader cannot tell
+  a complete list from an incomplete one. The command, run in Git Bash at
+  the root of the repository, is:
+
+      MSYS_NO_PATHCONV=1 git --no-pager grep -nE "/recon(struct|nect)([^-_a-zA-Z0-9]|$)" -- traktor_nml tests design tools CLAUDE.md
+
+  The pathspec keeps the historical plan documents under `docs/` -
+  records of plans already taken - outside the result. The trailing
+  character class is what does the work: measured over this tree the
+  command returns 67 lines, the same pattern with no pathspec returns
+  220, and the same pathspec with the character class dropped returns 85.
+  `MSYS_NO_PATHCONV=1` is no part of what makes this command work -
+  measured, it returns the same 67 lines with the variable set and unset.
+  It is carried as a precaution against a different shape of the same
+  search, and that shape reproduces: `git --no-pager grep -n -F
+  "/reconstruct"` finds no route reference at all, while the same command
+  under `MSYS_NO_PATHCONV=1` returns 69 lines. The cause is visible one
+  level down - `python -c "import sys;print(sys.argv[1:])" -F
+  "/reconstruct"` prints `['-F',
+  'C:/Users/marcu/AppData/Local/Programs/Git/reconstruct']` and the same
+  invocation under `MSYS_NO_PATHCONV=1` prints `['-F', '/reconstruct']` -
+  so a bare leading-slash argument is rewritten into a Windows path
+  before git sees it. The `-E` pattern escapes that conversion because it
+  carries parentheses, a pipe, a bracket class and a dollar, which the
+  same probe confirms is passed through unchanged. A fixed-string search
+  for a route therefore reads as a clean tree while the tree is full of
+  hits, which is why the recorded command is the `-E` one, and acceptance
+  is that re-running it returns only the lines this work names as
+  intentionally carrying the token (DL-145).
+- `SCREEN-READER-PASS.md` in the gate repository is a record and keeps
+  every byte. Its line 4 says it is written down so the next pass is a
+  re-run rather than a rediscovery, which reads as a procedure, while
+  line 109 of the same file says it is kept as a record of the pass that
+  ran on 2026-08-29 and not as an invitation to run another, and line 107
+  says accessibility work is out of scope for this version; the later and
+  more specific statement governs and the file is a record. Its Edge
+  launch at `http://localhost:8115` is the launch that pass actually
+  used, and the reading it produced is
+  `docs/2026-08-29-w004-focus-ring-record.md`, which keeps every byte;
+  rewriting that line would make the two files disagree about what was
+  driven and would point a do-not-run procedure at a route no recorded
+  pass ever used. What a later session needs sits in the places that are
+  live: the gate README's `serve_w002.py` row names the wizard's URL and
+  this file carries the route statement. This entry also records the
+  citation error it corrects - an earlier reading cited line 4 alone for
+  a classification line 109 contradicts (DL-146).
+- A stylesheet class and its only consumer land in one milestone.
+  `tests/test_gui_theme.py`'s `test_every_wizard_class_reaches_app_py`
+  asserts that every `.wizard-*` class `page_stylesheet()` defines
+  appears in `app.py`'s source, and the five header and tab classes have
+  exactly one consumer, the header builder in `app.py`, so a milestone
+  writing the rules without the builder cannot go green; `theme.py` and
+  its guards sit in the milestone that writes `app.py` rather than in one
+  of their own. The alternative - entering a class in
+  `_KNOWN_UNATTACHED_CLASSES` to get past a milestone gate - is refused
+  by that list's own comment, which says its single entry is there
+  because no milestone builds a consumer for it and that entries are
+  named one at a time rather than by a pattern, precisely so a genuinely
+  forgotten class cannot slip through under the same excuse; a class
+  whose consumer lands one milestone later is not an unattached class.
+  What stays in its own milestone is `navigation.py` and its guards,
+  which import no framework and have no consumer to wait for, so the
+  boundary follows the coupling the guard reports rather than the file
+  types (DL-147).
 ## Invariants
 
 - The merged COLLECTION holds at most one entry per `LOCATION`. The
