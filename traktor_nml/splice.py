@@ -43,7 +43,6 @@ from .playlists import (
 from .spans import OutputBuilder, SpanIndex, find_element_span
 from .textpatch import patch_entry_attributes
 from .xmlio import ET, parse_xml_bytes
-from .xmlio import ET
 
 _TRACKED_ATTRS = ("artist", "title", "album", "filesize", "playtime_float", "bitrate")
 

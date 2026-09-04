@@ -1273,7 +1273,7 @@ def _build_reconstruct_page() -> None:
 
         base_holder: dict = {"path": None}
         source_holder: list = []
-        result_holder: dict = {"result": None, "base_bytes": None}
+        result_holder: dict = {"result": None}
         # The ConflictGroups the last run reported, as conflict_model
         # derives them. Held beside the result so the write control and the
         # rows read the same set the run produced.
@@ -1313,7 +1313,6 @@ def _build_reconstruct_page() -> None:
                 the next run leaves unchanged (DL-115).
                 """
                 result_holder["result"] = None
-                result_holder["base_bytes"] = None
                 conflict_holder.clear()
                 report.clear()
 
@@ -1575,7 +1574,6 @@ def _build_reconstruct_page() -> None:
                 )
                 conflict_holder[:] = groups
                 result_holder["result"] = result
-                result_holder["base_bytes"] = base_bytes
                 report.clear()
                 with report:
                     if result.errors:

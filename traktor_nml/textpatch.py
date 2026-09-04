@@ -186,6 +186,15 @@ _ENTRY_CARRIERS: dict[str, tuple[str, str]] = {
     "bitrate": ("INFO", "BITRATE"),
 }
 
+# The tags _ENTRY_CARRIERS names, deduplicated and ordered so an insertion
+# reaches its anchor before a later carrier is written. Derived from the
+# carrier table rather than listed again, so a tracked attribute cannot name
+# a tag patch_entry_attributes skips; LOCATION and MODIFICATION_INFO carry no
+# tracked attribute and are anchors only.
+_CARRIER_TAGS = ("ENTRY",) + tuple(
+    tag for tag in _ENTRY_CHILD_ORDER if tag in {c for c, _ in _ENTRY_CARRIERS.values()}
+)
+
 
 def _find_tag_start(span: str, tag_name: str) -> int | None:
     match = re.search(r"<" + re.escape(tag_name) + r"(?=[\s/>])", span)
@@ -227,9 +236,9 @@ def _set_attr_in_tag(tag_text: str, attr_name: str, value: str) -> str:
     return f'<{body} {attr_name}="{_xml_escape_attr(value)}"{tail}'
 
 
-def _insert_child(span: str, tag_name: str, attr_name: str, value: str) -> str:
-    """Write a minimal ``tag_name`` child holding only ``attr_name`` into the
-    ENTRY span, placed by _ENTRY_CHILD_ORDER: immediately after the last child
+def _insert_child(span: str, tag_name: str) -> str:
+    """Write an empty ``tag_name`` child into the ENTRY span, for the caller's
+    own loop to write attributes into, placed by _ENTRY_CHILD_ORDER: immediately after the last child
     present that precedes ``tag_name`` in that order. That anchor always
     resolves, because collection_records skips an entry with no LOCATION child
     and LOCATION precedes both insertable tags.
@@ -252,7 +261,7 @@ def _insert_child(span: str, tag_name: str, attr_name: str, value: str) -> str:
     while run_end < len(span) and span[run_end].isspace():
         run_end += 1
     whitespace = span[anchor_end:run_end]
-    child = f'<{tag_name} {attr_name}="{_xml_escape_attr(value)}"></{tag_name}>'
+    child = f"<{tag_name}></{tag_name}>"
     return span[:anchor_end] + whitespace + child + span[anchor_end:]
 
 
@@ -279,7 +288,7 @@ def patch_entry_attributes(span: str, values: dict[str, str]) -> str:
         carrier, attr_name = _ENTRY_CARRIERS[name]
         by_carrier.setdefault(carrier, []).append((attr_name, value))
 
-    for carrier in ("ENTRY", *_ENTRY_CHILD_ORDER):
+    for carrier in _CARRIER_TAGS:
         edits = by_carrier.get(carrier)
         if not edits:
             continue
@@ -289,8 +298,7 @@ def patch_entry_attributes(span: str, values: dict[str, str]) -> str:
             edits = [(attr_name, value) for attr_name, value in edits if value]
             if not edits:
                 continue
-            attr_name, value = edits[0]
-            span = _insert_child(span, carrier, attr_name, value)
+            span = _insert_child(span, carrier)
         for attr_name, value in edits:
             start = _find_tag_start(span, carrier)
             end = _find_opening_tag_end(span, start) + 1

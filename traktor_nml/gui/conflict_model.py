@@ -108,7 +108,7 @@ def _side_values(
     values = []
     for attr in attrs:
         distinct = sorted({str(getattr(record, attr)) for _, record in members})
-        values.append(_VALUE_SEPARATOR.join(distinct) if distinct else ABSENT)
+        values.append(_VALUE_SEPARATOR.join(distinct))
     return tuple(values)
 
 
