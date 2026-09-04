@@ -101,7 +101,7 @@ Never install into the system interpreter.
 This tree is deliberately not uniform: 320 files are LF, 100 are CRLF, three are mixed, and
 each is load-bearing somewhere.
 
-- `traktor_nml/gui/app.py` is wholly CRLF, 1388 of them and no bare LF.
+- `traktor_nml/gui/app.py` is wholly CRLF, 1649 of them and no bare LF.
   `tests/test_gui_line_endings.py` asserts it and `tools/preflight.py` reports it.
 - The patch sets under `docs/plans/*/scratch/` are CRLF because that is what they were
   captured from. A rewritten one produces phantom rejects when reapplied.

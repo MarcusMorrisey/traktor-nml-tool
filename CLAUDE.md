@@ -27,7 +27,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `traktor_nml/` | The package: parsing, matching, rewrite/reconnect/splice/split/build-playlist cores, CLI subcommands, and the `gui/` reconnect wizard the package carries beside the CLI | Implementing or modifying any tool behavior           |
 | `tests/`       | Pytest suite, fixtures, and baseline-parity corpus | Adding or changing tests                               |
 | `docs/`        | Retained planning material and development context | Looking up why a past design decision was made         |
-| `design/`      | Design briefs and canvas sources for the unimplemented GUI | Working on the GUI's visual or interaction design       |
+| `design/`      | Design briefs and canvas sources: the contract the GUI is built against | Working on the GUI's visual or interaction design       |
 | `spike/`       | Time-boxed experiments and what they found; not part of the build | Deciding whether a packaging or deployment approach was already tried |
 | `tools/`       | Maintenance scripts that act on files outside the package, kept out of `traktor_nml/` so nothing importable depends on them | Refreshing the handoff document, or adding another repository-level chore |
 | `hooks/`       | The tracked git hooks; `pre-push` refuses to move or delete a `parity-baseline-*` tag, and is inert until `git config core.hooksPath hooks` | Re-baselining the parity oracle, or diagnosing a refused tag push |

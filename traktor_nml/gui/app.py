@@ -203,10 +203,12 @@ def _build_header(active_route: str) -> None:
 
 
 def build_wizard() -> None:
-    """Registers the reconnect wizard at '/reconnect'. Called from
-    __main__.py; kept separate from ui.run() so a test importing this
-    module (which itself imports nicegui) is never exercised by the
-    nicegui-free suite - only __main__.py calls both this and ui.run."""
+    """Registers both of the app's pages: the reconstruct page at '/',
+    through _build_reconstruct_page below, and the reconnect wizard at
+    '/reconnect'. Called from __main__.py; kept separate from ui.run()
+    so a test importing this module (which itself imports nicegui) is
+    never exercised by the nicegui-free suite - only __main__.py calls
+    both this and ui.run."""
 
     def build_live_regions():
         """One polite live region and one assertive live region, each

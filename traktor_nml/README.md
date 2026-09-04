@@ -175,9 +175,8 @@ statement of the same decision would only give it two copies to drift apart.
 - The built-in cascade tiers are declared once, in `matching.py`'s
   `_CASCADE`, with each tier carrying the properties other code asks about
   it: whether its stats key is always seeded, whether the size/duration
-  check may refute it, and whether it works without readable tags. Those
-  properties used to live in five hand-synchronised string tuples that
-  nothing checked against each other. The confidence ladder in
+  check may refute it, and whether it works without readable tags. The table is the one
+  place they are declared, so no second list can disagree with it. The confidence ladder in
   `confidence.py` stays separate because it is that module's subject, but
   tests assert the two name the same tiers and that `record_keys` emits in
   the table's order - so reordering the cascade without updating the table
@@ -1294,8 +1293,8 @@ statement of the same decision would only give it two copies to drift apart.
   matches-or-differs verdict per named surface. It also opens
   `http://localhost:8115/reconstruct` and records the status the
   framework returns for a path nothing registers. The run is written into
-  a new dated record; the two existing browser records keep every byte
-  (DL-143).
+  a new dated record; every browser record already under `docs/` keeps
+  every byte (DL-143).
 - `_build_header` is the only place in `app.py` naming a route or a tab
   label, and the AST guard reaching that sees string literals only. Two
   places naming a route is the shape that lets one page carry a tab set

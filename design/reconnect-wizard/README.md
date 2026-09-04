@@ -7,8 +7,17 @@ Phase 1 visual and interaction design for the one workflow in
 **"my playlists are broken"** - they still exist, but their tracks will not load
 because the files moved.
 
-Not implemented. This is the design the GUI is built against, not a record of
-what exists.
+This is the design the GUI is built against, not a record of what exists: a
+screen here is the contract, and where a screen and `Specs.dc.html` disagree,
+`Specs.dc.html` is fixed first.
+
+`traktor_nml/gui/` builds to it. The four wizard steps, the review table, the
+write confirmation, the app header and its two section tabs, and the
+conflict screen the reconstruct page carries at `/` are all served. Two screens here have no built counterpart: `Success.dc.html`, whose
+`.hero h1` is why `wizard-heading-lg` is the one entry in
+`tests/test_gui_theme.py`'s `_KNOWN_UNATTACHED_CLASSES`, and
+`Cancelling.dc.html`, which needs a stop-scan confirmation dialog that nothing
+builds.
 
 The canvas is published at
 <https://claude.ai/code/artifact/39e2990e-499e-4614-b04b-91fac131f8c6>.
