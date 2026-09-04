@@ -27,6 +27,7 @@ PRIMARYKEY values are re-serialised.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -45,6 +46,16 @@ from .textpatch import patch_entry_attributes
 from .xmlio import ET, parse_xml_bytes
 
 _TRACKED_ATTRS = ("artist", "title", "album", "filesize", "playtime_float", "bitrate")
+
+# The assembled output is scanned for these rather than parsed: the audit
+# below reads the text the run is about to return, and a second lxml parse
+# of the largest file in the run is the cost it exists to avoid. Both
+# patterns read attributes this module writes itself, in the order it
+# writes them.
+_EMITTED_KEY_RE = re.compile(r'<PRIMARYKEY\b[^>]*\bKEY="([^"]*)"')
+_EMITTED_LOCATION_RE = re.compile(
+    r'<LOCATION\b[^>]*\bDIR="([^"]*)"[^>]*\bFILE="([^"]*)"[^>]*\bVOLUME="([^"]*)"'
+)
 
 
 @dataclass(frozen=True)
@@ -732,6 +743,33 @@ def assemble_output(
             errors=[
                 f"collection_entry_count base={len(records_by_input[0])} assembled={reparsed}"
             ],
+        )
+
+    # Validate: every PRIMARYKEY the assembled text emits names an entry the
+    # assembled COLLECTION holds. The pass above answers the same question
+    # from the inputs and the redirect mapping - what the keys OUGHT to be -
+    # so it cannot see a fragment emitted carrying something else. This one
+    # reads what the run is about to return, which is the artefact the
+    # operator gets.
+    #
+    # Defence in depth rather than a repair: no run reaching here is known to
+    # emit a key the pass above admits, and this was not added on the
+    # strength of one. It is a scan of a string the run already holds, and
+    # the emit path is where a redirect that went wrong would show.
+    collection_text = output.split("</COLLECTION>")[0]
+    emitted_entries = {
+        f"{volume}{dir_value}{file_name}"
+        for dir_value, file_name, volume in _EMITTED_LOCATION_RE.findall(collection_text)
+    }
+    unresolved_emitted = sorted(
+        {key for key in _EMITTED_KEY_RE.findall(output) if key not in emitted_entries}
+    )
+    if unresolved_emitted:
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            errors=[f"emitted_key_unresolved key={key}" for key in unresolved_emitted],
         )
 
     return SpliceResult(output=output, stats=stats, conflict_rows=conflict_rows, errors=[])

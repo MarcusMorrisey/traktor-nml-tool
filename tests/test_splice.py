@@ -1485,3 +1485,47 @@ def test_a_source_pick_reparses_to_bases_own_collection_entry_count() -> None:
     assert result.errors == []
     assert _entry_count(result.output) == 2
     assert _files(result.output) == ["track.mp3", "other.mp3"]
+
+
+def test_every_emitted_playlist_key_names_an_emitted_collection_entry() -> None:
+    """Every PRIMARYKEY in the assembled text names an entry the assembled
+    COLLECTION holds, read off the text the run returns rather than off the
+    inputs and the redirect mapping the pass above reads.
+
+    That pass answers the same question from what the keys ought to be, so
+    it cannot see a fragment emitted carrying something else; this one reads
+    the artefact. Observed with `output = builder.build()` replaced by
+    `builder.build().replace('KEY="C:/:Music/:two.mp3"',
+    'KEY="C:/:Music/:ghost.mp3"')`, corrupting only the emitted text and
+    leaving old_to_new_key untouched so the input-side pass still computed a
+    clean expectation: the run returned
+    errors=['emitted_key_unresolved key=C:/:Music/:ghost.mp3'] with
+    output=None, where without the audit it returned that output.
+    """
+    track_key = "C:" + "/:Music/:" + "track.mp3"
+    base_text = _nml(
+        _entry("A", "Song", "track.mp3", time="100.0"), 1,
+        _playlist("MySet", [track_key], "uuid-base"),
+    )
+    source_text = _nml(
+        _entry("A", "Song", "track.mp3", time="100.0").replace(
+            'BITRATE="320"', 'BITRATE="128"'
+        ),
+        1,
+        _playlist("MySet", [track_key], "uuid-prev"),
+    )
+    result = _resolved(base_text, source_text, 1, reconstruct=True)
+
+    assert result.output is not None
+    assert result.errors == []
+    collection_text = result.output.split("</COLLECTION>")[0]
+    entries = {
+        f"{volume}{dir_value}{file_name}"
+        for dir_value, file_name, volume in re.findall(
+            r'<LOCATION\b[^>]*\bDIR="([^"]*)"[^>]*\bFILE="([^"]*)"[^>]*\bVOLUME="([^"]*)"',
+            collection_text,
+        )
+    }
+    emitted = set(re.findall(r'<PRIMARYKEY\b[^>]*\bKEY="([^"]*)"', result.output))
+    assert emitted
+    assert sorted(emitted - entries) == []
