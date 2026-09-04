@@ -690,4 +690,48 @@ def assemble_output(
         errors = [f"unresolved_reference playlist={name} key={key}" for name, key in unresolved_refs]
         return SpliceResult(output=None, stats=stats, conflict_rows=conflict_rows, errors=errors)
 
+    # Validate: the merge introduces no second entry for a LOCATION the
+    # merged COLLECTION already holds. The primary key IS the location
+    # (volume + dir + file), so a transplanted entry whose key base already
+    # carries, or two transplants sharing one key, is the pair of entries
+    # for one file that DL-004 forbids - and the shape a source resolution
+    # produced while it transplanted the winner's ENTRY beside base's own.
+    #
+    # Read off the records the merge already holds rather than by parsing
+    # the assembled output, which would cost a second parse of the largest
+    # file in the run. base's own keys are unaffected by the entry patches:
+    # a patch substitutes values from _TRACKED_ATTRS, and no location field
+    # is among them. A base that already carries two entries for one file is
+    # its own input's condition and is left to it; only what this run adds
+    # is judged here.
+    base_keys = {record.primary_key for record in records_by_input[0]}
+    added: dict[str, int] = {}
+    for _, record in new_entries_records:
+        added[record.primary_key] = added.get(record.primary_key, 0) + 1
+    collisions = sorted(
+        key for key, count in added.items() if key in base_keys or count > 1
+    )
+    if collisions:
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            errors=[f"entry_location_collision key={key}" for key in collisions],
+        )
+
+    # Validate: the replacement pass moved no base ENTRY. It rewrites
+    # attribute values inside a base entry's own span and rebuilds playlist
+    # nodes, so the COLLECTION it re-parses holds the entries base held; a
+    # different count means a span was applied over an element boundary.
+    reparsed = len(collection_entries(base_root))
+    if reparsed != len(records_by_input[0]):
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            errors=[
+                f"collection_entry_count base={len(records_by_input[0])} assembled={reparsed}"
+            ],
+        )
+
     return SpliceResult(output=output, stats=stats, conflict_rows=conflict_rows, errors=[])

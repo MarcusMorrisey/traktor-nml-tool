@@ -1437,3 +1437,51 @@ def test_the_base_input_file_is_byte_identical_across_a_patching_run(tmp_path: P
     assert result.output is not None
     assert result.output != before.decode("utf-8"), "the run patched nothing"
     assert base_path.read_bytes() == before, "base input was modified"
+
+
+def test_a_source_pick_leaves_one_collection_entry_for_the_shared_location() -> None:
+    """A source pick over a track base already owns settles the group inside
+    base's own ENTRY, so the merged COLLECTION holds one entry for that
+    LOCATION and the run introduces no second entry for it (DL-004).
+
+    Observed with the base-holding pick branch's entry_patches.append(...)
+    replaced by `new_entries.append((picked[0], named_record))`,
+    transplanting the named record's ENTRY beside base's own:
+    AssertionError on `assert result.output is not None`, the result
+    reading errors=['entry_location_collision key=C:/:Music/:track.mp3']
+    and output=None.
+    """
+    base_text, base_root, contributions = _diverging_pair()
+    row = _reported(base_text, base_root, contributions)
+    result = assemble_output(
+        base_text, base_root, contributions, MatchConfidence.STRICT,
+        resolutions={row.identity_key: _pair_naming(row, 1)},
+    )
+    assert result.output is not None
+    assert result.errors == []
+    assert _entry_count(result.output) == 1
+    assert _files(result.output) == ["track.mp3"]
+
+
+def test_a_source_pick_reparses_to_bases_own_collection_entry_count() -> None:
+    """The replacement pass rewrites attribute values inside a base entry's
+    own span, so the COLLECTION re-parsed from the rewritten base_source
+    holds the two entries base held and the other track survives the patch
+    (DL-121).
+
+    Observed with the entry patch's replacement end offset `span.end`
+    replaced by `base_source.index("</ENTRY>", span.end) + len("</ENTRY>")`,
+    widening the span past the patched entry's boundary over the following
+    one: AssertionError on `assert result.output is not None`, the result
+    reading errors=['collection_entry_count base=2 assembled=1'] and
+    output=None.
+    """
+    base_text = _nml(
+        _entry("A", "Song", "track.mp3", time="100.0") + _entry("B", "Other", "other.mp3"), 2, ""
+    )
+    _base, source_text = _bitrate_pair()
+    result = _resolved(base_text, source_text, 1)
+    assert result.output is not None
+    assert result.errors == []
+    assert _entry_count(result.output) == 2
+    assert _files(result.output) == ["track.mp3", "other.mp3"]
