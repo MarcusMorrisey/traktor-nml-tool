@@ -266,6 +266,57 @@ def test_an_unmatched_resolutions_key_is_inert() -> None:
     assert result.errors == ["unresolved_conflicts"]
 
 
+def test_a_conflict_row_carries_each_sides_distinct_values_in_attrs_order() -> None:
+    """The two value tuples a metadata conflict row carries line up with
+    its attrs string position by position, and each entry holds that
+    side's distinct values sorted - one entry per value the side agrees
+    on, several where its records disagree.
+
+    Observed with _side_values fed `list(reversed(divergent_attrs))` for
+    the source side: AssertionError on `assert row.source_values ==
+    (("32",), ("064", "128"))`, reported as `assert (('064', '128'),
+    ('32',)) == (('32',), ('064', '128'))` with `At index 0 diff:
+    ('064', '128') != ('32',)` - the source column read BITRATE where
+    attrs named FILESIZE.
+
+    Observed with _side_values' `tuple(sorted({str(getattr(record, attr))
+    for _, record in members}))` replaced by `tuple(str(getattr(record,
+    attr)) for _, record in members[:1])`: AssertionError on the same
+    line, reported as `assert (('32',), ('128',)) == (('32',), ('064',
+    '128'))` with `At index 1 diff: ('128',) != ('064', '128')` - the
+    second source's BITRATE was dropped instead of both being named.
+    """
+    base_text = _nml(_entry("A", "Song", "track.mp3", size="16", time="100.0"), 1, "")
+    first = _nml(
+        _entry("A", "Song", "track.mp3", size="32", time="100.0").replace(
+            'BITRATE="320"', 'BITRATE="128"'
+        ),
+        1,
+        "",
+    )
+    second = _nml(
+        _entry("A", "Song", "track.mp3", size="32", time="100.0").replace(
+            'BITRATE="320"', 'BITRATE="064"'
+        ),
+        1,
+        "",
+    )
+    result = assemble_output(
+        base_text,
+        parse_xml_bytes(base_text.encode("utf-8")),
+        [_parsed(first), _parsed(second)],
+        MatchConfidence.STRICT,
+    )
+
+    row = result.conflict_rows[0]
+    assert row.attrs == "filesize,bitrate"
+    assert len(row.base_values) == len(row.attrs.split(","))
+    assert len(row.source_values) == len(row.attrs.split(","))
+    # Position 0 is FILESIZE and position 1 is BITRATE, on both sides.
+    assert row.base_values == (("16",), ("320",))
+    assert row.source_values == (("32",), ("064", "128"))
+
+
 def test_a_per_key_entry_governs_its_own_group_over_on_conflict() -> None:
     """The mapping is consulted first and on_conflict governs what the
     mapping does not name, so a named group follows its own pick while

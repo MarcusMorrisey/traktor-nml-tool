@@ -27,11 +27,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Optional
 
-from ..matching import MatchConfidence
-from ..model import EntryRecord
-from ..splice import ConflictRow, SpliceResult, group_identities, group_identity_key
+from ..splice import ConflictRow, SpliceResult
 
 # The three decision states one identity key can carry. base and source
 # are the two tokens _resolve_conflicts' resolutions mapping accepts;
@@ -102,14 +100,11 @@ class WriteRefusal:
     outstanding: Optional[int] = None
 
 
-def _side_values(
-    members: Sequence[tuple[int, EntryRecord]], attrs: tuple[str, ...]
-) -> tuple[str, ...]:
-    values = []
-    for attr in attrs:
-        distinct = sorted({str(getattr(record, attr)) for _, record in members})
-        values.append(_VALUE_SEPARATOR.join(distinct))
-    return tuple(values)
+def _displayed(values: tuple[tuple[str, ...], ...]) -> tuple[str, ...]:
+    """One side's cells: each attribute's distinct values joined into the
+    one string that attribute's cell shows. An attribute the side carries
+    no value for joins to ABSENT."""
+    return tuple(_VALUE_SEPARATOR.join(distinct) for distinct in values)
 
 
 # The attrs a ConflictRow carries when it reports something other than a
@@ -119,51 +114,38 @@ def _side_values(
 NON_METADATA_ROW_ATTRS = frozenset({"playlist_name", "ambiguous_redirect"})
 
 
-def conflict_groups(
-    conflict_rows: Iterable[ConflictRow],
-    records_by_input: list[list[EntryRecord]],
-    confidence: MatchConfidence,
-) -> list[ConflictGroup]:
-    """The conflict rows a run reported, paired with the membership and
-    the per-side values of the identity group each one names.
+def conflict_groups(conflict_rows: Iterable[ConflictRow]) -> list[ConflictGroup]:
+    """The conflicting identity groups a run reported, projected from the
+    rows the run itself produced.
 
-    Grouping is re-derived through splice.group_identities over the same
-    records the run merged, so the identity keys here are the keys
-    _resolve_conflicts settles on and the membership is the membership it
-    grouped. A reported row whose key names no cross-input group - the
-    duplicate-playlist-name and ambiguous-redirect rows the abort paths
-    report under the same ConflictRow shape - names no per-key resolution
-    and is left out.
+    Each row carries the membership and the per-side values the run's own
+    grouping derived, so this is a projection and no grouping happens
+    here: the identity keys and the member sets are exactly the ones
+    _resolve_conflicts settled on, and cannot drift from them. Only the
+    display join belongs to this module - splice carries the distinct
+    values, this decides how a cell reads.
+
+    A row that names no identity group a per-key resolution can settle is
+    left out: the duplicate-playlist-name and ambiguous-redirect rows the
+    abort paths report under the same ConflictRow shape are recognised by
+    their attrs, and any row carrying no member keys names no group
+    either. Where several rows name one key, the first stands.
     """
-    members_by_key: dict[str, list[tuple[int, EntryRecord]]] = {}
-    for members in group_identities(records_by_input, confidence).values():
-        if len({idx for idx, _ in members}) == 1:
-            continue
-        members_by_key[group_identity_key(members)] = members
-
     groups: list[ConflictGroup] = []
     seen: set[str] = set()
     for row in conflict_rows:
         if row.attrs in NON_METADATA_ROW_ATTRS:
             continue
-        members = members_by_key.get(row.identity_key)
-        if members is None or row.identity_key in seen:
+        if not row.member_keys or row.identity_key in seen:
             continue
         seen.add(row.identity_key)
-        attrs = tuple(row.attrs.split(","))
-        base_members = [(idx, r) for idx, r in members if idx == 0]
-        source_members = [(idx, r) for idx, r in members if idx != 0]
         groups.append(
             ConflictGroup(
                 identity_key=row.identity_key,
-                attrs=attrs,
-                member_keys=frozenset(record.primary_key for _, record in members),
-                base_values=(
-                    _side_values(base_members, attrs)
-                    if base_members
-                    else (ABSENT,) * len(attrs)
-                ),
-                source_values=_side_values(source_members, attrs),
+                attrs=tuple(row.attrs.split(",")),
+                member_keys=row.member_keys,
+                base_values=_displayed(row.base_values),
+                source_values=_displayed(row.source_values),
             )
         )
     return groups

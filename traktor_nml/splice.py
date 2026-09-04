@@ -49,9 +49,25 @@ _TRACKED_ATTRS = ("artist", "title", "album", "filesize", "playtime_float", "bit
 
 @dataclass
 class ConflictRow:
+    """One row a run reports about a group it could not merge silently.
+
+    identity_key, attrs and resolution are the three columns the CSV
+    conflict report writes. member_keys and the two value tuples are what
+    the interactive page needs to show and re-attach the row without
+    grouping the collections a second time: member_keys is the primary
+    key of every record the group holds across every input, and
+    base_values/source_values hold one entry per name in attrs, in that
+    order, each entry being that side's distinct values sorted. A row
+    reporting something other than a metadata divergence names no
+    identity group, and keeps the empty defaults.
+    """
+
     identity_key: str
     attrs: str
     resolution: str
+    member_keys: frozenset[str] = frozenset()
+    base_values: tuple[tuple[str, ...], ...] = ()
+    source_values: tuple[tuple[str, ...], ...] = ()
 
 
 @dataclass
@@ -154,6 +170,39 @@ class ResolvedConflicts(tuple):
         return self
 
 
+def _side_values(
+    members: list[tuple[int, EntryRecord]], attrs: list[str]
+) -> tuple[tuple[str, ...], ...]:
+    """One side's values for a conflict row: one tuple per name in attrs,
+    in that order, holding the distinct values that side's records carry
+    for it, sorted. A side holding no record at all yields one empty
+    tuple per attribute, which says the side has nothing to show rather
+    than that it agrees."""
+    return tuple(
+        tuple(sorted({str(getattr(record, attr)) for _, record in members}))
+        for attr in attrs
+    )
+
+
+def _metadata_conflict_row(
+    identity_key: str,
+    divergent_attrs: list[str],
+    members: list[tuple[int, EntryRecord]],
+    resolution: Optional[str],
+) -> ConflictRow:
+    """The row one metadata-diverging group reports, carrying the group's
+    membership and each side's values off the members already grouped.
+    Input 0 is the base side; every other input is the source side."""
+    return ConflictRow(
+        identity_key,
+        ",".join(divergent_attrs),
+        resolution,
+        member_keys=frozenset(record.primary_key for _, record in members),
+        base_values=_side_values([m for m in members if m[0] == 0], divergent_attrs),
+        source_values=_side_values([m for m in members if m[0] != 0], divergent_attrs),
+    )
+
+
 def _resolve_conflicts(
     groups: dict[int, list[tuple[int, EntryRecord]]],
     on_conflict: Optional[str],
@@ -216,7 +265,9 @@ def _resolve_conflicts(
         resolution = resolutions.get(identity_key) if divergent_attrs else None
         if divergent_attrs and resolution is None and on_conflict is None:
             unresolved = True
-            conflict_rows.append(ConflictRow(identity_key, ",".join(divergent_attrs), "unresolved"))
+            conflict_rows.append(
+                _metadata_conflict_row(identity_key, divergent_attrs, members, "unresolved")
+            )
             continue
 
         base_members = [(idx, r) for idx, r in members if idx == 0]
@@ -262,7 +313,9 @@ def _resolve_conflicts(
 
         if divergent_attrs:
             conflict_rows.append(
-                ConflictRow(identity_key, ",".join(divergent_attrs), resolution or on_conflict)
+                _metadata_conflict_row(
+                    identity_key, divergent_attrs, members, resolution or on_conflict
+                )
             )
 
     return ResolvedConflicts(

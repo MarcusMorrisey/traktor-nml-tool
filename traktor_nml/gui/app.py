@@ -48,7 +48,6 @@ from ..reconnect_render import (
 )
 from ..reconnect_run import ReconnectResult
 from ..confidence import MatchConfidence
-from ..model import collection_records
 from ..rewrite import read_and_parse_source, write_bytes_atomically
 from ..splice import assemble_output
 from . import conflict_model
@@ -1457,18 +1456,6 @@ def _build_reconstruct_page() -> None:
                     contributions.append((loaded.source_bytes.decode("utf-8"), loaded.root))
                 return base_result.source_bytes, base_result.root, contributions
 
-            def _load_conflict_groups(result, base_root, contributions) -> list:
-                """The conflicting identity groups conflict_model derives
-                from what the run reported, re-grouping the same records the
-                run merged. Called through run.io_bound with the run itself:
-                the pass reads every record of every input."""
-                records_by_input = [collection_records(base_root)]
-                records_by_input += [
-                    collection_records(root) for _, root in contributions
-                ]
-                return conflict_model.conflict_groups(
-                    result.conflict_rows, records_by_input, MatchConfidence.STRICT
-                )
 
             def _render_conflicts(groups) -> None:
                 """One hand-rolled ui.row per conflicting track, carrying the
@@ -1569,9 +1556,11 @@ def _build_reconstruct_page() -> None:
                     MatchConfidence.STRICT, conflict_choice.value, True,
                     resolutions=decisions.resolutions(conflict_holder),
                 )
-                groups = await run.io_bound(
-                    _load_conflict_groups, result, base_root, contributions
-                )
+                # The groups the page shows are a projection of the rows
+                # this run reported: conflict_model reads the membership and
+                # the per-side values off the rows themselves, so there is no
+                # second pass over the collections to hand run.io_bound.
+                groups = conflict_model.conflict_groups(result.conflict_rows)
                 conflict_holder[:] = groups
                 result_holder["result"] = result
                 report.clear()

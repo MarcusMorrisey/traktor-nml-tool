@@ -12,6 +12,8 @@ a copy of the derivation restated here.
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
 from traktor_nml.gui.conflict_model import (
@@ -70,7 +72,7 @@ def _groups(records_by_input: list[list[EntryRecord]]):
     reports one unresolved ConflictRow per diverging group."""
     identities = group_identities(records_by_input, MatchConfidence.STRICT)
     _mapping, conflict_rows, _unresolved, _new, _ambiguous = _resolve_conflicts(identities, None)
-    return conflict_groups(conflict_rows, records_by_input, MatchConfidence.STRICT)
+    return conflict_groups(conflict_rows)
 
 
 def _one_track_inputs() -> list[list[EntryRecord]]:
@@ -425,6 +427,67 @@ def test_a_held_preview_carrying_output_yields_no_refusal() -> None:
     assert write_refusal(result, decisions, groups) is None
 
 
+def test_a_group_is_projected_from_the_row_alone_with_no_records_given() -> None:
+    """conflict_groups is handed the run's rows and nothing else: a row
+    carrying its membership and both sides' values yields the group the
+    page shows, with no collection records anywhere in the call, so the
+    page cannot regroup under a rule that drifts from the run's.
+
+    Observed with conflict_groups' signature widened back to
+    `(conflict_rows, records_by_input=None, confidence=None)`:
+    AssertionError on `assert list(inspect.signature(conflict_groups)
+    .parameters) == ["conflict_rows"]`, reported as `assert
+    ['conflict_ro... 'confidence'] == ['conflict_rows']` with `Left
+    contains 2 more items, first extra item: 'records_by_input'`.
+
+    Observed with `source_values=_displayed(row.source_values)` replaced
+    by `source_values=row.source_values`: AssertionError on `assert
+    group.source_values == ("32", "064 / 128")`, reported as `assert
+    (('32',), ('064', '128')) == ('32', '064 / 128')` with `At index 0
+    diff: ('32',) != '32'` - the per-attribute tuples reached the page
+    unjoined.
+    """
+    row = ConflictRow(
+        "C:/:Base/:track.mp3",
+        "filesize,bitrate",
+        "unresolved",
+        member_keys=frozenset({"C:/:Base/:track.mp3", "C:/:One/:track.mp3"}),
+        base_values=(("16",), ("320",)),
+        source_values=(("32",), ("064", "128")),
+    )
+
+    assert list(inspect.signature(conflict_groups).parameters) == ["conflict_rows"]
+    groups = conflict_groups([row])
+
+    assert len(groups) == 1
+    group = groups[0]
+    assert group.identity_key == "C:/:Base/:track.mp3"
+    assert group.attrs == ("filesize", "bitrate")
+    assert group.member_keys == frozenset(
+        {"C:/:Base/:track.mp3", "C:/:One/:track.mp3"}
+    )
+    assert group.base_values == ("16", "320")
+    assert group.source_values == ("32", "064 / 128")
+
+
+def test_a_row_naming_no_membership_names_no_group() -> None:
+    """A row carrying no member keys names no identity group a per-key
+    resolution could settle, so it is left out rather than yielding a
+    group whose empty member set no re-attachment could ever match.
+
+    Observed with `if not row.member_keys or row.identity_key in seen:`
+    reduced to `if row.identity_key in seen:`: AssertionError on `assert
+    conflict_groups([rootless]) == []`, reported as `assert
+    [ConflictGrou...ce_values=())] == []` with `Left contains one more
+    item: ConflictGroup(identity_key='C:/:Base/:track.mp3',
+    attrs=('bitrate',), member_keys=frozenset(), base_values=(),
+    source_values=())`.
+    """
+    rootless = ConflictRow("C:/:Base/:track.mp3", "bitrate", "unresolved")
+
+    assert conflict_groups([rootless]) == []
+
+
 def test_a_non_metadata_row_names_no_conflict_group() -> None:
     """A row reporting a duplicate playlist name carries a literal in
     place of a divergent attribute list, and names no group a per-key
@@ -432,20 +495,27 @@ def test_a_non_metadata_row_names_no_conflict_group() -> None:
     its key collides with a real identity group's.
 
     Observed with conflict_groups' `if row.attrs in
-    NON_METADATA_ROW_ATTRS: continue` deleted: the row reached
-    _side_values with attrs ('playlist_name',) and raised
-    `AttributeError: 'EntryRecord' object has no attribute
-    'playlist_name'` at conflict_model.py:101 - the literal was read as
-    an attribute name off the record.
+    NON_METADATA_ROW_ATTRS: continue` deleted: AssertionError on `assert
+    conflict_groups([colliding]) == []`, reported as `assert
+    [ConflictGrou...ce_values=())] == []` with `Left contains one more
+    item: ConflictGroup(identity_key='C:/:Base/:track.mp3',
+    attrs=('playlist_name',), member_keys=frozenset({'C:/:Base/:track.mp3',
+    'C:/:One/:track.mp3'}), base_values=(), source_values=())` - the
+    literal was named as a divergent attribute of a real group.
     """
     records_by_input = _one_track_inputs()
     identities = group_identities(records_by_input, MatchConfidence.STRICT)
     members = next(
         m for m in identities.values() if len({idx for idx, _ in m}) > 1
     )
-    colliding = ConflictRow(group_identity_key(members), "playlist_name", "ambiguous")
+    colliding = ConflictRow(
+        group_identity_key(members),
+        "playlist_name",
+        "ambiguous",
+        member_keys=frozenset(record.primary_key for _, record in members),
+    )
 
-    assert conflict_groups([colliding], records_by_input, MatchConfidence.STRICT) == []
+    assert conflict_groups([colliding]) == []
 
 
 def test_a_collection_already_listed_is_refused(tmp_path) -> None:
