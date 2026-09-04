@@ -8,7 +8,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | ------------------------ | ------------------------------------------------------------ | ------------------------------------------------ |
 | `traktor_nml_tool.py`   | Thin argv-forwarding shim into the `traktor_nml` package    | Changing the CLI entry point itself             |
 | `README.md`             | User-facing overview, install, usage                         | Onboarding, understanding what the tool does    |
-| `DEVELOPING.md`          | The three-sibling repository layout, the handoff document outside it, the environment variables that override each, and the invariants that break silently | Setting up a working tree, or locating the handoff and the sibling repositories |
+| `DEVELOPING.md`          | The three-sibling repository layout, the environment variables that override each, and the invariants that break silently | Setting up a working tree, or locating the sibling repositories |
 | `TODO.md`                | Remaining work: replace-playlist, guided repair review, and the parts of refined fuzzy matching `discovery.py` does not already cover | Picking up or scoping a future feature          |
 | `LICENSE`                | GPL-2.0-only license text                                    | -                                                |
 | `pyproject.toml`         | Packaging metadata: `lxml` required, the `tags`/`fingerprint`/`gui`/`docs`/`all` extras, and the explicit `packages` list covering `traktor_nml`, `traktor_nml.commands` and `traktor_nml.gui` | Adding a dependency or an extra, or adding a subpackage that must be installed |
@@ -29,7 +29,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
 | `docs/`        | Retained planning material and development context | Looking up why a past design decision was made         |
 | `design/`      | Design briefs and canvas sources: the contract the GUI is built against | Working on the GUI's visual or interaction design       |
 | `spike/`       | Time-boxed experiments and what they found; not part of the build | Deciding whether a packaging or deployment approach was already tried |
-| `tools/`       | Maintenance scripts that act on files outside the package, kept out of `traktor_nml/` so nothing importable depends on them | Refreshing the handoff document, or adding another repository-level chore |
+| `tools/`       | Maintenance scripts that act on files outside the package, kept out of `traktor_nml/` so nothing importable depends on them | Running the session-start checks, or adding another repository-level chore |
 | `hooks/`       | The tracked git hooks; `pre-push` refuses to move or delete a `parity-baseline-*` tag, and is inert until `git config core.hooksPath hooks` | Re-baselining the parity oracle, or diagnosing a refused tag push |
 
 ## Build

@@ -141,7 +141,7 @@ Then, at the start of a session:
 python tools/preflight.py
 ```
 
-It checks what is cheap to check and silent when it fails — that the hooks are wired, that the plan and gate repositories resolve beside this one, and that `traktor_nml/gui/app.py` is still wholly CRLF against an otherwise-LF tree. It runs no tests. `python tools/refresh_handoff.py --check` covers what is slow, running the full suite to derive the handoff's counts, and belongs at the end of a session rather than the start.
+It checks what is cheap to check and silent when it fails — that the hooks are wired, that the plan and gate repositories resolve beside this one, and that `traktor_nml/gui/app.py` is still wholly CRLF against an otherwise-LF tree. It runs no tests; `python -m pytest tests/ -q` is the slow check and is run on its own.
 
 ## Project history
 

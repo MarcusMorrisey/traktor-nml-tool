@@ -9,10 +9,9 @@ siblings, so a missing one degrades a later step rather than failing at it.
 normalises it leaves a diff touching every line. None of the three announces
 itself; each is reported here.
 
-This is deliberately fast - no suite, no browser. `tools/refresh_handoff.py`
-covers what is slow: it runs the full suite to derive the pass and skip
-counts, and rewrites the handoff's derived facts. Run this at the start of a
-session and that one before writing the handoff at the end.
+This is deliberately fast - no suite, no browser - so it costs nothing to
+run before anything else. The suite is the slow check and is run on its
+own: `python -m pytest tests/ -q` under the system interpreter.
 
 Exit status is 1 if anything is wrong, so this can gate a session the way
 --check gates a rewrite. Every check runs regardless of what an earlier one
@@ -23,19 +22,38 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# WIZARD is not overridable: this file lives in it, so tools/../ is the only
+# tree it can be describing.
+WIZARD = Path(__file__).resolve().parent.parent
+_SIBLINGS = WIZARD.parent
 
-from refresh_handoff import GATE, HANDOFF, PLAN, WIZARD, _line_endings  # noqa: E402
 
-# Imported rather than restated: preflight and the handoff refresh must agree
-# on where the four locations are, and one resolution rule is what makes that
-# true by construction instead of by matching literals in two files.
+def _sibling(env: str, name: str) -> Path:
+    """A repository beside WIZARD, or wherever `env` points instead.
 
+    Nothing is checked here; check_repos reports a path that is absent or
+    is not a repository, so every location reaches the report rather than
+    raising out of resolution.
+    """
+    override = os.environ.get(env)
+    return Path(override).expanduser().resolve() if override else _SIBLINGS / name
+
+
+PLAN = _sibling("TRAKTOR_NML_TOOL_PLAN", "traktor-nml-tool-plan")
+GATE = _sibling("TRAKTOR_NML_TOOL_GATE", "traktor-nml-tool-gate")
 APP_PY = WIZARD / "traktor_nml" / "gui" / "app.py"
+
+
+def _line_endings(path: Path) -> tuple[int, int]:
+    """(CRLF count, bare LF count) for path."""
+    data = path.read_bytes()
+    crlf = data.count(b"\r\n")
+    return crlf, data.count(b"\n") - crlf
 OPTIONAL = ("nicegui", "webview", "pyacoustid", "mutagen", "lxml")
 
 OK, BAD = "ok  ", "BAD "
@@ -93,10 +111,6 @@ def check_repos() -> bool:
             good = _report(False, f"{name}: {repo} is not a readable git repository") and good
         else:
             _report(True, f"{name}: {result.stdout.strip()}  {repo}")
-    if not HANDOFF.is_file():
-        good = _report(False, f"handoff: {HANDOFF} is absent") and good
-    else:
-        _report(True, f"handoff: {HANDOFF}")
     return good
 
 
@@ -121,9 +135,8 @@ def main() -> int:
     argparse.ArgumentParser(description=__doc__.splitlines()[0]).parse_args()
     results = [check() for check in CHECKS]
     if all(results):
-        print("\npreflight clean. The suite and the handoff's derived facts "
-              "are not checked here - run tools/refresh_handoff.py --check "
-              "for those.")
+        print("\npreflight clean. The suite is not run here - "
+              "python -m pytest tests/ -q covers that.")
         return 0
     print(f"\n{results.count(False)} check(s) failed.")
     return 1

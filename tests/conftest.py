@@ -19,7 +19,7 @@ from tests.fixtures.build_fixtures import build_fixtures, build_reconnect_fixtur
 # under .venv, which carries all of these, it is 417 passed, 2 skipped.
 # Both runs are green - the difference is which tests can execute, not
 # which pass - so a bare count says nothing without the interpreter it was
-# measured under, and the handoff records one of the two.
+# measured under, which is why the summary below prints them.
 #
 # nicegui and webview do NOT belong to that difference and are listed for a
 # separate reason: they are the packages the isolation rules in
@@ -48,7 +48,7 @@ def pytest_terminal_summary(terminalreporter) -> None:
 
     This is the terminal summary rather than the report header because the
     header is suppressed by -q, and `python -m pytest tests/ -q` is the
-    invocation the handoff records its counts from - the one case where the
+    invocation a count is usually copied out of - the one case where the
     conditions most need to be on screen. Printed through the reporter's
     own write_line so it survives -q, and placed after the counts so a
     number copied out of a run carries them.

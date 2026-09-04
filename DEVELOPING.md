@@ -15,34 +15,23 @@ C:\codex\
   traktor-nml-tool-plan\        the W-001..W-004 plan, archival
 ```
 
-The handoff a new session reads first is **not** among them. It is the one artifact in this
-project that no repository holds, so it is the one with nowhere to be restored from, and it
-lives in a synced folder instead:
+The durable record of why the tree is shaped as it is lives in the repositories
+themselves: `traktor_nml/README.md` is the decision log and the authority,
+`docs/plans/` holds one directory per piece of work, and `docs/` holds the dated
+records of what each served-page gate run measured.
 
-```
-D:\Sync\codex\nmlTool\CONTINUE-traktor-wizard.md
-```
-
-That is outside the sibling layout by definition, so the tools find it through
-`TRAKTOR_WIZARD_HANDOFF`, set as a user environment variable on this machine. Without it
-they look for `CONTINUE-traktor-wizard.md` beside the repositories and say so: `preflight.py`
-reports `handoff: ... is absent` and fails, and `refresh_handoff.py` exits 2 with
-`handoff absent:` and the path it tried.
-
-Nothing hardcodes any of these paths. `tools/preflight.py`, `tools/refresh_handoff.py` and
-the gate's `gate_paths.py` all resolve siblings from their own location, with an environment
+Nothing hardcodes any of these paths. `tools/preflight.py` and the gate's
+`gate_paths.py` resolve siblings from their own location, with an environment
 variable overriding each for a tree that sits elsewhere:
 
 | Variable | Overrides | Read by |
 |---|---|---|
 | `TRAKTOR_NML_TOOL` | this repository | the gate's `gate_paths.py` |
-| `TRAKTOR_NML_TOOL_PLAN` | the plan repository | `tools/refresh_handoff.py` |
-| `TRAKTOR_NML_TOOL_GATE` | the gate repository | `tools/refresh_handoff.py` |
-| `TRAKTOR_WIZARD_HANDOFF` | the handoff file | `tools/refresh_handoff.py` |
+| `TRAKTOR_NML_TOOL_PLAN` | the plan repository | `tools/preflight.py` |
+| `TRAKTOR_NML_TOOL_GATE` | the gate repository | `tools/preflight.py` |
 
-The one that is *not* overridable is this repository as `refresh_handoff.py` sees it: that
-file lives here, so `tools/../` is the only tree it can be describing, and an override would
-let it rewrite one repository's facts from another's.
+The one that is *not* overridable is this repository as `preflight.py` sees it: that
+file lives here, so `tools/../` is the only tree it can be describing.
 
 ## From a clean clone
 
@@ -73,10 +62,9 @@ Both are legitimate. Both are green. They are not interchangeable.
 | Carries | `mutagen`, `lxml` | those plus `nicegui`, `webview`, `tinycss2` |
 | Suite | **416 passed, 3 skipped** | **417 passed, 2 skipped** |
 
-The whole of that difference is `pyacoustid` and the chromaprint library it needs. The
-handoff records the system pair, so `tools/refresh_handoff.py` refuses to run under an
-interpreter carrying `nicegui` rather than writing the other pair in — not because that pair
-is wrong, but because the two mean different things and only one is what the document says.
+The whole of that difference is `pyacoustid` and the chromaprint library it needs. Both
+runs are green; the two counts mean different things, so a count quoted without the
+interpreter it was taken under says nothing. The suite prints both beside its totals.
 
 **The isolation tests do not depend on `nicegui` being absent.**
 `tests/test_cli_without_nicegui.py` blocks the import through `sys.meta_path` precisely so it
@@ -138,16 +126,15 @@ python tools/preflight.py
 Checks what is cheap and silent when it fails — hooks wired, the sibling repositories
 resolving, `app.py` still wholly CRLF. Runs no tests. Exit 1 if anything is wrong.
 
-At the end, before writing the handoff:
+The slow check is the suite itself, run on its own:
 
 ```bash
-python tools/refresh_handoff.py --check
+python -m pytest tests/ -q
 ```
 
-Runs the full suite to derive the handoff's counts and reports which of its facts have
-drifted; exit 1 when any has. Drop `--check` to rewrite them. It then names the facts it
-cannot derive — the repositories' file counts, the browser-record count, the backlog and the
-deferrals — because those need a person.
+It prints the interpreter it ran under and the optional packages present beside its
+own totals, under `-q` as well, so a count copied out of a run carries the conditions
+it was taken under.
 
 ## The gate
 
