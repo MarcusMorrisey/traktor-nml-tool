@@ -145,6 +145,49 @@ RADIUS_7 = "7px"
 FONT_SANS = "'IBM Plex Sans', system-ui, -apple-system, sans-serif"
 FONT_MONO = "'IBM Plex Mono', ui-monospace, Consolas, monospace"
 
+# The route app.py mounts the vendored directory at, held here because
+# an @font-face src and the route that answers it are one fact; app.py
+# reads this constant rather than repeating the path (DL-164).
+FONT_URL_BASE = "/fonts"
+
+# The seven faces design/reconnect-wizard/Main.dc.html line 11 imports:
+# IBM Plex Sans 400/500/600/700 and IBM Plex Mono 400/500/600. Each
+# entry is (family, weight, file name), and page_stylesheet() emits one
+# @font-face per entry, so a weight dropped here is a weight the page
+# stops carrying rather than a rule that silently names a missing file.
+# No italic: no artboard sets one.
+FONT_FACES = (
+    ("IBM Plex Sans", 400, "IBMPlexSans-Regular.woff2"),
+    ("IBM Plex Sans", 500, "IBMPlexSans-Medium.woff2"),
+    ("IBM Plex Sans", 600, "IBMPlexSans-SemiBold.woff2"),
+    ("IBM Plex Sans", 700, "IBMPlexSans-Bold.woff2"),
+    ("IBM Plex Mono", 400, "IBMPlexMono-Regular.woff2"),
+    ("IBM Plex Mono", 500, "IBMPlexMono-Medium.woff2"),
+    ("IBM Plex Mono", 600, "IBMPlexMono-SemiBold.woff2"),
+)
+
+
+def font_face_rules() -> str:
+    """One @font-face block per FONT_FACES entry.
+
+    woff2 alone: the only client is the WebView2 or WebKit engine
+    pywebview embeds under ui.run(native=True), and both have carried
+    woff2 since long before any version this project installs (DL-175).
+
+    font-display: block rather than swap. A swap paints the fallback
+    first and reflows when the face arrives; the faces are served from
+    the application's own process over the loopback interface, so the
+    wait is not a wait, and a first paint in Segoe UI is the exact
+    appearance this work exists to remove.
+    """
+    return "\n".join(
+        f"@font-face {{ font-family: '{family}'; font-style: normal; "
+        f"font-weight: {weight}; font-display: block; "
+        f"src: url('{FONT_URL_BASE}/{file_name}') format('woff2'); }}"
+        for family, weight, file_name in FONT_FACES
+    )
+
+
 # Specs' focus ring: 2px solid on the light foreground, 2px offset, on
 # every focusable control, never removed and never colour-only - it
 # changes the outline rather than the fill (Specs.dc.html,
@@ -176,6 +219,12 @@ def page_stylesheet() -> str:
     drawn from this module's own constants rather than a literal
     (DL-078)."""
     return f"""
+{font_face_rules()}
+/* The body rule names FONT_SANS and the blocks above it load that
+   family, so the two cannot drift apart: both read the same constants.
+   Emitted unlayered, which places them after Quasar's own layered
+   Roboto default in the cascade - DL-086's ladder, rung two - so the
+   page paints Plex rather than Roboto (DL-173). */
 body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS}; }}
 .q-page {{ background: {GROUND}; color: {TEXT}; }}
 .wizard-surface {{ background: {SURFACE_2}; border: 1px solid {BORDER}; border-radius: {RADIUS_XL}; }}

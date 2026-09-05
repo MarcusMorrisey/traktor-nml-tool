@@ -33,3 +33,9 @@ all = [
 
 [tool.setuptools]
 packages = ["traktor_nml", "traktor_nml.commands", "traktor_nml.gui"]
+
+# The seven vendored IBM Plex faces and their licence. A wheel
+# without them answers 404 for every face and the page falls back
+# to the system stack without saying so (DL-168).
+[tool.setuptools.package-data]
+"traktor_nml.gui" = ["fonts/*.woff2", "fonts/OFL.txt"]

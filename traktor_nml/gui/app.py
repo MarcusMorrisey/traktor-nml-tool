@@ -38,7 +38,7 @@ import traceback
 from pathlib import Path
 from typing import Callable, Optional
 
-from nicegui import run, ui
+from nicegui import app as nicegui_app, run, ui
 
 from .. import reconnect_run
 from ..diskscan import ScanCancelled
@@ -153,6 +153,31 @@ def _rows_for_filter(state: _WizardPageState, filter_key: str):
     return rows
 
 
+# The directory theme.FONT_URL_BASE names, holding the seven vendored
+# IBM Plex faces theme.FONT_FACES declares. Resolved from this file's
+# own location so a wheel or a frozen build serves the copy it shipped
+# rather than a path from the machine it was built on.
+_FONTS_DIR = Path(__file__).resolve().parent / "fonts"
+
+_fonts_mounted = False
+
+
+def _mount_fonts() -> None:
+    """Serve theme.py's font directory at the route theme.py names.
+
+    The @font-face src and the route that answers it are one fact split
+    across two modules: theme.py may not import nicegui (DL-069), so it
+    holds FONT_URL_BASE and this side reads it rather than repeating the
+    path. Mounting is idempotent because both pages call _page_chrome
+    and nicegui raises on a route mounted twice.
+    """
+    global _fonts_mounted
+    if _fonts_mounted:
+        return
+    nicegui_app.add_static_files(theme.FONT_URL_BASE, _FONTS_DIR)
+    _fonts_mounted = True
+
+
 def _page_chrome(active_route: str) -> None:
     """The colour, dark-mode and stylesheet preamble every page in this
     module applies, followed by the header the active route selects a
@@ -162,6 +187,7 @@ def _page_chrome(active_route: str) -> None:
     # Quasar's primary set carries theme.ACTION; dark/dark-page are fed
     # from the ground and surface tokens so Quasar's own dark components
     # land on the measured surfaces rather than a framework default.
+    _mount_fonts()
     ui.colors(primary=theme.ACTION, dark=theme.SURFACE_2, dark_page=theme.GROUND)
     ui.dark_mode(True)
     ui.add_head_html(f"<style>{theme.page_stylesheet()}</style>")

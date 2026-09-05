@@ -5,7 +5,7 @@ a = Analysis(
     ['spike/packaging/spike_app.py'],
     pathex=[],
     binaries=[],
-    datas=[('C:/codex/traktor-nml-tool/.venv/Lib/site-packages/nicegui', 'nicegui'), ('C:/Users/marcu/AppData/Local/Microsoft/WinGet/Packages/AcoustID.Chromaprint_Microsoft.Winget.Source_8wekyb3d8bbwe/chromaprint-fpcalc-1.6.1-windows-x86_64/fpcalc.exe', '.')],
+    datas=[('C:/codex/traktor-nml-tool/.venv/Lib/site-packages/nicegui', 'nicegui'), ('C:/Users/marcu/AppData/Local/Microsoft/WinGet/Packages/AcoustID.Chromaprint_Microsoft.Winget.Source_8wekyb3d8bbwe/chromaprint-fpcalc-1.6.1-windows-x86_64/fpcalc.exe', '.'), ('C:/codex/traktor-nml-tool/traktor_nml/gui/fonts', 'traktor_nml/gui/fonts')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
