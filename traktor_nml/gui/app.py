@@ -189,7 +189,7 @@ def _build_header(active_route: str) -> None:
     than as a literal at this call site; what each tab actually carries
     is read back from a recording stub in
     tests/test_gui_header_tabs.py."""
-    with ui.row().classes("w-full items-center gap-3 wizard-header-bar"):
+    with ui.row().classes("items-center gap-3 wizard-header-bar wizard-content-width"):
         ui.label("traktor-nml-tool").classes("wizard-brand")
         ui.element("span").classes("wizard-header-divider")
         with ui.element("nav").props('aria-label="Sections"').classes(
@@ -232,7 +232,7 @@ def build_wizard() -> None:
 
         state = _WizardPageState()
 
-        with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
+        with ui.column().classes("gap-4 wizard-surface wizard-content-width"):
             # Created once per page load, before any step that announces into them.
             state.polite_region, state.assertive_region = build_live_regions()
             stepper = ui.stepper().props("vertical").classes("w-full")
@@ -1323,7 +1323,7 @@ def _build_reconstruct_page() -> None:
         # reads back undecided (DL-107, DL-115).
         decisions = conflict_model.ConflictDecisions()
 
-        with ui.column().classes("w-full max-w-5xl mx-auto gap-4 wizard-surface"):
+        with ui.column().classes("gap-4 wizard-surface wizard-content-width"):
             ui.label(
                 "My playlists kept their names but lost their contents; an older "
                 "collection still has them."

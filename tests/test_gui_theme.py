@@ -997,3 +997,52 @@ def test_unselected_tab_rule_declares_faint_ink_and_no_background():
     assert background is None, (
         f"wizard-tab declares a background: {background.group(1) if background else None}"
     )
+
+
+_MAX_WIDTH_DECL = re.compile(r"max-width:\s*([^;}]+)")
+
+
+def test_the_content_width_rule_carries_the_token():
+    """.wizard-content-width is a rule tinycss2 parses, and the
+    max-width it declares is theme.CONTENT_WIDTH itself rather than a
+    literal that happens to match it today.
+
+    Mutation: CONTENT_WIDTH's use in the rule was replaced with the
+    literal "72rem" and this guard rerun. Observed:
+        AssertionError: .wizard-content-width declares max-width
+        72rem, not 64rem
+        assert '72rem' == '64rem'
+    """
+    sheet = theme.page_stylesheet()
+    assert "wizard-content-width" in _parsed_wizard_selectors(sheet)
+    declared = _MAX_WIDTH_DECL.search(_rule_body(sheet, "wizard-content-width"))
+    assert declared is not None, ".wizard-content-width declares no max-width"
+    assert declared.group(1).strip() == theme.CONTENT_WIDTH, (
+        f".wizard-content-width declares max-width {declared.group(1).strip()}, "
+        f"not {theme.CONTENT_WIDTH}"
+    )
+
+
+def test_the_header_bar_sets_no_width_of_its_own():
+    """.wizard-header-bar declares neither max-width nor a horizontal
+    padding, so the band's edges are the shared .wizard-content-width
+    column's edges and its brand mark starts on the content column's
+    own first pixel. A padding here would inset the brand from the
+    card below it while leaving the band's span unchanged - the half
+    of the mismatch a span-only reading cannot see.
+
+    Mutation: 'padding: 0 {SPACE_24};' was restored to the
+    .wizard-header-bar rule in theme.py and this guard rerun.
+    Observed:
+        AssertionError: .wizard-header-bar declares its own padding:
+        0 24px
+    """
+    body = _rule_body(theme.page_stylesheet(), "wizard-header-bar")
+    max_width = _MAX_WIDTH_DECL.search(body)
+    assert max_width is None, (
+        f".wizard-header-bar declares its own max-width: {max_width.group(1) if max_width else None}"
+    )
+    padding = re.search(r"(?<!-)\bpadding:\s*([^;}]+)", body)
+    assert padding is None, (
+        f".wizard-header-bar declares its own padding: {padding.group(1).strip() if padding else None}"
+    )

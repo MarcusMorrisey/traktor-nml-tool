@@ -1549,6 +1549,17 @@ statement of the same decision would only give it two copies to drift apart.
   full resolved path, which is long but never ambiguous, and no input
   index is needed because the path itself carries the distinction the
   operator chose the file by (DL-161).
+- The header band and every content column occupy one column, set by a
+  single `.wizard-content-width` rule that both carry: the band's ground
+  and its lower rule end where the card's edge is, and the brand mark
+  starts on the card's own first pixel rather than inset from it. The
+  width is written once, as `theme.CONTENT_WIDTH`, because a band wider
+  than the content it heads reads as page chrome rather than as the
+  application's own top edge, and two places holding the width is how
+  they come to disagree. The header row carries no horizontal padding of
+  its own for the same reason: padding there would inset the brand from
+  the column while leaving the span itself correct, which is the half of
+  the alignment a width alone does not settle (DL-162).
 
 ## Invariants
 

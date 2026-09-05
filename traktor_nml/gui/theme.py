@@ -130,6 +130,11 @@ SPACE_11 = "11px"
 SPACE_6 = "6px"
 SPACE_16 = "16px"
 SPACE_24 = "24px"
+# The width the page's content occupies. One value because the header
+# band and the content column below it are one column: the band's ground
+# and rule end where the card's edge is, so the brand mark sits over the
+# card's own first column rather than over the page margin.
+CONTENT_WIDTH = "64rem"
 RADIUS_SM = "4px"
 RADIUS_MD = "5px"
 RADIUS_LG = "6px"
@@ -221,7 +226,10 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-row-focused {{ outline: {FOCUS_RING}; outline-offset: {FOCUS_RING_OFFSET}; background: {BORDER_SUBTLE_5}; border-color: {BORDER_SUBTLE_7}; }}
 /* Main.dc.html:16's .hd - the header's own row: the SURFACE_2 ground,
    the BORDER bottom rule and the 24px horizontal padding it carries. */
-.wizard-header-bar {{ display: flex; align-items: center; gap: {SPACE_12}; background: {SURFACE_2}; border-bottom: 1px solid {BORDER}; padding: 0 {SPACE_24}; }}
+.wizard-header-bar {{ display: flex; align-items: center; gap: {SPACE_12}; background: {SURFACE_2}; border-bottom: 1px solid {BORDER}; }}
+/* The one rule that sets the page's column: the header band and every
+   content column carry it, so neither can be widened without the other. */
+.wizard-content-width {{ width: 100%; max-width: {CONTENT_WIDTH}; margin-left: auto; margin-right: auto; }}
 /* Main.dc.html:18's .brand: the mono face at TYPE_11_5 in TEXT_FAINT
    at the letter spacing it carries. */
 .wizard-brand {{ font: 500 {TYPE_11_5}/1 {FONT_MONO}; color: {TEXT_FAINT}; letter-spacing: .05em; white-space: nowrap; }}

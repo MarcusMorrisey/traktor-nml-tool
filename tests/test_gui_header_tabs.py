@@ -328,8 +328,8 @@ def test_header_renders_the_brand_the_divider_and_a_labelled_nav():
     Mutation: the 'wizard-header-divider' class string was changed to
     'wizard-divider' in app.py and this guard rerun. Observed:
         AssertionError: assert 'wizard-header-divider' in {'flex
-        items-center gap-1', 'w-full items-center gap-3
-        wizard-header-bar', 'wizard-brand', 'wizard-divider',
+        items-center gap-1', 'items-center gap-3 wizard-header-bar
+        wizard-content-width', 'wizard-brand', 'wizard-divider',
         'wizard-tab', 'wizard-tab wizard-tab-selected'}
     """
     recorder = _render_header("/")
@@ -561,3 +561,37 @@ def test_line_endings_hold_after_the_edit():
     main_bytes = MAIN_PATH.read_bytes()
     assert main_bytes.count(b"\r\n") == 0, "__main__.py holds a CRLF"
     assert main_bytes.count(b"\n") > 0
+
+
+def test_the_header_band_and_every_content_column_share_one_width_class():
+    """The header row's class string and the class string of every
+    content column - the ones carrying wizard-surface - all carry
+    wizard-content-width, which is what makes the band's edges the
+    card's edges. Read out of app.py's own source because the two
+    columns are built inside page functions the recorder above does
+    not enter.
+
+    Mutation: the reconstruct page's column was given back
+    'max-w-5xl mx-auto' in place of 'wizard-content-width' and this
+    guard rerun. Observed:
+        AssertionError: class strings carrying wizard-surface without
+        wizard-content-width: ['gap-4 wizard-surface max-w-5xl
+        mx-auto']
+    """
+    source = APP_PATH.read_text(encoding="utf-8")
+    literals = [
+        node.value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+    header = [text for text in literals if "wizard-header-bar" in text.split()]
+    assert header, "no class string carries wizard-header-bar"
+    assert all("wizard-content-width" in text.split() for text in header), (
+        f"the header band carries no width class: {header}"
+    )
+    surfaces = [text for text in literals if "wizard-surface" in text.split()]
+    assert surfaces, "no class string carries wizard-surface"
+    adrift = [text for text in surfaces if "wizard-content-width" not in text.split()]
+    assert adrift == [], (
+        f"class strings carrying wizard-surface without wizard-content-width: {adrift}"
+    )
