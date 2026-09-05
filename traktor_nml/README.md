@@ -730,11 +730,128 @@ statement of the same decision would only give it two copies to drift apart.
   defects no such guard saw, five of them present in that wave's
   baseline commit. The verdict, not the written record alone, is the
   pass condition (DL-084).
+- A surface's verdict carries a structural reading beside its atom
+  readings: the app shell, the column model, the card structure and
+  the table geometry the artboard draws, each read off the served page
+  the way a height or a hex value is. A surface carrying no structural
+  reading fails the gate. An atom is a property of one element - a
+  height, a colour, a gap, an attribute - and a record can hold every
+  atom a surface has while the surface is composed nothing like the
+  artboard, which is what four records reading matches on every entry
+  do. The structural reading is what a person looking at the two
+  screens sees first, so it is the reading the gate cannot omit
+  (DL-169).
+- The reconstruct page at `/` is outside the structural gate, and the
+  ground is stated wherever a record covers it: no artboard draws that
+  page - all ten draw the reconnect wizard - and `Specs.dc.html`,
+  which governs under DL-088, specifies its behaviour and no
+  composition. A structural verdict needs a drawn structure to read
+  against, so the gate has nothing to compare and says so rather than
+  reading matches by default. Its atom readings are gated as any other
+  surface's are (DL-172).
+- A structural differs entry is recorded under its own heading,
+  "Composition not built", and not under either heading beside it: a
+  framework shortfall is a rule the running framework refuses, a
+  design-set divergence is a value the prose supersedes under DL-088,
+  and an entry here is work not done. The three are told apart by what
+  ends them - a shortfall ends when the framework admits the rule, a
+  divergence ends when the prose and the artboard agree, and a
+  composition entry ends by being built - so an entry filed under the
+  wrong one waits on the wrong event (DL-170).
+- Re-verdicting an existing record adds a structural verdict stating
+  what that run did not measure and leaves every atom verdict as it
+  stands, readings included. A record is the transcript of one run
+  against one served page at one commit, and a reading edited
+  afterwards transcribes nothing. The guard holds a digest
+  of each record's reading lines so an edited reading fails the suite
+  rather than waiting on a reviewer's eye (DL-171).
 - The token set is one dark theme; no light variant and no theme
   switcher. All ten artboards paint the same `#0F1113` ground and
   Specs states its contrast results against those surfaces; a light
   variant is a second palette owing its own colour-blindness
   simulation, design work Specs does not do (DL-085).
+- The seven IBM Plex woff2 faces the artboards import - Sans
+  400/500/600/700 and Mono 400/500/600 - live in
+  `traktor_nml/gui/fonts/` and are served by the application itself.
+  `design/reconnect-wizard/Main.dc.html` line 11 imports exactly those
+  seven weights, and the wizard runs under `ui.run(native=True)`,
+  where a CDN link resolves to nothing offline and reports nothing
+  when it fails - the shape of the defect this fixes, in which
+  `theme.py` names a face the page never paints (DL-163).
+- `theme.py` holds `FONT_URL_BASE` and emits the `@font-face` blocks;
+  `app.py` mounts that same constant through `app.add_static_files`.
+  An `@font-face` src and the route that answers it are one fact split
+  across two files, and `theme.py` may not import nicegui (DL-069), so
+  the constant lives in the nicegui-free module and the mount reads it
+  (DL-164).
+- The font guards assert the face files, their byte sizes, the
+  `@font-face` blocks and the mount argument together, and no guard
+  asserts a font-family name alone. `theme.FONT_SANS` already names
+  IBM Plex while the page paints Segoe UI, and `document.fonts.check`
+  returns true for an absent Plex face, so a name assertion is true in
+  exactly the broken state (DL-165).
+- `OFL.txt` ships in `traktor_nml/gui/fonts/` beside the faces, and
+  the upstream release and per-file SHA-256 are recorded in
+  `traktor_nml/gui/README.md`. IBM Plex is SIL OFL 1.1, and both the
+  wheel and the frozen build copy that directory (DL-166).
+- The faces are the upstream woff2 releases, committed unmodified and
+  unsubsetted. Subsetting adds a build step whose output no upstream
+  hash can verify, and a vendored binary that cannot be checked
+  against its source is a worse failure than the bytes it saves
+  (DL-167).
+- `pyproject.toml` carries the fonts directory as package data and
+  `traktor-nml-spike.spec` carries it in `datas`. `pyproject.toml`
+  declares no package data otherwise, so a wheel or a frozen build
+  answers 404 for every face and falls back silently - the same
+  silence, reached by a different route (DL-168).
+- `traktor_nml/gui/README.md` states the exact byte total the
+  vendoring step measured, face by face, and a guard asserts the
+  directory against that recorded total rather than against a round
+  number. A ceiling chosen for looking generous permits any drift
+  under it; the measured total names what is actually there, so a face
+  swapped for a larger one is a guard failure and a decision, not a
+  silent gain (DL-176).
+- woff2 ships with no woff or ttf fallback. The only client is the
+  WebView2 or WebKit engine pywebview embeds under
+  `ui.run(native=True)`, and both have supported woff2 since long
+  before any version this project installs (DL-175).
+- The `@font-face` blocks and the body font rule are emitted at the
+  cascade position DL-086's ladder records, so they win against
+  Quasar's own Roboto default, and a guard asserts that ordering in
+  the emitted text rather than trusting it (DL-173).
+- The installed nicegui version and the module path and signature of
+  `app.add_static_files` are read from the installed distribution and
+  cited in `traktor_nml/gui/README.md` before `FONT_URL_BASE` is
+  fixed. No guard under the system interpreter can execute the mount -
+  that interpreter has no nicegui - so the reading is the only check
+  the fact gets (DL-174).
+- The stylesheet guard asserts the literal seven: `len(FONT_FACES)`
+  is 7 and the emitted sheet holds exactly seven `@font-face` blocks.
+  A guard that only checks each declared face is emitted stays green
+  when a weight is dropped from the tuple (DL-179).
+- The suite baseline is 534 passed and 3 skipped under the system
+  interpreter, which has no nicegui, so the font guards read source
+  text and never import `traktor_nml.gui.app` (DL-178).
+- The font work closes with a served-page run from `.venv` that reads
+  `document.fonts` for the seven faces and re-measures the two stacks
+  whose measurements recorded the defect - the sans stack at Segoe
+  UI's width and the mono stack at Consolas' - written up as a record
+  under the amended gate (DL-180).
+- The network-host invariant and the repository-state invariant carry
+  guards rather than resting on a review-time grep and on
+  test-procedure prose. Both are conditions a person is asked to
+  notice, and the four records that read matches on every atom are
+  what asking a person to notice is worth (DL-181).
+- The gate amendment runs before the font work and before the
+  re-verdicting: the font work's closing record is written under the
+  amended gate and checked by the guard the amendment installs, and
+  the re-verdicted records name entries the amendment creates. The
+  font work and the re-verdicting both write `docs/CLAUDE.md`, so they
+  are sequenced rather than parallel (DL-182).
+- Every documentation edit in this work describes the file as it
+  stands, with no "previously", "now does", "no longer" or "added",
+  and each documentation milestone carries the grep that proves it
+  (DL-177).
 - Specs' Focus ring, Accessibility rules and Announcements are applied
   through a three-rung ladder - Quasar's own CSS variables and
   constructor arguments first, an `add_head_html` rule at higher
@@ -1681,6 +1798,11 @@ and a rule the framework refuses is a shortfall, not a resolved
 precedence question. An entry names the Specs rule, the exact Quasar
 selector or mechanic that won it, the rung-two `add_head_html`
 declaration that was tried and lost, and its rung on DL-086's ladder.
+This section is distinct from "Design-set divergences" below, which
+records a value the prose supersedes, and from "Composition not built"
+below, which records a structure the artboards draw and `gui/` does
+not. An entry here waits on the framework admitting the rule; an entry
+there waits on the work being done.
 
 **This section holds no entries.** The browser records in
 `docs/2026-08-27-m001-browser-record.md` and
@@ -1725,8 +1847,11 @@ artboard, because `Review.dc.html` agrees with the control-height rule
 at two of its own selectors and differs at a third, which an
 artboard-level record cannot state. This section is distinct from
 "Framework shortfalls" above, which records a rule the framework
-refuses, and from DL-072, which resolves Specs against section 4 of
-`docs/nicegui-gui-analysis.md`.
+refuses, and from "Composition not built" below, which records a
+structure the artboards draw and `gui/` does not build. A divergence
+here is settled - the prose won and `theme.py` carries it - while an
+entry there is outstanding. It is distinct too from DL-072, which
+resolves Specs against section 4 of `docs/nicegui-gui-analysis.md`.
 
 - **Control height.** Specs' "Accessibility rules" fix controls at
   32px tall with 8px between them, every button on every screen.
@@ -1764,3 +1889,51 @@ refuses, and from DL-072, which resolves Specs against section 4 of
 
 `traktor_nml/gui/theme.py`'s type-scale comment names the same 11px
 floor this section measures against.
+
+## Composition not built
+
+A structure the artboards draw that `gui/` does not build is recorded
+here (DL-170). This section is distinct from "Framework shortfalls"
+above, which records a rule the running framework refuses, and from
+"Design-set divergences" above, which records a value the prose
+supersedes under DL-088. The three are told apart by what ends them: a
+shortfall ends when the framework admits the rule, a divergence is
+already settled and ends never, and an entry here ends by being built.
+An entry names the structure, the artboard file and selector it is
+read from, and what `gui/` composes in its place.
+
+Every entry below is read against the reconnect wizard's artboards.
+The reconstruct page at `/` carries no entry, because no artboard
+draws it and the structural gate does not cover it (DL-172).
+
+- **App shell.** `.app` in `Main.dc.html`, `Confirm.dc.html`,
+  `Results.dc.html` and `Review.dc.html` is
+  `display: grid; grid-template-rows: 56px 1fr 64px; height: 800px` -
+  a header band, a scrolling middle and a footer band. `theme.py`
+  emits no shell rule, and both pages compose a header row followed by
+  one column, each page scrolling as a document.
+- **Column model.** `main` is `grid-template-columns: 1fr 400px` in
+  `Main.dc.html`, `1fr 404px` in `Confirm.dc.html` and `1fr 384px` in
+  `Results.dc.html`, a content column beside a guidance rail.
+  `theme.py` emits no two-column rule, and every page composes one
+  column at `.wizard-content-width`.
+- **Card structure.** `.card`, `.card-h`, `.card-t` and `.card-b` in
+  `Main.dc.html` are a bordered box with its own header band, title
+  and padded body, three to four of them per screen. `theme.py` emits
+  `.wizard-surface`, which carries the box's ground, border and
+  radius and nothing else, and each page applies it once to the whole
+  column.
+- **Table geometry.** `.gr` in `Review.dc.html` is
+  `grid-template-columns: 126px minmax(0, 1fr) 100px 196px 134px`
+  under a `.th` header row. `theme.py` emits `.wizard-row`, a flex row
+  with a gap and a zebra ground, so cells take their width from their
+  content and no column aligns from one row to the next, and neither
+  table carries a header row.
+- **Footer band.** `.ft` in `Main.dc.html` is a 64px band with
+  `.ft-note` at the left and `.ft-act` at the right, holding the
+  screen's advancing action. `theme.py` emits no footer rule, and each
+  page carries its actions inline as the last children of its column.
+- **Detail rail.** `.det` in `Review.dc.html` is a 400px bordered
+  panel with its own header, body and footer holding the candidate
+  cards. `theme.py` emits no rail rule, and the reconstruct page
+  renders its candidate panel below the table in the same column.

@@ -1,0 +1,76 @@
+{
+  "task_spec": [
+    "SUBJECT (1): Make the running app render in the typeface theme.py already names. theme.py's FONT_SANS/FONT_MONO name 'IBM Plex Sans'/'IBM Plex Mono', but nothing in gui/ ever loads them - no @font-face, no stylesheet link - and IBM Plex is not installed on this machine (verified: 0 of 277 installed families). Measured on the served page: the app's sans stack renders identically to Segoe UI (485.5078125px for one test string, same as system-ui) and its mono stack identically to Consolas (615.78125px). All ten artboards are IBM Plex. The CSS asserts a typeface the page never uses.",
+    "SETTLED by the operator: the faces are vendored into the repository and served by the app itself, NOT fetched from fonts.googleapis.com. The app runs ui.run(native=True) as a desktop tool; a CDN link fails silently offline and would reproduce the present defect in a new form.",
+    "SUBJECT (2): DL-084's served-page comparison currently admits records that compare only atoms. Amend the procedure so each surface carries a STRUCTURAL verdict - app shell, column model, card structure, table geometry - beside the atom verdicts it already carries, and re-verdict the four existing browser records against the amended procedure.",
+    "SETTLED by the operator: the resulting differs entries are work-not-done and get their own heading in traktor_nml/README.md, distinct from the existing 'Framework shortfalls' heading (DL-087), which is reserved for rules the running framework refuses.",
+    "scope: traktor_nml/gui/theme.py, traktor_nml/gui/app.py, traktor_nml/gui/__main__.py, a new vendored font directory under traktor_nml/gui/, traktor_nml/README.md, docs/2026-08-27-m001-browser-record.md, docs/2026-08-28-w002-browser-record.md, docs/2026-08-29-w004-focus-ring-record.md, docs/2026-09-03-header-tabs-browser-record.md, tests/, pyproject.toml and the PyInstaller specs if the fonts must ship",
+    "out-of-scope: building any of the missing layout structure itself - the app shell grid, the 1fr/400px main split, the card-h/card-b triplet, the review table's column geometry, the footer band, the detail rail. This work makes the gap VISIBLE and RECORDED; closing it is options B and C and is not authorised",
+    "out-of-scope: accessibility work - no screen-reader verification, no NVDA, no new keyboard bindings",
+    "out-of-scope: any change to the reconstruct page's composition. It has no artboard at all and DL-084 cannot gate it; the plan must SAY so rather than invent one"
+  ],
+  "constraints": [
+    "MUST: fonts are vendored and served locally; no request to fonts.googleapis.com or any other network host at runtime",
+    "MUST: IBM Plex is SIL OFL 1.1 - the licence text ships beside the font files and the vendoring is recorded, or the plan states why not",
+    "MUST: the weights the artboards actually import, no more - IBM Plex Sans 400/500/600/700 and IBM Plex Mono 400/500/600, seven faces. Confirm this by reading the @import line in design/reconnect-wizard/Main.dc.html rather than assuming",
+    "MUST: the nicegui boundary (DL-069) - only app.py, file_picker.py and __main__.py may import nicegui; theme.py stays nicegui-free and keeps returning a stylesheet string",
+    "MUST: app.py stays 100% CRLF (1686 CRLF, 0 bare LF); theme.py and the tests are LF. Read and write with newline=''",
+    "MUST: every guard is proven to FAIL first, and its docstring records the specific mutation applied and the specific output observed",
+    "MUST: a guard that asserts a font family NAME is not sufficient - that is exactly the assertion that is true today while the page renders Segoe UI. The guard must read something that changes when the face fails to load",
+    "MUST: new decisions continue from the current high-water mark, DL-162 - re-read traktor_nml/README.md and confirm rather than assuming",
+    "MUST: the new heading for work-not-done is distinct from 'Framework shortfalls' (DL-087) and from 'Design-set divergences' (DL-088), and the decision that creates it says how a reader tells the three apart",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+    "MUST: re-verdicting an existing browser record does not rewrite what that run measured. The original atom verdicts stand as recorded; the structural verdict is stated as what that run did not measure",
+    "MUST NOT: regenerate the parity manifest (tests/baselines/manifest.json) or the gate fixture (fixture/w002gatefix2); never restore a file with git checkout; never write into or delete build/ or dist/",
+    "SHOULD: the suite runs under the SYSTEM interpreter, currently 534 passed / 3 skipped, not .venv. The system interpreter has no nicegui; the app itself runs from .venv"
+  ],
+  "entry_points": [
+    "traktor_nml/gui/theme.py:145-146 - FONT_SANS and FONT_MONO, the two stacks that name IBM Plex and are never backed by a loaded face",
+    "traktor_nml/gui/theme.py:page_stylesheet() - returns the whole stylesheet as a string; an @font-face block would live here, but the URLs it points at must be served by app.py, which is the boundary this crosses",
+    "traktor_nml/gui/app.py:_page_chrome() at line 156 - the one place every page's stylesheet is injected via ui.add_head_html; both routes call it, so a static-files mount or a preload link has one call site",
+    "traktor_nml/gui/__main__.py - calls ui.run(native=True); app.add_static_files() is a nicegui call and must sit on the nicegui side of DL-069",
+    "traktor_nml/README.md:721-733 - DL-084 as it stands: 'compared screen by screen against the artboard it implements; the record written to docs/ carries a matches or differs verdict per named surface'",
+    "traktor_nml/README.md:1674 '## Framework shortfalls' and :1717 '## Design-set divergences' - the two existing headings the new one must be distinguishable from",
+    "docs/2026-08-28-w002-browser-record.md - the fullest of the four records, 37 matches/differs verdicts, all atoms (button heights, hex colours, gaps, aria attributes)",
+    "design/reconnect-wizard/Main.dc.html - the @import line naming the exact Plex weights, and the artboard CSS the structural verdicts would compare against",
+    "pyproject.toml and traktor-nml-spike.spec - whether a vendored font directory reaches an installed wheel and a PyInstaller build"
+  ],
+  "rejected_alternatives": [
+    "Link fonts.googleapis.com from add_head_html - rejected by the operator: native=True desktop app, fails silently offline, and a silent failure is the defect being fixed",
+    "Install IBM Plex system-wide on the machine - rejected: makes one machine right and every other machine wrong, and leaves the app still asserting a face it does not carry",
+    "Drop IBM Plex from the stacks and let the app own system-ui - rejected: all ten artboards are Plex and DL-088 makes Specs' prose govern; this would be changing the design rather than implementing it",
+    "File the structural differs entries under 'Framework shortfalls' (DL-087) - rejected by the operator: those are rules the framework refuses, these are work not done",
+    "Build the missing layout now (options B, C, D of the analysis) - explicitly deferred by the operator; this plan is option A"
+  ],
+  "current_understanding": [
+    "theme.py's tokens were ported from the artboards EXACTLY - #0F1113 ground, #17191C surface, #56B4E9 action, and the type sizes. Colour is not the problem; the typeface and the composition are",
+    "measured on the served page: appSansStack 485.5078125px == system-ui == 'Segoe UI'; appMonoStack 615.78125px == Consolas. document.fonts holds only Material Icons and Roboto, both from Quasar. No link element references a font host",
+    "document.fonts.check with a 14px IBM Plex Sans argument returns TRUE even though the face is absent - it is not a usable check, and a guard built on it would pass over the present defect",
+    "of the 43 .wizard-* rules theme.py emits, roughly seven are layout; the rest are colour or font-size aliases. The artboards' three top-level structures - the 56px/1fr/64px app shell, the 1fr/400px main split, and the card-h/card-b triplet - have no equivalent at all",
+    "all four existing browser records read matches on every verdict. Not one row in any of them measures a layout structure: the only 'footer' occurrence is a focus-region name, and every '56px' is a button's width",
+    "all ten artboards are the reconnect wizard. The reconstruct page at '/' - the leftmost tab and the default - was never drawn; Specs.dc.html covers its behaviour in prose under 'Splice conflicts - Reconstruct playlists' and specifies no composition"
+  ],
+  "assumptions": [
+    "The seven Plex faces as woff2 are on the order of a few hundred KB in total and are acceptable to commit to the repository; the plan should state the measured total rather than assume it (M)",
+    "nicegui's app.add_static_files() can serve a directory inside the package, and the URL it mounts is stable enough for an @font-face src to name; needs reading against the installed nicegui 3.16.0 rather than assuming (M)",
+    "A guard can distinguish a loaded face from a fallback without a browser by asserting the @font-face block, the mounted route and the file's presence together - three text-level facts. Whether that is strong enough, or whether the served-page gate must carry the real check, is the plan's call (M)",
+    "The four records can be re-verdicted by reading them plus the artboards, with no new browser run, because the structural verdict is about what the run did not measure rather than a new measurement (M)",
+    "Subsetting the faces to a Latin subset would cut the committed size substantially but adds a build step and a way for the vendored file to drift from upstream (L)"
+  ],
+  "invisible_knowledge": [
+    "Serving the page is the only gate that has ever caught a defect in gui/ (DL-084). This plan's subject is that the gate, as written, admitted four records that measured atoms and were silent on composition",
+    "A guard asserting the right value appeared can pass while the output is wrong - assert the count, the structure, or the thing the defect would change. Nine guards were green while the output held two entries for one file. The font-family assertion is the same shape: true today, and the page still renders Segoe UI",
+    "DL-088 already settles that where Specs' prose and the artboards disagree, the prose governs. That gives a principled route to declining artboard composition, but it must be stated deliberately rather than left as an implication",
+    "app.py is 100% CRLF against an otherwise-LF tree; a careless rewrite normalises it invisibly and the preflight check is what catches that",
+    "The layout in gui/ is pinned by source-text guards that assert exact .classes() literals, each with a mutation-control twin, so a layout change to a guarded call site is a two-file change by construction",
+    "Quasar's own CSS arrives in layers the page orders last; an unlayered add_head_html rule loses at every specificity (DL-086's ladder). A body font rule may collide with Quasar's Roboto default"
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - the decision log and the authority; DL-069, DL-072, DL-078, DL-084, DL-085, DL-086, DL-087, DL-088, DL-162 all bear",
+    "traktor_nml/gui/CLAUDE.md and traktor_nml/gui/README.md - the nicegui boundary and the file map",
+    "design/reconnect-wizard/Specs.dc.html - the contract; its prose governs over the artboards under DL-088",
+    "design/reconnect-wizard/Main.dc.html, Review.dc.html, Confirm.dc.html, Results.dc.html - the artboard CSS the structural verdicts compare against",
+    "docs/2026-08-27-m001-browser-record.md, docs/2026-08-28-w002-browser-record.md, docs/2026-08-29-w004-focus-ring-record.md, docs/2026-09-03-header-tabs-browser-record.md - the four records to re-verdict",
+    "docs/CLAUDE.md - what docs/ holds and how a browser record is written"
+  ]
+}

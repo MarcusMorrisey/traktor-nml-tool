@@ -267,3 +267,29 @@ populate the way a trusted one does; under the maintainer's own Escape
 keypress the focus ring lands back on `Write output`. The entry reads matches
 on that trusted keypress, and the synthetic reading is recorded here as the
 artifact it is rather than left standing as a measurement.
+
+## Structural verdicts
+
+Stated under the amended DL-084 (DL-169), which requires a structural
+reading - app shell, column model, card structure, table geometry -
+beside the atom readings a surface carries. This run measured atoms.
+The rows below state, per surface it covered, what it did not measure
+and what the served page composes, read against the artboards rather
+than re-run. Every atom reading above stands exactly as this run
+recorded it (DL-171). Each differs entry names an entry under
+"Composition not built" in `traktor_nml/README.md`.
+
+| Structure | The artboard draws | The served page composes | Verdict |
+|---|---|---|---|
+| App shell | `.app` grid, rows `56px 1fr 64px` | a header row and one column, the page scrolling as a document | differs |
+| Column model | `Review.dc.html`'s `.split` at `1fr 400px` | one column; the candidate panel renders below the table | differs |
+| Card structure | `.card` + `.card-h` + `.card-b` | `.wizard-surface` applied once to the whole column | differs |
+| Table geometry | `.gr` at `126px minmax(0, 1fr) 100px 196px 134px` under a `.th` header row | `.wizard-row`, a flex row with a gap; no column aligns row to row and no header row is rendered | differs |
+| Detail rail | `.det`, a 400px bordered panel with its own header, body and footer | the candidate panel, in the same column below the table | differs |
+| Footer band | `.ft`, 64px, note left and actions right | actions inline as the column's last children | differs |
+
+Thirty-seven atom verdicts in this record read matches, and every one
+of them is a property of a single element - a height, a hex value, a
+gap, an attribute. None of them is a relationship between elements,
+which is why the composition above went unreported for the whole of
+this run.

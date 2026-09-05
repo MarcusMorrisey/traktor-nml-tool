@@ -1,0 +1,201 @@
+"""Guards the served-page records under `docs/` against DL-084's
+structural requirement.
+
+Four records read a matches verdict on every surface they measure while
+the pages they measured are composed nothing like the artboards - the
+gap DL-169 closes by requiring a structural reading beside the atom
+readings. These guards read the records as text, so they run under the
+system interpreter with no nicegui and no browser.
+
+The record set is discovered from the directory rather than listed, so
+a record written after this file falls under the gate without an edit
+here (DL-084's amendment). Each record's atom reading lines are held as
+a digest, which is what makes DL-171 a suite failure rather than a
+reviewer's catch: a re-verdict that rewrote a recorded reading changes
+the digest.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import re
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DOCS = REPO_ROOT / "docs"
+README = REPO_ROOT / "traktor_nml" / "README.md"
+
+# A browser record is named for the run that wrote it. The suffix is the
+# discovery rule: a record added later matches it and is gated, and a
+# plan or an analysis under docs/ does not.
+_RECORD_SUFFIXES = ("-browser-record.md", "-focus-ring-record.md", "-paint-record.md")
+
+_STRUCTURAL_HEADING = re.compile(r"^#+\s*Structural verdicts\s*$", re.MULTILINE)
+_VERDICT_ROW = re.compile(r"^\|.*\|\s*(matches|differs)\s*\|\s*$", re.MULTILINE)
+_COMPOSITION_ENTRY = re.compile(r"^- \*\*(.+?)\.\*\*", re.MULTILINE)
+
+
+def browser_records() -> list[Path]:
+    """Every served-page record under docs/, discovered by name."""
+    return sorted(
+        path
+        for path in DOCS.glob("*.md")
+        if any(path.name.endswith(suffix) for suffix in _RECORD_SUFFIXES)
+    )
+
+
+def _reading_digest(text: str) -> str:
+    """A digest of one record's verdict rows.
+
+    Reads the verdict rows above the Structural verdicts heading - the
+    rows the run itself measured - rather than the whole file. Appending
+    a structural section therefore leaves the digest alone, while
+    editing a reading the run recorded changes it, which is the
+    direction DL-171 constrains.
+    """
+    heading = _STRUCTURAL_HEADING.search(text)
+    atoms = text[: heading.start()] if heading else text
+    joined = "\n".join(match.group(0) for match in _VERDICT_ROW.finditer(atoms))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+# The digest of each record's verdict rows as they stand. Held here so a
+# reading edited during a re-verdict fails this file (DL-171); a record
+# absent from this mapping is new and carries no prior readings to hold.
+READING_DIGESTS = {
+    "2026-08-27-m001-browser-record.md": "dbef7a4a97c01c5701fe62983e9687be76650039eb9218bd3264c45430e4001e",
+    "2026-08-28-w002-browser-record.md": "3a1759dce7ccd384c279c79c3aaa76d9eac3367ef8646e1ea8d8cf76e9a32250",
+    "2026-08-29-w004-focus-ring-record.md": "22120b36351a3e10ad6c3706503f04f6ddbb8bc602c3d5377b9a014da0ac3c88",
+    "2026-09-03-header-tabs-browser-record.md": "8efef9b91ac577095c5f8c76af04ea522c7dc4e8d473dd34e85fbd134413d5da",
+}
+
+
+def test_the_record_set_is_discovered_and_is_not_empty():
+    """browser_records() finds the served-page records under docs/ by
+    name, so a record written after this file is gated without an edit
+    here.
+
+    Mutation: _RECORD_SUFFIXES was reduced to ("-paint-record.md",),
+    which no record under docs/ carries today, and this guard rerun.
+    Observed:
+        AssertionError: no browser record discovered under docs/
+        assert [] != []
+    """
+    records = browser_records()
+    assert records != [], "no browser record discovered under docs/"
+    names = {path.name for path in records}
+    assert "2026-08-28-w002-browser-record.md" in names
+
+
+@pytest.mark.parametrize("record", browser_records(), ids=lambda path: path.name)
+def test_every_record_carries_a_structural_verdicts_section(record: Path):
+    """Every discovered record carries a Structural verdicts heading.
+    A record holding atom verdicts alone is what DL-169 fails.
+
+    Mutation: the '## Structural verdicts' heading line was deleted
+    from docs/2026-08-29-w004-focus-ring-record.md and this guard
+    rerun. Observed:
+        AssertionError: 2026-08-29-w004-focus-ring-record.md carries no
+        Structural verdicts section
+        assert None
+    """
+    text = record.read_text(encoding="utf-8")
+    assert _STRUCTURAL_HEADING.search(text), (
+        f"{record.name} carries no Structural verdicts section"
+    )
+
+
+@pytest.mark.parametrize("record", browser_records(), ids=lambda path: path.name)
+def test_a_records_verdict_rows_hash_to_its_recorded_digest(record: Path):
+    """A record's verdict rows hash to the digest held above. This is
+    DL-171 enforced: a re-verdict inserts a section and leaves every
+    recorded reading alone, and an edited reading changes the digest.
+
+    A record with no entry in READING_DIGESTS is one written after this
+    mapping and has no prior readings to hold.
+
+    Mutation: in docs/2026-08-28-w002-browser-record.md the Dialog
+    Cancel row's reading was changed from 32.0156px to 33.0156px and
+    this guard rerun. Observed:
+        AssertionError: 2026-08-28-w002-browser-record.md verdict rows
+        changed: a recorded reading is edited, which DL-171 forbids
+        assert '12b2f4ec2069...bbd4ae3c9000d' ==
+        '3a1759dce7cc...8cf76e9a32250'
+    """
+    expected = READING_DIGESTS.get(record.name)
+    if expected is None:
+        pytest.skip(f"{record.name} carries no recorded digest")
+    actual = _reading_digest(record.read_text(encoding="utf-8"))
+    assert actual == expected, (
+        f"{record.name} verdict rows changed: a recorded reading is edited, "
+        "which DL-171 forbids"
+    )
+
+
+def test_every_structure_a_record_names_resolves_in_the_decision_log():
+    """A structure a record names in a differs verdict is an entry
+    under 'Composition not built' in traktor_nml/README.md, so a
+    differs verdict cannot point at a section that does not record it.
+
+    Mutation: the '- **Footer band.**' entry was deleted from the
+    Composition not built section and this guard rerun. Observed:
+        AssertionError: structures named in a record with no
+        Composition not built entry: ['Footer band']
+        assert ['Footer band'] == []
+    """
+    readme = README.read_text(encoding="utf-8")
+    heading = "## Composition not built"
+    assert heading in readme, "traktor_nml/README.md carries no Composition not built section"
+    section = readme[readme.index(heading):]
+    entries = {name for name in _COMPOSITION_ENTRY.findall(section)}
+    assert entries, "the Composition not built section holds no entries"
+
+    named: set[str] = set()
+    for record in browser_records():
+        text = record.read_text(encoding="utf-8")
+        match = _STRUCTURAL_HEADING.search(text)
+        if not match:
+            continue
+        for row in _VERDICT_ROW.finditer(text[match.end():]):
+            if row.group(1) != "differs":
+                continue
+            cells = [cell.strip() for cell in row.group(0).strip("|").split("|")]
+            if cells:
+                named.add(cells[0].strip("* "))
+
+    adrift = sorted(name for name in named if name not in entries)
+    assert adrift == [], (
+        f"structures named in a record with no Composition not built entry: {adrift}"
+    )
+
+
+def test_the_three_headings_each_state_their_distinction():
+    """Framework shortfalls, Design-set divergences and Composition not
+    built each name the other two, so a reader landing on one is told
+    what belongs in the others (DL-170).
+
+    Mutation: the sentence naming the other two headings was deleted
+    from under '## Composition not built' and this guard rerun.
+    Observed:
+        AssertionError: Composition not built does not name Framework
+        shortfalls
+        assert 'Framework shortfalls' in '...'
+    """
+    readme = README.read_text(encoding="utf-8")
+    headings = ["Framework shortfalls", "Design-set divergences", "Composition not built"]
+    bodies = {}
+    for name in headings:
+        marker = f"## {name}"
+        assert marker in readme, f"traktor_nml/README.md carries no {name} section"
+        start = readme.index(marker) + len(marker)
+        rest = readme[start:]
+        end = rest.index("\n## ") if "\n## " in rest else len(rest)
+        bodies[name] = rest[:end]
+
+    for name, body in bodies.items():
+        for other in headings:
+            if other == name:
+                continue
+            assert other in body, f"{name} does not name {other}"

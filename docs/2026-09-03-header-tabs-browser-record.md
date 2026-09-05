@@ -86,3 +86,26 @@ pywebview window the browser pane cannot read.
   markup, not as anything a screen reader announced.
 - The four wizard steps, the conflict screen and the write controls were not
   re-driven; this run reads the header and the routes.
+
+## Structural verdicts
+
+Stated under the amended DL-084 (DL-169), which requires a structural
+reading - app shell, column model, card structure, table geometry -
+beside the atom readings a surface carries. This run measured atoms.
+The rows below state, per surface it covered, what it did not measure
+and what the served page composes, read against the artboards rather
+than re-run. Every atom reading above stands exactly as this run
+recorded it (DL-171). Each differs entry names an entry under
+"Composition not built" in `traktor_nml/README.md`.
+
+
+This run opened both routes. The reconstruct page at `/` is outside
+the structural gate (DL-172): no artboard draws it, and `Specs.dc.html`
+- which governs under DL-088 - specifies its behaviour and no
+composition, so there is no drawn structure to read a verdict against.
+That is a gate exclusion, not a missing verdict.
+
+The `/reconnect` route this run also opened carries the structural
+readings recorded against the wizard's artboards in the three records
+above; this run measured the header band and the tab strip, which are
+atoms of the shell rather than the shell itself.

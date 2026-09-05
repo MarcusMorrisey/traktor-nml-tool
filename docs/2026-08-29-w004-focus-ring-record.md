@@ -386,3 +386,26 @@ knowing before the file is shared.
 
 No write was performed: the fixture hashes identical across all 604 files, the
 named output file does not exist, and `written.nml` is absent.
+
+## Structural verdicts
+
+Stated under the amended DL-084 (DL-169), which requires a structural
+reading - app shell, column model, card structure, table geometry -
+beside the atom readings a surface carries. This run measured atoms.
+The rows below state, per surface it covered, what it did not measure
+and what the served page composes, read against the artboards rather
+than re-run. Every atom reading above stands exactly as this run
+recorded it (DL-171). Each differs entry names an entry under
+"Composition not built" in `traktor_nml/README.md`.
+
+| Structure | The artboard draws | The served page composes | Verdict |
+|---|---|---|---|
+| App shell | `.app` grid, rows `56px 1fr 64px` | a header row and one column, the page scrolling as a document | differs |
+| Column model | `Review.dc.html`'s `.split` at `1fr 400px` | one column; the candidate panel renders below the table | differs |
+| Card structure | `.card` + `.card-h` + `.card-b` | `.wizard-surface` applied once to the whole column | differs |
+| Table geometry | `.gr` at `126px minmax(0, 1fr) 100px 196px 134px` under a `.th` header row | `.wizard-row`, a flex row with a gap; no column aligns row to row | differs |
+| Detail rail | `.det`, a 400px bordered panel | the candidate panel, in the same column below the table | differs |
+
+This run's four passes measured control heights, ink, the focus ring
+and the screen-reader surface. Each is a property of one control. The
+arrangement the controls sit in was not a subject of any pass.

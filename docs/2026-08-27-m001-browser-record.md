@@ -95,3 +95,26 @@ sufficient evidence for this milestone. That is a decision about what
 satisfies DL-084 in a session that cannot display the browser pane, not an
 omission: every verdict above still carries the value behind it, and a later
 reader can re-run each query against a served page to check it.
+
+## Structural verdicts
+
+Stated under the amended DL-084 (DL-169), which requires a structural
+reading - app shell, column model, card structure, table geometry -
+beside the atom readings a surface carries. This run measured atoms.
+The rows below state, per surface it covered, what it did not measure
+and what the served page composes, read against the artboards rather
+than re-run. Every atom reading above stands exactly as this run
+recorded it (DL-171). Each differs entry names an entry under
+"Composition not built" in `traktor_nml/README.md`.
+
+| Structure | The artboard draws | The served page composes | Verdict |
+|---|---|---|---|
+| App shell | `.app` grid, rows `56px 1fr 64px` | a header row and one column, the page scrolling as a document | differs |
+| Column model | `main` at `1fr 400px` | one column at `.wizard-content-width` | differs |
+| Card structure | `.card` + `.card-h` + `.card-b`, three to four per screen | `.wizard-surface` applied once to the whole column | differs |
+| Footer band | `.ft`, 64px, note left and actions right | actions inline as the column's last children | differs |
+
+The atom readings this run took are unaffected: each was measured
+against Specs' prose, which governs under DL-088, and each still reads
+as recorded. What the run did not ask is how the surfaces it measured
+are arranged relative to one another.

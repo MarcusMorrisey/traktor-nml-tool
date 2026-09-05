@@ -1,0 +1,784 @@
+{
+ "plan_id": "d720e79d-a446-40ce-8bea-021c85f8e8e1",
+ "created_at": "2026-09-05T20:44:55.439657",
+ "frozen_at": null,
+ "overview": {
+  "problem": "traktor_nml/gui/theme.py names 'IBM Plex Sans' and 'IBM Plex Mono' at the head of both font stacks and nothing in gui/ ever loads either face: no @font-face block, no stylesheet link, and IBM Plex among none of the 277 families installed on the machine. Measured on the served page, the app's sans stack renders at 485.5078125px for a test string - identical to system-ui and to Segoe UI - and its mono stack at 615.78125px, identical to Consolas; document.fonts holds only Material Icons and Roboto, both Quasar's. All ten artboards are IBM Plex, so the CSS asserts a typeface the page never uses. The gate that would have caught it looks past it: DL-084's served-page comparison admits a record whose verdicts are all atoms, and all four existing records are - 37 verdicts in the fullest of them, every 56px a button width and the only footer a focus-region name - while the artboards' three top-level structures, the 56px/1fr/64px app shell, the 1fr/400px main split and the card-h/card-b triplet, have no equivalent in gui/ at all.",
+  "approach": "Two subjects, one plan. The seven IBM Plex faces the artboard import line names - Sans 400/500/600/700, Mono 400/500/600 - are vendored under traktor_nml/gui/fonts/ with their OFL text and served by the application: theme.py owns the URL prefix and emits the @font-face blocks, app.py mounts that same constant, and the guards assert files, block counts and the mount argument rather than a family name, because a family-name assertion is true in exactly the broken state. Then DL-084 is amended to require a structural verdict per surface beside its atoms, a Composition not built section is opened for the structures the artboards draw and gui/ does not, and the four records are re-verdicted as statements of what each run did not measure - no readings rewritten and no new browser session. Building the missing layout is not in this plan; making the gap visible and recorded is. The reconstruct page at the root route is named as outside the structural gate rather than given an invented comparison, because no artboard draws it."
+ },
+ "planning_context": {
+  "decisions": [
+   {
+    "id": "DL-163",
+    "version": 1,
+    "decision": "The seven IBM Plex woff2 faces the artboards import - Sans 400/500/600/700 and Mono 400/500/600 - live in traktor_nml/gui/fonts/ and are served by the application itself",
+    "reasoning": "design/reconnect-wizard/Main.dc.html:11 imports exactly those seven weights from fonts.googleapis.com -> the wizard runs under ui.run(native=True) as a desktop tool, where a CDN link resolves to nothing offline and reports nothing when it fails -> a silent CDN failure reproduces the present defect, so the faces travel with the package and the count is read off the artboard import line rather than chosen"
+   },
+   {
+    "id": "DL-164",
+    "version": 1,
+    "decision": "theme.py holds FONT_URL_BASE and emits the @font-face block; app.py mounts that same constant through app.add_static_files, so the URL is written once and read on both sides of the nicegui boundary",
+    "reasoning": "an @font-face src and the route that answers it are one fact split across two files -> theme.py may not import nicegui (DL-069) and app.add_static_files is a nicegui call -> the constant lives in the nicegui-free module and the mount reads it, which makes a divergence between stylesheet and route a comparison of one constant against one call argument rather than two literals nobody compares"
+   },
+   {
+    "id": "DL-165",
+    "version": 2,
+    "decision": "The font guards assert the face files, their byte sizes and hashes, the seven @font-face blocks, the emitted ordering and the mount argument together; no guard treats a font-family name as evidence that a face loaded, and where a rule's font-family is read it is read as an identity check against theme.FONT_SANS rather than as a literal name",
+    "reasoning": "document.fonts.check with a 14px IBM Plex Sans argument returns true today with no face present, and theme.FONT_SANS already names IBM Plex while the page paints Segoe UI -> an assertion that a name appeared is true in exactly the broken state, but an assertion that the body rule's font-family is the FONT_SANS constant itself is a wiring fact that changes when the stylesheet stops using the constant -> DL-173's body-rule check is admitted in that identity form and no guard anywhere infers paint from a name"
+   },
+   {
+    "id": "DL-166",
+    "version": 1,
+    "decision": "OFL.txt ships in traktor_nml/gui/fonts/ beside the faces and the vendoring provenance - upstream release and per-file SHA-256 - is recorded in traktor_nml/gui/README.md",
+    "reasoning": "IBM Plex is SIL OFL 1.1, which requires the licence to travel with the fonts -> the faces are redistributed in the wheel and in a PyInstaller build -> the licence sits in the directory both packaging routes copy, so no route can ship the faces without it"
+   },
+   {
+    "id": "DL-167",
+    "version": 2,
+    "decision": "The faces are the upstream woff2 releases, committed unmodified and unsubsetted, and their provenance is verified rather than declared: the vendoring step names the IBM/plex release tag and the archive URL it downloaded, computes the SHA-256 of each file as downloaded, and tests/test_gui_font_assets.py recomputes the SHA-256 of each committed file and asserts it equals the hash recorded for it in traktor_nml/gui/README.md",
+    "reasoning": "a Latin subset would cut the committed bytes but adds a build step whose output no upstream hash can verify -> a README that merely states a hash is a self-declaration nobody rechecks, and a file that drifted after vendoring would leave that statement looking true and being wrong -> the release tag and archive URL make the origin nameable and the guard makes the recorded hash a live assertion over the committed bytes"
+   },
+   {
+    "id": "DL-168",
+    "version": 1,
+    "decision": "pyproject.toml carries the fonts directory as package data and traktor-nml-spike.spec carries it in datas",
+    "reasoning": "the setuptools packages list installs modules, not data files -> an installed wheel or a frozen build without the directory answers 404 for every face and falls back to Segoe UI silently -> both packaging routes name the directory, and the guard derives its expectation from the directory listing rather than from a transcribed list, following tests/test_packaging_gui_extra.py"
+   },
+   {
+    "id": "DL-169",
+    "version": 1,
+    "decision": "DL-084 requires a structural verdict per surface - app shell, column model, card structure, table geometry - beside the atom verdicts a record already carries",
+    "reasoning": "the four records carry 37-plus matches verdicts and not one measures a layout structure: every 56px in them is a button width and the only footer is a focus-region name -> the artboards' three top-level structures, the 56px/1fr/64px shell, the 1fr/400px main split and the card-h/card-b triplet, have no equivalent in gui/ at all -> the gate as written admits a record silent on composition, so a surface without a structural verdict fails the gate rather than passing it"
+   },
+   {
+    "id": "DL-170",
+    "version": 1,
+    "decision": "Structural differs entries are recorded under a traktor_nml/README.md heading of their own, Composition not built, distinct from Framework shortfalls and Design-set divergences",
+    "reasoning": "the three sections answer three different questions -> Framework shortfalls records a Specs rule the running framework refuses and Design-set divergences records prose governing an artboard value under DL-088, while a structure the artboards draw that gui/ never builds is neither refused nor superseded -> the section states its distinguishing test in its own opening: it holds work not done, and an entry leaves it by being built rather than by being re-argued"
+   },
+   {
+    "id": "DL-171",
+    "version": 1,
+    "decision": "Re-verdicting a record adds a structural verdict stating what that run did not measure and leaves every atom verdict as recorded",
+    "reasoning": "a record is the transcript of one run against one served page at one commit -> rewriting its readings would assert measurements nobody took -> each record gains a section naming the structural surfaces the run passed over, so the re-verdict states the run's coverage and needs no new browser session"
+   },
+   {
+    "id": "DL-172",
+    "version": 1,
+    "decision": "The reconstruct page at the root route is outside DL-084's structural gate, stated in the amendment rather than left implicit",
+    "reasoning": "all ten artboards are the reconnect wizard and the reconstruct page was never drawn -> Specs.dc.html covers its behaviour in prose under Splice conflicts - Reconstruct playlists and specifies no composition, and DL-088 makes prose govern -> a structural verdict there would compare against an artboard that does not exist, so the amendment names the exclusion and its ground"
+   },
+   {
+    "id": "DL-173",
+    "version": 2,
+    "decision": "The concrete cascade position DL-086's ladder records for gui/ rules is read out of traktor_nml/README.md and written into traktor_nml/gui/README.md as a named step before the body font rule is written; page_stylesheet() emits the @font-face blocks ahead of the body rule and emits that body rule at the recorded position, and the stylesheet guard asserts the recorded position appears in the emitted text and that the body rule's font-family value is the FONT_SANS constant itself",
+    "reasoning": "Quasar's own CSS arrives in layers the page orders last and an unlayered add_head_html rule loses at every specificity (DL-086) -> a requirement phrased as the cascade position DL-086 requires names no layer and no !important so no guard can assert it -> reading DL-086 and recording the concrete position turns the requirement into a string the guard can look for, while the font-family check stays an identity against theme.FONT_SANS so it does not become the name assertion DL-165 forbids"
+   },
+   {
+    "id": "DL-174",
+    "version": 1,
+    "decision": "Before FONT_URL_BASE is fixed the plan reads the installed nicegui 3.16.0 source for app.add_static_files and records in traktor_nml/gui/README.md the module path and signature it found together with the version string; the mount premise is cited rather than assumed",
+    "reasoning": "DL-164 rests on app.add_static_files serving a package-internal directory at a stable url_path and every font guard runs under the system interpreter which has no nicegui so no guard ever executes the mount -> an unread premise would fail only on a served page which is the gate this plan is trying to strengthen -> the reading is a named step of M-001 whose output is a citation in the README so a later nicegui upgrade has a recorded fact to be checked against"
+   },
+   {
+    "id": "DL-175",
+    "version": 1,
+    "decision": "woff2 with no woff or ttf fallback is the shipped format because the only engine that renders this app is the WebView2 or WebKit runtime pywebview embeds under ui.run(native=True); the engine and its woff2 support are named in traktor_nml/gui/README.md beside the format choice",
+    "reasoning": "the faces are served to exactly one client which is the embedded browser engine the native window hosts -> both WebView2 (Chromium) and the WebKitGTK build pywebview uses on other platforms have supported woff2 since long before the versions this project can install -> a fallback format would double the committed bytes to serve a browser this application never opens so the single format is stated with its ground rather than left as a default"
+   },
+   {
+    "id": "DL-176",
+    "version": 2,
+    "decision": "The vendored directory's size ceiling is derived from measurement rather than chosen: the vendoring step measures the total bytes of the seven faces plus OFL.txt, writes that exact total into traktor_nml/gui/README.md, and tests/test_gui_font_assets.py asserts the directory total is at or under that recorded total plus five percent headroom; no magnitude is fixed before the measurement exists",
+    "reasoning": "DL-167 promised the plan record a measured total but the faces are not vendored yet so no number exists at planning time -> a ceiling invented at planning time is a policy default with nothing behind it and would either pass everything or fail on a legitimate upstream file -> the ceiling is expressed relative to the number the vendoring step actually observes so it still fails on a subsetting drift or a wrong-format download while resting on a measurement rather than a guess"
+   },
+   {
+    "id": "DL-177",
+    "version": 1,
+    "decision": "Every documentation edit in this plan - traktor_nml/gui/README.md, traktor_nml/README.md, the four browser records and docs/CLAUDE.md - describes the file as it stands with no previously, now does, no longer or added, and each documentation milestone carries the grep acceptance that proves it",
+    "reasoning": "a re-verdict is exactly where change-narration appears because the writer is conscious of amending an existing record -> the rule was carried only by M-002 leaving the font README and the four records unchecked -> the rule and its grep move to every milestone that touches a document so the check sits where the narration risk is"
+   },
+   {
+    "id": "DL-178",
+    "version": 1,
+    "decision": "The suite baseline is 534 passed and 3 skipped under the system interpreter which has no nicegui installed; the font guards therefore read source text and never import traktor_nml.gui.app, and the acceptance criteria name the numeric baseline rather than the count it stands at",
+    "reasoning": "the app runs from .venv while the suite runs under the system interpreter -> a guard that imported app.py to inspect the mount would error on the nicegui import and be skipped which is a green run proving nothing -> the baseline numbers are recorded so a new skip is visible as a regression and the source-text form of the guards has its reason on the record"
+   },
+   {
+    "id": "DL-179",
+    "version": 2,
+    "decision": "design/reconnect-wizard/Main.dc.html line 11 is read as a named step before the literal seven is fixed, and tests/test_gui_font_faces.py parses that import line at run time: the family and weight pairs it names must equal theme.FONT_FACES exactly, with len(theme.FONT_FACES) == 7 and exactly seven @font-face blocks in the emitted stylesheet",
+    "reasoning": "a guard that counts blocks against len(FONT_FACES) is satisfied by any tuple of any length -> a literal seven asserted with no reading of the artboard is a number the plan chose rather than the count the design imports, which is what the constraint forbids -> the guard reads the artboard import line so the shipped faces and the design's import cannot diverge in either direction and the literal seven stands as a second check on the same source"
+   },
+   {
+    "id": "DL-180",
+    "version": 2,
+    "decision": "M-001 closes with a served-page run from .venv whose pass condition is stated: document.fonts reports all seven IBM Plex faces with status loaded, the sans stack measures a width other than 485.5078125px and the mono stack a width other than 615.78125px, and neither new width equals the width the same test string measures in the system fallback stacks in that same session - Segoe UI for sans and Consolas for mono; the run writes those readings into docs/2026-09-05-plex-paint-record.md which carries structural verdicts under the amended DL-084",
+    "reasoning": "the font guards prove wiring and not paint and only a served page can prove a face rendered -> a direction such as the widths move away from the recorded values passes on any drift including a shift to a third fallback face -> naming loaded status for all seven faces and a width distinct both from the recorded reading and from the fallback measured alongside it makes the criterion decidable from the readings the record itself carries"
+   },
+   {
+    "id": "DL-181",
+    "version": 2,
+    "decision": "The two invariants that had no enforcement gain guards in modules of their own: tests/test_gui_runtime_no_network.py walks traktor_nml/gui/ source for fonts.googleapis.com and any other scheme-bearing host in a runtime path, and tests/test_repo_state_invariants.py asserts the recorded digests of tests/baselines/manifest.json and fixture/w002gatefix2 and asserts that no module under tests/ or traktor_nml/ names a write path under build/ or dist/; the untouched-by-the-run half of that invariant stays test procedure because a pytest module observes state only at its own moment and has no recorded baseline to diff",
+    "reasoning": "invariant 3 rested on a one-time acceptance grep and invariant 6 lived only in prose -> an invariant enforced by prose is enforced by whoever remembers it, but an assertion that a run touched nothing is not expressible from inside that run -> each invariant takes the strongest expressible form in a module named for it rather than riding on the font milestone's asset guard where an invariant unrelated to fonts would die with that file"
+   },
+   {
+    "id": "DL-182",
+    "version": 2,
+    "decision": "M-002 precedes both M-001 and M-003: M-001 closes with the DL-180 paint record, which is written under the AMENDED DL-084 and checked by the record-shape guard M-002 installs, and M-003's records name entries M-002 creates. M-001 and M-003 share no file and run in parallel with each other in the second wave",
+    "reasoning": "M-001's paint record cites DL-169 and calls itself the first record written under the amended gate -> authoring it before the amendment exists would write it against the old procedure and before the guard that checks its shape -> the true graph is one root and two independent leaves rather than two independent starts, and the wave structure says so"
+   }
+  ],
+  "rejected_alternatives": [
+   {
+    "id": "RA-001",
+    "alternative": "Link fonts.googleapis.com from add_head_html",
+    "rejection_reason": "Rejected by the operator: the wizard runs ui.run(native=True) as a desktop tool, so a CDN link resolves to nothing offline and reports nothing when it fails - a silent failure, which is the defect being fixed (DL-163).",
+    "decision_ref": "DL-163"
+   },
+   {
+    "id": "RA-002",
+    "alternative": "Install IBM Plex system-wide on the machine",
+    "rejection_reason": "Rejected by the operator: it makes one machine right and every other machine wrong, and leaves the application still asserting a face it does not carry, so the CSS would keep naming a typeface the package cannot guarantee (DL-163).",
+    "decision_ref": "DL-163"
+   },
+   {
+    "id": "RA-003",
+    "alternative": "Drop IBM Plex from the stacks and let the app own system-ui",
+    "rejection_reason": "Rejected by the operator: all ten artboards are Plex and DL-088 makes Specs' prose govern, so this would be changing the design rather than implementing it.",
+    "decision_ref": "DL-163"
+   },
+   {
+    "id": "RA-004",
+    "alternative": "File the structural differs entries under Framework shortfalls (DL-087)",
+    "rejection_reason": "Rejected by the operator: that heading holds rules the running framework refuses, and these are work not done, so they take a heading of their own, Composition not built (DL-170).",
+    "decision_ref": "DL-170"
+   },
+   {
+    "id": "RA-005",
+    "alternative": "Build the missing layout now - the app shell grid, the 1fr/400px split, the card triplet, the table geometry, the footer band, the detail rail",
+    "rejection_reason": "Explicitly deferred by the operator: this plan is option A, which makes the gap visible and recorded; options B, C and D are not authorised.",
+    "decision_ref": "DL-169"
+   },
+   {
+    "id": "RA-006",
+    "alternative": "Subset the faces to a Latin subset to cut the committed bytes",
+    "rejection_reason": "Rejected under DL-167: subsetting adds a build step whose output no upstream hash can verify, and an unverifiable vendored binary is a worse failure than the size; the byte ceiling of DL-176 answers the size concern instead.",
+    "decision_ref": "DL-167"
+   }
+  ],
+  "constraints": [
+   "MUST: fonts are vendored and served locally; no request to fonts.googleapis.com or any other network host at runtime (DL-163, DL-181)",
+   "MUST: IBM Plex is SIL OFL 1.1 - the licence text ships beside the font files and the vendoring is recorded (DL-166, DL-167)",
+   "MUST: the weights the artboards actually import and no more - Sans 400/500/600/700 and Mono 400/500/600, seven faces - confirmed by reading the @import line in design/reconnect-wizard/Main.dc.html rather than assuming (DL-179)",
+   "MUST: the nicegui boundary (DL-069) - only app.py, file_picker.py and __main__.py may import nicegui; theme.py stays nicegui-free and keeps returning a stylesheet string (DL-164)",
+   "MUST: app.py stays 100% CRLF (1686 CRLF, 0 bare LF); theme.py and the tests are LF; read and write with newline=''",
+   "MUST: every guard is proven to FAIL first, and its docstring records the specific mutation applied and the specific output observed",
+   "MUST: a guard that asserts a font family NAME is not sufficient - the guard must read something that changes when the face fails to load (DL-165)",
+   "MUST: new decisions continue from the current high-water mark DL-162, re-read from traktor_nml/README.md and confirmed rather than assumed",
+   "MUST: the new heading for work-not-done is distinct from Framework shortfalls (DL-087) and from Design-set divergences (DL-088), and the decision that creates it says how a reader tells the three apart (DL-170)",
+   "MUST: documentation describes the code as it stands - no previously, now does, no longer, added (DL-177)",
+   "MUST: re-verdicting an existing browser record does not rewrite what that run measured; the original atom verdicts stand as recorded and the structural verdict states what that run did not measure (DL-171)",
+   "MUST NOT: regenerate the parity manifest (tests/baselines/manifest.json) or the gate fixture (fixture/w002gatefix2); never restore a file with git checkout; never write into or delete build/ or dist/ (DL-181)",
+   "MUST NOT: build the missing layout structure - the app shell grid, the 1fr/400px main split, the card-h/card-b triplet, the review table column geometry, the footer band, the detail rail; this plan makes the gap visible and recorded",
+   "MUST NOT: change the reconstruct page's composition or invent an artboard for it; the plan states the exclusion (DL-172)",
+   "SHOULD: the suite runs under the SYSTEM interpreter at 534 passed / 3 skipped, not .venv; the system interpreter has no nicegui and the app itself runs from .venv (DL-178)"
+  ],
+  "risks": [
+   {
+    "id": "RISK-001",
+    "risk": "A body font rule injected through add_head_html loses to Quasar's Roboto default, which arrives in a layer the page orders last (DL-086's specificity ladder). The faces load and the page still paints Roboto.",
+    "mitigation": "DL-173: page_stylesheet() emits the @font-face blocks ahead of the body rule and places that rule at the cascade position DL-086 records for gui/ rules; tests/test_gui_font_faces.py asserts the ordering and the cascade position in the emitted text, with a mutation that moves the body rule above the blocks.",
+    "anchor": null,
+    "decision_ref": null
+   },
+   {
+    "id": "RISK-002",
+    "risk": "The vendored woff2 total is unmeasured at planning time, so the repository could take a size nobody agreed to, or a wrong-format download could pass unnoticed.",
+    "mitigation": "DL-176: a 600000-byte ceiling on traktor_nml/gui/fonts/ asserted by tests/test_gui_font_assets.py, with the exact measured total written into traktor_nml/gui/README.md by the step that first measures it.",
+    "anchor": null,
+    "decision_ref": null
+   },
+   {
+    "id": "RISK-003",
+    "risk": "DL-164 assumes nicegui's app.add_static_files serves a package-internal directory at a stable url_path, and no guard can execute the mount because the system interpreter running the suite has no nicegui.",
+    "mitigation": "DL-174: the installed nicegui version, module path and signature of app.add_static_files are read from the installed distribution and cited in traktor_nml/gui/README.md before FONT_URL_BASE is fixed; DL-180's served-page run exercises the mount for real.",
+    "anchor": null,
+    "decision_ref": null
+   },
+   {
+    "id": "RISK-004",
+    "risk": "app.py is wholly CRLF against an otherwise-LF tree; a careless rewrite of the _page_chrome mount normalises it invisibly.",
+    "mitigation": "Every read and write of app.py takes newline=''; tests/test_gui_line_endings.py fails on the first bare LF and is named in M-001's acceptance criteria.",
+    "anchor": null,
+    "decision_ref": null
+   },
+   {
+    "id": "RISK-005",
+    "risk": "The differs list could grow past what this plan authorises, drifting from recording the gap into arguing for building it.",
+    "mitigation": "DL-170 fixes the section's scope - one entry per structure the artboards draw that gui/ does not build, each naming its artboard file and selector - and the entries leave by being built rather than by being re-argued; building the layout stays out of scope.",
+    "anchor": null,
+    "decision_ref": null
+   },
+   {
+    "id": "RISK-006",
+    "risk": "woff2-only could fail in the engine the native window embeds, leaving the faces unusable at exactly the place they matter.",
+    "mitigation": "DL-175: the pywebview-embedded WebView2 or WebKit engine is named in traktor_nml/gui/README.md as the sole client and its woff2 support is the stated ground; DL-180's served-page run reads document.fonts in that engine.",
+    "anchor": null,
+    "decision_ref": null
+   }
+  ],
+  "decision_id_start": 163
+ },
+ "invisible_knowledge": {
+  "system": "Serving the page is the only gate that has ever caught a defect in gui/ (DL-084), and this plan's second subject is that the gate as written admitted four records that measured atoms and said nothing about composition. Every gui/ guard reads source text or walks the module graph; none exercises a served page, which is why an assertion on a font-family name would pass over a page painting Segoe UI. The layout in gui/ is pinned by source-text guards asserting exact .classes() literals, each with a mutation-control twin, so a layout change to a guarded call site is a two-file change by construction - one reason building the missing structure is a separate piece of work from recording it. Quasar's own CSS arrives in layers the page orders last, so an unlayered add_head_html rule loses at every specificity (DL-086's ladder): a body font rule naming FONT_SANS can collide with Quasar's Roboto default, which is why DL-173 makes the block ordering and the cascade position facts the stylesheet guard reads. The suite runs under the system interpreter at 534 passed and 3 skipped and that interpreter has no nicegui - the application itself runs from .venv - which is why every font guard reads source text rather than importing app.py (DL-178).",
+  "invariants": [
+   "theme.py, and every gui/ module other than app.py, file_picker.py and __main__.py, imports neither nicegui nor webview; an AST walk in tests/test_gui_view_boundary.py enforces it (DL-069)",
+   "traktor_nml/gui/app.py is wholly CRLF against an otherwise-LF tree; every read and write of it takes an empty newline argument, and tests/test_gui_line_endings.py fails on the first bare LF",
+   "No runtime path in gui/ reaches a network host: the faces answer from a route the application mounts out of its own package directory; tests/test_gui_runtime_no_network.py walks gui/ source and fails on fonts.googleapis.com or any other scheme-bearing host (DL-181)",
+   "The count and weights of the vendored faces are read from design/reconnect-wizard/Main.dc.html's import line, not chosen; tests/test_gui_font_faces.py parses that line and asserts the pairs it imports equal theme.FONT_FACES, so a weight the artboards do not import cannot ship (DL-179)",
+   "A served-page record's readings are the transcript of one run at one commit and are never rewritten; tests/test_docs_browser_record_structure.py holds a digest of each record's atom reading lines and fails when one is altered, and a later judgement is added as a statement about that run's coverage (DL-171)",
+   "tests/baselines/manifest.json and fixture/w002gatefix2 are not regenerated and no file is restored with git checkout; tests/test_repo_state_invariants.py asserts both recorded digests and asserts no module under tests/ or traktor_nml/ names a write path under build/ or dist/. That a given run touched nothing is not observable from inside that run and stays test procedure (DL-181)"
+  ],
+  "tradeoffs": [
+   "The faces are committed unmodified rather than subset to Latin: the repository carries more bytes, and in exchange every vendored file is byte-identical to a named upstream release and verifiable by hash, with no build step whose output nothing can check",
+   "The font guards prove the wiring - files present, blocks emitted, ordering held, mount argument shared - and not the paint. Only a served page can prove a face rendered, so DL-180 makes a served-page run from .venv reading document.fonts and re-measuring the two defect stacks an acceptance criterion of the font milestone, and its record is the first written under the amended gate.",
+   "The structural gap is recorded rather than closed. The plan buys an accurate account of what the wizard does not build and defers the building, which leaves the Composition not built section holding entries for as long as the work waits",
+   "One rule, one guard: the record-shape check lives with the milestone that states the rule, so the re-verdicting milestone ships with no test of its own rather than with a second copy that could disagree with the first"
+  ]
+ },
+ "milestones": [
+  {
+   "id": "M-001",
+   "version": 4,
+   "number": 1,
+   "name": "The wizard renders in IBM Plex",
+   "files": [
+    "traktor_nml/gui/fonts/OFL.txt",
+    "traktor_nml/gui/theme.py",
+    "traktor_nml/gui/app.py",
+    "traktor_nml/gui/__main__.py",
+    "traktor_nml/gui/README.md",
+    "pyproject.toml",
+    "traktor-nml-spike.spec",
+    "tests/test_gui_font_faces.py",
+    "tests/test_gui_font_assets.py",
+    "tests/test_gui_runtime_no_network.py",
+    "tests/test_repo_state_invariants.py",
+    "docs/2026-09-05-plex-paint-record.md",
+    "docs/CLAUDE.md"
+   ],
+   "flags": [],
+   "requirements": [
+    "design/reconnect-wizard/Main.dc.html line 11 is read as a named step before FONT_FACES is written, and the family and weight pairs it imports are recorded in traktor_nml/gui/README.md as the source of the count (DL-179)",
+    "traktor_nml/gui/fonts/ holds the seven upstream IBM Plex woff2 faces that import line names - Sans 400/500/600/700 and Mono 400/500/600 - unmodified, with OFL.txt beside them",
+    "the vendoring step names the IBM/plex release tag and the archive URL it downloaded and records the per-file SHA-256 in traktor_nml/gui/README.md, and the asset guard recomputes each committed file's SHA-256 and asserts it equals the recorded hash (DL-167)",
+    "theme.py defines FONT_URL_BASE and FONT_FACES, and page_stylesheet() emits exactly seven @font-face blocks - one per entry - each src naming FONT_URL_BASE with format('woff2') and font-display: swap; theme.py imports no nicegui",
+    "app.py mounts the fonts directory at theme.FONT_URL_BASE through app.add_static_files from the module that already owns every nicegui call, so both routes reach the faces through the single _page_chrome call site",
+    "the concrete cascade position DL-086's ladder records for gui/ rules is read out of traktor_nml/README.md as a named step and written into traktor_nml/gui/README.md before the body font rule is written (DL-173)",
+    "the @font-face blocks stand ahead of the body rule whose font-family value is the FONT_SANS constant, and that body rule is emitted at the recorded cascade position so it wins against Quasar's Roboto default (DL-173)",
+    "the installed nicegui version and the module path and signature of app.add_static_files are read from the installed distribution and cited in traktor_nml/gui/README.md before FONT_URL_BASE is fixed (DL-174)",
+    "the woff2-only format choice is stated in traktor_nml/gui/README.md with the pywebview-embedded WebView2 or WebKit engine named as the only client (DL-175)",
+    "the vendoring step measures the total bytes of the directory and traktor_nml/gui/README.md states that exact total, and the guard asserts the directory total is at or under the recorded total plus five percent (DL-176)",
+    "pyproject.toml installs traktor_nml/gui/fonts/ as package data and traktor-nml-spike.spec carries it in datas",
+    "app.py stays wholly CRLF and theme.py and the tests stay LF, with every read and write taking newline=''",
+    "the font guards read source text and never import traktor_nml.gui.app, because the system interpreter running the suite has no nicegui (DL-178)",
+    "every sentence written into traktor_nml/gui/README.md, the paint record and docs/CLAUDE.md describes the file as it stands, with no previously / now does / no longer / added (DL-177)",
+    "the milestone runs after M-002 and closes with a served-page run from .venv meeting the DL-180 pass condition, writing docs/2026-09-05-plex-paint-record.md under the amended DL-084 in the shape the guard M-002 installs checks (DL-182)",
+    "docs/CLAUDE.md gains a table row for docs/2026-09-05-plex-paint-record.md naming the structural verdict it carries, so the fifth record is indexed where the other four are"
+   ],
+   "acceptance_criteria": [
+    "pytest tests/ -q under the system interpreter passes at 534 passed and 3 skipped plus the milestone's own tests: no regression and no new skip (DL-178)",
+    "tests/test_gui_font_assets.py fails when a face file is removed from the directory, when one byte of a face is altered so its SHA-256 no longer matches the hash recorded in traktor_nml/gui/README.md, and when the directory total crosses the recorded measured total plus five percent - each mutation and the assertion text observed named in its docstring",
+    "tests/test_gui_font_faces.py fails when one @font-face block is deleted, when a weight is dropped from FONT_FACES so the tuple no longer equals the pairs parsed from design/reconnect-wizard/Main.dc.html line 11, when the body rule is moved above the @font-face blocks, when the recorded cascade position is removed from the emitted body rule, and when the mount argument in app.py is changed away from theme.FONT_URL_BASE - each mutation and its output named in its docstring",
+    "no guard in any of the four test modules treats a font-family name as evidence a face loaded; the single font-family assertion is the identity check that the body rule's value is theme.FONT_SANS (DL-165)",
+    "tests/test_gui_runtime_no_network.py fails when a fonts.googleapis.com link is reinstated in page_stylesheet() and passes over the tree as it stands",
+    "tests/test_repo_state_invariants.py asserts the recorded digests of tests/baselines/manifest.json and fixture/w002gatefix2 and fails when either is regenerated, and it fails when a module under tests/ or traktor_nml/ is given a write path under build/ or dist/ (DL-181)",
+    "traktor_nml/gui/README.md's file table names fonts/ and states the measured directory total in bytes, the IBM/plex release tag and archive URL, the per-file SHA-256, the nicegui add_static_files citation, the recorded DL-086 cascade position and the pywebview engine behind the woff2-only choice",
+    "grep for previously / now does / no longer / was added over traktor_nml/gui/README.md, docs/2026-09-05-plex-paint-record.md and the new docs/CLAUDE.md row returns nothing (DL-177)",
+    "docs/2026-09-05-plex-paint-record.md records document.fonts reporting all seven IBM Plex faces loaded, a sans stack width other than 485.5078125px and a mono stack width other than 615.78125px, each new width also distinct from the Segoe UI and Consolas widths measured in the same session (DL-180)",
+    "docs/2026-09-05-plex-paint-record.md passes tests/test_docs_browser_record_structure.py, the guard M-002 installs over every record under docs/",
+    "docs/CLAUDE.md lists docs/2026-09-05-plex-paint-record.md with the structural verdict it carries",
+    "tests/test_gui_line_endings.py passes unchanged"
+   ],
+   "tests": [
+    "Unit tests, doc-derived, run under the system interpreter: tests/test_gui_font_assets.py, tests/test_gui_font_faces.py, tests/test_gui_runtime_no_network.py, tests/test_repo_state_invariants.py",
+    "normal: Seven face files exist under traktor_nml/gui/fonts/, each non-empty and opening with the woff2 signature bytes",
+    "normal: Each committed face file's SHA-256 equals the hash recorded for it in traktor_nml/gui/README.md",
+    "normal: The family and weight pairs parsed from design/reconnect-wizard/Main.dc.html line 11 equal theme.FONT_FACES exactly and number seven",
+    "normal: page_stylesheet() emits one @font-face block per theme.FONT_FACES entry, each src naming theme.FONT_URL_BASE and the entry's filename",
+    "normal: The emitted body rule carries the recorded DL-086 cascade position and its font-family value is theme.FONT_SANS",
+    "normal: app.py passes theme.FONT_URL_BASE as the url_path of its add_static_files call",
+    "normal: OFL.txt is present and non-empty beside the faces",
+    "edge: The fonts directory holds no font file theme.FONT_FACES does not name, so a stray or superseded face fails rather than riding along",
+    "edge: A face named in theme.FONT_FACES with no file on disk fails the asset guard, and a file on disk that no entry names fails it too",
+    "edge: A directory total at the recorded measured total plus five percent passes and one byte past it fails",
+    "error: One face file moved aside: the asset guard fails naming the missing filename, and the file is restored from the copy taken beforehand, never via git checkout",
+    "error: One byte altered in a face: the asset guard fails on the SHA-256 mismatch against the recorded hash",
+    "error: One @font-face block deleted from page_stylesheet(): the stylesheet guard fails on the block count",
+    "error: The add_static_files url_path replaced with a string literal: the stylesheet guard fails on the mount argument, which is exactly how a route and a stylesheet drift apart",
+    "error: tests/baselines/manifest.json regenerated: tests/test_repo_state_invariants.py fails on the recorded digest"
+   ],
+   "code_intents": [
+    {
+     "id": "CI-M-001-001",
+     "version": 1,
+     "file": "traktor_nml/gui/theme.py",
+     "function": "FONT_URL_BASE",
+     "behavior": "The URL prefix the served faces answer at, a module constant beside FONT_SANS and FONT_MONO. It is the one place the path is written: page_stylesheet() builds every @font-face src from it and app.py passes it as the url_path of its static mount, so the stylesheet and the route cannot name different paths.",
+     "decision_refs": [
+      "DL-164"
+     ]
+    },
+    {
+     "id": "CI-M-001-002",
+     "version": 2,
+     "file": "traktor_nml/gui/theme.py",
+     "function": "FONT_FACES",
+     "behavior": "The seven faces as a tuple of family, weight and filename triples - IBM Plex Sans at 400, 500, 600 and 700 and IBM Plex Mono at 400, 500 and 600 - each filename naming a file in traktor_nml/gui/fonts/. The pairs are written only after design/reconnect-wizard/Main.dc.html line 11 has been read as a named step of this milestone, and a comment cites that line as the source of the count. The guard reparses that same line so the tuple and the artboard import cannot drift apart.",
+     "decision_refs": [
+      "DL-163",
+      "DL-179"
+     ]
+    },
+    {
+     "id": "CI-M-001-003",
+     "version": 3,
+     "file": "traktor_nml/gui/theme.py",
+     "function": "page_stylesheet",
+     "behavior": "The stylesheet string opens with exactly seven @font-face blocks - one per FONT_FACES entry - each carrying font-family, font-style normal, the entry's font-weight, font-display swap and a src of url(FONT_URL_BASE and the filename) with a woff2 format hint. The blocks stand ahead of the body rule whose font-family value is the FONT_SANS constant, and that body rule is emitted at the concrete cascade position read out of DL-086 and recorded in traktor_nml/gui/README.md before this rule is written, so it wins against Quasar's Roboto default rather than losing to a layer Quasar orders last. The blocks are built by iterating FONT_FACES rather than written out. The module imports no nicegui.",
+     "decision_refs": [
+      "DL-163",
+      "DL-164",
+      "DL-173",
+      "DL-179"
+     ]
+    },
+    {
+     "id": "CI-M-001-004",
+     "version": 1,
+     "file": "traktor_nml/gui/app.py",
+     "function": "_page_chrome",
+     "behavior": "Before the stylesheet reaches ui.add_head_html, the fonts directory beside this module is mounted at theme.FONT_URL_BASE through nicegui's app.add_static_files, guarded so repeated page builds mount it a single time. The url_path argument is theme.FONT_URL_BASE itself rather than a literal. The mount sits here because both routes build their chrome through this one call.",
+     "decision_refs": [
+      "DL-164"
+     ]
+    },
+    {
+     "id": "CI-M-001-005",
+     "version": 1,
+     "file": "traktor_nml/gui/__main__.py",
+     "function": "module",
+     "behavior": "The entry point starts the wizard with the faces already reachable: build_wizard() registers the pages whose chrome mounts the font route, so ui.run in native mode serves them from the package directory with no network request. A comment records that the desktop mode is why the faces are served locally.",
+     "decision_refs": [
+      "DL-163"
+     ]
+    },
+    {
+     "id": "CI-M-001-006",
+     "version": 1,
+     "file": "traktor_nml/gui/fonts/OFL.txt",
+     "function": "file",
+     "behavior": "The SIL Open Font License 1.1 text as published with the IBM Plex release the faces come from, sitting in the directory the wheel and the frozen build both copy.",
+     "decision_refs": [
+      "DL-166"
+     ]
+    },
+    {
+     "id": "CI-M-001-007",
+     "version": 3,
+     "file": "traktor_nml/gui/README.md",
+     "function": "document",
+     "behavior": "The file table carries a fonts/ row naming the seven faces and the licence file. Beside it the README records: the family and weight pairs read from design/reconnect-wizard/Main.dc.html line 11 as the source of the count; the IBM/plex release tag and the archive URL the woff2 files were downloaded from with each file's SHA-256 as computed at vendoring; the exact measured total size of the directory in bytes, which is the number the asset guard's ceiling is derived from; the concrete cascade position read out of DL-086 for gui/ rules; and the installed nicegui version with the module path and signature of app.add_static_files read from it. A paragraph states that the faces are served by the application from its own package directory rather than fetched, that the only client is the WebView2 or WebKit engine pywebview embeds under ui.run(native=True), and that the engine's woff2 support is why one format ships. Every sentence describes the file as it stands, with no previously, now does, no longer or added.",
+     "decision_refs": [
+      "DL-163",
+      "DL-166",
+      "DL-167",
+      "DL-173",
+      "DL-174",
+      "DL-175",
+      "DL-176",
+      "DL-177",
+      "DL-179"
+     ]
+    },
+    {
+     "id": "CI-M-001-008",
+     "version": 1,
+     "file": "pyproject.toml",
+     "function": "package-data",
+     "behavior": "The traktor_nml.gui package ships its fonts directory - the woff2 faces and OFL.txt - as package data, so installing the gui extra leaves the faces on disk beside the module that mounts them.",
+     "decision_refs": [
+      "DL-168"
+     ]
+    },
+    {
+     "id": "CI-M-001-009",
+     "version": 1,
+     "file": "traktor-nml-spike.spec",
+     "function": "Analysis.datas",
+     "behavior": "datas carries the traktor_nml/gui/fonts directory to the same path inside the bundle, beside the nicegui tree it already carries, so a frozen build serves the faces rather than answering 404 and falling back to a system face.",
+     "decision_refs": [
+      "DL-168"
+     ]
+    },
+    {
+     "id": "CI-M-001-010",
+     "version": 3,
+     "file": "tests/test_gui_font_assets.py",
+     "function": "test_module",
+     "behavior": "Reads traktor_nml/gui/fonts/ and asserts one existing non-empty file per theme.FONT_FACES filename, that each begins with the woff2 signature bytes, that OFL.txt is present and non-empty, and that the directory holds no font file theme.FONT_FACES does not name. It recomputes the SHA-256 of each committed face and asserts it equals the hash recorded for that file in traktor_nml/gui/README.md, so the vendoring provenance is a live assertion rather than a statement in prose. It asserts the directory's total size in bytes is at or under the measured total recorded in that README plus five percent, the ceiling DL-176 derives. The docstring records the mutations applied - one face file moved aside and restored from the copy taken beforehand and never via git checkout, one byte altered in a face so its hash no longer matches, and enough bytes appended to cross the derived ceiling - and the exact assertion text each run produced.",
+     "decision_refs": [
+      "DL-165",
+      "DL-166",
+      "DL-167",
+      "DL-176"
+     ]
+    },
+    {
+     "id": "CI-M-001-011",
+     "version": 3,
+     "file": "tests/test_gui_font_faces.py",
+     "function": "test_module",
+     "behavior": "Reads theme.page_stylesheet() as text without importing traktor_nml.gui.app, because the system interpreter that runs the suite has no nicegui. It parses design/reconnect-wizard/Main.dc.html line 11 and asserts the family and weight pairs it imports equal theme.FONT_FACES exactly, with len(theme.FONT_FACES) == 7 and exactly seven @font-face blocks in the emitted stylesheet, one per entry, each src naming theme.FONT_URL_BASE and its entry's filename with a woff2 format hint. It asserts every @font-face block appears ahead of the body rule, that the body rule carries the concrete cascade position recorded in traktor_nml/gui/README.md from DL-086, and that the body rule's font-family value is the theme.FONT_SANS constant itself rather than a transcribed name - the identity form DL-165 admits, since a name assertion is true in exactly the broken state. Reading traktor_nml/gui/app.py's source with an empty newline argument, it asserts the add_static_files call passes theme.FONT_URL_BASE rather than a literal path. The docstring records five mutations - one @font-face block deleted, one weight dropped from FONT_FACES, the body rule moved above the blocks, the recorded cascade position removed from the body rule, and the mount argument replaced with a literal - and the assertion text each produced.",
+     "decision_refs": [
+      "DL-164",
+      "DL-165",
+      "DL-173",
+      "DL-178",
+      "DL-179"
+     ]
+    },
+    {
+     "id": "CI-M-001-012",
+     "version": 1,
+     "file": "tests/test_gui_runtime_no_network.py",
+     "function": "test_module",
+     "behavior": "Walks every module under traktor_nml/gui/ as source text and asserts no runtime path names fonts.googleapis.com or any other scheme-bearing host, so the invariant that the running application reaches no network host is enforced by the suite rather than by a one-time grep at review. The docstring records the mutation applied - a fonts.googleapis.com link reinstated in page_stylesheet() - and the assertion text the run produced.",
+     "decision_refs": [
+      "DL-163",
+      "DL-181"
+     ]
+    },
+    {
+     "id": "CI-M-001-013",
+     "version": 2,
+     "file": "docs/2026-09-05-plex-paint-record.md",
+     "function": "document",
+     "behavior": "The served-page record closing the font milestone, written after M-002 has amended DL-084 and installed the record-shape guard, so it is the first record authored under the amended gate rather than a record written against the old procedure. The wizard is run from .venv; document.fonts is read and all seven IBM Plex faces are recorded with status loaded; the two stacks whose widths recorded the defect are re-measured and each new width is recorded beside the width the same test string measures in the system fallback stack in that same session, so a reading distinct from both 485.5078125px and the session's Segoe UI width - and from both 615.78125px and the session's Consolas width - is what passes. It carries structural verdicts per surface under the amended DL-084 alongside its atom readings and satisfies tests/test_docs_browser_record_structure.py, which reads every record under docs/. Every sentence describes what this run measured, with no previously, now does, no longer or added.",
+     "decision_refs": [
+      "DL-169",
+      "DL-177",
+      "DL-180"
+     ]
+    },
+    {
+     "id": "CI-M-001-014",
+     "version": 1,
+     "file": "traktor_nml/gui/README.md",
+     "function": "nicegui-mount-citation",
+     "behavior": "The step that precedes fixing FONT_URL_BASE: the installed nicegui distribution is read for app.add_static_files - its version string, module path and signature - and what was found is written into the README as the citation the mount premise rests on, rather than the premise being carried as an assumption no guard can execute under an interpreter without nicegui.",
+     "decision_refs": [
+      "DL-174"
+     ]
+    },
+    {
+     "id": "CI-M-001-015",
+     "version": 1,
+     "file": "tests/test_repo_state_invariants.py",
+     "function": null,
+     "behavior": "The repository-state invariant in a module of its own rather than riding on the font asset guard. It asserts the recorded digests of tests/baselines/manifest.json and fixture/w002gatefix2 so a run that regenerated either fails the suite, and it walks tests/ and traktor_nml/ source asserting no module names a write path under build/ or dist/. It does not claim to observe that a run touched nothing, because a pytest module sees state only at its own moment and no baseline exists to diff against; that half of the invariant stays test procedure and DL-181 says so. The docstring records the mutations applied - one byte changed in the manifest fixture copy and a build/ write path introduced into a test module - and the assertion text each produced.",
+     "decision_refs": [
+      "DL-181"
+     ]
+    },
+    {
+     "id": "CI-M-001-016",
+     "version": 1,
+     "file": "docs/CLAUDE.md",
+     "function": null,
+     "behavior": "The docs/ table gains a row for docs/2026-09-05-plex-paint-record.md naming the served-page run it transcribes and the structural verdict it carries, so the fifth browser record is indexed where the other four are and a reader choosing a record finds it. The row describes the record as it stands, with no previously, now does, no longer or added.",
+     "decision_refs": [
+      "DL-177",
+      "DL-180"
+     ]
+    }
+   ],
+   "code_changes": [],
+   "documentation": {
+    "module_comment": null,
+    "docstrings": [],
+    "function_blocks": [],
+    "inline_comments": []
+   },
+   "is_documentation_only": false,
+   "delegated_to": null
+  },
+  {
+   "id": "M-002",
+   "version": 3,
+   "number": 2,
+   "name": "DL-084 gates composition",
+   "files": [
+    "traktor_nml/README.md",
+    "tests/test_docs_browser_record_structure.py"
+   ],
+   "flags": [],
+   "requirements": [
+    "DL-084's entry requires a structural verdict per named surface - app shell, column model, card structure and table geometry - beside the atom verdicts a record already carries, and a surface carrying no structural verdict fails the gate",
+    "the amendment names the reconstruct page at the root route as outside the structural gate and states the ground: no artboard draws it, and Specs' prose - which governs under DL-088 - specifies no composition for it",
+    "a Composition not built section holds one entry per structure the artboards draw that gui/ does not build: the 56px/1fr/64px app shell, the 1fr/400px main split, the card-h/card-b triplet, the review table's column geometry, the footer band and the detail rail, each entry naming the artboard file and selector it is read from",
+    "the Composition not built opening states how a reader tells it from Framework shortfalls and from Design-set divergences, and both of those sections gain the reciprocal sentence",
+    "DL-163 through DL-182 - every decision this plan creates - are recorded in the Design Decisions section in id order, continuing from DL-162",
+    "tests/test_docs_browser_record_structure.py discovers the browser records under docs/ from the directory rather than from a fixed count, so the paint record M-001 writes and any record added later fall under the structural gate by construction",
+    "the guard holds a digest of each existing record's atom reading lines, so a re-verdict that rewrote a recorded reading fails the suite rather than the review (DL-171)",
+    "every sentence describes the file as it stands, with no previously / now does / no longer / added (DL-177)"
+   ],
+   "acceptance_criteria": [
+    "pytest tests/ -q under the system interpreter passes at 534 passed and 3 skipped plus this milestone's own test: no regression and no new skip (DL-178)",
+    "tests/test_docs_browser_record_structure.py asserts every browser record it discovers under docs/ carries a structural verdicts section",
+    "tests/test_docs_browser_record_structure.py fails when that section is deleted from one record, and its docstring records which record and the assertion text observed",
+    "tests/test_docs_browser_record_structure.py fails when a recorded atom reading in one record is altered, because the guard holds that record's reading digest",
+    "the highest DL id in traktor_nml/README.md is DL-182 and no id is used twice",
+    "the three headings Framework shortfalls, Design-set divergences and Composition not built each state their distinction from the other two",
+    "grep for previously / now does / no longer / was added over the changed region returns nothing (DL-177)"
+   ],
+   "tests": [
+    "Unit tests, doc-derived, run under the system interpreter: tests/test_docs_browser_record_structure.py",
+    "normal: Every browser record discovered under docs/ carries a structural verdicts section",
+    "normal: Every artboard structure a record names in a differs verdict resolves to an entry of that name under Composition not built in traktor_nml/README.md",
+    "normal: Each existing record's atom reading lines hash to the digest the guard records for that record",
+    "edge: A record naming a structure with no matching Composition not built entry fails, so a differs verdict cannot point at a section that does not record it",
+    "edge: A record added to docs/ after this milestone is picked up by the directory discovery and gated like the rest, with no edit to the guard",
+    "edge: The header-tabs record's statement that the root route is outside the structural gate reads as a gate exclusion rather than as a missing verdict",
+    "error: The structural verdicts section deleted from one named record: the guard fails naming that record, and the file is restored from a copy taken beforehand, never via git checkout",
+    "error: One recorded atom reading altered in one record: the guard fails on that record's reading digest, which is how DL-171 is enforced rather than reviewed"
+   ],
+   "code_intents": [
+    {
+     "id": "CI-M-002-001",
+     "version": 1,
+     "file": "traktor_nml/README.md",
+     "function": "DL-084",
+     "behavior": "The entry requires each named surface in a served-page record to carry a structural verdict - app shell, column model, card structure, table geometry - beside its atom verdicts, and states that a surface with atom verdicts alone fails the gate. It names the reconstruct page at the root route as outside the structural gate, on the ground that no artboard draws it and Specs' prose, governing under DL-088, specifies no composition for it.",
+     "decision_refs": [
+      "DL-169",
+      "DL-172"
+     ]
+    },
+    {
+     "id": "CI-M-002-002",
+     "version": 1,
+     "file": "traktor_nml/README.md",
+     "function": "Composition not built",
+     "behavior": "A section holding one entry per structure the artboards draw that gui/ does not build: the 56px/1fr/64px app shell, the 1fr/400px main split, the card-h and card-b triplet, the review table's column geometry, the footer band and the detail rail. Each entry names the artboard file and selector it is read from and the records that pass over it. The opening states the test that separates this section from Framework shortfalls, which holds a rule the running framework refuses, and from Design-set divergences, which holds a value the prose supersedes: an entry here is work not done and leaves by being built. Framework shortfalls and Design-set divergences each carry the reciprocal sentence.",
+     "decision_refs": [
+      "DL-170"
+     ]
+    },
+    {
+     "id": "CI-M-002-003",
+     "version": 2,
+     "file": "traktor_nml/README.md",
+     "function": "Design Decisions",
+     "behavior": "Every decision this plan creates - DL-163 through DL-182 - stands in the Design Decisions section in id order continuing from DL-162, so the highest id in traktor_nml/README.md after this milestone is DL-182: the vendored faces and their count read from the artboard import line, the shared FONT_URL_BASE constant across the nicegui boundary, the guard rule that no assertion infers paint from a font-family name, the licence and the verified provenance, the unsubsetted upstream files, the two packaging routes, DL-084's structural requirement, the Composition not built section, the coverage-statement form of a re-verdict, the reconstruct page's exclusion, the recorded cascade position, the nicegui mount citation, the woff2-only format, the measurement-derived size ceiling, the as-it-stands documentation rule, the system-interpreter baseline, the artboard-parsed face count, the served-page pass condition, the two invariant guards, and the milestone ordering.",
+     "decision_refs": [
+      "DL-163",
+      "DL-164",
+      "DL-165",
+      "DL-166",
+      "DL-167",
+      "DL-168",
+      "DL-169",
+      "DL-170",
+      "DL-171",
+      "DL-172",
+      "DL-173",
+      "DL-174",
+      "DL-175",
+      "DL-176",
+      "DL-177",
+      "DL-178",
+      "DL-179",
+      "DL-180",
+      "DL-181",
+      "DL-182"
+     ]
+    },
+    {
+     "id": "CI-M-002-004",
+     "version": 2,
+     "file": "tests/test_docs_browser_record_structure.py",
+     "function": "test_module",
+     "behavior": "Reads every browser record under docs/ - discovered from the directory rather than from a transcribed count, so the paint record M-001 writes and any record added later are covered by construction - and asserts each carries a structural verdicts section naming the surfaces the run did not measure, and that every artboard structure it names in a differs verdict resolves to an entry of that name under Composition not built in traktor_nml/README.md. To enforce DL-171 it holds a digest of each existing record's atom reading lines and asserts they are unchanged, so a re-verdict that rewrote a recorded reading fails the suite rather than the review. The docstring records the mutations applied - the structural section deleted from one named record and one recorded reading altered in another, each file restored from a copy taken beforehand - and the assertion text each run produced.",
+     "decision_refs": [
+      "DL-169",
+      "DL-170",
+      "DL-171"
+     ]
+    }
+   ],
+   "code_changes": [],
+   "documentation": {
+    "module_comment": null,
+    "docstrings": [],
+    "function_blocks": [],
+    "inline_comments": []
+   },
+   "is_documentation_only": false,
+   "delegated_to": null
+  },
+  {
+   "id": "M-003",
+   "version": 4,
+   "number": 3,
+   "name": "The four records carry structural verdicts",
+   "files": [
+    "docs/2026-08-27-m001-browser-record.md",
+    "docs/2026-08-28-w002-browser-record.md",
+    "docs/2026-08-29-w004-focus-ring-record.md",
+    "docs/2026-09-03-header-tabs-browser-record.md",
+    "docs/CLAUDE.md"
+   ],
+   "flags": [],
+   "requirements": [
+    "each of the four records carries a Structural verdicts section stating per surface it covered that the run measured atoms and did not measure the structure with a differs verdict naming the artboard structure and the Composition not built entry it belongs to",
+    "every atom verdict already in each record stands exactly as recorded with its table rows and readings untouched",
+    "the header-tabs record states that the root route it opened is outside the structural gate under the amended DL-084 rather than carrying a differs verdict for it",
+    "docs/CLAUDE.md's table entry for each of the four re-verdicted records names the structural verdict that record carries; the row for docs/2026-09-05-plex-paint-record.md is written by M-001 with that record",
+    "every sentence added to the four records and to docs/CLAUDE.md describes the document as it stands with no previously / now does / no longer / added (DL-177)"
+   ],
+   "acceptance_criteria": [
+    "pytest tests/ -q under the system interpreter passes at the baseline including the guard from M-002",
+    "a diff of each record shows insertions only within its existing verdict tables - no reading expectation or verdict cell altered",
+    "each differs entry names an entry that exists by that name under Composition not built in traktor_nml/README.md",
+    "no record claims a measurement no browser session took",
+    "grep for previously / now does / no longer / was added over the four records and docs/CLAUDE.md returns nothing (DL-177)"
+   ],
+   "tests": [
+    "Unit tests, doc-derived, run under the system interpreter: tests/test_docs_browser_record_structure.py",
+    "normal: All four records satisfy the guard the preceding milestone installs, with no test file of their own",
+    "edge: Each record's verdict tables gain rows and lose none, checked by diffing the record and confirming insertions only",
+    "no test file of its own: The records are documentation and the guard that checks their shape belongs to the milestone that states the rule; a second copy here would give one rule two enforcement points that can disagree."
+   ],
+   "code_intents": [
+    {
+     "id": "CI-M-003-001",
+     "version": 1,
+     "file": "docs/2026-08-27-m001-browser-record.md",
+     "function": "document",
+     "behavior": "A structural verdicts section states, per surface the run covered, that the readings taken were getComputedStyle atoms and that the app shell, column model and card structure of Main, Scanning, Results and Confirm went unmeasured, each a differs verdict naming its Composition not built entry. Every token reading and matches verdict the run recorded stands as it is.",
+     "decision_refs": [
+      "DL-169",
+      "DL-171"
+     ]
+    },
+    {
+     "id": "CI-M-003-002",
+     "version": 1,
+     "file": "docs/2026-08-28-w002-browser-record.md",
+     "function": "document",
+     "behavior": "A structural verdicts section states that the 37 verdicts measure control atoms, aria attributes and colours, and that the review table's column geometry, the app shell and the footer band went unmeasured, each a differs verdict naming its Composition not built entry. The two out-of-repository accommodations the run needed stand as recorded, as does every atom verdict.",
+     "decision_refs": [
+      "DL-169",
+      "DL-171"
+     ]
+    },
+    {
+     "id": "CI-M-003-003",
+     "version": 1,
+     "file": "docs/2026-08-29-w004-focus-ring-record.md",
+     "function": "document",
+     "behavior": "A structural verdicts section states that the Review step's focus readings and filter-chip counts are atoms, and that the Review artboard's column geometry and detail rail went unmeasured, each a differs verdict naming its Composition not built entry. The Quasar focus-ring shortfall the record carries stays under Framework shortfalls, distinct from the structural entries.",
+     "decision_refs": [
+      "DL-169",
+      "DL-170",
+      "DL-171"
+     ]
+    },
+    {
+     "id": "CI-M-003-004",
+     "version": 1,
+     "file": "docs/2026-09-03-header-tabs-browser-record.md",
+     "function": "document",
+     "behavior": "A structural verdicts section states that the header readings are anchor atoms and paint, and that the 56px app shell row the header occupies went unmeasured, a differs verdict naming its Composition not built entry. The root route it opened is stated as outside the structural gate under DL-084, with DL-172's ground, rather than carrying a differs verdict. Every anchor reading and the 404 observation stand as recorded.",
+     "decision_refs": [
+      "DL-169",
+      "DL-171",
+      "DL-172"
+     ]
+    },
+    {
+     "id": "CI-M-003-005",
+     "version": 2,
+     "file": "docs/CLAUDE.md",
+     "function": "document",
+     "behavior": "The table row for each of the four browser records names the structural verdict that record carries alongside the atoms it already describes, so a reader choosing a record knows which structures it reports unbuilt. Every sentence describes the record as it stands, with no previously, now does, no longer or added.",
+     "decision_refs": [
+      "DL-171",
+      "DL-177"
+     ]
+    }
+   ],
+   "code_changes": [],
+   "documentation": {
+    "module_comment": null,
+    "docstrings": [],
+    "function_blocks": [],
+    "inline_comments": []
+   },
+   "is_documentation_only": true,
+   "delegated_to": null
+  }
+ ],
+ "waves": [
+  {
+   "id": "W-001",
+   "milestones": [
+    "M-002"
+   ]
+  },
+  {
+   "id": "W-002",
+   "milestones": [
+    "M-001"
+   ]
+  },
+  {
+   "id": "W-003",
+   "milestones": [
+    "M-003"
+   ]
+  }
+ ],
+ "diagram_graphs": [],
+ "readme_entries": [
+  {
+   "path": "traktor_nml",
+   "content": "## Design Decisions\n\nDL-163 - The seven IBM Plex woff2 faces the artboards import - Sans 400/500/600/700 and Mono 400/500/600 - live in traktor_nml/gui/fonts/ and are served by the application itself. design/reconnect-wizard/Main.dc.html line 11 imports exactly those seven weights; the wizard runs under ui.run(native=True), where a CDN link resolves to nothing offline and reports nothing when it fails.\n\nDL-164 - theme.py holds FONT_URL_BASE and emits the @font-face blocks; app.py mounts that same constant through app.add_static_files. An @font-face src and the route that answers it are one fact split across two files, and theme.py may not import nicegui (DL-069), so the constant lives in the nicegui-free module and the mount reads it.\n\nDL-165 - The font guards assert the face files, their byte sizes, the @font-face blocks and the mount argument together; no guard asserts a font-family name. document.fonts.check returns true for an absent Plex face and theme.FONT_SANS already names IBM Plex while the page paints Segoe UI, so a name assertion is true in exactly the broken state.\n\nDL-166 - OFL.txt ships in traktor_nml/gui/fonts/ beside the faces and the vendoring provenance - upstream release and per-file SHA-256 - is recorded in traktor_nml/gui/README.md. IBM Plex is SIL OFL 1.1 and both the wheel and the frozen build copy that directory.\n\nDL-167 - The faces are the upstream woff2 releases, committed unmodified and unsubsetted. Subsetting adds a build step whose output no upstream hash can verify, and an unverifiable vendored binary is a worse failure than the size.\n\nDL-168 - pyproject.toml carries the fonts directory as package data and traktor-nml-spike.spec carries it in datas. A wheel or frozen build without the directory answers 404 for every face and falls back silently.\n\nDL-169 - DL-084 requires a structural verdict per surface - app shell, column model, card structure, table geometry - beside the atom verdicts a record already carries. A surface with atom verdicts alone fails the gate.\n\nDL-170 - Structural differs entries are recorded under a heading of their own, Composition not built, distinct from Framework shortfalls (a rule the running framework refuses) and Design-set divergences (a value the prose supersedes under DL-088). An entry here is work not done and leaves by being built.\n\nDL-171 - Re-verdicting a record adds a structural verdict stating what that run did not measure and leaves every atom verdict as recorded. A record is the transcript of one run against one served page at one commit.\n\nDL-172 - The reconstruct page at the root route is outside DL-084's structural gate, stated in the amendment rather than left implicit: no artboard draws it and Specs' prose, which governs under DL-088, specifies no composition.\n\nDL-173 - The @font-face blocks and the body font rule are emitted so they win against Quasar's Roboto default, at the cascade position DL-086's ladder records, and a guard asserts that ordering in the emitted text.\n\nDL-174 - The installed nicegui version and the module path and signature of app.add_static_files are read from the installed distribution and cited in traktor_nml/gui/README.md before FONT_URL_BASE is fixed, because no guard under the system interpreter can execute the mount.\n\nDL-175 - woff2 ships with no woff or ttf fallback: the only client is the WebView2 or WebKit engine pywebview embeds under ui.run(native=True), and both have supported woff2 since long before any version this project installs.\n\nDL-176 - The vendored directory carries a 600000-byte ceiling asserted by guard, and traktor_nml/gui/README.md states the exact measured total the vendoring step observed.\n\nDL-177 - Every documentation edit in this work describes the file as it stands, with no previously, now does, no longer or added, and each documentation milestone carries the grep acceptance that proves it.\n\nDL-178 - The suite baseline is 534 passed and 3 skipped under the system interpreter, which has no nicegui; the font guards therefore read source text and never import traktor_nml.gui.app.\n\nDL-179 - The stylesheet guard asserts the literal seven: len(theme.FONT_FACES) == 7 and exactly seven @font-face blocks, so dropping a weight cannot leave the guards green.\n\nDL-180 - The font work closes with a served-page run from .venv reading document.fonts for the seven faces and re-measuring the two stacks that recorded the defect, written up as the first record under the amended gate.\n\nDL-181 - The network-host invariant and the repository-state invariant gain guards rather than resting on a review-time grep and on test-procedure prose.\n\nDL-182 - The font work and the gate amendment share no file, artefact or output and run in parallel; the only real edge is the gate amendment before the re-verdicting, whose records name entries and are checked by the guard that amendment installs."
+  }
+ ],
+ "milestone_dependencies": {
+  "diagram_ascii": "M-002 --> M-001 (M-001's closing paint record is written under the AMENDED DL-084 and checked by the record-shape guard M-002 installs)\nM-002 --> M-003 (the records name entries M-002 creates and are checked by its guard)\nM-001 --> M-003 (both write docs/CLAUDE.md - M-001 adds the paint record's row, M-003 names the structural verdict each re-verdicted record carries - so they are sequenced rather than parallel)",
+  "waves": [
+   {
+    "wave": 1,
+    "milestones": [
+     "M-002"
+    ]
+   },
+   {
+    "wave": 2,
+    "milestones": [
+     "M-001"
+    ]
+   },
+   {
+    "wave": 3,
+    "milestones": [
+     "M-003"
+    ]
+   }
+  ]
+ }
+}
