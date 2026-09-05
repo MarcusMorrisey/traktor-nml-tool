@@ -1,4 +1,88 @@
-# The vendored typeface
+# traktor_nml/gui/
+
+What is not visible from reading the modules: the import boundary the
+test suite depends on, why the wizard calls the cores in process, how
+the two design documents are resolved where they disagree, and what the
+vendored typeface is.
+
+## The nicegui boundary
+
+`app.py`, `file_picker.py` and `__main__.py` are the only three modules
+in this package that import `nicegui` or `pywebview`. Every other
+module - `review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py`,
+`announce.py`, `conflict_model.py`, `navigation.py`, `_fs_nav.py` and
+`__init__.py` - imports neither and is reachable from the test suite's
+system interpreter, which has no `nicegui` installed. Every rule worth
+testing sits below that boundary, in the nicegui-free modules, so the
+suite can reach it (DL-069; guarded by an AST walk in
+`tests/test_gui_view_boundary.py`).
+
+## Why the wizard drives the cores directly
+
+The wizard imports and calls `run_reconnection` and the two reconnect
+cores in-process and renders its own view from `ReconnectResult`. It
+does not shell out to `scan-reconnect-candidates`/`rewrite-from-reconnect`
+and parse their key=value stdout. Tier 1 needs structured data while a
+run is still open - a live scan progress feed and an interactive
+ambiguous-match table the operator acts on mid-run - and a parsed
+transcript exists only once the process has exited, so a scraping wizard
+could build its review table only after the decision point the table
+exists to serve, with no live object to cancel into. `ui.log` is instead
+fed from `reconnect_render`'s line-producing functions over the
+`RenderedOutput` they already return.
+
+Subprocess-scraping the CLI transcript is not wrong; it was evaluated as
+the data source for Tier 1, rejected, and survives as the
+`docs/nicegui-gui-analysis.md` section 5 fallback if in-process
+integration fails, and remains a correct way to obtain the same numbers
+after a run (DL-075, `traktor_nml/README.md`).
+
+## Where Specs.dc.html and docs/nicegui-gui-analysis.md disagree
+
+`design/reconnect-wizard/Specs.dc.html` and sections 1-5 of
+`docs/nicegui-gui-analysis.md` disagree in two places, and neither is
+resolved by silently preferring one document over the other:
+
+- **Status taxonomy and the keyboard map**: section 4 of
+  `docs/nicegui-gui-analysis.md` names three review buckets (matched,
+  ambiguous, dangling) against `ui.aggrid` with row selection; Specs
+  names six statuses, seven filter chips, and a keyboard contract
+  binding digits 1-9 to candidate picking, A/R/U to decisions, and
+  Shift-arrow to range selection. **Specs governs** - it is the
+  cross-screen contract for what the operator sees and presses.
+  The review table renders hand-rolled `ui.row` rows per record;
+  aggrid claims the arrow keys Specs binds over that same table, and
+  is not adopted for it (DL-079). Section 4's three buckets are read
+  against those rows. See `traktor_nml/README.md`'s Design Decisions
+  section for DL-078 through DL-089.
+- **Framework mechanics**: `run.io_bound` (not `run.cpu_bound`, since
+  neither `TagCache` nor an lxml root pickles cleanly across a process
+  boundary), `ui.log`, and the `local_file_picker` component are named
+  only in section 4 - Specs names no framework at all. **Section 4
+  governs** these three.
+
+(DL-072, `traktor_nml/README.md`.)
+
+## Design source of record
+
+`design/reconnect-wizard/Specs.dc.html` is a committed source, read
+alongside the other tracked `.dc.html` files and `canvas.json`;
+`design/reconnect-wizard/reconnect-wizard.html` is the gitignored bundle
+seeded from those sources. The precedence rule the design set carries is
+that a screen disagreeing with Specs is fixed in Specs rather than the
+other way round: Specs is the cross-screen contract, and an artboard is
+one screen's rendering of it (DL-071).
+
+## Tier classification is not re-derived here
+
+`scan-reconnect-candidates`' membership in both Tier 1 (the wizard's
+first step) and Tier 2 (generated-form eligibility) is resolved by
+`tests/test_gui_command_classification.py`'s two predicates,
+`PRIMARY_TIER` and `TIER2_ELIGIBLE`, checked against the real
+`build_parser` choices. This package reads that dual membership as
+settled rather than re-deriving a second classification (DL-073).
+
+## The vendored typeface
 
 `theme.py`'s `FONT_SANS` and `FONT_MONO` name IBM Plex, and `fonts/`
 holds the faces that make those names paint. Naming a family the page
@@ -10,7 +94,7 @@ canvas: the sans stack drew a test string at 485.5078125px, identical to
 `system-ui` and to `"Segoe UI"`, and the mono stack at 615.78125px,
 identical to `Consolas`.
 
-## What is vendored, and from where
+### What is vendored, and from where
 
 The seven faces `design/reconnect-wizard/Main.dc.html` line 11 imports:
 IBM Plex Sans 400/500/600/700 and IBM Plex Mono 400/500/600. No italic,
@@ -41,7 +125,7 @@ decision rather than a quiet gain (DL-176).
 `OFL.txt` beside the faces is the licence they ship under, SIL Open Font
 License 1.1 (DL-166).
 
-## How they reach the page
+### How they reach the page
 
 `theme.py` holds `FONT_URL_BASE` and `FONT_FACES` and emits one
 `@font-face` block per entry; `app.py` mounts the directory at that same
@@ -59,7 +143,7 @@ the suite runs under the system interpreter, which has no nicegui
 `_mount_fonts()` is called from `_page_chrome`, which both pages call,
 and it is idempotent because nicegui raises on a route mounted twice.
 
-## What the guards can and cannot see
+### What the guards can and cannot see
 
 No guard asserts a font-family name on its own. `theme.FONT_SANS`
 already named IBM Plex throughout the period the page painted Segoe UI,

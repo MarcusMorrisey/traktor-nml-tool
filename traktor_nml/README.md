@@ -615,7 +615,7 @@ statement of the same decision would only give it two copies to drift apart.
   disagree, `Specs.dc.html` governs the six statuses, the seven filter
   chips and the keyboard map, and section 4 governs `run.io_bound`,
   `ui.log` and the `local_file_picker` component; both splits are
-  recorded in `traktor_nml/gui/CLAUDE.md` rather than one document being
+  recorded in `traktor_nml/gui/README.md` rather than one document being
   silently preferred, since a reader who meets only one of the two
   documents would otherwise be unable to tell whether a difference was
   decided or overlooked. `Specs.dc.html` wins on what the operator sees
