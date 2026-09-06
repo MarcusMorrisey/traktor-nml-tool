@@ -124,6 +124,12 @@ def test_an_unexpected_scan_exception_reaches_the_operator(app_module):
     nicegui_module.run.io_bound = _raising_io_bound
 
     state = app_module._WizardPageState()
+    # _page_chrome builds the footer band both routes carry, and every
+    # step's advancing control is constructed in it, so a step built
+    # outside a page needs the note and the action group the chrome
+    # would have handed it (DL-187).
+    state.footer_note = app_module.ui.label("")
+    state.footer_actions = app_module.ui.row()
     state.args = __import__("argparse").Namespace(output=__import__("pathlib").Path("out.nml"))
     state.assertive_region = MagicMock()
 

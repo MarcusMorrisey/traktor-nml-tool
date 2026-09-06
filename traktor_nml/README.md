@@ -848,6 +848,73 @@ statement of the same decision would only give it two copies to drift apart.
   the re-verdicted records name entries the amendment creates. The
   font work and the re-verdicting both write `docs/CLAUDE.md`, so they
   are sequenced rather than parallel (DL-182).
+- The wizard's shell is built from `ui.header` and `ui.footer` rather
+  than from hand-rolled fixed bands, because Quasar's own `QLayout`
+  writes each band's height onto `q-page-container` as padding and a
+  fixed band fights that reservation; each is constructed with
+  `bordered` and `elevated` off, so the rule and the ground each band
+  carries are the ones `theme.py` emits (DL-183).
+- The header band, the middle region and the footer band are the three
+  rows `.app` draws at `Main.dc.html:15`, and the middle owns the page
+  scroll rather than the document (DL-184).
+- `_page_chrome` builds both bands and hands back the middle container,
+  which each route enters with a `with` statement, so a page's body
+  lands inside the scrolling region by construction rather than by
+  caller discipline (DL-185).
+- Each section a page builds is a card - `.wizard-card` holding a
+  `.wizard-card-head` with its `.wizard-card-title`, and a
+  `.wizard-card-body` - as `Main.dc.html:32-35` draws it (DL-186).
+- Each step's advancing control is built once, in its own group inside
+  the footer action row, and the step change decides which group the
+  band shows; the control invokes the function the step defines, so its
+  enabled state is held once rather than kept in sync between a copy in
+  the step and a copy in the band (DL-187).
+- Every dimension and every colour the shell and the cards measure at
+  is a constant in `theme.py`, sourced in a comment to the artboard line
+  that states it, and a call site names a class rather than a value,
+  because `theme.py` is the module a guard under the system interpreter
+  can read (DL-188).
+- A guard asserts a rule's content and where a control is constructed;
+  the rendered height, the scroll owner and the computed card padding
+  belong to the served-page record, because a guard that reads a name is
+  true in exactly the broken state (DL-189).
+- An entry leaves "Composition not built" only where a record reads its
+  structure built, the prose that strikes it names the record and the
+  reading that carries it, and the milestone that strikes it closes on a
+  served-page record of its own, taken after the strike (DL-190).
+- The reconstruct page composes against the same shell as the reconnect
+  wizard - the same bands, the same middle, the same card triplet - and
+  DL-172 decides what a record may verdict about that route, not which
+  shell it is built from. The two-column `main`, the review table's grid
+  geometry and the 400px detail rail are outside this work's scope, so
+  each stands as written under "Composition not built" (DL-191).
+- `nicegui.css` sets `align-items: flex-start`, `gap: 1rem` and
+  `padding: 1rem` on `.nicegui-header` and `.nicegui-footer` and gives
+  both `flex-direction: row`, so each band restates the alignment, the
+  gap and the padding and takes the direction the framework already
+  gives it; the wizard sheet reaches the head after the framework sheet,
+  so the restatement wins at equal specificity (DL-192).
+- The viewport-height declarations key on Quasar's and nicegui's own
+  `q-layout`, `q-page-container`, `q-page` and `nicegui-content` classes
+  rather than on `wizard-` names, because `app.py` constructs none of
+  those four elements and a `wizard-` class no call site names fails
+  `tests/test_gui_theme.py::test_every_wizard_class_reaches_app_py`
+  (DL-193).
+- A structure a record reads as partly refused keeps a narrowed entry
+  naming what the framework refused and the computed value that shows
+  it, rather than being struck or left as written (DL-194).
+- `test_every_structure_a_record_names_resolves_in_the_decision_log`
+  reads the newest record naming a structure rather than every record,
+  so a structure a later run reads as built stops naming an entry the
+  section does not hold while the standing records keep their differs
+  rows untouched (DL-195).
+- The card triplet is the whole of the box rule: `.wizard-surface` is
+  absent from the stylesheet and from every call site, because a rule no
+  call site names fails the class-reach guard (DL-196).
+- The keyboard record and the announcement record are read again once
+  each advancing control is built in the footer band, because its place
+  in the DOM sets both the tab order and the point an announcement is
+  triggered from (DL-197).
 - Every documentation edit in this work describes the file as it
   stands, with no "previously", "now does", "no longer" or "added",
   and each documentation milestone carries the grep that proves it
@@ -1906,34 +1973,47 @@ Every entry below is read against the reconnect wizard's artboards.
 The reconstruct page at `/` carries no entry, because no artboard
 draws it and the structural gate does not cover it (DL-172).
 
-- **App shell.** `.app` in `Main.dc.html`, `Confirm.dc.html`,
-  `Results.dc.html` and `Review.dc.html` is
-  `display: grid; grid-template-rows: 56px 1fr 64px; height: 800px` -
-  a header band, a scrolling middle and a footer band. `theme.py`
-  emits no shell rule, and both pages compose a header row followed by
-  one column, each page scrolling as a document.
+An entry ends by being built and read off a served page, not by being
+excused; where a run reads a structure only partly built, the entry is
+narrowed to what the framework refused rather than struck (DL-190,
+DL-194).
+
+Three structures the artboards draw carry no entry here, each read
+built in `docs/2026-09-07-composition-close-browser-record.md`, the
+record taken with those entries already absent from this section: the
+app shell, on the `56px` header, the `64px` footer and the middle at
+the full `1280px` between them, with the document not scrolling on
+either route and the middle scrolling on `/reconnect`; the card
+structure, on the four named cards the record reads on `/` and the one
+per rendered step it reads on `/reconnect`, each carrying its head, its
+title and its body; and the footer band, on the note at `x=24` and the
+visible actions at the right on both routes. Column model, Table
+geometry and Detail rail are the three that stand, and that record
+reads each of them `differs`: there is one column and no second column
+on either route, the review table is `.wizard-row`, a flex row with a
+gap and no header row, and no element composes a rail - the candidate
+panel is in the same column below the table. Each of those three
+entries states beneath it the reason it is open.
+
 - **Column model.** `main` is `grid-template-columns: 1fr 400px` in
   `Main.dc.html`, `1fr 404px` in `Confirm.dc.html` and `1fr 384px` in
   `Results.dc.html`, a content column beside a guidance rail.
   `theme.py` emits no two-column rule, and every page composes one
   column at `.wizard-content-width`.
-- **Card structure.** `.card`, `.card-h`, `.card-t` and `.card-b` in
-  `Main.dc.html` are a bordered box with its own header band, title
-  and padded body, three to four of them per screen. `theme.py` emits
-  `.wizard-surface`, which carries the box's ground, border and
-  radius and nothing else, and each page applies it once to the whole
-  column.
+  This entry stands as written: the two-column `main` is outside this
+  work's scope, and `main` is one column at `.wizard-content-width`
+  (DL-191).
 - **Table geometry.** `.gr` in `Review.dc.html` is
   `grid-template-columns: 126px minmax(0, 1fr) 100px 196px 134px`
   under a `.th` header row. `theme.py` emits `.wizard-row`, a flex row
   with a gap and a zebra ground, so cells take their width from their
   content and no column aligns from one row to the next, and neither
   table carries a header row.
-- **Footer band.** `.ft` in `Main.dc.html` is a 64px band with
-  `.ft-note` at the left and `.ft-act` at the right, holding the
-  screen's advancing action. `theme.py` emits no footer rule, and each
-  page carries its actions inline as the last children of its column.
+  This entry stands as written: the review table's grid geometry and
+  its header row are outside this work's scope (DL-191).
 - **Detail rail.** `.det` in `Review.dc.html` is a 400px bordered
   panel with its own header, body and footer holding the candidate
   cards. `theme.py` emits no rail rule, and the reconstruct page
   renders its candidate panel below the table in the same column.
+  This entry stands as written: the 400px detail rail is outside this
+  work's scope (DL-191).

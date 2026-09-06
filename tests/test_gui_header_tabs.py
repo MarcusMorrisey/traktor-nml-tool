@@ -565,18 +565,26 @@ def test_line_endings_hold_after_the_edit():
 
 def test_the_header_band_and_every_content_column_share_one_width_class():
     """The header row's class string and the class string of every
-    content column - the ones carrying wizard-surface - all carry
+    content box - the ones carrying wizard-card - all carry
     wizard-content-width, which is what makes the band's edges the
-    card's edges. Read out of app.py's own source because the two
-    columns are built inside page functions the recorder above does
+    card's edges. Read out of app.py's own source because the boxes
+    are built inside page functions the recorder above does
     not enter.
 
-    Mutation: the reconstruct page's column was given back
+    The card box is the class this pairing reads because it is the box
+    each section a page composes itself carries. .wizard-content-width
+    stays the only rule declaring a width, which
+    tests/test_gui_shell.py::test_no_shell_or_card_rule_declares_a_width
+    holds from the stylesheet's side.
+
+    Mutation: the reconstruct page's first card box was given
     'max-w-5xl mx-auto' in place of 'wizard-content-width' and this
     guard rerun. Observed:
-        AssertionError: class strings carrying wizard-surface without
-        wizard-content-width: ['gap-4 wizard-surface max-w-5xl
-        mx-auto']
+        E       AssertionError: class strings carrying wizard-card without wizard-content-width: ['wizard-card max-w-5xl mx-auto']
+        E       assert ['wizard-card...-5xl mx-auto'] == []
+        E
+        E         Left contains one more item: 'wizard-card max-w-5xl mx-auto'
+        E         Use -v to get more diff
     """
     source = APP_PATH.read_text(encoding="utf-8")
     literals = [
@@ -589,9 +597,9 @@ def test_the_header_band_and_every_content_column_share_one_width_class():
     assert all("wizard-content-width" in text.split() for text in header), (
         f"the header band carries no width class: {header}"
     )
-    surfaces = [text for text in literals if "wizard-surface" in text.split()]
-    assert surfaces, "no class string carries wizard-surface"
-    adrift = [text for text in surfaces if "wizard-content-width" not in text.split()]
+    boxes = [text for text in literals if "wizard-card" in text.split()]
+    assert boxes, "no class string carries wizard-card"
+    adrift = [text for text in boxes if "wizard-content-width" not in text.split()]
     assert adrift == [], (
-        f"class strings carrying wizard-surface without wizard-content-width: {adrift}"
+        f"class strings carrying wizard-card without wizard-content-width: {adrift}"
     )

@@ -154,3 +154,56 @@ and content of the emitted `@font-face` blocks, and the argument the
 mount is given. What none of them can read is whether the face actually
 painted; that is a served-page reading, and it belongs to the record
 DL-180 requires.
+
+## The shell both pages compose against
+
+`_page_chrome` applies the theme, builds the header band and the footer
+band, and hands back the middle container. Both routes enter that
+container with a `with` statement, so a page's body lands inside the
+scrolling region rather than beside it (DL-185). The header band, the
+middle region and the footer band are the three rows `.app` draws at
+`Main.dc.html:15`, and the middle owns the page scroll rather than the
+document (DL-184). The footer band is `Main.dc.html:29-31`: `.ft`
+holding `.ft-note`'s sentence at the left and `.ft-act`'s controls at
+the right.
+
+The bands are `ui.header` and `ui.footer`, each with `bordered` and
+`elevated` off: Quasar's own `QLayout` writes each band's height onto
+`q-page-container` as padding, and the rule and the ground each band
+carries are the ones `theme.py` emits (DL-183). The middle owns
+`overflow-y`, and `q-layout`, `q-page-container`, `q-page` and
+`nicegui-content` - the four elements nicegui builds between the
+viewport and the page's content - each carry a bounded height, which is
+what leaves the middle a height to scroll inside (DL-193). The reading
+is in `docs/2026-09-05-wizard-shell-browser-record.md`, which reads the
+middle at `1280x780` between a `56px` header and a `64px` footer, the
+middle's `scrollHeight` at `943` against a `clientHeight` of `780`, and
+the document's at `900` against `900`.
+
+Each section both pages build is a card: `.wizard-card` holding a
+`.wizard-card-head` with its `.wizard-card-title`, and a
+`.wizard-card-body`, as `Main.dc.html:32-35` draws it (DL-186). A step's
+own header is Quasar's `QStepper` markup rather than one of those
+sections. `docs/2026-09-07-composition-close-browser-record.md` reads
+the triplet on both routes - four cards on `/`, one per rendered step on
+`/reconnect`, each carrying a head, a title and a body - and records no
+part of it refused, so the Card structure entry carries no narrowing
+under "Composition not built" in `traktor_nml/README.md` (DL-194).
+
+Each of the four steps registers its own action group in the footer
+band and the step change decides which group the band shows, so the
+control that advances a step exists once and its enabled state is held
+once (DL-187). Its place in the DOM is what sets the tab order, and the
+ring that walk produces is read in
+`docs/2026-09-06-wizard-focus-order-browser-record.md` (DL-197).
+
+Every dimension either the shell or the cards measure at is a constant
+in `theme.py`, sourced in a comment to the artboard line that states
+it. `theme.py` imports no nicegui, so it is the module a guard under
+the system interpreter can read (DL-069, DL-188).
+
+What a guard in `tests/` holds of all this is the text: which rule the
+stylesheet emits, which class string a call site names, and where each
+control is constructed. Whether the browser gave the middle the
+viewport, and what it computed for a card, is read on a served page and
+written into a record under `docs/` (DL-084, DL-169, DL-189).

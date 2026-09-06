@@ -7,6 +7,7 @@ count (DL-080, DL-081).
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -179,6 +180,108 @@ def test_toggle_detail_is_not_bound_to_noop():
     assert match is not None
     applier = re.search(r'"toggle_detail":\s*(\w+),', match.group(1))
     assert applier is not None
+
+# Each wizard step is built by its own function, registers its own group
+# in the footer band, and builds one advancing control there. The builder
+# is named beside the label so each reading below is scoped to that one
+# step: the reconstruct route builds its own "Write output" in the same
+# band, and a guard reading the whole file would let that route satisfy
+# a wizard step whose control had gone back inline.
+_STEP_ADVANCING_CONTROLS = {
+    "Set up": ("_build_setup_step", "Continue"),
+    "Scan": ("_build_scan_step", "Review matches"),
+    "Review": ("_build_review_step", "Continue to write"),
+    "Write": ("_build_write_step", "Write output"),
+}
+
+
+def _function_lines(source: str, name: str) -> list:
+    """The (line number, text) pairs of one top-level function's body,
+    read by walking the parsed module rather than by matching text, so a
+    label built in another function is outside what a step's reading
+    sees."""
+    module = ast.parse(source)
+    for node in module.body:
+        if isinstance(node, ast.FunctionDef) and node.name == name:
+            return [
+                (number, line)
+                for number, line in enumerate(source.splitlines(), start=1)
+                if node.lineno <= number <= node.end_lineno
+            ]
+    return []
+
+
+def _footer_held_lines(numbered: list) -> set:
+    """Line numbers held inside a footer action region: the body of a
+    'with state.footer_actions:' block, and the body of a 'with group:'
+    block, which is the row a step registered in that band and re-fills
+    on refresh (DL-187). Indentation is the nesting, so a control moved
+    out of the band leaves this set."""
+    held = set()
+    for index, (_number, line) in enumerate(numbered):
+        if line.strip() not in ("with state.footer_actions:", "with group:"):
+            continue
+        opener_indent = len(line) - len(line.lstrip())
+        for offset in range(index + 1, len(numbered)):
+            body_number, body = numbered[offset]
+            if not body.strip():
+                continue
+            if len(body) - len(body.lstrip()) <= opener_indent:
+                break
+            held.add(body_number)
+    return held
+
+
+def test_every_wizard_step_builds_its_advancing_control_in_the_footer_group():
+    """A key bound to advancing resolves against the control the footer
+    band holds, so this reads each step builder for the group it
+    registers and for where its own advancing control is constructed,
+    rather than accepting that some route somewhere fills the band.
+    Specs' keyboard map is unchanged: the same map is read against a page
+    whose DOM order differs (DL-197). What the browser gave focus to is
+    read in docs/2026-09-06-wizard-focus-order-browser-record.md; this
+    guard reads only where each control is constructed (DL-189).
+
+    Mutation: the Review step's 'with state.footer_actions:'
+    line was replaced by 'if True:', leaving 'Continue to write' built
+    inline in the step rather than in the band, and this guard rerun.
+
+    Observed:
+        AssertionError: steps whose advancing control is not built
+        inside the footer band: ['Review']
+        assert ['Review'] == []
+    """
+    source = _APP_PY.read_text(encoding="utf-8")
+    # Two readings, because either alone passes in a broken state: the
+    # registration says a step's title has a group in the band, and the
+    # placement reading says that step's own advancing control is built
+    # inside it.
+    unregistered = [
+        step
+        for step in _STEP_ADVANCING_CONTROLS
+        if re.search(
+            r"state\.footer_groups\[\s*[\"']" + re.escape(step) + r"[\"']\s*\]\s*=",
+            source,
+        )
+        is None
+    ]
+    assert unregistered == [], (
+        f"steps registering no footer action group: {unregistered}"
+    )
+    adrift = []
+    for step, (builder, label) in _STEP_ADVANCING_CONTROLS.items():
+        numbered = _function_lines(source, builder)
+        assert numbered, f"{builder} not found in app.py"
+        held = _footer_held_lines(numbered)
+        placements = [
+            number for number, line in numbered if f'ui.button("{label}"' in line
+        ]
+        if not placements or not all(number in held for number in placements):
+            adrift.append(step)
+    assert adrift == [], (
+        f"steps whose advancing control is not built inside the footer "
+        f"band: {adrift}"
+    )
 
 
 # GUARD A - Specs.dc.html's Keyboard section, read at test time, is

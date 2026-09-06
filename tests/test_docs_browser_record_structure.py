@@ -69,6 +69,9 @@ READING_DIGESTS = {
     "2026-08-28-w002-browser-record.md": "3a1759dce7ccd384c279c79c3aaa76d9eac3367ef8646e1ea8d8cf76e9a32250",
     "2026-08-29-w004-focus-ring-record.md": "22120b36351a3e10ad6c3706503f04f6ddbb8bc602c3d5377b9a014da0ac3c88",
     "2026-09-03-header-tabs-browser-record.md": "8efef9b91ac577095c5f8c76af04ea522c7dc4e8d473dd34e85fbd134413d5da",
+    "2026-09-05-wizard-shell-browser-record.md": "96af8ac3efe80408c6004de8b51b74ccb52b6d2db5a7d093869d3b21c54176da",
+    "2026-09-06-wizard-focus-order-browser-record.md": "dd1dc94601c280dee67ed38aee69f945de782d976ff33aab53b3e66084a0203e",
+    "2026-09-07-composition-close-browser-record.md": "24f5629d3285c3ed3575c8bb5b16d295a924aafa443f6c6419c60e829e19b696",
 }
 
 
@@ -123,6 +126,15 @@ def test_a_records_verdict_rows_hash_to_its_recorded_digest(record: Path):
         changed: a recorded reading is edited, which DL-171 forbids
         assert '12b2f4ec2069...bbd4ae3c9000d' ==
         '3a1759dce7cc...8cf76e9a32250'
+
+    Mutation: in docs/2026-09-07-composition-close-browser-record.md the
+    Footer height row's reading was changed from 64px to 65px and this
+    guard rerun. Observed:
+        AssertionError: 2026-09-07-composition-close-browser-record.md
+        verdict rows changed: a recorded reading is edited, which DL-171
+        forbids
+        assert '5a1ca7434f3a...f00df6dc69b7a' ==
+        '24f5629d3285...60e829e19b696'
     """
     expected = READING_DIGESTS.get(record.name)
     if expected is None:
@@ -139,33 +151,55 @@ def test_every_structure_a_record_names_resolves_in_the_decision_log():
     under 'Composition not built' in traktor_nml/README.md, so a
     differs verdict cannot point at a section that does not record it.
 
-    Mutation: the '- **Footer band.**' entry was deleted from the
+    Only the newest reading of a structure is checked. A structure a
+    later run reads as built stops naming an entry the section does not
+    hold, while every standing record keeps the differs rows the run
+    that wrote it recorded (DL-171, DL-195).
+
+    Mutation: the '- **Detail rail.**' entry was deleted from the
     Composition not built section and this guard rerun. Observed:
         AssertionError: structures named in a record with no
-        Composition not built entry: ['Footer band']
-        assert ['Footer band'] == []
+        Composition not built entry: ['Detail rail']
+        assert ['Detail rail'] == []
+
+    Mutation: an 'App shell | .app | one column | differs' row was
+    appended to the Structural verdicts section of
+    docs/2026-09-06-wizard-focus-order-browser-record.md, the newest
+    record, while the App shell structure carries no entry in the
+    section, and this guard rerun. Observed:
+        AssertionError: structures named in a record with no
+        Composition not built entry: ['App shell']
+        assert ['App shell'] == []
     """
     readme = README.read_text(encoding="utf-8")
     heading = "## Composition not built"
     assert heading in readme, "traktor_nml/README.md carries no Composition not built section"
     section = readme[readme.index(heading):]
+    # entries is the set of structures the 'Composition not built'
+    # section still records; a struck structure is absent from it, which
+    # is what makes a stale differs row on the newest record fail here.
     entries = {name for name in _COMPOSITION_ENTRY.findall(section)}
     assert entries, "the Composition not built section holds no entries"
 
-    named: set[str] = set()
+    # browser_records() sorts by name and every record is named for the
+    # run that wrote it, so the last verdict a structure collects is the
+    # newest reading of it.
+    newest: dict[str, str] = {}
     for record in browser_records():
         text = record.read_text(encoding="utf-8")
         match = _STRUCTURAL_HEADING.search(text)
         if not match:
             continue
         for row in _VERDICT_ROW.finditer(text[match.end():]):
-            if row.group(1) != "differs":
-                continue
             cells = [cell.strip() for cell in row.group(0).strip("|").split("|")]
             if cells:
-                named.add(cells[0].strip("* "))
+                newest[cells[0].strip("* ")] = row.group(1)
 
-    adrift = sorted(name for name in named if name not in entries)
+    adrift = sorted(
+        name
+        for name, verdict in newest.items()
+        if verdict == "differs" and name not in entries
+    )
     assert adrift == [], (
         f"structures named in a record with no Composition not built entry: {adrift}"
     )

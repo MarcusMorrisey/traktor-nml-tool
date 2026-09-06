@@ -182,6 +182,12 @@ def test_review_matches_starts_disabled_and_enables_once_a_result_exists(app_mod
     fake_ui = nicegui_module.ui
 
     state = app_module._WizardPageState()
+    # _page_chrome builds the footer band both routes carry, and every
+    # step's advancing control is constructed in it, so a step built
+    # outside a page needs the note and the action group the chrome
+    # would have handed it (DL-187).
+    state.footer_note = app_module.ui.label("")
+    state.footer_actions = app_module.ui.row()
     state.args = argparse.Namespace(old_input=Path("stale.nml"), output=Path("out.nml"), csv=None)
 
     stepper = MagicMock()
@@ -227,6 +233,12 @@ def test_review_matches_refreshes_review_rather_than_showing_it_stale(app_module
     fake_ui = nicegui_module.ui
 
     state = app_module._WizardPageState()
+    # _page_chrome builds the footer band both routes carry, and every
+    # step's advancing control is constructed in it, so a step built
+    # outside a page needs the note and the action group the chrome
+    # would have handed it (DL-187).
+    state.footer_note = app_module.ui.label("")
+    state.footer_actions = app_module.ui.row()
     state.args = argparse.Namespace(old_input=Path("stale.nml"), output=Path("out.nml"), csv=None)
     state.active_filter = "matched"
 

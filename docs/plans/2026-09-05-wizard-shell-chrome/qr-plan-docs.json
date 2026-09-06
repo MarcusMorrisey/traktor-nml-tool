@@ -1,0 +1,376 @@
+{
+  "phase": "plan-docs",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "No doc_diff contains change-relative language (previously / now does / no longer / added / used to / instead of / formerly).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every code_change with a non-empty diff carries a non-empty doc_diff.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Every new decision DL-183..DL-197 is covered by prose somewhere in the plan; none is left unstated.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003a",
+      "scope": "*",
+      "check": "DL-183 appears in no doc_diff field; confirm its prose coverage in the traktor_nml/gui/README.md diff (CC-M-003-002) is sufficient, or add doc_diff coverage.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003b",
+      "scope": "*",
+      "check": "DL-184 appears in no doc_diff field; confirm its prose coverage in the traktor_nml/gui/README.md diff (CC-M-003-002) is sufficient, or add doc_diff coverage.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003c",
+      "scope": "*",
+      "check": "DL-185 appears in no doc_diff field; confirm its prose coverage in the traktor_nml/gui/README.md diff (CC-M-003-002) is sufficient, or add doc_diff coverage.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003d",
+      "scope": "*",
+      "check": "DL-193 appears in no doc_diff field; confirm its prose coverage in the traktor_nml/gui/README.md diff (CC-M-003-002) is sufficient, or add doc_diff coverage.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Every doc_diff is valid unified-diff syntax with ---/+++ headers and @@ hunks whose context lines match the target file after its own diff applies.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "Every (DL-NNN) citation in a doc_diff refers to a decision that actually says what the citing sentence claims.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 4
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "Every citation to Main.dc.html, Specs.dc.html or nicegui.css names line numbers that carry the cited declaration.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 3
+    },
+    {
+      "id": "qa-006a",
+      "scope": "CC-M-001-003",
+      "check": "Main.dc.html:32-35 cited for the card triplet: lines 32-35 are .card/.card-h/.card-t/.card-b - verify.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006b",
+      "scope": "CC-M-001-004",
+      "check": "Main.dc.html:30 is cited for a band drawing 'the sentence at the left and the advancing action at the right', but line 30 is .ft-note alone; the band is line 29 (.ft) and the action half line 31 (.ft-act).",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 3
+    },
+    {
+      "id": "qa-006c",
+      "scope": "*",
+      "check": "The nicegui.css line ranges 14-28 and 41-46 cited in DL-184/DL-192 prose must be read off the installed package, not recalled.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "No doc_diff asserts a layout outcome that only a served-page record can establish (DL-189, the FONT_SANS trap).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "CC-M-001-004",
+      "check": "Fix or widen the Main.dc.html:30 citation so it covers the note-left/action-right band it is cited for.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-claim-fidelity",
+      "version": 3
+    },
+    {
+      "id": "qa-009",
+      "scope": "CC-M-001-003, CC-M-003-002",
+      "check": "Both doc_diffs state unconditionally that every section carries the card triplet and that the single-box class has no call site left, while the plan's own diff context keeps wizard-section-head / wizard-header / wizard-hd-alt / wizard-sec-alt on the four ui.step call sites (app.py:273/434/826/1086). DL-186 and DL-194 anticipate a QStepper refusal the prose does not admit.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-gui-readme-shell-section",
+      "version": 4
+    },
+    {
+      "id": "qa-010",
+      "scope": "CC-M-001-001",
+      "check": "The comment claiming 'the artboard line each comment names' requires the code diff to add a per-constant artboard sourcing comment for every new spacing and band-height constant.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-claim-fidelity",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "CC-M-003-002",
+      "check": "The doc_diff anchor 'the end of \"The shell both pages compose against\"' targets a section that does not exist in gui/README.md today; it is created by the same code_change's diff, so the two must apply in that order.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-gui-readme-shell-section",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "*",
+      "check": "Record doc_diffs add framing prose only and alter no verdict row of a run already recorded (DL-171).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-012",
+      "version": 2
+    },
+    {
+      "id": "qa-012a",
+      "scope": "CC-M-001-011",
+      "check": "docs/2026-09-05-wizard-shell-browser-record.md doc_diff adds prose under 'What was opened' and no verdict row.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-012",
+      "group_id": "parent-qa-012",
+      "version": 2
+    },
+    {
+      "id": "qa-012b",
+      "scope": "CC-M-002-001",
+      "check": "docs/2026-09-06-wizard-focus-order-browser-record.md doc_diff adds prose under 'Tab order' and no verdict row.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-012",
+      "group_id": "parent-qa-012",
+      "version": 2
+    },
+    {
+      "id": "qa-012c",
+      "scope": "CC-M-003-004",
+      "check": "docs/2026-09-07-composition-close-browser-record.md doc_diff adds prose under 'Structural verdicts' and no verdict row.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-012",
+      "group_id": "parent-qa-012",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "CC-M-001-012, CC-M-001-013, CC-M-002-004, CC-M-003-005",
+      "check": "Each new CLAUDE.md index row names a file the plan actually creates and matches the existing table's column shape.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-claim-fidelity",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "*",
+      "check": "doc_diff insertions into traktor_nml/gui/app.py must be CRLF; no LF line may enter that 100%-CRLF file.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-014",
+      "version": 2
+    },
+    {
+      "id": "qa-014a",
+      "scope": "CC-M-001-004",
+      "check": "CRLF line endings on every inserted docstring and comment line in this app.py doc_diff.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-014",
+      "group_id": "parent-qa-014",
+      "version": 2
+    },
+    {
+      "id": "qa-014b",
+      "scope": "CC-M-001-005",
+      "check": "CRLF line endings on every inserted docstring and comment line in this app.py doc_diff.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-014",
+      "group_id": "parent-qa-014",
+      "version": 2
+    },
+    {
+      "id": "qa-014c",
+      "scope": "CC-M-001-006",
+      "check": "CRLF line endings on every inserted docstring and comment line in this app.py doc_diff.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-014",
+      "group_id": "parent-qa-014",
+      "version": 2
+    },
+    {
+      "id": "qa-014d",
+      "scope": "CC-M-001-007",
+      "check": "CRLF line endings on every inserted docstring and comment line in this app.py doc_diff.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-014",
+      "group_id": "parent-qa-014",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "CC-M-003-001",
+      "check": "No doc_diff records which three Composition-not-built entries are struck (App shell, Card structure, Footer band) and which three stand (Column model, Table geometry, Detail rail); the section preamble alone does not state the boundary.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 3
+    },
+    {
+      "id": "qa-016",
+      "scope": "*",
+      "check": "Every new guard's docstring records the specific mutation applied and the specific observed output, not a paraphrase.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-016",
+      "version": 2
+    },
+    {
+      "id": "qa-016a",
+      "scope": "CC-M-001-008",
+      "check": "Fail-first mutation and observed output recorded in each new guard docstring in tests/test_gui_shell.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-016",
+      "group_id": "parent-qa-016",
+      "version": 2
+    },
+    {
+      "id": "qa-016b",
+      "scope": "CC-M-001-009",
+      "check": "Fail-first mutation and observed output recorded in each new guard docstring in tests/test_gui_cards.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-016",
+      "group_id": "parent-qa-016",
+      "version": 2
+    },
+    {
+      "id": "qa-016c",
+      "scope": "CC-M-001-010",
+      "check": "Fail-first mutation and observed output recorded in each new guard docstring in tests/test_gui_header_tabs.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-016",
+      "group_id": "parent-qa-016",
+      "version": 2
+    },
+    {
+      "id": "qa-016d",
+      "scope": "CC-M-002-002",
+      "check": "Fail-first mutation and observed output recorded in each new guard docstring in tests/test_gui_keymap.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-016",
+      "group_id": "parent-qa-016",
+      "version": 2
+    },
+    {
+      "id": "qa-016e",
+      "scope": "CC-M-002-003",
+      "check": "Fail-first mutation and observed output recorded in each new guard docstring in tests/test_gui_announce.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-016",
+      "group_id": "parent-qa-016",
+      "version": 2
+    },
+    {
+      "id": "qa-016f",
+      "scope": "CC-M-003-003",
+      "check": "Fail-first mutation and observed output recorded in each new guard docstring in tests/test_docs_browser_record_structure.py.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-016",
+      "group_id": "parent-qa-016",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "*",
+      "check": "Each doc_diff explains why rather than restating what the code does.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "CC-M-001-006",
+      "check": "The four step docstrings each claim their advancing control is built in the footer band; none may describe a control the diff leaves inside the step.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-claim-fidelity",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "*",
+      "check": "No doc_diff describes an out-of-scope structure (Detail rail, Table geometry, Column model, a structural verdict for /) as settled.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    }
+  ]
+}

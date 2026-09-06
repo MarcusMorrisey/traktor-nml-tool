@@ -2,6 +2,14 @@
 spacing and radius values, held once so a hex or a pixel size is never
 repeated at a call site (DL-078). Imports no nicegui, so the pytest
 interpreter reads it directly (DL-078, DL-085).
+
+The shell the pages compose against measures here too: the two band
+heights and the spacing steps the header band, the middle region, the
+footer band and the card triplet are drawn at. This module is the one a
+guard under the system interpreter can read, so a dimension written at
+an app.py call site would be invisible to every guard and to the hex-
+and size-scanning sweeps in tests/test_gui_theme.py; app.py names class
+strings and this module holds the values behind them (DL-069, DL-188).
 """
 
 from __future__ import annotations
@@ -130,11 +138,28 @@ SPACE_11 = "11px"
 SPACE_6 = "6px"
 SPACE_16 = "16px"
 SPACE_24 = "24px"
+# The steps below carry no meaning of their own beyond the artboard
+# line each comment names: a step is a measured value, and the rule that
+# spends it says which region it insets (DL-188).
+#
+# Main.dc.html:27's main padding (22px 24px 6px) and its 20px grid gap -
+# the page region's own inset and the gap between the boxes it holds.
+SPACE_22 = "22px"
+SPACE_20 = "20px"
+# Main.dc.html:33's .card-h padding (11px 15px) and :35's .card-b
+# padding (15px) - the inset both card regions measure at.
+SPACE_15 = "15px"
 # The width the page's content occupies. One value because the header
 # band and the content column below it are one column: the band's ground
 # and rule end where the card's edge is, so the brand mark sits over the
 # card's own first column rather than over the page margin.
 CONTENT_WIDTH = "64rem"
+# Main.dc.html:15's .app grid-template-rows (56px 1fr 64px), the same
+# three rows Confirm.dc.html, Results.dc.html and Review.dc.html draw.
+# The bands are fixed and the middle row takes what is left, which is
+# what makes the middle the scroll owner rather than the document.
+HEADER_BAND_HEIGHT = "56px"
+FOOTER_BAND_HEIGHT = "64px"
 RADIUS_SM = "4px"
 RADIUS_MD = "5px"
 RADIUS_LG = "6px"
@@ -217,7 +242,19 @@ CONTROL_GAP = SPACE_8
 def page_stylesheet() -> str:
     """The wizard's stylesheet as one string, every colour and size
     drawn from this module's own constants rather than a literal
-    (DL-078)."""
+    (DL-078).
+
+    The order of the sheet is load-bearing at two points. The
+    @font-face blocks font_face_rules() returns stand at the head,
+    unlayered and above the body rule that names the family, which is
+    the offset relationship
+    tests/test_gui_font_faces.py::test_the_face_blocks_precede_the_body_rule_that_names_the_family
+    holds; the shell, band, footer and card rules are emitted after that
+    rule and outside the layer block that follows it. The sheet itself
+    reaches the head through add_head_html, after nicegui's own sheet,
+    so a band rule restating a declaration nicegui.css sets on the same
+    element wins at equal specificity (DL-192).
+    """
     return f"""
 {font_face_rules()}
 /* The body rule names FONT_SANS and the blocks above it load that
@@ -227,7 +264,31 @@ def page_stylesheet() -> str:
    page paints Plex rather than Roboto (DL-173). */
 body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS}; }}
 .q-page {{ background: {GROUND}; color: {TEXT}; }}
-.wizard-surface {{ background: {SURFACE_2}; border: 1px solid {BORDER}; border-radius: {RADIUS_XL}; }}
+/* Main.dc.html:32-35's .card, .card-h, .card-t and .card-b: a bordered
+   box with its own header band, its title, and a padded body. Every
+   section a page composes itself carries the triplet, which leaves the
+   single-box rule the triplet replaces without a call site, and a rule
+   no call site names fails test_every_wizard_class_reaches_app_py
+   (DL-196). A step's own header band is Quasar's QStepper markup and is
+   not one of those sections: the four ui.step call sites carry
+   .wizard-section-head, .wizard-header, .wizard-hd-alt and
+   .wizard-sec-alt, and those rules stand in this sheet beside the
+   triplet. No card rule declares a width: .wizard-content-width stays
+   the one width owner. */
+/* The four rules are one structure: a box that carries the ground, the
+   border and the radius, a head that carries the inset and the rule
+   below it, a title inside that head, and a body that carries its own
+   inset and the gap between the controls it holds. What the QStepper
+   markup refuses of the triplet is named in the served-page record by
+   the computed value that shows the refusal, and stands as a narrowed
+   entry under "Composition not built" in traktor_nml/README.md
+   (DL-186, DL-194). What the browser computes for these four rules is
+   read on a served page for the same reason: a guard reading these
+   declarations is true whether or not the layout landed (DL-189). */
+.wizard-card {{ background: {SURFACE_2}; border: 1px solid {BORDER}; border-radius: {RADIUS_XL}; }}
+.wizard-card-head {{ display: flex; align-items: center; justify-content: space-between; gap: {SPACE_12}; padding: {SPACE_11} {SPACE_15}; border-bottom: 1px solid {BORDER}; }}
+.wizard-card-title {{ font-weight: 600; font-size: {TYPE_13}; margin: 0; }}
+.wizard-card-body {{ padding: {SPACE_15}; display: flex; flex-direction: column; gap: {SPACE_12}; }}
 .wizard-header {{ background: {SURFACE_2}; border-bottom: 1px solid {BORDER}; font-size: {TYPE_14}; }}
 .wizard-section-head {{ background: {SURFACE_3}; border-bottom: 1px solid {BORDER}; font-size: {TYPE_12}; font-weight: 600; }}
 .wizard-label {{ font: 600 {TYPE_11}/1 {FONT_MONO}; letter-spacing: .1em; text-transform: uppercase; color: {TEXT_FAINT}; }}
@@ -353,4 +414,49 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .q-toggle__thumb {{ background: {SWITCH_KNOB}; }}
 .q-toggle__track {{ background: {SWITCH_TRACK}; }}
 .body--dark, .body--dark .q-stepper, .body--dark .q-field__native, .body--dark .q-field__control {{ color: {TEXT}; }}
+/* Main.dc.html:15's .app: a header band, a middle that takes what is
+   left, and a footer band, at the viewport's height.
+
+   nicegui's client.py:110-113 builds q-layout > q-page-container >
+   q-page > div.nicegui-content, and Quasar's own sheet gives that chain
+   no height at all: .q-layout carries width and outline, .q-page only
+   position, and q-page-container is not styled by it, so every element
+   between the viewport and the middle needs a bounded height before the
+   middle can scroll rather than grow. QLayout writes
+   the two band heights onto q-page-container as inline padding, which
+   border-box turns into exactly the space the middle is left with. The
+   four selectors are Quasar's and nicegui's own: app.py constructs none
+   of these elements, and a wizard- class no call site names fails
+   tests/test_gui_theme.py::test_every_wizard_class_reaches_app_py
+   (DL-193). */
+.q-layout {{ height: 100vh; }}
+.q-page-container {{ box-sizing: border-box; height: 100vh; overflow: hidden; }}
+.q-page {{ height: 100%; }}
+.nicegui-content {{ height: 100%; min-height: 0; padding: 0; gap: 0; }}
+/* Main.dc.html:27's main: the page region's own 22px 24px 6px inset and
+   its 20px gap, owning the scroll its parents have bounded.
+
+   The parent is .nicegui-content, which nicegui.css lines 14-28 give
+   align-items: flex-start; a flex child under that shrinks to its
+   content instead of filling the cross axis, so the middle would take
+   its content's width and the centred column would centre inside that
+   shrunken box rather than inside the page. align-self: stretch
+   counters that one framework default. It is the cross-axis
+   declaration rather than a width because .wizard-content-width stays
+   the sheet's one width owner (DL-193). */
+.wizard-middle {{ align-self: stretch; flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: {SPACE_22} {SPACE_24} {SPACE_6}; gap: {SPACE_20}; display: flex; flex-direction: column; }}
+/* nicegui.css lines 14-28 set align-items: flex-start, gap: 1rem and
+   padding: 1rem on .nicegui-header and .nicegui-footer, and lines 41-46
+   set both to flex-direction: row. Each band therefore restates the
+   gap and the padding, and takes the row direction the framework
+   already gives it. The wizard sheet reaches the head after the
+   framework sheet, so the restatement wins at equal specificity
+   (DL-192). Main.dc.html:16's .hd and :29's .ft carry the SURFACE_2
+   ground and a one pixel rule on the edge each faces the middle
+   across. */
+.wizard-header-band {{ align-items: center; justify-content: space-between; gap: {SPACE_24}; padding: 0 {SPACE_24}; height: {HEADER_BAND_HEIGHT}; background: {SURFACE_2}; border-bottom: 1px solid {BORDER}; }}
+.wizard-footer-band {{ align-items: center; justify-content: space-between; gap: {SPACE_24}; padding: 0 {SPACE_24}; height: {FOOTER_BAND_HEIGHT}; background: {SURFACE_2}; border-top: 1px solid {BORDER}; }}
+/* Main.dc.html:30's .ft-note and :31's .ft-act. */
+.wizard-footer-note {{ margin: 0; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; display: flex; align-items: center; gap: {SPACE_9}; }}
+.wizard-footer-actions {{ display: flex; align-items: center; gap: {SPACE_10}; flex: none; }}
 """

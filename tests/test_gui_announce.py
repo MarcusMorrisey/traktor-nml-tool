@@ -100,6 +100,27 @@ def test_live_region_scan_captures_a_nested_paren_call():
 
 
 def test_live_regions_are_pushed_only_from_announce_py():
+    """The control that triggers an announcement is built in the footer
+    band while the wording and the cadence stay in announce.py, so what
+    reaches a live region is a string announce.py returns wherever the
+    control that triggers it is constructed (DL-083, DL-197).
+
+    Mutation: a literal sentence was pushed into the polite region from
+    the Set up step's footer action group in app.py -
+    state.polite_region.set_text("Moving to the scan") - and this guard
+    rerun. Observed:
+        AssertionError: live region pushed something other than an
+        announce.py call or a name assigned from
+        progress_announcer.gate_progress: '"Moving to the scan"'
+        assert ('announce.' in '"Moving to the scan"' or '"Moving to
+        the scan"' in {'message'})
+
+    What a screen reader speaks is not read here and not read by any
+    guard: the announcement rows in
+    docs/2026-09-06-wizard-focus-order-browser-record.md read the live
+    region's text content and its politeness attribute, and that run
+    states that no screen reader was run (DL-189).
+    """
     source = _APP_PY.read_text(encoding="utf-8")
     pushes = _iter_live_region_pushes(source)
     assert pushes, "no live-region .set_text( push found in app.py"

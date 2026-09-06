@@ -1,0 +1,502 @@
+{
+  "phase": "plan-design",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "UMBRELLA: planning_context.constraints is empty while context.json supplies 15 MUST/MUST-NOT/SHOULD constraints. Every one must be carried into the plan's constraint list with its type, or the plan cannot be checked against them.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The DL-069 nicegui-boundary constraint (only app.py, file_picker.py, __main__.py import nicegui; every CSS rule, class name and dimension lives in theme.py) is present as a MUST constraint.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The served-page-record gate constraint (DL-084 verdict per named surface plus DL-169 structural reading per surface; a surface with no structural reading fails the gate) is present as a MUST constraint.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The fail-first guard constraint (docstring records the specific mutation applied and the specific observed output, not a paraphrase) is present as a MUST constraint.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The app.py CRLF constraint (100% CRLF against an otherwise-LF tree; read and written with newline='') is present as a MUST constraint.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001e",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The documentation-tense constraint (no 'previously', 'now does', 'no longer', 'added') and the never-cite-a-source-for-what-it-does-not-say constraint are present as MUST constraints.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001f",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST NOT constraints are present: no regeneration of tests/baselines/manifest.json or the fixture/w002gatefix2 gate fixture; no git checkout restore; no writes into or deletions from build/ or dist/; no installs into the system interpreter; no network host reachable from the stylesheet.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001g",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The two SHOULD constraints are present: reuse the existing .wizard-content-width rule rather than introducing a second width owner; keep the header's existing content exactly as _build_header renders it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "UMBRELLA: planning_context.risks is empty. The four confidence-tagged assumptions in context.json are architectural assumptions carried without citation or mitigation.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "The [M] assumption that ui.header/ui.footer exist in nicegui 3.16.0, put the page into a QLayout whose middle region scrolls, and accept bordered/elevated as the prop names, has a risk entry citing a read of the installed package rather than recall.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002b",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "The [M] assumption that the existing .wizard-header-bar row and the artboards' 56px band render at compatible heights, so moving the row into ui.header is a wrapping change and not a re-layout, has a risk entry with a mitigation.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002c",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "The [L] assumption that Quasar QStepper markup admits the card classes has a risk entry whose mitigation is the named residual Composition-not-built entry DL-186 promises.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002d",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "The [L] footer-action assumption has a risk entry; DL-187 resolves it by constructing the control in the footer rather than re-parenting, so the entry must record the resolution and its cost (construction moves across two builders).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "UMBRELLA: planning_context.rejected_alternatives is empty though context.json names four rejected options.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003a",
+      "parent_id": "qa-003",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "Option A (typeface plus gate amendment alone) is logged as rejected, with the reason that it fixed the atoms and built no composition.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003b",
+      "parent_id": "qa-003",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "Option C (full artboard port: two-column main, detail rail, table grid) is logged as rejected, with the responsive-risk and keyboard-contract reasons.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003c",
+      "parent_id": "qa-003",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "Hand-rolled position:fixed bands are logged as a rejected alternative in their own right, not only inside DL-183's reasoning chain.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003d",
+      "parent_id": "qa-003",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "A CDN or @import for any asset is logged as rejected, citing DL-163's whole-stylesheet network-host guard.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "UMBRELLA: every constant, selector and existing test function the code_intents name must resolve in the repository; any that does not is an invalid reference.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "traktor_nml/gui/theme.py",
+      "check": "Each theme.py constant the intents reuse exists: SPACE_9, SPACE_10, SPACE_11, SPACE_12, SPACE_24, TYPE_12_5, TYPE_13, SURFACE_2, RADIUS_XL, TEXT_MUTED, BORDER, CONTENT_WIDTH. CI-M-001-001 adds only SPACE_15, SPACE_20 and SPACE_22, so every other name is presumed pre-existing.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "scope": "tests/test_gui_theme.py",
+      "check": "The two test functions M-001's acceptance criteria and CI-M-001-008 name exist under those exact names: test_every_wizard_class_reaches_app_py and test_every_classes_call_expands_to_literals.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 2
+    },
+    {
+      "id": "qa-004c",
+      "parent_id": "qa-004",
+      "scope": "design/reconnect-wizard/Main.dc.html",
+      "check": "The artboard values the intents quote are read off Main.dc.html rather than the README's paraphrase: .app grid-template-rows 56px 1fr 64px, .card-h padding 11px 15px, .card-t weight 600 at 13px, .card-b padding 15px with gap 12px, .ft-note gap 9px, .ft-act gap 10px, band padding 0 24px.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "No decision states a falsifier or a rollback trigger. The invariants make a served-page structural reading the pass condition, but no plan element says what happens if M-001's record reads 'differs' on App shell or Footer band.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "Fail-first proof is required of every new guard by the invariants, but only CI-M-001-005 and CI-M-002-001 record it. CI-M-003-003 edits tests/test_docs_browser_record_structure.py with no fail-first statement.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-007",
+      "scope": "M-001",
+      "check": "UMBRELLA: M-001's requirements and acceptance_criteria describe only shell bands, yet CI-M-001-007 and CI-M-001-008 build the entire card triplet in this milestone.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-007",
+      "version": 3
+    },
+    {
+      "id": "qa-007a",
+      "parent_id": "qa-007",
+      "scope": "M-001.requirements",
+      "check": "M-001's requirements cover the card work CI-M-001-007 and CI-M-001-008 perform, or that work moves to M-002.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-007",
+      "version": 3
+    },
+    {
+      "id": "qa-007b",
+      "parent_id": "qa-007",
+      "scope": "M-001.acceptance_criteria",
+      "check": "M-001's acceptance criteria cover the card work, or that work moves to M-002.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-007",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "M-002",
+      "check": "M-002 is named 'The card triplet read off a served page' but its files list contains only a test and a doc; the code it verifies is built in M-001. Confirm the milestone boundary is intended and that M-002 is not an orphan verification wave over M-001's work.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-card-triplet-closure",
+      "version": 3
+    },
+    {
+      "id": "qa-009",
+      "scope": "DL-186",
+      "check": "DL-186 says the residue QStepper refuses is 'filed as a named entry', but no milestone, requirement or code_intent creates that residual Composition-not-built entry. The contingency path is stated in reasoning and absent from the work.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-card-triplet-closure",
+      "version": 3
+    },
+    {
+      "id": "qa-010",
+      "scope": "CI-M-003-001",
+      "check": "M-003 strikes the Card structure entry unconditionally while DL-186 and M-002's acceptance criteria both contemplate the stepper refusing part of the triplet. Striking a partly-built structure is what DL-170 forbids; the strike must be conditioned on the record reading built.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-card-triplet-closure",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "DL-187",
+      "check": "Moving the advancing actions into the footer changes their DOM position and therefore the tab order, which current_understanding says the existing keyboard record measured. task_spec puts re-running the keyboard and announcement records in scope, but no milestone requirement or acceptance criterion does so.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "affinity-unwired-obligations",
+      "version": 3
+    },
+    {
+      "id": "qa-012",
+      "scope": "CI-M-001-003",
+      "check": "_page_chrome gains a new return contract (note element, action group, middle container) but only CI-M-001-004 (the reconnect route) consumes it. CI-M-001-008 puts cards on the reconstruct page too and _page_chrome is shared, so the / route needs its own code_intent for composing the middle and footer.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-shell-mechanics",
+      "version": 4
+    },
+    {
+      "id": "qa-013",
+      "scope": "CI-M-001-003",
+      "check": "_page_chrome is described as building the header, footer and a .wizard-middle wrapper, but it is called before each route builds its body. The mechanism by which the body lands inside .wizard-middle (context manager, returned container, caller discipline) is unspecified and is the load-bearing detail of the shell.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-shell-mechanics",
+      "version": 3
+    },
+    {
+      "id": "qa-014",
+      "scope": "DL-185",
+      "check": "DL-185 fixes the q-layout container and its page container to the viewport height and CI-M-001-002 names a .wizard-shell rule, but app.py does not construct the q-layout element and no intent says how .wizard-shell reaches it. Either the rule keys on Quasar's own class or the class never reaches the element.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-shell-mechanics",
+      "version": 3
+    },
+    {
+      "id": "qa-015",
+      "scope": "DL-184",
+      "check": "DL-184 says the band paint comes from theme.py rules keyed on .nicegui-header and .nicegui-footer, but CI-M-001-002 writes the rules against .wizard-header-band and .wizard-footer-band. Whether a wizard-class rule outranks nicegui.css's own .nicegui-header declarations is a specificity assumption stated nowhere.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-shell-mechanics",
+      "version": 3
+    },
+    {
+      "id": "qa-016",
+      "scope": "CI-M-001-006",
+      "check": "Both records specify a run against http://localhost:8000 driven in a browser, but the application runs native=True through pywebview. Nothing in entry_points, invisible_knowledge.system or any code_intent establishes how the page is served over HTTP for the run, and the record is the plan's only pass condition.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-served-page-record",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "CI-M-002-002",
+      "check": "CI-M-002-002 requires reading the card triplet 'on each route' while task_spec cites DL-172 placing the reconstruct page outside the structural gate. Resolve which applies before the record is written.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-card-triplet-closure",
+      "version": 3
+    },
+    {
+      "id": "qa-018",
+      "scope": "*",
+      "check": "No decision or requirement says what becomes of .wizard-surface, the single class the Card-structure entry records as wrong. Whether it is deleted, retained for the reconstruct page, or left orphaned in theme.py is unstated, as are the guards that currently read it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-019",
+      "scope": "invisible_knowledge.system",
+      "check": "The claim that _page_chrome is the first call on both routes and that both bands can be constructed at page top level is the premise DL-183 and require_top_level_layout both rest on. It is asserted, not cited to a read of app.py or the installed nicegui package.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-shell-mechanics",
+      "version": 2
+    },
+    {
+      "id": "qa-020",
+      "scope": "invisible_knowledge.tradeoffs",
+      "check": "The choice to leave Column model, Table geometry and Detail rail open lives only in tradeoffs[5], so it cannot be cited as (DL-NNN) in the README prose M-003 writes about the surviving entries. It needs a decision entry.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-decision-citability",
+      "version": 3
+    },
+    {
+      "id": "qa-021",
+      "scope": "M-003",
+      "check": "Four existing served-page records read 'differs' on the structures this work builds. Nothing says whether those records are superseded, annotated or left standing, and CI-M-003-003 asserts the four existing digests are unchanged, which implies they stand while contradicting them.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-served-page-record",
+      "version": 3
+    },
+    {
+      "id": "qa-022",
+      "scope": "*",
+      "check": "No risk covers the viewport-height shell rule under a small or resized native pywebview window: a middle at min-height 0 between fixed 56px and 64px bands can collapse or clip. The artboards draw at a fixed height; the application does not run at one.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-023",
+      "scope": "M-001",
+      "check": "Record filenames hardcode dates (docs/2026-09-05-wizard-shell-record.md, docs/2026-09-06-wizard-card-record.md) in both the files lists and the acceptance criteria; slippage makes an acceptance criterion name a file the work does not produce.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-served-page-record",
+      "version": 3
+    },
+    {
+      "id": "qa-024",
+      "scope": "CI-M-001-005",
+      "check": "The invariant that no band or card rule sets a width is asserted by the guards only for the footer note and action rules. The band rules and the four card rules are unguarded against introducing a second width owner beside .wizard-content-width.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-theme-py-ownership",
+      "version": 3
+    },
+    {
+      "id": "qa-025",
+      "scope": "*",
+      "check": "diagram_graphs, readme_entries and every milestone's code_changes and documentation blocks are empty while M-003 writes two READMEs and every milestone changes code. Confirm these are populated downstream rather than genuinely missing.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-026",
+      "scope": "DL-183",
+      "check": "DL-183 is referenced by exactly one code_intent (CI-M-001-003) though it governs the whole shell approach; confirm the band-construction decision is not under-referenced relative to DL-184 and DL-185, which cover the same element.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-decision-citability",
+      "version": 2
+    },
+    {
+      "id": "qa-027",
+      "scope": "DL-188",
+      "check": "DL-188 requires every band height, padding and gap to be a theme.py constant reaching the page through a rule and never a .classes() literal, while CI-M-001-008 puts card class strings as literals at app.py call sites. Confirm the decision distinguishes class-name literals (required by test_every_classes_call_expands_to_literals) from dimension and colour literals (forbidden); as written the two statements read as a conflict.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-theme-py-ownership",
+      "version": 2
+    },
+    {
+      "id": "qa-028",
+      "scope": "CI-M-003-002",
+      "check": "CI-M-003-002 rewrites traktor_nml/gui/README.md to describe the shell as it stands, but its text must match what M-001 and M-002 actually built, including any structure the stepper refused. No dependency or requirement ties the README text to the two records' readings.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-unwired-obligations",
+      "version": 3
+    },
+    {
+      "id": "qa-029",
+      "scope": "invisible_knowledge.invariants",
+      "check": "The eight invariants duplicate constraints the empty planning_context.constraints array does not carry. Confirm the invariant list is not serving as a substitute: invariants describe what holds, constraints bind what the work may do, and the plan currently has only the former.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-decision-citability",
+      "version": 3
+    },
+    {
+      "id": "qa-030",
+      "scope": "milestone_dependencies",
+      "check": "The dependency graph is a strict chain M-001 --> M-002 --> M-003 with one milestone per wave, so the waves add no parallelism. Confirm the three-wave split is justified by the served-page gate rather than being an artefact, given M-002 contains no code change.",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 3
+    },
+    {
+      "id": "qa-031",
+      "scope": "M-002",
+      "check": "M-002 carries version 2 while M-001 and M-003 are version 1 and every code_intent is version 1. Confirm the revision was intentional and that the rest of the plan was reconciled against M-002's revised verification-only scope; qa-007 and qa-008 suggest it was not.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-card-triplet-closure",
+      "version": 3
+    },
+    {
+      "id": "qa-032",
+      "scope": "overview.approach",
+      "check": "The approach makes the served-page record the pass condition and the guards the regression net, yet M-002's first acceptance criterion is 'pytest tests/ -q passes'. Confirm no acceptance criterion anywhere makes a passing suite sufficient for closing a milestone.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-served-page-record",
+      "version": 2
+    },
+    {
+      "id": "qa-033",
+      "scope": "*",
+      "check": "task_spec lists seven out-of-scope items (detail rail, table geometry, column model, stepper replacement, accessibility beyond re-running records, NVDA, reconstruct-page structural verdict). Only three appear in the plan, via tradeoffs[5]. Confirm the remaining four are recorded so a later iteration cannot silently absorb them.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    }
+  ]
+}

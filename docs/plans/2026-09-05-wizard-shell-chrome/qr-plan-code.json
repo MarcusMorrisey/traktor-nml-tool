@@ -1,0 +1,489 @@
+{
+  "phase": "plan-code",
+  "iteration": 5,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "UMBRELLA: every code_change diff's context lines must match the current source at the named location; a hunk whose context is paraphrased cannot be applied.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001a",
+      "scope": "CC-M-001-001",
+      "check": "theme.py hunk context (SPACE_6/SPACE_16/SPACE_24, the CONTENT_WIDTH comment, CONTENT_WIDTH, RADIUS_SM/RADIUS_MD) matches theme.py lines 129-139 verbatim.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001b",
+      "scope": "CC-M-001-002",
+      "check": "theme.py tail hunk context (.q-toggle__thumb/.q-toggle__track/.body--dark, lines 353-355) matches, and the insertion stays inside the page_stylesheet f-string with every CSS brace doubled.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001c",
+      "scope": "CC-M-001-003",
+      "check": "theme.py box-rule hunk context (.q-page line 229, .wizard-surface line 230, .wizard-header line 231, .wizard-section-head) matches verbatim.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001d",
+      "scope": "CC-M-001-004",
+      "check": "app.py _page_chrome hunk context (lines 181-194: docstring, _mount_fonts, ui.colors, ui.dark_mode, ui.add_head_html, _build_header) matches verbatim.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001e",
+      "scope": "CC-M-001-005",
+      "check": "app.py /reconnect hunk context (lines 253-266) matches verbatim, including the four comment lines above _page_chrome('/reconnect').",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001f",
+      "scope": "CC-M-001-007",
+      "check": "app.py reconstruct hunk contexts at ~1335 and ~1352 match verbatim, and the second hunk's stated range (@@ -1676,12) is the real location of the Preview and Write output controls.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-001g",
+      "scope": "CC-M-001-010 / CC-M-002-002 / CC-M-002-003 / CC-M-003-003",
+      "check": "Each edit to an existing test file quotes that file's current text as context (test_gui_header_tabs.py:568-596, test_gui_keymap.py's _ACTION_APPLIERS test, test_gui_announce.py's live-region test, test_docs_browser_record_structure.py's READING_DIGESTS and differs sweep).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "UMBRELLA: every code_intent has a code_change that fully realises it, and no change leaves the file in a state the intent's behaviour statement does not describe.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 6,
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002a",
+      "scope": "CI-M-001-008 / CC-M-001-006",
+      "check": "The intent says every section the setup, scan, review and write steps build carries the card triplet, but the diff shows it applied only inside _build_setup_step and only around its first two labels. Either the change covers the other three step builders or the intent overstates what is built.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002b",
+      "scope": "CC-M-001-006 / CC-M-001-007",
+      "check": "Wrapping existing bodies in new `with` blocks re-indents every following line of _build_setup_step and of reconstruct (app.py ~1352-1686); neither diff shows that re-indentation, so applied as written the remaining widgets fall outside the card body.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 4,
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002c",
+      "scope": "M-001 / CC-M-001-005",
+      "check": "No code_change moves the /reconnect wizard's advancing controls into chrome.footer_actions or sets chrome.footer_note on that route: both are assigned onto state and never filled, so the footer band renders empty on the wizard route while DL-187 and the shell record claim the Footer band structure built.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002d",
+      "scope": "CC-M-001-005 / _WizardPageState",
+      "check": "state.footer_note and state.footer_actions are assigned but no change adds them to _WizardPageState.__init__, where every other attribute of that class is declared.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 3,
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002e",
+      "scope": "CC-M-001-004",
+      "check": "`class _PageChrome(NamedTuple)` is introduced but app.py imports only `Callable, Optional` from typing and no change adds NamedTuple, so the module would raise NameError at import.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002f",
+      "scope": "CC-M-001-001 / CC-M-001-002",
+      "check": "SPACE_20 is added (sourced to Main.dc.html:27's grid gap) but no emitted rule interpolates it; either a rule uses it or the constant is dead.",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 3,
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002g",
+      "scope": "CC-M-003-003",
+      "check": "READING_DIGESTS gains two entries whose values are the literal placeholder `<sha256 read back from _reading_digest()>`; the plan must say the real digest is read back once the record is written, and no milestone may be called done with the placeholder in the tree.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "UMBRELLA: every decision_ref an intent or a why-comment uses names a decision this plan actually states, numbered above DL-182 and contiguous.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "group_id": "parent-qa-003"
+    },
+    {
+      "id": "qa-003a",
+      "scope": "CC-M-003-001",
+      "check": "DL-183 through DL-197 each get exactly one statement in traktor_nml/README.md's decision log, in order, none skipped and none reused.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003"
+    },
+    {
+      "id": "qa-003b",
+      "scope": "code_intents[].decision_refs",
+      "check": "Every ref cited by an intent (DL-183..DL-191, DL-194..DL-197) resolves to one of those statements, and DL-192 and DL-193, cited only inside code comments, resolve too.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003"
+    },
+    {
+      "id": "qa-003c",
+      "scope": "*",
+      "check": "Every pre-existing DL cited inside a diff comment (DL-069, DL-078, DL-083, DL-085, DL-134, DL-163, DL-171, DL-172) says what the comment claims it says - no source cited for something it does not state.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003"
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "UMBRELLA: the changes hold the project's own code conventions - the DL-069 nicegui boundary, app.py's CRLF rule, no hex or dimension literal at a call site.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004a",
+      "scope": "CC-M-001-001 / CC-M-001-002 / CC-M-001-003",
+      "check": "Every new dimension, colour and CSS rule lands in theme.py, which imports no nicegui, and app.py names only class-name string literals (DL-069, DL-188).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004b",
+      "scope": "CC-M-001-004..007",
+      "check": "No app.py hunk introduces a hex colour or a px dimension at a call site; test_gui_theme.py::test_app_py_carries_no_hex_literal and ::test_every_classes_call_expands_to_literals would catch it.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004c",
+      "scope": "M-001 app.py changes",
+      "check": "The plan states each app.py edit is made with newline='' and CRLF preserved; app.py is 100% CRLF against an LF tree and a mixed-ending edit produces a whole-file diff.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004d",
+      "scope": "CC-M-001-002",
+      "check": "The new rules append at the tail of page_stylesheet(), below the @layer boundary and the body rule, so test_gui_font_faces.py's offset assertions still hold.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004e",
+      "scope": "CC-M-001-002",
+      "check": "No new rule names a network host and none is pulled in by @import or a CDN (DL-163).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004f",
+      "scope": "CC-M-001-002 / CC-M-001-003",
+      "check": "Every new wizard- class the stylesheet emits is named at an app.py call site, and the two viewport-height rules key on q-layout / q-page-container, which app.py cannot name (test_every_wizard_class_reaches_app_py, DL-193).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-004g",
+      "scope": "CC-M-001-003 / CC-M-001-005 / CC-M-001-007 / CC-M-001-010",
+      "check": "`.wizard-surface` is withdrawn from theme.py and from both call sites, and no other module or test still names it (DL-196).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004"
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "UMBRELLA: every new or amended guard carries a docstring recording the specific mutation applied and the specific observed output, and asserts only what source text can honestly assert.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005a",
+      "scope": "CC-M-001-008",
+      "check": "Each of test_gui_shell.py's five tests carries a mutation-and-observed-output docstring, and the quoted AssertionError text is consistent with the rule content this same plan emits.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005b",
+      "scope": "CC-M-001-009",
+      "check": "Each of test_gui_cards.py's six tests carries a mutation record whose quoted values match the constants the plan defines (RADIUS_XL 8px, SPACE_11/SPACE_15, TYPE_13, SPACE_12).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005c",
+      "scope": "CC-M-001-008 / CC-M-001-009",
+      "check": "No guard claims a rendered outcome - height, scroll ownership, computed padding - that only the served-page record can establish; each states that limit (DL-189).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005d",
+      "scope": "CC-M-001-008 / CC-M-001-009",
+      "check": "The `_rule()` helper's `[^}]*` regex resolves the intended block for every selector it is called with, including `.wizard-card` where `.wizard-card-head` shares the prefix, and `.q-layout` / `.q-page-container`.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005e",
+      "scope": "CC-M-002-002",
+      "check": "test_the_advancing_control_is_built_in_the_footer_action_group matches a `with ... footer_actions ...:` block on the reconstruct route alone, so it stays green with the /reconnect wizard's controls still inline; the guard must fail in that state or the plan must name what does.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005f",
+      "scope": "CC-M-002-003",
+      "check": "The amended test_gui_announce guard's docstring names its mutation and observed output, and the edit is docstring-only - it does not weaken what the test asserts.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005g",
+      "scope": "CC-M-003-003",
+      "check": "The rewritten differs sweep is correct: browser_records() really sorts by name, the newest-per-structure dict picks the newest reading, and a non-differs newest verdict correctly stops requiring an entry (DL-195).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005h",
+      "scope": "CC-M-003-003",
+      "check": "test_a_records_verdict_rows_hash_to_its_recorded_digest still passes for the four untouched digests, and the two added keys do not change how a record with no entry is treated.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-005i",
+      "scope": "CC-M-001-008 / tests/test_gui_theme.py",
+      "check": "test_every_shell_class_is_named_in_app_py duplicates test_gui_theme.py::test_every_wizard_class_reaches_app_py; the overlap is deliberate or one of them is dropped.",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 3,
+      "parent_id": "qa-005",
+      "group_id": "parent-qa-005"
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "UMBRELLA: each milestone closes with a served-page record carrying a matches/differs verdict AND a structural reading per named surface (DL-084, DL-169).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "group_id": "parent-qa-006"
+    },
+    {
+      "id": "qa-006a",
+      "scope": "CC-M-001-011",
+      "check": "The shell record's structural table names all six structures, and the reconstruct route carries atom readings only, per DL-172.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006"
+    },
+    {
+      "id": "qa-006b",
+      "scope": "CC-M-002-001",
+      "check": "The focus-order record carries a structural verdict section, not tab-order and keyboard tables alone; a surface with no structural reading fails the gate.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006"
+    },
+    {
+      "id": "qa-006c",
+      "scope": "CC-M-003-001",
+      "check": "App shell, Card structure and Footer band leave 'Composition not built' only on a reading the new record actually contains, and Column model, Table geometry and Detail rail stand as written.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006"
+    },
+    {
+      "id": "qa-006d",
+      "scope": "CC-M-003-001 / CC-M-003-003",
+      "check": "Four standing records keep differs rows for App shell, Card structure and Footer band; once those entries are struck the newest-reading rule is all that keeps the rows from going adrift, so the new record must supply the newest verdict for each of the three.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006"
+    },
+    {
+      "id": "qa-006e",
+      "scope": "CC-M-003-001",
+      "check": "Where the QStepper markup refuses part of the card triplet, a narrowed entry stands carrying the computed value the record quotes, rather than the entry being struck (DL-194).",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006"
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "UMBRELLA: every framework assumption the code rests on is validated against the installed nicegui 3.16.0 / Quasar rather than recalled.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 3,
+      "group_id": "parent-qa-007"
+    },
+    {
+      "id": "qa-007a",
+      "scope": "CC-M-001-004",
+      "check": "ui.header and ui.footer in nicegui 3.16.0 accept bordered= and elevated= keywords and may be constructed from inside _page_chrome given require_top_level_layout.",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-007",
+      "group_id": "parent-qa-007"
+    },
+    {
+      "id": "qa-007b",
+      "scope": "CC-M-001-002",
+      "check": "The class names the framework actually emits are q-layout and q-page-container, and the wizard sheet reaches the head after nicegui.css so the band restatements win at equal specificity (DL-192).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-007",
+      "group_id": "parent-qa-007"
+    },
+    {
+      "id": "qa-007c",
+      "scope": "CC-M-001-006",
+      "check": "The assumption that a ui.step admits the card triplet is confirmed against the installed QStepper markup, or the plan states the fallback (triplet outside the stepper, the stepper recorded as an open structure).",
+      "status": "PASS",
+      "severity": "MUST",
+      "version": 2,
+      "parent_id": "qa-007",
+      "group_id": "parent-qa-007"
+    },
+    {
+      "id": "qa-007d",
+      "scope": "CC-M-001-004",
+      "check": "_page_chrome's return type changes from None to _PageChrome; both call sites are updated and no test or AST recorder depends on the old signature.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2,
+      "parent_id": "qa-007",
+      "group_id": "parent-qa-007"
+    }
+  ]
+}

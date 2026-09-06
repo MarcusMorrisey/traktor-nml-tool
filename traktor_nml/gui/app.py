@@ -36,7 +36,7 @@ import threading
 import time
 import traceback
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, NamedTuple, Optional
 
 from nicegui import app as nicegui_app, run, ui
 
@@ -65,7 +65,16 @@ from . import announce
 class _WizardPageState:
     """One browser tab's worth of wizard state: the argparse Namespace
     the setup step builds, the scan result once it exists, the operator's
-    WizardState decisions, and the row the review table has focused."""
+    WizardState decisions, the row the review table has focused, and the
+    footer band's note and action row.
+
+    The band's two elements live here for the same reason the live
+    regions do: a step builder reaches them through the one object it
+    already carries. footer_groups maps a step's own title to the pair
+    (action row, note sentence) that step registers, which is what lets
+    the step change decide which group the band shows rather than which
+    group exists (DL-187).
+    """
 
     def __init__(self) -> None:
         self.args: Optional[argparse.Namespace] = None
@@ -80,6 +89,19 @@ class _WizardPageState:
         self.polite_region = None
         self.assertive_region = None
         self.detail_open: bool = False
+        # The footer band's note and its action group, held here for the
+        # same reason every other page-wide element is: a step builder
+        # reaches them through the one object it already carries, and a
+        # step's advancing control is built in the band rather than
+        # duplicated there (DL-187).
+        self.footer_note = None
+        self.footer_actions = None
+        # One action group per step, keyed by the step's own title, with
+        # the sentence that step's note carries. Every step is built up
+        # front, so every group exists before the first step change; the
+        # step change decides which one is shown rather than which one is
+        # built.
+        self.footer_groups: dict[str, tuple] = {}
         # Every step is built once, up front in index(), before any
         # scan has run (DL-078's four steps are all constructed at
         # page-build time, not lazily on step change), so a step whose
@@ -178,12 +200,41 @@ def _mount_fonts() -> None:
     _fonts_mounted = True
 
 
-def _page_chrome(active_route: str) -> None:
+class _PageChrome(NamedTuple):
+    """What _page_chrome hands its caller: the middle container the
+    route enters, and the two footer elements the route fills.
+
+    One object because the three are built together: a route taking the
+    middle alone would compose a page whose footer band still occupies
+    its own height with nothing in it.
+    """
+
+    middle: ui.element
+    footer_note: ui.label
+    footer_actions: ui.row
+    # middle is the container a route enters; footer_note and
+    # footer_actions are the two halves of the band Main.dc.html:29-31
+    # draws - .ft, holding .ft-note's sentence at the left and .ft-act's
+    # controls at the right.
+
+
+def _page_chrome(active_route: str) -> _PageChrome:
     """The colour, dark-mode and stylesheet preamble every page in this
     module applies, followed by the header the active route selects a
     tab in. Shared so a second route cannot drift from the wizard's own
     theme (DL-078, DL-085) and so the tab set cannot fork: both pages
-    build their header from this one call site (DL-134)."""
+    build their header from this one call site (DL-134).
+
+    ui.header and ui.footer put the page into Quasar's own QLayout,
+    which writes each band's height onto q-page-container as padding; a
+    hand-rolled fixed band fights that reservation instead of using it
+    (DL-183). Both are constructed at page top level, which is what
+    nicegui's require_top_level_layout demands, and this function is the
+    first call on both routes. The middle container is handed back
+    rather than entered here, so a route's body lands inside the
+    scrolling region by a with statement rather than by caller
+    discipline (DL-185).
+    """
     # Quasar's primary set carries theme.ACTION; dark/dark-page are fed
     # from the ground and surface tokens so Quasar's own dark components
     # land on the measured surfaces rather than a framework default.
@@ -191,7 +242,18 @@ def _page_chrome(active_route: str) -> None:
     ui.colors(primary=theme.ACTION, dark=theme.SURFACE_2, dark_page=theme.GROUND)
     ui.dark_mode(True)
     ui.add_head_html(f"<style>{theme.page_stylesheet()}</style>")
-    _build_header(active_route)
+    # bordered and elevated off: the rule and the shadow Quasar draws
+    # are not the ones Main.dc.html:16 and :29 draw, and the band's own
+    # rule in theme.py is (DL-183). The header row _build_header renders
+    # keeps its own classes and its own content: what differs is where
+    # the row sits.
+    with ui.header(bordered=False, elevated=False).classes("wizard-header-band"):
+        _build_header(active_route)
+    middle = ui.element("div").classes("wizard-middle")
+    with ui.footer(bordered=False, elevated=False).classes("wizard-footer-band"):
+        footer_note = ui.label("").classes("wizard-footer-note")
+        footer_actions = ui.row().classes("wizard-footer-actions")
+    return _PageChrome(middle, footer_note, footer_actions)
 
 
 def _build_header(active_route: str) -> None:
@@ -254,171 +316,221 @@ def build_wizard() -> None:
         # fed from the ground and surface tokens so Quasar's own dark
         # components land on the measured surfaces rather than a
         # framework default (DL-078, DL-085).
-        _page_chrome("/reconnect")
+        # The three regions are built in the order header, middle,
+        # footer, which is the order they read in the DOM and therefore
+        # the order the tab ring walks them in; that order is read on a
+        # served page rather than asserted here (DL-189, DL-197).
+        chrome = _page_chrome("/reconnect")
 
         state = _WizardPageState()
 
-        with ui.column().classes("gap-4 wizard-surface wizard-content-width"):
-            # Created once per page load, before any step that announces into them.
-            state.polite_region, state.assertive_region = build_live_regions()
-            stepper = ui.stepper().props("vertical").classes("w-full")
-            with stepper:
-                _build_setup_step(state, stepper)
-                _build_scan_step(state, stepper)
-                _build_review_step(state, stepper)
-                _build_write_step(state, stepper)
+        # Each step builder registers its own action group and note
+        # sentence in state.footer_groups, so the control that advances a
+        # step exists once, in the band, and its enabled state is held
+        # once (DL-187). Its place in the DOM is what sets the tab order,
+        # which is why the keyboard and the announcement records are read
+        # again (DL-197).
+        state.footer_note = chrome.footer_note
+        state.footer_actions = chrome.footer_actions
+
+        with chrome.middle:
+            with ui.column().classes("gap-4 wizard-content-width"):
+                # Created once per page load, before any step that announces into them.
+                state.polite_region, state.assertive_region = build_live_regions()
+                stepper = ui.stepper().props("vertical").classes("w-full")
+                with stepper:
+                    _build_setup_step(state, stepper)
+                    _build_scan_step(state, stepper)
+                    _build_review_step(state, stepper)
+                    _build_write_step(state, stepper)
+
+        def show_footer_for_step() -> None:
+            """The band carries the active step's own group and note.
+
+            Every group is built up front, alongside the step that owns
+            it, so this decides which one is visible rather than which
+            one exists - the same shape state.step_refreshers already
+            takes for a step's own render.
+            """
+            active = stepper.value
+            for name, (group, note) in state.footer_groups.items():
+                group.set_visibility(name == active)
+                if name == active:
+                    state.footer_note.set_text(note)
+
+        stepper.on_value_change(lambda _: show_footer_for_step())
+        show_footer_for_step()
 
 
 def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
+    """The first step: the collection to repair, chosen through the file
+    picker, and the Continue that reads it and moves to the scan.
+
+    The step's card holds what the operator reads and acts on; its
+    advancing control is built in the footer band and registered under
+    this step's own title, so the control exists once and its enabled
+    state is held once (DL-186, DL-187).
+    """
     with ui.step("Set up").classes("wizard-section-head"):
-        ui.label("My playlists are broken: the collection they point at moved.")
-        old_input_display = ui.label("No collection selected").classes("font-mono wizard-body-15 wizard-subtle-1")
-        old_input_holder: dict[str, Optional[Path]] = {"path": None}
+        # Main.dc.html:32-35 draws each section as a card: a bordered
+        # box, a header band carrying the section's title, and a padded
+        # body. The class strings are literals at the call site, which is
+        # what
+        # tests/test_gui_theme.py::test_every_classes_call_expands_to_literals
+        # reads - DL-188 keeps a dimension or a colour out of a call site,
+        # not a class name.
+        with ui.element("section").classes("wizard-card wizard-content-width"):
+            with ui.element("div").classes("wizard-card-head"):
+                ui.label("Your Traktor collection").classes("wizard-card-title")
+            with ui.element("div").classes("wizard-card-body"):
+                ui.label("My playlists are broken: the collection they point at moved.")
+                old_input_display = ui.label("No collection selected").classes("font-mono wizard-body-15 wizard-subtle-1")
+                old_input_holder: dict[str, Optional[Path]] = {"path": None}
 
-        async def choose_old_input() -> None:
-            path = await pick_file_or_folder(directories_only=False)
-            if path is not None:
-                old_input_holder["path"] = path
-                old_input_display.set_text(str(path))
+                async def choose_old_input() -> None:
+                    path = await pick_file_or_folder(directories_only=False)
+                    if path is not None:
+                        old_input_holder["path"] = path
+                        old_input_display.set_text(str(path))
 
-        # ui.button's own color parameter defaults to "primary" (NiceGUI's
-        # button.py), which Quasar renders as its own bg-primary/text-white
-        # utility classes - both carry !important in the bundled
-        # quasar.important.css, so no class this module adds could ever
-        # have outranked them; color=None is the only place that works
-        # (DL-086 rung one). Main.dc.html:97's "Choose file..." is a plain
-        # .btn, not .btn-pri, so this control is deliberately not primary.
-        ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-label")
+                # ui.button's own color parameter defaults to "primary" (NiceGUI's
+                # button.py), which Quasar renders as its own bg-primary/text-white
+                # utility classes - both carry !important in the bundled
+                # quasar.important.css, so no class this module adds could ever
+                # have outranked them; color=None is the only place that works
+                # (DL-086 rung one). Main.dc.html:97's "Choose file..." is a plain
+                # .btn, not .btn-pri, so this control is deliberately not primary.
+                ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-label")
 
-        # Main.dc.html:105's .card-t (13px/600) for the section this
-        # control belongs to. The button label below names a concept
-        # from the CLI's own --scan-root flag rather than anything the
-        # operator has; the artboard's heading is what says what the
-        # folders are for. (Naming that label here in full would break
-        # tests/test_gui_button_color_defaults.py, which anchors on the
-        # first occurrence of the literal string.)
-        ui.label("Where your music is now").classes("wizard-body-13 font-semibold")
-        scan_roots_list = ui.column().classes("gap-1")
-        scan_roots_holder: list[Path] = []
-        # One (volume_input, volumeid_input) pair per scan_roots_holder
-        # entry, same index - wizard_state.build_volume_map zips the two
-        # lists positionally, so a root and its pair of boxes must stay
-        # appended together.
-        volume_map_inputs: list[tuple[ui.input, ui.input]] = []
+                # Main.dc.html:105's .card-t (13px/600) for the section this
+                # control belongs to. The button label below names a concept
+                # from the CLI's own --scan-root flag rather than anything the
+                # operator has; the artboard's heading is what says what the
+                # folders are for. (Naming that label here in full would break
+                # tests/test_gui_button_color_defaults.py, which anchors on the
+                # first occurrence of the literal string.)
+                ui.label("Where your music is now").classes("wizard-body-13 font-semibold")
+                scan_roots_list = ui.column().classes("gap-1")
+                scan_roots_holder: list[Path] = []
+                # One (volume_input, volumeid_input) pair per scan_roots_holder
+                # entry, same index - wizard_state.build_volume_map zips the two
+                # lists positionally, so a root and its pair of boxes must stay
+                # appended together.
+                volume_map_inputs: list[tuple[ui.input, ui.input]] = []
 
-        async def add_scan_root() -> None:
-            path = await pick_file_or_folder(directories_only=True)
-            if path is not None:
-                scan_roots_holder.append(path)
-                default_volume, default_volumeid = wizard_state.default_volume_identity(path)
-                with scan_roots_list:
-                    # No design/reconnect-wizard artboard covers a
-                    # volume-map control (none exists for it); wizard-control
-                    # (theme.py CONTROL_HEIGHT/CONTROL_GAP) is applied here
-                    # the same way it already is to this file's other
-                    # controls (e.g. the Review step's A/R/U buttons below),
-                    # for Specs' general 32px/8px rule rather than any
-                    # artboard specific to this row.
-                    with ui.row().classes("gap-2 items-center wizard-control"):
-                        ui.label(str(path)).classes("font-mono wizard-body-11 wizard-subtle-2")
-                        volume_input = ui.input("Volume", value=default_volume).classes("w-24")
-                        volumeid_input = ui.input("Volume ID", value=default_volumeid).classes("w-24")
-                    # Visible without hovering, matching the cache-path
-                    # note below rather than a hover-only tooltip: the
-                    # design set has no artboard for this control, so
-                    # nothing else states what these two fields are.
-                    # VOLUME/VOLUMEID are what this collection's own
-                    # entries already record for this scan root; the
-                    # pre-filled value, taken from the scan root's own
-                    # drive, is usually right. volumes.py (DL-005)
-                    # refuses to infer them from the stale recorded
-                    # paths reconnection exists to fix, and a wrong or
-                    # empty VOLUMEID produces a PRIMARYKEY Traktor
-                    # cannot resolve.
-                    ui.label(
-                        "VOLUME and VOLUMEID are what this collection's own entries "
-                        "record for this scan root. The pre-filled value comes from "
-                        "the scan root's own drive and is usually right; a wrong or "
-                        "empty VOLUMEID produces a PRIMARYKEY Traktor cannot resolve."
-                    ).classes("wizard-subtle-3 wizard-note")
-                volume_map_inputs.append((volume_input, volumeid_input))
+                async def add_scan_root() -> None:
+                    path = await pick_file_or_folder(directories_only=True)
+                    if path is not None:
+                        scan_roots_holder.append(path)
+                        default_volume, default_volumeid = wizard_state.default_volume_identity(path)
+                        with scan_roots_list:
+                            # No design/reconnect-wizard artboard covers a
+                            # volume-map control (none exists for it); wizard-control
+                            # (theme.py CONTROL_HEIGHT/CONTROL_GAP) is applied here
+                            # the same way it already is to this file's other
+                            # controls (e.g. the Review step's A/R/U buttons below),
+                            # for Specs' general 32px/8px rule rather than any
+                            # artboard specific to this row.
+                            with ui.row().classes("gap-2 items-center wizard-control"):
+                                ui.label(str(path)).classes("font-mono wizard-body-11 wizard-subtle-2")
+                                volume_input = ui.input("Volume", value=default_volume).classes("w-24")
+                                volumeid_input = ui.input("Volume ID", value=default_volumeid).classes("w-24")
+                            # Visible without hovering, matching the cache-path
+                            # note below rather than a hover-only tooltip: the
+                            # design set has no artboard for this control, so
+                            # nothing else states what these two fields are.
+                            # VOLUME/VOLUMEID are what this collection's own
+                            # entries already record for this scan root; the
+                            # pre-filled value, taken from the scan root's own
+                            # drive, is usually right. volumes.py (DL-005)
+                            # refuses to infer them from the stale recorded
+                            # paths reconnection exists to fix, and a wrong or
+                            # empty VOLUMEID produces a PRIMARYKEY Traktor
+                            # cannot resolve.
+                            ui.label(
+                                "VOLUME and VOLUMEID are what this collection's own entries "
+                                "record for this scan root. The pre-filled value comes from "
+                                "the scan root's own drive and is usually right; a wrong or "
+                                "empty VOLUMEID produces a PRIMARYKEY Traktor cannot resolve."
+                            ).classes("wizard-subtle-3 wizard-note")
+                        volume_map_inputs.append((volume_input, volumeid_input))
 
-        # No design/reconnect-wizard artboard covers this control (see the
-        # comment on the volume-map row below); color=None is a judgement
-        # call, not an artboard citation - Specs' single-primary-action
-        # principle argues against a second blue button competing with
-        # this step's own "Continue".
-        ui.button("Add scan root...", on_click=add_scan_root, color=None).classes("wizard-control")
-        # Main.dc.html:125's .meta (12px, TEXT_FAINT). Answers the
-        # question the control itself raises - these folders are read,
-        # nothing in them is written - which no other copy on this step
-        # states.
-        ui.label(
-            "These folders are read, never modified. Add the drive your music moved to."
-        ).classes("wizard-body-12 wizard-faint")
+                # No design/reconnect-wizard artboard covers this control (see the
+                # comment on the volume-map row below); color=None is a judgement
+                # call, not an artboard citation - Specs' single-primary-action
+                # principle argues against a second blue button competing with
+                # this step's own "Continue".
+                ui.button("Add scan root...", on_click=add_scan_root, color=None).classes("wizard-control")
+                # Main.dc.html:125's .meta (12px, TEXT_FAINT). Answers the
+                # question the control itself raises - these folders are read,
+                # nothing in them is written - which no other copy on this step
+                # states.
+                ui.label(
+                    "These folders are read, never modified. Add the drive your music moved to."
+                ).classes("wizard-body-12 wizard-faint")
 
-        cache_input = ui.input(
-            "Tag cache path", value=".traktor_nml_tagcache.json"
-        ).classes("w-full")
-        ui.label(
-            "Scanning updates this cache file; it is written independently of "
-            "whether the collection itself is written."
-        ).classes("wizard-subtle-3 wizard-note")
-        refresh_cache_switch = ui.switch("Refresh cache (discard prior scan work)")
+                cache_input = ui.input(
+                    "Tag cache path", value=".traktor_nml_tagcache.json"
+                ).classes("w-full")
+                ui.label(
+                    "Scanning updates this cache file; it is written independently of "
+                    "whether the collection itself is written."
+                ).classes("wizard-subtle-3 wizard-note")
+                refresh_cache_switch = ui.switch("Refresh cache (discard prior scan work)")
 
-        control = wizard_state.fingerprint_control_state()
-        fingerprint_switch = ui.switch("Enable acoustic fingerprinting")
-        if not control.enabled:
-            fingerprint_switch.disable()
-            ui.label(control.reason or "").classes("wizard-body-11-5 wizard-dim")
+                control = wizard_state.fingerprint_control_state()
+                fingerprint_switch = ui.switch("Enable acoustic fingerprinting")
+                if not control.enabled:
+                    fingerprint_switch.disable()
+                    ui.label(control.reason or "").classes("wizard-body-11-5 wizard-dim")
 
-        output_input = ui.input("Output collection path").classes("w-full")
+                output_input = ui.input("Output collection path").classes("w-full")
 
-        async def choose_output() -> None:
-            """Fills output_input from a chosen directory, keeping the
-            typed path authoritative - the input stays editable and
-            go_to_scan keeps reading it, so this control is a
-            convenience over typing rather than a second source of
-            truth.
+                async def choose_output() -> None:
+                    """Fills output_input from a chosen directory, keeping the
+                    typed path authoritative - the input stays editable and
+                    go_to_scan keeps reading it, so this control is a
+                    convenience over typing rather than a second source of
+                    truth.
 
-            Picks a directory rather than a file because the output is a
-            path being named, not an existing file to open: the
-            LocalFilePicker fallback can only select entries that
-            already exist, so a file pick could not name a new one. The
-            filename is appended here and stays editable.
-            """
-            directory = await pick_file_or_folder(directories_only=True)
-            if directory is None:
-                return
-            typed = Path(output_input.value) if output_input.value else None
-            name = (
-                typed.name if typed is not None and typed.name
-                else wizard_state.default_output_name(old_input_holder["path"])
-            )
-            output_input.value = str(directory / name)
+                    Picks a directory rather than a file because the output is a
+                    path being named, not an existing file to open: the
+                    LocalFilePicker fallback can only select entries that
+                    already exist, so a file pick could not name a new one. The
+                    filename is appended here and stays editable.
+                    """
+                    directory = await pick_file_or_folder(directories_only=True)
+                    if directory is None:
+                        return
+                    typed = Path(output_input.value) if output_input.value else None
+                    name = (
+                        typed.name if typed is not None and typed.name
+                        else wizard_state.default_output_name(old_input_holder["path"])
+                    )
+                    output_input.value = str(directory / name)
 
-        # Matches "Choose collection file..." above: a plain .btn with
-        # color=None (DL-086 rung one), not primary.
-        ui.button("Choose output folder...", on_click=choose_output, color=None).classes("wizard-control wizard-label")
+                # Matches "Choose collection file..." above: a plain .btn with
+                # color=None (DL-086 rung one), not primary.
+                ui.button("Choose output folder...", on_click=choose_output, color=None).classes("wizard-control wizard-label")
 
-        def go_to_scan() -> None:
-            if old_input_holder["path"] is None or not scan_roots_holder:
-                ui.notify("Choose a collection file and at least one scan root", type="warning")
-                return
-            output_path = Path(output_input.value) if output_input.value else old_input_holder["path"]
-            entries = [(vi.value or "", vidi.value or "") for vi, vidi in volume_map_inputs]
-            state.args = _build_args(
-                old_input_holder["path"],
-                output_path,
-                list(scan_roots_holder),
-                volume_map=wizard_state.build_volume_map(list(scan_roots_holder), entries),
-                cache=Path(cache_input.value),
-                csv=None,
-                fingerprint=bool(fingerprint_switch.value) if control.enabled else False,
-                refresh_cache=bool(refresh_cache_switch.value),
-                dry_run=True,
-            )
-            stepper.next()
+                def go_to_scan() -> None:
+                    if old_input_holder["path"] is None or not scan_roots_holder:
+                        ui.notify("Choose a collection file and at least one scan root", type="warning")
+                        return
+                    output_path = Path(output_input.value) if output_input.value else old_input_holder["path"]
+                    entries = [(vi.value or "", vidi.value or "") for vi, vidi in volume_map_inputs]
+                    state.args = _build_args(
+                        old_input_holder["path"],
+                        output_path,
+                        list(scan_roots_holder),
+                        volume_map=wizard_state.build_volume_map(list(scan_roots_holder), entries),
+                        cache=Path(cache_input.value),
+                        csv=None,
+                        fingerprint=bool(fingerprint_switch.value) if control.enabled else False,
+                        refresh_cache=bool(refresh_cache_switch.value),
+                        dry_run=True,
+                    )
+                    stepper.next()
 
         # This step's one advancing action, and .btn-pri in Main.dc.html's
         # own footer. wizard-control-primary carries the action blue and
@@ -427,72 +539,109 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
         # text-white are !important in the layer it orders last, and
         # text-white holds the label at 2.31:1 against the blue where the
         # artboard's ink measures 8.2:1 (DL-086 rung one).
-        ui.button("Continue", on_click=go_to_scan, color=None).classes("wizard-control wizard-control-primary")
+        with state.footer_actions:
+            with ui.row().classes("wizard-footer-actions") as group:
+                ui.button("Continue", on_click=go_to_scan, color=None).classes(
+                    "wizard-control wizard-control-primary"
+                )
+        state.footer_groups["Set up"] = (
+            group,
+            "Continue reads the collection and moves on to the scan.",
+        )
 
 
 def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
+    """The scan step: the progress feed, the counter and the three status
+    tiles, all fed from the one on_progress callback.
+
+    Its three controls - cancel, start and the forward control - are
+    built together in the footer band, because they read and set each
+    other's enabled state and splitting them across the step and the
+    band would hold that state in two places (DL-187).
+    """
     with ui.step("Scan").classes("wizard-header"):
-        progress = ui.linear_progress(value=0).props("instant-feedback")
-        progress_label = ui.label("Not started").classes("wizard-body-12-5 wizard-action")
-        # Scanning.dc.html:88's scan counter and :98-106's three tile
-        # values are the step's numeric displays, and on_progress is
-        # the one live source for all four: the counter reads the
-        # artboard's 'indexed / total files', and the tiles the
-        # matched / needs-review / no-match counts among the reviews
-        # scanned so far. They carry the display, title and status
-        # colour tokens onto real Scan-step elements rather than onto
-        # the page title or the Write control (DL-078). All four start
-        # empty because no count exists before the first progress
-        # callback.
-        # Scanning.dc.html:88 nests the "/ N files" suffix as its own
-        # smaller, faint <span> inside the big counter (<span class="big
-        # mono">4,212<span class="faint" style="font-size:17px;...">
-        # / 12,542 files</span></span>) rather than sizing the whole
-        # string uniformly, so the counter is two labels, not one.
-        with ui.row().classes("items-baseline gap-1"):
-            scan_counter_display = ui.label("").classes("wizard-mono wizard-display")
-            scan_counter_suffix = ui.label("").classes("wizard-mono wizard-heading-xs wizard-faint")
-        # Scanning.dc.html:96-107's three <div class="tile"> each pair
-        # a value (:97/:101/:105's <span class="v">) with a key
-        # (:98/:102/:106's <span class="k">) naming what it counts -
-        # "Matched so far", "Need your review", "No match found" - a
-        # bare coloured number carries no meaning past whoever wrote
-        # the code, which is the same finding as the review row's A/R/U
-        # initials (Specs.dc.html, "Accessibility rules": no row relies
-        # on a swatch). The icon each key also carries is not built
-        # here - the word alone is the fix this finding asks for.
-        with ui.row().classes("wizard-tiles w-full"):
-            with ui.column().classes("wizard-tile"):
-                scan_tile_found = ui.label("").classes("wizard-mono wizard-title wizard-status-found")
-                ui.label("Matched so far").classes("wizard-body-11-5 wizard-dim")
-            with ui.column().classes("wizard-tile"):
-                scan_tile_review = ui.label("").classes("wizard-mono wizard-title wizard-status-review")
-                ui.label("Need your review").classes("wizard-body-11-5 wizard-dim")
-            with ui.column().classes("wizard-tile"):
-                scan_tile_missing = ui.label("").classes("wizard-mono wizard-title wizard-status-missing")
-                ui.label("No match found").classes("wizard-body-11-5 wizard-dim")
-        log = ui.log().classes("w-full h-64 wizard-panel")
-        # Scanning.dc.html:166 fixes "Stop scanning" as .btn-dgr
-        # (border/background/text = STATUS_NOT_FOUND_STRONG/
-        # STATUS_NOT_FOUND_TINT_BG/STATUS_NOT_FOUND_TINT_TEXT - the same
-        # triple wizard-tag-missing already carries), not .btn-pri and
-        # not a plain .btn either. color=None only removes the
-        # definitely-wrong primary blue this control never should have
-        # carried; the danger tint itself is not applied here and is a
-        # separate finding, not invented into this fix.
-        cancel_button = ui.button("Cancel", color=None).classes("wizard-control")
-        # This step's one advancing action, primary for the same reason
-        # and by the same mechanism as the Set up step's own Continue.
-        start_button = ui.button("Start scan", color=None).classes("wizard-control wizard-control-primary")
-        # Scanning.dc.html:166-167 fixes the step's forward control as
-        # <button class="btn off" disabled>Review matches</button> -
-        # plain, not primary, and disabled until a result exists. Its
-        # own artboard footer carries no back-to-setup control (that
-        # only appears on Cancelling.dc.html, a stop-scan confirmation
-        # screen this wizard does not build), so this step gets a
-        # forward control only, not a second Back.
-        review_matches_button = ui.button("Review matches", on_click=lambda: go_to_review(), color=None).classes("wizard-control")
+        # Main.dc.html:32-35 draws each section as a card: a bordered
+        # box, a header band carrying the section's title, and a padded
+        # body. The class strings are literals at the call site, which is
+        # what
+        # tests/test_gui_theme.py::test_every_classes_call_expands_to_literals
+        # reads - DL-188 keeps a dimension or a colour out of a call site,
+        # not a class name.
+        with ui.element("section").classes("wizard-card wizard-content-width"):
+            with ui.element("div").classes("wizard-card-head"):
+                ui.label("Scanning your music folders").classes("wizard-card-title")
+            with ui.element("div").classes("wizard-card-body"):
+                progress = ui.linear_progress(value=0).props("instant-feedback")
+                progress_label = ui.label("Not started").classes("wizard-body-12-5 wizard-action")
+                # Scanning.dc.html:88's scan counter and :98-106's three tile
+                # values are the step's numeric displays, and on_progress is
+                # the one live source for all four: the counter reads the
+                # artboard's 'indexed / total files', and the tiles the
+                # matched / needs-review / no-match counts among the reviews
+                # scanned so far. They carry the display, title and status
+                # colour tokens onto real Scan-step elements rather than onto
+                # the page title or the Write control (DL-078). All four start
+                # empty because no count exists before the first progress
+                # callback.
+                # Scanning.dc.html:88 nests the "/ N files" suffix as its own
+                # smaller, faint <span> inside the big counter (<span class="big
+                # mono">4,212<span class="faint" style="font-size:17px;...">
+                # / 12,542 files</span></span>) rather than sizing the whole
+                # string uniformly, so the counter is two labels, not one.
+                with ui.row().classes("items-baseline gap-1"):
+                    scan_counter_display = ui.label("").classes("wizard-mono wizard-display")
+                    scan_counter_suffix = ui.label("").classes("wizard-mono wizard-heading-xs wizard-faint")
+                # Scanning.dc.html:96-107's three <div class="tile"> each pair
+                # a value (:97/:101/:105's <span class="v">) with a key
+                # (:98/:102/:106's <span class="k">) naming what it counts -
+                # "Matched so far", "Need your review", "No match found" - a
+                # bare coloured number carries no meaning past whoever wrote
+                # the code, which is the same finding as the review row's A/R/U
+                # initials (Specs.dc.html, "Accessibility rules": no row relies
+                # on a swatch). The icon each key also carries is not built
+                # here - the word alone is the fix this finding asks for.
+                with ui.row().classes("wizard-tiles w-full"):
+                    with ui.column().classes("wizard-tile"):
+                        scan_tile_found = ui.label("").classes("wizard-mono wizard-title wizard-status-found")
+                        ui.label("Matched so far").classes("wizard-body-11-5 wizard-dim")
+                    with ui.column().classes("wizard-tile"):
+                        scan_tile_review = ui.label("").classes("wizard-mono wizard-title wizard-status-review")
+                        ui.label("Need your review").classes("wizard-body-11-5 wizard-dim")
+                    with ui.column().classes("wizard-tile"):
+                        scan_tile_missing = ui.label("").classes("wizard-mono wizard-title wizard-status-missing")
+                        ui.label("No match found").classes("wizard-body-11-5 wizard-dim")
+                log = ui.log().classes("w-full h-64 wizard-panel")
+        # This step's three controls are built in the band together: the
+        # cancel, the start and the forward control read and set each
+        # other's enabled state, so splitting them across the step and
+        # the band would hold that state in two places (DL-187).
+        with state.footer_actions:
+            with ui.row().classes("wizard-footer-actions") as group:
+                # Scanning.dc.html:166 fixes "Stop scanning" as .btn-dgr
+                # (border/background/text = STATUS_NOT_FOUND_STRONG/
+                # STATUS_NOT_FOUND_TINT_BG/STATUS_NOT_FOUND_TINT_TEXT - the same
+                # triple wizard-tag-missing already carries), not .btn-pri and
+                # not a plain .btn either. color=None only removes the
+                # definitely-wrong primary blue this control never should have
+                # carried; the danger tint itself is not applied here and is a
+                # separate finding, not invented into this fix.
+                cancel_button = ui.button("Cancel", color=None).classes("wizard-control")
+                # This step's one advancing action, primary for the same reason
+                # and by the same mechanism as the Set up step's own Continue.
+                start_button = ui.button("Start scan", color=None).classes("wizard-control wizard-control-primary")
+                # Scanning.dc.html:166-167 fixes the step's forward control as
+                # <button class="btn off" disabled>Review matches</button> -
+                # plain, not primary, and disabled until a result exists. Its
+                # own artboard footer carries no back-to-setup control (that
+                # only appears on Cancelling.dc.html, a stop-scan confirmation
+                # screen this wizard does not build), so this step gets a
+                # forward control only, not a second Back.
+                review_matches_button = ui.button("Review matches", on_click=lambda: go_to_review(), color=None).classes("wizard-control")
         review_matches_button.disable()
+        state.footer_groups["Scan"] = (
+            group,
+            "Review matches opens the rows the scan found.",
+        )
 
         # Populated in place by scan_reconnect_candidates (passed as
         # its reviews= argument below) - but only once run_reconnection
@@ -823,14 +972,37 @@ _ACTION_APPLIERS = {
 
 
 def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
-    with ui.step("Review").classes("wizard-hd-alt"):
-        if state.cancelled:
-            ui.label("Scan cancelled - no review table.").classes("text-warning")
-            return
+    """The review step: the filter chips, the table of scanned rows and
+    the comparison the focused row opens.
 
-        filter_row = ui.row().classes("gap-2")
-        table_container = ui.column().classes("w-full gap-1")
-        comparison_container = ui.column().classes("w-full")
+    The table's rows are laid out by the classes this builder names, not
+    by the five-track grid the artboard draws; that difference is the
+    Table geometry entry under 'Composition not built' in
+    traktor_nml/README.md, and the entry states the reason it is open.
+    The step's Back and Continue to write are built in the footer band
+    (DL-187).
+    """
+    with ui.step("Review").classes("wizard-hd-alt"):
+        # Main.dc.html:32-35 draws each section as a card: a bordered
+        # box, a header band carrying the section's title, and a padded
+        # body. The class strings are literals at the call site, which is
+        # what
+        # tests/test_gui_theme.py::test_every_classes_call_expands_to_literals
+        # reads - DL-188 keeps a dimension or a colour out of a call site,
+        # not a class name.
+        # The review table's own grid geometry stays as it stands - the
+        # Table geometry entry is outside this work's scope (DL-191).
+        with ui.element("section").classes("wizard-card wizard-content-width"):
+            with ui.element("div").classes("wizard-card-head"):
+                ui.label("What the scan matched").classes("wizard-card-title")
+            with ui.element("div").classes("wizard-card-body"):
+                if state.cancelled:
+                    ui.label("Scan cancelled - no review table.").classes("text-warning")
+                    return
+
+                filter_row = ui.row().classes("gap-2")
+                table_container = ui.column().classes("w-full gap-1")
+                comparison_container = ui.column().classes("w-full")
 
         def counts() -> dict[str, int]:
             rows = []
@@ -1066,212 +1238,261 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 
         # Review.dc.html:325's <span class="ft-act"> groups "Back"
         # ahead of "Continue" in its own footer.
-        with ui.row().classes("wizard-control-group"):
-            # Review.dc.html:325 renders <button class="btn">Back</button>,
-            # unlabelled - unlike Confirm.dc.html:178's "Back to review",
-            # which names Write's own target (Review) explicitly. Scan
-            # is this reader's inference from that naming pattern (every
-            # other Back control in the design set names the step
-            # immediately before it), not something the artboard states
-            # outright for this one. Pure navigation - stepper.previous()
-            # touches neither state.scan_result nor state.decisions.
-            ui.button("Back", on_click=stepper.previous, color=None).classes("wizard-control")
-            # This step's one advancing action. wizard-control-primary
-            # carries the blue and the artboard's own ink together, so the
-            # constructor passes color=None (DL-086 rung one).
-            ui.button("Continue to write", on_click=go_to_write, color=None).classes("wizard-control wizard-control-primary")
+        with state.footer_actions:
+            with ui.row().classes("wizard-footer-actions") as group:
+                # Review.dc.html:325 renders <button class="btn">Back</button>,
+                # unlabelled - unlike Confirm.dc.html:178's "Back to review",
+                # which names Write's own target (Review) explicitly. Scan
+                # is this reader's inference from that naming pattern (every
+                # other Back control in the design set names the step
+                # immediately before it), not something the artboard states
+                # outright for this one. Pure navigation - stepper.previous()
+                # touches neither state.scan_result nor state.decisions.
+                ui.button("Back", on_click=stepper.previous, color=None).classes("wizard-control")
+                # This step's one advancing action. wizard-control-primary
+                # carries the blue and the artboard's own ink together, so the
+                # constructor passes color=None (DL-086 rung one).
+                ui.button("Continue to write", on_click=go_to_write, color=None).classes("wizard-control wizard-control-primary")
+        state.footer_groups["Review"] = (
+            group,
+            "Continue to write carries your decisions to the write step.",
+        )
 
 
 def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
+    """The write step: what the run will write, and the control that
+    writes it after asking once more.
+
+    This builder registers its footer group before render() first runs,
+    because render() re-enters on every refresh and a group built there
+    would be a second row in the band each time; render() clears and
+    refills the one group instead (DL-187).
+    """
     with ui.step("Write").classes("wizard-sec-alt"):
-        container = ui.column().classes("w-full")
+        # This step's own action group, built and registered here for
+        # the same reason every step is built up front in index(): the
+        # key has to exist before the first step change, and render()
+        # below re-enters on every refresh, so a group built there would
+        # be a second row in the band each time. render() fills this one
+        # rather than making another (DL-187).
+        with state.footer_actions:
+            group = ui.row().classes("wizard-footer-actions")
+        state.footer_groups["Write"] = (
+            group,
+            "Write output writes a new file, asking once more first.",
+        )
 
-        def render() -> None:
-            """Rebuilds this step's entire contents from state, rather
-            than toggling a pre-built visibility flag: at build time
-            state.scan_result is still None (every step is built once,
-            up front, in index()), so 'Nothing to write.' is the only
-            content that can exist yet, and the reconnect-count label,
-            refusal label, write button, confirm dialog and output log
-            below do not exist until a scan has actually landed a
-            result. state.cancelled is re-checked here too, not
-            assumed false, so a cancelled scan still lands on 'Nothing
-            to write.' on every refresh, not only the first one."""
-            container.clear()
-            if state.cancelled or state.scan_result is None:
-                with container:
-                    ui.label("Nothing to write.")
-                return
+        # Main.dc.html:32-35 draws each section as a card: a bordered
+        # box, a header band carrying the section's title, and a padded
+        # body. The class strings are literals at the call site, which is
+        # what
+        # tests/test_gui_theme.py::test_every_classes_call_expands_to_literals
+        # reads - DL-188 keeps a dimension or a colour out of a call site,
+        # not a class name.
+        with ui.element("section").classes("wizard-card wizard-content-width"):
+            with ui.element("div").classes("wizard-card-head"):
+                ui.label("Writing the repaired collection").classes("wizard-card-title")
+            with ui.element("div").classes("wizard-card-body"):
+                container = ui.column().classes("w-full")
 
-            with container:
-                # The hero total (Results.dc.html:47's 40px .hero .n) names
-                # the count wizard_state.apply already computes for the
-                # Write control's own provider, so the displayed count and
-                # the written mapping can never disagree (DL-076).
-                reconnect_count = len(wizard_state.apply(state.scan_result, state.decisions))
-                ui.label(f"{reconnect_count} tracks to reconnect").classes("wizard-mono wizard-display-xl")
+                def render() -> None:
+                    """Rebuilds this step's entire contents from state, rather
+                    than toggling a pre-built visibility flag: at build time
+                    state.scan_result is still None (every step is built once,
+                    up front, in index()), so 'Nothing to write.' is the only
+                    content that can exist yet, and the reconnect-count label,
+                    refusal label, write button, confirm dialog and output log
+                    below do not exist until a scan has actually landed a
+                    result. state.cancelled is re-checked here too, not
+                    assumed false, so a cancelled scan still lands on 'Nothing
+                    to write.' on every refresh, not only the first one."""
+                    container.clear()
+                    if state.cancelled or state.scan_result is None:
+                        # The band carries this step's controls, so a state with
+                        # nothing to write empties the group rather than leaving
+                        # the controls of a run that no longer has a result
+                        # beside 'Nothing to write.'
+                        group.clear()
+                        with container:
+                            ui.label("Nothing to write.")
+                        return
 
-                # Scanning.dc.html:46's .note.warn border and background
-                # match STATUS_NEEDS_REVIEW_STRONG and
-                # STATUS_NEEDS_REVIEW_TINT_BG - wizard-tag-review's pair,
-                # which sets only background and border, so it reads as
-                # the warning note here without stacking a second
-                # colour-setting class onto the size and text-colour
-                # tokens. Carried only while there is a reason to show
-                # (refresh_refusal, below): wizard-tag-review paints a
-                # background and a border even on empty text, so an
-                # unconditional class here left a small tinted box
-                # under the reconnect count with nothing refused to
-                # show. Starts invisible for the same reason - an
-                # empty label still reserves its own line.
-                refusal_label = ui.label().classes("wizard-body-14-5 wizard-subtle-5")
-                refusal_label.set_visibility(False)
-                # Results.dc.html's own write control (.btn-pri) carries
-                # the control type (13px), not a heading size - the Write
-                # step's own hero total above already carries
-                # wizard-display-xl, so this button needs no size token
-                # of its own beyond wizard-control's own 32px floor.
-                #
-                # tabindex=0 is not decorative: QDialog.handleHide (in
-                # the bundled quasar.umd.js) restores focus on hide by
-                # calling refocusTarget.focus() directly for a
-                # non-key-triggered hide, but for a key-triggered one it
-                # instead calls
-                # refocusTarget.closest('[tabindex]:not([tabindex^="-"])').focus()
-                # - an attribute selector a plain <button> with no
-                # explicit tabindex never matches, so Quasar's own
-                # refocus silently finds nothing on that path. An
-                # explicit tabindex=0 makes this element match its own
-                # .closest() lookup, so Quasar's built-in mechanism can
-                # reach it on both paths rather than only the click one.
-                # Confirm.dc.html:178's <span class="ft-act"> groups
-                # "Back to review" ahead of "Write collection..." in its
-                # own footer.
-                with ui.row().classes("wizard-control-group"):
-                    # Confirm.dc.html:178 names this control's own
-                    # target explicitly, unlike Review.dc.html:325's
-                    # unlabelled "Back" - one step, to Review. Pure
-                    # navigation - stepper.previous() touches neither
-                    # state.scan_result nor state.decisions.
-                    ui.button("Back to review", on_click=stepper.previous, color=None).classes("wizard-control")
-                    # Results.dc.html's own write control, .btn-pri, through
-                    # wizard-control-primary with color=None at the
-                    # constructor (DL-086 rung one); tabindex=0 stays in
-                    # props, it is not a colour prop.
-                    write_button = ui.button("Write output", color=None).props("tabindex=0").classes("wizard-control wizard-control-primary")
+                    with container:
+                        # The hero total (Results.dc.html:47's 40px .hero .n) names
+                        # the count wizard_state.apply already computes for the
+                        # Write control's own provider, so the displayed count and
+                        # the written mapping can never disagree (DL-076).
+                        reconnect_count = len(wizard_state.apply(state.scan_result, state.decisions))
+                        ui.label(f"{reconnect_count} tracks to reconnect").classes("wizard-mono wizard-display-xl")
 
-                dialog = ui.dialog()
-                with dialog, ui.card().classes("wizard-panel wizard-hairline"):
-                    # Dialogs trap focus, open on the safe button, and
-                    # return focus to whatever opened them (Specs.dc.html,
-                    # "Accessibility rules"; DL-083, DL-078).
-                    #
-                    # Confirm.dc.html:57 (".dlg h2", 16px) governs this
-                    # heading, not Cancelling.dc.html:34's 17px: Confirm
-                    # is this exact dialog - its own h2 reads "Write
-                    # 11,389 changes?", the same Cancel/Write pair, the
-                    # same "Enter never writes" copy this dialog carries
-                    # below. Cancelling.dc.html's 17px belongs to "Stop
-                    # scanning?", a different confirmation this wizard
-                    # does not build yet.
-                    ui.label("Write the reconnected collection?").classes("wizard-heading-sm")
-                    with ui.row():
-                        # Confirm.dc.html:159 fixes this dialog's "Cancel" as a plain .btn,
-                        # not .btn-pri - color=None removes the primary blue
-                        # ui.button's own default would otherwise add.
-                        safe_button = ui.button("Cancel", on_click=dialog.close, color=None).props("autofocus").classes("wizard-control")
-                        # Confirm.dc.html:160's .btn-pri "Write collection", through
-                        # wizard-control-primary with color=None at the constructor.
-                        ui.button("Write", on_click=lambda: (dialog.close(), _do_write()), color=None).classes("wizard-control wizard-control-primary")
-                # Enter never writes: the dialog's default/autofocus
-                # control is the safe button, so a stray Enter closes
-                # without writing rather than confirming (Specs.dc.html,
-                # "Dialogs").
-                dialog.props("no-esc-dismiss=false")
-                # Quasar's own QDialog 'hide' event fires once regardless
-                # of dismissal route - Cancel, Write, Escape or a
-                # backdrop click all set the same model-value change - so
-                # binding here (DL-086 rung one, the framework's own
-                # mechanism) returns focus to the control that opened the
-                # dialog on every path alike, rather than wiring each
-                # close route separately (Specs.dc.html, "Accessibility
-                # rules": dialogs "return focus to whatever opened
-                # them").
-                dialog.on("hide", lambda: write_button.run_method("focus"))
-
-                def refresh_refusal() -> None:
-                    # write_refusal() itself keeps returning the bare
-                    # diagnostic token (output_must_differ_from_input,
-                    # currently the only one it ever returns) - this
-                    # renders wizard_state.write_refusal_sentence's
-                    # operator-facing translation of it instead, so the
-                    # Write step never shows the raw token the way it
-                    # did before (Errors.dc.html's own card for the
-                    # same defect never shows its token bare either).
-                    reason = wizard_state.write_refusal(state.args.old_input, state.args.output)
-                    if reason is not None:
-                        refusal_label.set_text(wizard_state.write_refusal_sentence(reason))
-                        refusal_label.classes(add="wizard-tag-review")
-                        refusal_label.set_visibility(True)
-                        write_button.disable()
-                    else:
-                        refusal_label.set_text("")
-                        refusal_label.classes(remove="wizard-tag-review")
+                        # Scanning.dc.html:46's .note.warn border and background
+                        # match STATUS_NEEDS_REVIEW_STRONG and
+                        # STATUS_NEEDS_REVIEW_TINT_BG - wizard-tag-review's pair,
+                        # which sets only background and border, so it reads as
+                        # the warning note here without stacking a second
+                        # colour-setting class onto the size and text-colour
+                        # tokens. Carried only while there is a reason to show
+                        # (refresh_refusal, below): wizard-tag-review paints a
+                        # background and a border even on empty text, so an
+                        # unconditional class here left a small tinted box
+                        # under the reconnect count with nothing refused to
+                        # show. Starts invisible for the same reason - an
+                        # empty label still reserves its own line.
+                        refusal_label = ui.label().classes("wizard-body-14-5 wizard-subtle-5")
                         refusal_label.set_visibility(False)
-                        write_button.enable()
+                        # Results.dc.html's own write control (.btn-pri) carries
+                        # the control type (13px), not a heading size - the Write
+                        # step's own hero total above already carries
+                        # wizard-display-xl, so this button needs no size token
+                        # of its own beyond wizard-control's own 32px floor.
+                        #
+                        # tabindex=0 is not decorative: QDialog.handleHide (in
+                        # the bundled quasar.umd.js) restores focus on hide by
+                        # calling refocusTarget.focus() directly for a
+                        # non-key-triggered hide, but for a key-triggered one it
+                        # instead calls
+                        # refocusTarget.closest('[tabindex]:not([tabindex^="-"])').focus()
+                        # - an attribute selector a plain <button> with no
+                        # explicit tabindex never matches, so Quasar's own
+                        # refocus silently finds nothing on that path. An
+                        # explicit tabindex=0 makes this element match its own
+                        # .closest() lookup, so Quasar's built-in mechanism can
+                        # reach it on both paths rather than only the click one.
+                        # Confirm.dc.html:178's <span class="ft-act"> groups
+                        # "Back to review" ahead of "Write collection..." in its
+                        # own footer.
+                        # The group itself is the one registered at the head of
+                        # this builder, cleared and refilled, so a refresh
+                        # replaces this step's controls rather than adding a
+                        # second row beside them. The dialog the write control
+                        # opens stays where it is built, a child of the page
+                        # rather than of the band (DL-187).
+                        group.clear()
+                        with group:
+                            # Confirm.dc.html:178 names this control's own
+                            # target explicitly, unlike Review.dc.html:325's
+                            # unlabelled "Back" - one step, to Review. Pure
+                            # navigation - stepper.previous() touches neither
+                            # state.scan_result nor state.decisions.
+                            ui.button("Back to review", on_click=stepper.previous, color=None).classes("wizard-control")
+                            # Results.dc.html's own write control, .btn-pri, through
+                            # wizard-control-primary with color=None at the
+                            # constructor (DL-086 rung one); tabindex=0 stays in
+                            # props, it is not a colour prop.
+                            write_button = ui.button("Write output", color=None).props("tabindex=0").classes("wizard-control wizard-control-primary")
 
-                refresh_refusal()
+                        dialog = ui.dialog()
+                        with dialog, ui.card().classes("wizard-panel wizard-hairline"):
+                            # Dialogs trap focus, open on the safe button, and
+                            # return focus to whatever opened them (Specs.dc.html,
+                            # "Accessibility rules"; DL-083, DL-078).
+                            #
+                            # Confirm.dc.html:57 (".dlg h2", 16px) governs this
+                            # heading, not Cancelling.dc.html:34's 17px: Confirm
+                            # is this exact dialog - its own h2 reads "Write
+                            # 11,389 changes?", the same Cancel/Write pair, the
+                            # same "Enter never writes" copy this dialog carries
+                            # below. Cancelling.dc.html's 17px belongs to "Stop
+                            # scanning?", a different confirmation this wizard
+                            # does not build yet.
+                            ui.label("Write the reconnected collection?").classes("wizard-heading-sm")
+                            with ui.row():
+                                # Confirm.dc.html:159 fixes this dialog's "Cancel" as a plain .btn,
+                                # not .btn-pri - color=None removes the primary blue
+                                # ui.button's own default would otherwise add.
+                                safe_button = ui.button("Cancel", on_click=dialog.close, color=None).props("autofocus").classes("wizard-control")
+                                # Confirm.dc.html:160's .btn-pri "Write collection", through
+                                # wizard-control-primary with color=None at the constructor.
+                                ui.button("Write", on_click=lambda: (dialog.close(), _do_write()), color=None).classes("wizard-control wizard-control-primary")
+                        # Enter never writes: the dialog's default/autofocus
+                        # control is the safe button, so a stray Enter closes
+                        # without writing rather than confirming (Specs.dc.html,
+                        # "Dialogs").
+                        dialog.props("no-esc-dismiss=false")
+                        # Quasar's own QDialog 'hide' event fires once regardless
+                        # of dismissal route - Cancel, Write, Escape or a
+                        # backdrop click all set the same model-value change - so
+                        # binding here (DL-086 rung one, the framework's own
+                        # mechanism) returns focus to the control that opened the
+                        # dialog on every path alike, rather than wiring each
+                        # close route separately (Specs.dc.html, "Accessibility
+                        # rules": dialogs "return focus to whatever opened
+                        # them").
+                        dialog.on("hide", lambda: write_button.run_method("focus"))
 
-                output_log = ui.log().classes("w-full h-48 wizard-panel")
+                        def refresh_refusal() -> None:
+                            # write_refusal() itself keeps returning the bare
+                            # diagnostic token (output_must_differ_from_input,
+                            # currently the only one it ever returns) - this
+                            # renders wizard_state.write_refusal_sentence's
+                            # operator-facing translation of it instead, so the
+                            # Write step never shows the raw token the way it
+                            # did before (Errors.dc.html's own card for the
+                            # same defect never shows its token bare either).
+                            reason = wizard_state.write_refusal(state.args.old_input, state.args.output)
+                            if reason is not None:
+                                refusal_label.set_text(wizard_state.write_refusal_sentence(reason))
+                                refusal_label.classes(add="wizard-tag-review")
+                                refusal_label.set_visibility(True)
+                                write_button.disable()
+                            else:
+                                refusal_label.set_text("")
+                                refusal_label.classes(remove="wizard-tag-review")
+                                refusal_label.set_visibility(False)
+                                write_button.enable()
 
-                def _do_write() -> None:
-                    args = argparse.Namespace(**vars(state.args))
-                    args.dry_run = False
+                        refresh_refusal()
 
-                    def provide_result(old_root):
-                        """Returns wizard_state.amended_result(...) over the
-                        already-reviewed scan result and the operator's
-                        decisions, never the unamended scan result - the one
-                        load-bearing call this module makes
-                        (traktor_nml/README.md's DL-076), pinned by the AST
-                        walk in tests/test_gui_view_boundary.py rather than by
-                        a runtime test."""
-                        return wizard_state.amended_result(state.scan_result, state.decisions)
+                        output_log = ui.log().classes("w-full h-48 wizard-panel")
 
-                    # A volume-identity failure surfaces through
-                    # result.error below, on the non-zero-exit_code
-                    # branch: write_reconnect_result catches
-                    # VolumeIdentityError itself and returns it as
-                    # RewriteReconnectResult.error rather than raising.
-                    result = reconnect_run.write_reconnect_result(args, provide_result)
-                    rendered = render_rewrite_from_reconnect(result, args)
-                    for line in rendered.stdout_lines:
-                        output_log.push(line)
-                    for line in rendered.stderr_lines:
-                        output_log.push(line)
-                    if rendered.exit_code == 0:
-                        ui.notify("Collection written", type="positive")
-                        # The write just succeeded, so this is the one
-                        # place completion_message's "was written" is true
-                        # (Specs.dc.html, "Accessibility rules").
-                        if state.assertive_region is not None:
-                            state.assertive_region.set_text(announce.completion_message(str(args.output)))
-                    else:
-                        ui.notify("Write failed", type="negative")
-                        if state.assertive_region is not None:
-                            state.assertive_region.set_text(
-                                announce.error_message(str(args.output), "; ".join(rendered.stderr_lines))
-                            )
+                        def _do_write() -> None:
+                            args = argparse.Namespace(**vars(state.args))
+                            args.dry_run = False
 
-                write_button.on_click(dialog.open)
+                            def provide_result(old_root):
+                                """Returns wizard_state.amended_result(...) over the
+                                already-reviewed scan result and the operator's
+                                decisions, never the unamended scan result - the one
+                                load-bearing call this module makes
+                                (traktor_nml/README.md's DL-076), pinned by the AST
+                                walk in tests/test_gui_view_boundary.py rather than by
+                                a runtime test."""
+                                return wizard_state.amended_result(state.scan_result, state.decisions)
 
-        # Registered so run_scan can refresh this step once a scan
-        # result lands, since building it here (state.scan_result is
-        # still None) is the only render() call this construction ever
-        # makes on its own.
-        state.step_refreshers.append(render)
+                            # A volume-identity failure surfaces through
+                            # result.error below, on the non-zero-exit_code
+                            # branch: write_reconnect_result catches
+                            # VolumeIdentityError itself and returns it as
+                            # RewriteReconnectResult.error rather than raising.
+                            result = reconnect_run.write_reconnect_result(args, provide_result)
+                            rendered = render_rewrite_from_reconnect(result, args)
+                            for line in rendered.stdout_lines:
+                                output_log.push(line)
+                            for line in rendered.stderr_lines:
+                                output_log.push(line)
+                            if rendered.exit_code == 0:
+                                ui.notify("Collection written", type="positive")
+                                # The write just succeeded, so this is the one
+                                # place completion_message's "was written" is true
+                                # (Specs.dc.html, "Accessibility rules").
+                                if state.assertive_region is not None:
+                                    state.assertive_region.set_text(announce.completion_message(str(args.output)))
+                            else:
+                                ui.notify("Write failed", type="negative")
+                                if state.assertive_region is not None:
+                                    state.assertive_region.set_text(
+                                        announce.error_message(str(args.output), "; ".join(rendered.stderr_lines))
+                                    )
 
-        render()
+                        write_button.on_click(dialog.open)
+
+                # Registered so run_scan can refresh this step once a scan
+                # result lands, since building it here (state.scan_result is
+                # still None) is the only render() call this construction ever
+                # makes on its own.
+                state.step_refreshers.append(render)
+
+                render()
 
 # The error token assemble_output reports when a divergent identity group
 # is left unresolved. The page the reconstruct screen answers, '/',
@@ -1334,7 +1555,17 @@ def _build_reconstruct_page() -> None:
 
     @ui.page("/")
     def reconstruct() -> None:
-        _page_chrome("/")
+        """The reconstruct page: the collection to repair, the
+        collections to take playlists from, where the output goes, and
+        what to do where they disagree.
+
+        It composes against the same shell as the wizard - the same
+        bands, the same middle, the same card triplet - and its two
+        primary controls are built in the footer band. DL-172 decides
+        what a served-page record may verdict about this route, not
+        which shell it is built from (DL-191).
+        """
+        chrome = _page_chrome("/")
 
         base_holder: dict = {"path": None}
         source_holder: list = []
@@ -1349,364 +1580,399 @@ def _build_reconstruct_page() -> None:
         # reads back undecided (DL-107, DL-115).
         decisions = conflict_model.ConflictDecisions()
 
-        with ui.column().classes("gap-4 wizard-surface wizard-content-width"):
+        # This route composes against the shell both pages are built
+        # from. DL-172 decides what a record may verdict about it, not
+        # which shell it is built from (DL-191). Its holders, its
+        # conflict rendering and its file-picker calls stand as they
+        # are: what differs is where the column and the two primary
+        # controls sit, and that each heading and the controls under it
+        # are a card rather than one box around the whole column.
+        with chrome.middle, ui.column().classes("gap-4 wizard-content-width"):
             ui.label(
                 "My playlists kept their names but lost their contents; an older "
                 "collection still has them."
             )
 
-            ui.label("The collection to repair").classes("wizard-body-13 font-semibold")
-            with ui.row().classes("items-center wizard-control-group"):
-                base_display = ui.label("No collection selected").classes(
-                    "font-mono wizard-body-15 wizard-subtle-1 grow"
-                )
-                base_remove = ui.button(
-                    "Remove",
-                    on_click=lambda: remove_base(),
-                    color=None,
-                ).classes("wizard-control wizard-tag-action-outline wizard-body-12")
-            base_remove.set_visibility(False)
+            # Main.dc.html:32-35 draws each section as a card: a bordered
+            # box, a header band carrying the section's title, and a padded
+            # body. The class strings are literals at the call site, which is
+            # what
+            # tests/test_gui_theme.py::test_every_classes_call_expands_to_literals
+            # reads - DL-188 keeps a dimension or a colour out of a call site,
+            # not a class name.
+            with ui.element("section").classes("wizard-card wizard-content-width"):
+                with ui.element("div").classes("wizard-card-head"):
+                    ui.label("The collection to repair").classes("wizard-card-title")
+                with ui.element("div").classes("wizard-card-body"):
+                    with ui.row().classes("items-center wizard-control-group"):
+                        base_display = ui.label("No collection selected").classes(
+                            "font-mono wizard-body-15 wizard-subtle-1 grow"
+                        )
+                        base_remove = ui.button(
+                            "Remove",
+                            on_click=lambda: remove_base(),
+                            color=None,
+                        ).classes("wizard-control wizard-tag-action-outline wizard-body-12")
+                    base_remove.set_visibility(False)
 
-            def discard_run() -> None:
-                """Discards the run and what it reported.
+                    def discard_run() -> None:
+                        """Discards the run and what it reported.
 
-                A held result was assembled over the collections the run
-                read, so leaving it in place after one of them leaves the
-                page would let the write control write an output built from
-                a collection no control names. The picks stay, and
-                conflict_model re-attaches the ones whose group membership
-                the next run leaves unchanged (DL-115).
-                """
-                result_holder["result"] = None
-                conflict_holder.clear()
-                report.clear()
+                        A held result was assembled over the collections the run
+                        read, so leaving it in place after one of them leaves the
+                        page would let the write control write an output built from
+                        a collection no control names. The picks stay, and
+                        conflict_model re-attaches the ones whose group membership
+                        the next run leaves unchanged (DL-115).
+                        """
+                        result_holder["result"] = None
+                        conflict_holder.clear()
+                        report.clear()
 
-            async def choose_base() -> None:
-                path = await pick_file_or_folder(directories_only=False)
-                if path is None:
-                    return
-                refusal = conflict_model.base_refusal(path, source_holder)
-                if refusal is not None:
-                    ui.notify(
-                        conflict_model.selection_refusal_sentence(refusal), type="warning"
-                    )
-                    return
-                base_holder["path"] = path
-                base_display.set_text(str(path))
-                base_remove.set_visibility(True)
-                discard_run()
-
-            def remove_base() -> None:
-                """Returns the page to naming no collection to repair."""
-                base_holder["path"] = None
-                base_display.set_text("No collection selected")
-                base_remove.set_visibility(False)
-                discard_run()
-
-            ui.button("Choose collection file...", on_click=choose_base, color=None).classes(
-                "wizard-control wizard-label"
-            )
-
-            ui.label("Collections to take playlists from").classes(
-                "wizard-body-13 font-semibold"
-            )
-            source_list = ui.column().classes("gap-1")
-
-            def draw_sources() -> None:
-                """Redraws the list from source_holder, so the rows and the
-                holder the run reads say the same thing after a removal."""
-                source_list.clear()
-                with source_list:
-                    for path in list(source_holder):
-                        with ui.row().classes("items-center wizard-control-group"):
-                            ui.label(str(path)).classes(
-                                "font-mono wizard-body-13 wizard-subtle-1 grow"
+                    async def choose_base() -> None:
+                        path = await pick_file_or_folder(directories_only=False)
+                        if path is None:
+                            return
+                        refusal = conflict_model.base_refusal(path, source_holder)
+                        if refusal is not None:
+                            ui.notify(
+                                conflict_model.selection_refusal_sentence(refusal), type="warning"
                             )
-                            ui.button(
-                                "Remove",
-                                on_click=lambda _e, chosen=path: remove_source(chosen),
-                                color=None,
-                            ).classes(
-                                "wizard-control wizard-tag-action-outline wizard-body-12"
-                            )
+                            return
+                        base_holder["path"] = path
+                        base_display.set_text(str(path))
+                        base_remove.set_visibility(True)
+                        discard_run()
 
-            def remove_source(path) -> None:
-                """Drops one source and discards the run that read it.
+                    def remove_base() -> None:
+                        """Returns the page to naming no collection to repair."""
+                        base_holder["path"] = None
+                        base_display.set_text("No collection selected")
+                        base_remove.set_visibility(False)
+                        discard_run()
 
-                A held result was assembled over the sources the run read,
-                so it is discarded with the source that left the list.
-                """
-                source_holder.remove(path)
-                discard_run()
-                draw_sources()
-
-            async def add_source() -> None:
-                path = await pick_file_or_folder(directories_only=False)
-                if path is None:
-                    return
-                refusal = conflict_model.source_refusal(
-                    path, base_holder["path"], source_holder
-                )
-                if refusal is not None:
-                    ui.notify(
-                        conflict_model.selection_refusal_sentence(refusal), type="warning"
+                    ui.button("Choose collection file...", on_click=choose_base, color=None).classes(
+                        "wizard-control wizard-label"
                     )
-                    return
-                source_holder.append(path)
-                discard_run()
-                draw_sources()
 
-            ui.button("Add source collection...", on_click=add_source, color=None).classes(
+            with ui.element("section").classes("wizard-card wizard-content-width"):
+                with ui.element("div").classes("wizard-card-head"):
+                    ui.label("Collections to take playlists from").classes("wizard-card-title")
+                with ui.element("div").classes("wizard-card-body"):
+                    source_list = ui.column().classes("gap-1")
+
+                    def draw_sources() -> None:
+                        """Redraws the list from source_holder, so the rows and the
+                        holder the run reads say the same thing after a removal."""
+                        source_list.clear()
+                        with source_list:
+                            for path in list(source_holder):
+                                with ui.row().classes("items-center wizard-control-group"):
+                                    ui.label(str(path)).classes(
+                                        "font-mono wizard-body-13 wizard-subtle-1 grow"
+                                    )
+                                    ui.button(
+                                        "Remove",
+                                        on_click=lambda _e, chosen=path: remove_source(chosen),
+                                        color=None,
+                                    ).classes(
+                                        "wizard-control wizard-tag-action-outline wizard-body-12"
+                                    )
+
+                    def remove_source(path) -> None:
+                        """Drops one source and discards the run that read it.
+
+                        A held result was assembled over the sources the run read,
+                        so it is discarded with the source that left the list.
+                        """
+                        source_holder.remove(path)
+                        discard_run()
+                        draw_sources()
+
+                    async def add_source() -> None:
+                        path = await pick_file_or_folder(directories_only=False)
+                        if path is None:
+                            return
+                        refusal = conflict_model.source_refusal(
+                            path, base_holder["path"], source_holder
+                        )
+                        if refusal is not None:
+                            ui.notify(
+                                conflict_model.selection_refusal_sentence(refusal), type="warning"
+                            )
+                            return
+                        source_holder.append(path)
+                        discard_run()
+                        draw_sources()
+
+                    ui.button("Add source collection...", on_click=add_source, color=None).classes(
+                        "wizard-control"
+                    )
+
+            with ui.element("section").classes("wizard-card wizard-content-width"):
+                with ui.element("div").classes("wizard-card-head"):
+                    ui.label("Where the output goes").classes("wizard-card-title")
+                with ui.element("div").classes("wizard-card-body"):
+                    ui.label(
+                        "These are read, never modified. Several are folded in the order added."
+                    ).classes("wizard-body-12 wizard-faint")
+
+                    output_input = ui.input("Output collection path").classes("w-full")
+
+                    async def choose_output() -> None:
+                        directory = await pick_file_or_folder(directories_only=True)
+                        if directory is None:
+                            return
+                        typed = Path(output_input.value) if output_input.value else None
+                        name = (
+                            typed.name if typed is not None and typed.name
+                            else wizard_state.default_output_name(base_holder["path"])
+                        )
+                        output_input.value = str(directory / name)
+
+                    ui.button("Choose output folder...", on_click=choose_output, color=None).classes(
+                        "wizard-control wizard-label"
+                    )
+
+            with ui.element("section").classes("wizard-card wizard-content-width"):
+                with ui.element("div").classes("wizard-card-head"):
+                    ui.label("Where the collections disagree").classes("wizard-card-title")
+                with ui.element("div").classes("wizard-card-body"):
+                    # The run-wide fallback, carrying the splice subcommand's own
+                    # two choices onto assemble_output's on_conflict parameter. Its
+                    # default settles nothing, so a divergent group stops the run
+                    # and is shown as a row of its own below.
+                    conflict_choice = ui.select(
+                        {
+                            None: "Ask me - stop and show every conflicting track",
+                            "keep-first": "keep-first - the collection being repaired wins",
+                            "keep-last": "keep-last - the last source added wins",
+                        },
+                        value=None,
+                    ).classes("w-full")
+
+                    report = ui.column().classes("w-full gap-1")
+
+                    def _load():
+                        """Reads and parses the chosen files, returning
+                        (base_bytes, base_root, contributions) or None with the
+                        reason already notified."""
+                        base_path = base_holder["path"]
+                        if base_path is None or not source_holder:
+                            ui.notify(
+                                "Choose a collection to repair and at least one source",
+                                type="warning",
+                            )
+                            return None
+                        base_result = read_and_parse_source(base_path)
+                        if base_result.error is not None:
+                            ui.notify(base_result.error, type="negative")
+                            return None
+                        contributions = []
+                        for path in source_holder:
+                            loaded = read_and_parse_source(path)
+                            if loaded.error is not None:
+                                ui.notify(loaded.error, type="negative")
+                                return None
+                            contributions.append((loaded.source_bytes.decode("utf-8"), loaded.root))
+                        return base_result.source_bytes, base_result.root, contributions
+
+
+                    def _render_conflicts(groups) -> None:
+                        """One hand-rolled ui.row per conflicting track, carrying the
+                        identity key, the attribute names that diverge and one
+                        control per answer the track offers, under the bulk strip
+                        and the outstanding count (Specs.dc.html, "Splice
+                        conflicts").
+
+                        Hand-rolled rather than ui.aggrid, which claims the arrow
+                        keys Specs binds over this same table (DL-079, DL-110).
+
+                        Every state the rows show - the pick held for a group, how
+                        many are still undecided, what a bulk action leaves standing
+                        - is read from conflict_model, which is where the suite can
+                        reach it (DL-069, DL-106).
+                        """
+                        ui.label(
+                            "These tracks are held differently by the collections. "
+                            "Nothing is written while any of them is unsettled."
+                        ).classes("wizard-body-13")
+                        table = ui.column().classes("w-full gap-0")
+                        # One name per input index, the collection being repaired at
+                        # index 0 and each source at its position in the list the
+                        # operator built (DL-154, DL-161).
+                        labels = _collection_labels(source_holder)
+
+                        def draw() -> None:
+                            """Redraws the table over the current decisions - the
+                            whole table rather than the row just picked, since a bulk
+                            action moves every undecided row and the count moves with
+                            any pick at all."""
+                            table.clear()
+                            with table:
+                                with ui.row().classes("w-full items-center gap-2"):
+                                    # One bulk action per collection the run reads,
+                                    # each settling the undecided groups its own
+                                    # collection holds a record in and leaving the
+                                    # rest undecided (DL-154).
+                                    for input_index, label in enumerate(labels):
+                                        ui.button(
+                                            f"All {label}",
+                                            on_click=lambda _e=None, index=input_index: bulk(index),
+                                            color=None,
+                                        ).classes("wizard-control")
+                                    ui.label(
+                                        f"{decisions.outstanding(groups)} of {len(groups)}"
+                                        " still undecided"
+                                    ).classes("wizard-body-12 wizard-faint")
+                                for group, view in zip(groups, decisions.rows(groups)):
+                                    row(group, view)
+
+                        def bulk(input_index: int) -> None:
+                            decisions.resolve_all(
+                                groups, conflict_model.reference_from_input(input_index)
+                            )
+                            draw()
+
+                        def pick(group, reference) -> None:
+                            decisions.resolve(group, reference)
+                            draw()
+
+                        def row(group, view) -> None:
+                            """One track's row, offering one control per answer the
+                            group carries. The decision the view holds indexes the
+                            selected class straight onto the candidate reference the
+                            view names, so the chosen answer alone carries the
+                            selected fill and this module holds no reading of what a
+                            decision means."""
+                            selected = {view.decision: "wizard-decision-accept"}
+                            with ui.row().classes("w-full items-center gap-3 wizard-row"):
+                                ui.label(view.identity_key).classes(
+                                    "font-mono wizard-body-12 grow"
+                                )
+                                ui.label(", ".join(view.attrs)).classes("wizard-label")
+                                for candidate in view.candidates:
+                                    reference = conflict_model.candidate_reference(candidate)
+                                    supplied_by = ", ".join(
+                                        labels[index] for index, _ in candidate.members
+                                    )
+                                    ui.button(
+                                        f"{supplied_by} {' | '.join(candidate.values)}",
+                                        on_click=(
+                                            lambda _e=None, chosen=group, named=reference:
+                                            pick(chosen, named)
+                                        ),
+                                        color=None,
+                                    ).classes(
+                                        "wizard-control font-mono wizard-body-12 "
+                                        f"{selected.get(reference, 'wizard-tag-action-outline')}"
+                                    )
+
+                        draw()
+
+                    async def preview() -> None:
+                        """Runs the same assemble_output call the CLI makes, with
+                        reconstruct=True, and renders what it reports. Nothing is
+                        written here: the run is the preview, so the write below
+                        cannot disagree with what this shows."""
+                        loaded = await run.io_bound(_load)
+                        if loaded is None:
+                            return
+                        base_bytes, base_root, contributions = loaded
+                        result = await run.io_bound(
+                            assemble_output,
+                            base_bytes.decode("utf-8"), base_root, contributions,
+                            MatchConfidence.STRICT, conflict_choice.value, True,
+                            resolutions=decisions.resolutions(conflict_holder),
+                        )
+                        # The groups the page shows are a projection of the rows
+                        # this run reported: conflict_model reads the membership and
+                        # the per-side values off the rows themselves, so there is no
+                        # second pass over the collections to hand run.io_bound.
+                        groups = conflict_model.conflict_groups(result.conflict_rows)
+                        conflict_holder[:] = groups
+                        result_holder["result"] = result
+                        report.clear()
+                        with report:
+                            if result.errors:
+                                # An ambiguity abort is a step-level failure: the
+                                # reasons are shown and no output is offered, matching
+                                # the CLI's own abort-with-nothing-written (DL-094,
+                                # DL-098).
+                                ui.label("Nothing was written.").classes(
+                                    "wizard-body-13 font-semibold"
+                                )
+                                for error in result.errors:
+                                    # The conflict abort's token names rows this same
+                                    # run returned, so those rows stand in its place;
+                                    # every other token renders as the token it is.
+                                    if error == conflict_model.CONFLICT_ABORT_TOKEN and groups:
+                                        _render_conflicts(groups)
+                                        continue
+                                    ui.label(error).classes("font-mono wizard-body-12 text-warning")
+                                return
+                            rebuilt = result.stats.get("reconstructed_playlists") or {}
+                            if not rebuilt:
+                                ui.label(
+                                    "Every matched playlist already holds these contents."
+                                ).classes("wizard-body-13")
+                                return
+                            count = len(rebuilt)
+                            ui.label(
+                                f"{count} playlist would be rebuilt:" if count == 1
+                                else f"{count} playlists would be rebuilt:"
+                            ).classes("wizard-body-13 font-semibold")
+                            for name, count in rebuilt.items():
+                                ui.label(f"{name} - {count} entries").classes(
+                                    "font-mono wizard-body-13 wizard-subtle-1"
+                                )
+
+                    async def write_output() -> None:
+                        """Writes the output the held run produced, or names why it
+                        cannot. A run that never happened, a run that refused on
+                        conflicts and a run that refused on anything else are three
+                        distinct refusals; the conflict one names how many are still
+                        to decide and the third names the run's own error, which the
+                        report above the controls lists in full (DL-111)."""
+                        result = result_holder["result"]
+                        refusal = conflict_model.write_refusal(
+                            result, decisions, conflict_holder
+                        )
+                        if refusal is not None:
+                            ui.notify(
+                                conflict_model.write_refusal_sentence(refusal), type="warning"
+                            )
+                            return
+                        if not output_input.value:
+                            ui.notify("Choose an output path", type="warning")
+                            return
+                        output_path = Path(output_input.value)
+                        if output_path.resolve() in {
+                            Path(base_holder["path"]).resolve(),
+                            *(Path(p).resolve() for p in source_holder),
+                        }:
+                            ui.notify(
+                                "The output path must differ from every input", type="negative"
+                            )
+                            return
+                        await run.io_bound(
+                            write_bytes_atomically, output_path, result.output.encode("utf-8")
+                        )
+                        ui.notify(f"Written to {output_path}", type="positive")
+
+        # Main.dc.html:29's .ft holds the screen's advancing action, so
+        # both primary controls are constructed in the band. Each invokes
+        # the function this page defines above - a with statement opens
+        # no scope of its own, so both names are in reach here - which is
+        # how each control exists once and its enabled state is held once
+        # (DL-187).
+        chrome.footer_note.set_text(
+            "Preview reads the collections; Write output writes a new file."
+        )
+        with chrome.footer_actions:
+            ui.button("Preview", on_click=preview, color=None).classes(
                 "wizard-control"
             )
-            ui.label(
-                "These are read, never modified. Several are folded in the order added."
-            ).classes("wizard-body-12 wizard-faint")
-
-            output_input = ui.input("Output collection path").classes("w-full")
-
-            async def choose_output() -> None:
-                directory = await pick_file_or_folder(directories_only=True)
-                if directory is None:
-                    return
-                typed = Path(output_input.value) if output_input.value else None
-                name = (
-                    typed.name if typed is not None and typed.name
-                    else wizard_state.default_output_name(base_holder["path"])
-                )
-                output_input.value = str(directory / name)
-
-            ui.button("Choose output folder...", on_click=choose_output, color=None).classes(
-                "wizard-control wizard-label"
-            )
-
-            ui.label("Where the collections disagree").classes(
-                "wizard-body-13 font-semibold"
-            )
-            # The run-wide fallback, carrying the splice subcommand's own
-            # two choices onto assemble_output's on_conflict parameter. Its
-            # default settles nothing, so a divergent group stops the run
-            # and is shown as a row of its own below.
-            conflict_choice = ui.select(
-                {
-                    None: "Ask me - stop and show every conflicting track",
-                    "keep-first": "keep-first - the collection being repaired wins",
-                    "keep-last": "keep-last - the last source added wins",
-                },
-                value=None,
-            ).classes("w-full")
-
-            report = ui.column().classes("w-full gap-1")
-
-            def _load():
-                """Reads and parses the chosen files, returning
-                (base_bytes, base_root, contributions) or None with the
-                reason already notified."""
-                base_path = base_holder["path"]
-                if base_path is None or not source_holder:
-                    ui.notify(
-                        "Choose a collection to repair and at least one source",
-                        type="warning",
-                    )
-                    return None
-                base_result = read_and_parse_source(base_path)
-                if base_result.error is not None:
-                    ui.notify(base_result.error, type="negative")
-                    return None
-                contributions = []
-                for path in source_holder:
-                    loaded = read_and_parse_source(path)
-                    if loaded.error is not None:
-                        ui.notify(loaded.error, type="negative")
-                        return None
-                    contributions.append((loaded.source_bytes.decode("utf-8"), loaded.root))
-                return base_result.source_bytes, base_result.root, contributions
-
-
-            def _render_conflicts(groups) -> None:
-                """One hand-rolled ui.row per conflicting track, carrying the
-                identity key, the attribute names that diverge and one
-                control per answer the track offers, under the bulk strip
-                and the outstanding count (Specs.dc.html, "Splice
-                conflicts").
-
-                Hand-rolled rather than ui.aggrid, which claims the arrow
-                keys Specs binds over this same table (DL-079, DL-110).
-
-                Every state the rows show - the pick held for a group, how
-                many are still undecided, what a bulk action leaves standing
-                - is read from conflict_model, which is where the suite can
-                reach it (DL-069, DL-106).
-                """
-                ui.label(
-                    "These tracks are held differently by the collections. "
-                    "Nothing is written while any of them is unsettled."
-                ).classes("wizard-body-13")
-                table = ui.column().classes("w-full gap-0")
-                # One name per input index, the collection being repaired at
-                # index 0 and each source at its position in the list the
-                # operator built (DL-154, DL-161).
-                labels = _collection_labels(source_holder)
-
-                def draw() -> None:
-                    """Redraws the table over the current decisions - the
-                    whole table rather than the row just picked, since a bulk
-                    action moves every undecided row and the count moves with
-                    any pick at all."""
-                    table.clear()
-                    with table:
-                        with ui.row().classes("w-full items-center gap-2"):
-                            # One bulk action per collection the run reads,
-                            # each settling the undecided groups its own
-                            # collection holds a record in and leaving the
-                            # rest undecided (DL-154).
-                            for input_index, label in enumerate(labels):
-                                ui.button(
-                                    f"All {label}",
-                                    on_click=lambda _e=None, index=input_index: bulk(index),
-                                    color=None,
-                                ).classes("wizard-control")
-                            ui.label(
-                                f"{decisions.outstanding(groups)} of {len(groups)}"
-                                " still undecided"
-                            ).classes("wizard-body-12 wizard-faint")
-                        for group, view in zip(groups, decisions.rows(groups)):
-                            row(group, view)
-
-                def bulk(input_index: int) -> None:
-                    decisions.resolve_all(
-                        groups, conflict_model.reference_from_input(input_index)
-                    )
-                    draw()
-
-                def pick(group, reference) -> None:
-                    decisions.resolve(group, reference)
-                    draw()
-
-                def row(group, view) -> None:
-                    """One track's row, offering one control per answer the
-                    group carries. The decision the view holds indexes the
-                    selected class straight onto the candidate reference the
-                    view names, so the chosen answer alone carries the
-                    selected fill and this module holds no reading of what a
-                    decision means."""
-                    selected = {view.decision: "wizard-decision-accept"}
-                    with ui.row().classes("w-full items-center gap-3 wizard-row"):
-                        ui.label(view.identity_key).classes(
-                            "font-mono wizard-body-12 grow"
-                        )
-                        ui.label(", ".join(view.attrs)).classes("wizard-label")
-                        for candidate in view.candidates:
-                            reference = conflict_model.candidate_reference(candidate)
-                            supplied_by = ", ".join(
-                                labels[index] for index, _ in candidate.members
-                            )
-                            ui.button(
-                                f"{supplied_by} {' | '.join(candidate.values)}",
-                                on_click=(
-                                    lambda _e=None, chosen=group, named=reference:
-                                    pick(chosen, named)
-                                ),
-                                color=None,
-                            ).classes(
-                                "wizard-control font-mono wizard-body-12 "
-                                f"{selected.get(reference, 'wizard-tag-action-outline')}"
-                            )
-
-                draw()
-
-            async def preview() -> None:
-                """Runs the same assemble_output call the CLI makes, with
-                reconstruct=True, and renders what it reports. Nothing is
-                written here: the run is the preview, so the write below
-                cannot disagree with what this shows."""
-                loaded = await run.io_bound(_load)
-                if loaded is None:
-                    return
-                base_bytes, base_root, contributions = loaded
-                result = await run.io_bound(
-                    assemble_output,
-                    base_bytes.decode("utf-8"), base_root, contributions,
-                    MatchConfidence.STRICT, conflict_choice.value, True,
-                    resolutions=decisions.resolutions(conflict_holder),
-                )
-                # The groups the page shows are a projection of the rows
-                # this run reported: conflict_model reads the membership and
-                # the per-side values off the rows themselves, so there is no
-                # second pass over the collections to hand run.io_bound.
-                groups = conflict_model.conflict_groups(result.conflict_rows)
-                conflict_holder[:] = groups
-                result_holder["result"] = result
-                report.clear()
-                with report:
-                    if result.errors:
-                        # An ambiguity abort is a step-level failure: the
-                        # reasons are shown and no output is offered, matching
-                        # the CLI's own abort-with-nothing-written (DL-094,
-                        # DL-098).
-                        ui.label("Nothing was written.").classes(
-                            "wizard-body-13 font-semibold"
-                        )
-                        for error in result.errors:
-                            # The conflict abort's token names rows this same
-                            # run returned, so those rows stand in its place;
-                            # every other token renders as the token it is.
-                            if error == conflict_model.CONFLICT_ABORT_TOKEN and groups:
-                                _render_conflicts(groups)
-                                continue
-                            ui.label(error).classes("font-mono wizard-body-12 text-warning")
-                        return
-                    rebuilt = result.stats.get("reconstructed_playlists") or {}
-                    if not rebuilt:
-                        ui.label(
-                            "Every matched playlist already holds these contents."
-                        ).classes("wizard-body-13")
-                        return
-                    count = len(rebuilt)
-                    ui.label(
-                        f"{count} playlist would be rebuilt:" if count == 1
-                        else f"{count} playlists would be rebuilt:"
-                    ).classes("wizard-body-13 font-semibold")
-                    for name, count in rebuilt.items():
-                        ui.label(f"{name} - {count} entries").classes(
-                            "font-mono wizard-body-13 wizard-subtle-1"
-                        )
-
-            ui.button("Preview", on_click=preview, color=None).classes("wizard-control")
-
-            async def write_output() -> None:
-                """Writes the output the held run produced, or names why it
-                cannot. A run that never happened, a run that refused on
-                conflicts and a run that refused on anything else are three
-                distinct refusals; the conflict one names how many are still
-                to decide and the third names the run's own error, which the
-                report above the controls lists in full (DL-111)."""
-                result = result_holder["result"]
-                refusal = conflict_model.write_refusal(
-                    result, decisions, conflict_holder
-                )
-                if refusal is not None:
-                    ui.notify(
-                        conflict_model.write_refusal_sentence(refusal), type="warning"
-                    )
-                    return
-                if not output_input.value:
-                    ui.notify("Choose an output path", type="warning")
-                    return
-                output_path = Path(output_input.value)
-                if output_path.resolve() in {
-                    Path(base_holder["path"]).resolve(),
-                    *(Path(p).resolve() for p in source_holder),
-                }:
-                    ui.notify(
-                        "The output path must differ from every input", type="negative"
-                    )
-                    return
-                await run.io_bound(
-                    write_bytes_atomically, output_path, result.output.encode("utf-8")
-                )
-                ui.notify(f"Written to {output_path}", type="positive")
-
             ui.button("Write output", on_click=write_output, color=None).classes(
                 "wizard-control wizard-control-primary"
             )

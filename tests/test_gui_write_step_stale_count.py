@@ -186,6 +186,12 @@ def _build_state_with_one_ambiguous_review(app_module):
     ("ambiguous") is the default active_filter, so the row renders
     without needing to switch filters first."""
     state = app_module._WizardPageState()
+    # _page_chrome builds the footer band both routes carry, and every
+    # step's advancing control is constructed in it, so a step built
+    # outside a page needs the note and the action group the chrome
+    # would have handed it (DL-187).
+    state.footer_note = app_module.ui.label("")
+    state.footer_actions = app_module.ui.row()
     state.args = argparse.Namespace(old_input=Path("stale.nml"), output=Path("out.nml"), csv=None)
     review = _ambiguous_review("track.mp3")
     key = review.old.primary_key

@@ -1,0 +1,77 @@
+{
+  "task_spec": [
+    "SUBJECT: give the NiceGUI reconnect wizard the shell silhouette its artboards draw - a fixed header band, a scrolling middle that owns the viewport, a footer band carrying note-left/actions-right, and the artboards' .card header/body triplet applied to the sections each page already builds.",
+    "scope: traktor_nml/gui/app.py (composition), traktor_nml/gui/theme.py (every CSS rule and constant), tests/ (new source-text guards), traktor_nml/README.md (decision log entries and the Composition-not-built entries this closes), traktor_nml/gui/README.md, docs/ (the served-page record each milestone closes with).",
+    "out-of-scope: the 400px detail rail (`.det` in Review.dc.html) - the Composition-not-built 'Detail rail' entry stays open.",
+    "out-of-scope: the review table's grid geometry (`.gr` at 126px minmax(0,1fr) 100px 196px 134px) and its `.th` header row - the 'Table geometry' entry stays open.",
+    "out-of-scope: the two-column `main` (`1fr 400px`) - the 'Column model' entry stays open; main stays one column at .wizard-content-width.",
+    "out-of-scope: replacing the vertical ui.stepper with the artboards' own step rendering.",
+    "out-of-scope: accessibility work beyond re-running the existing keyboard and announcement records; NVDA must not be fetched.",
+    "out-of-scope: the reconstruct page at / gaining a structural verdict - DL-172 puts it outside the structural gate."
+  ],
+  "constraints": [
+    "MUST: traktor_nml/README.md is the decision-log authority; one statement per decision, cited in prose as `(DL-NNN).`; the high-water mark is DL-182, so new entries start at DL-183.",
+    "MUST: DL-069's nicegui boundary - only app.py, file_picker.py and __main__.py may import nicegui or pywebview. Every other gui/ module must stay importable under the system interpreter, which has no nicegui. So every CSS rule, class name and dimension constant this work introduces lives in theme.py, and app.py only names them.",
+    "MUST: each milestone closes with a served-page record in docs/, driven in a browser over HTTP, carrying a matches/differs verdict per named surface (DL-084) AND a structural reading per surface beside the atom readings (DL-169). A surface carrying no structural reading fails the gate.",
+    "MUST: every new guard is proven to FAIL first - the docstring records the specific mutation applied and the specific observed output, not a paraphrase.",
+    "MUST: traktor_nml/gui/app.py is 100% CRLF against an otherwise-LF tree; read and write it with newline='' and never let an LF line in.",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'.",
+    "MUST: never cite a source for something it does not say.",
+    "MUST: the three Composition-not-built entries this work closes (App shell, Card structure, Footer band) are removed from that section only once the structure is built and read off a served page; the other three stay.",
+    "MUST NOT: regenerate tests/baselines/manifest.json or the fixture/w002gatefix2 gate fixture.",
+    "MUST NOT: restore a file with `git checkout` - copy aside and restore from the copy.",
+    "MUST NOT: write into or delete build/ or dist/.",
+    "MUST NOT: install anything into the system interpreter; the suite runs with the SYSTEM interpreter, not .venv.",
+    "MUST NOT: reach a network host from the stylesheet - tests/test_gui_font_faces.py::test_the_whole_stylesheet_names_no_network_host guards the whole emitted sheet.",
+    "SHOULD: reuse the existing .wizard-content-width rule for the page column rather than introducing a second width owner.",
+    "SHOULD: keep the header's existing content (brand, divider, tab strip) exactly as _build_header renders it; this work changes where that row sits, not what it holds."
+  ],
+  "entry_points": [
+    "traktor_nml/gui/app.py:_page_chrome - calls _mount_fonts, ui.colors, ui.dark_mode, ui.add_head_html(page_stylesheet()), then _build_header. This is where ui.header/ui.footer must be introduced, and it is the one call site both pages share.",
+    "traktor_nml/gui/app.py:_build_header - renders the brand, divider and nav tab strip into a ui.row classed 'items-center gap-3 wizard-header-bar wizard-content-width'. The row must move inside ui.header without its content changing.",
+    "traktor_nml/gui/app.py - the reconnect page body: `with ui.column().classes('gap-4 wizard-surface wizard-content-width')` wrapping build_live_regions() and a vertical ui.stepper holding _build_setup_step / _build_scan_step / _build_review_step / _build_write_step. The single .wizard-surface applied once to the whole column is exactly what the Card-structure entry records as wrong.",
+    "traktor_nml/gui/theme.py:page_stylesheet - the f-string emitting every rule; font_face_rules() is interpolated at its head, unlayered, above the body rule, and an @layer boundary follows. New shell/card/footer rules must land without crossing that ordering.",
+    "traktor_nml/gui/theme.py - the constants block: CONTENT_WIDTH='64rem', SPACE_*, RADIUS_*, SURFACE_*, BORDER, CONTROL_HEIGHT='32px'. Shell band heights (56px header, 64px footer per the artboards) belong here beside them.",
+    "traktor_nml/gui/theme.py:.wizard-header-bar and .wizard-content-width - the two rules that currently own the header band and the page column.",
+    "design/reconnect-wizard/Main.dc.html - the source for .app, .card/.card-h/.card-t/.card-b and .ft/.ft-note/.ft-act; the selectors and values must be read off this file, not from the README's paraphrase of it.",
+    "tests/test_gui_view_boundary.py - the AST walk enforcing DL-069; any new gui/ module must satisfy it.",
+    "tests/test_gui_font_faces.py:test_the_face_blocks_precede_the_body_rule_that_names_the_family - asserts @font-face offsets against the body rule and the @layer boundary, so it constrains where new rules may be inserted in page_stylesheet()."
+  ],
+  "rejected_alternatives": [
+    "Option A (typeface + gate amendment alone) - already done and shipped this session; it fixed the atoms but built no composition.",
+    "Option C (full artboard port: two-column main, detail rail, table grid) - not chosen; it carries responsive risk at every width and touches the review table's keyboard contract, which Specs binds.",
+    "Plain CSS position:fixed bands instead of ui.header/ui.footer - rejected because Quasar's QLayout already reserves the space for its own header and footer and a hand-rolled fixed band fights it.",
+    "A CDN or @import for anything - the whole stylesheet is guarded against network hosts (DL-163)."
+  ],
+  "current_understanding": [
+    "The wizard is a NiceGUI 3.16.0 / Quasar desktop app run with native=True via pywebview; two routes, / (reconstruct) and /reconnect, both entered through _page_chrome.",
+    "The served page today composes: a header ui.row, then one ui.column at .wizard-content-width carrying .wizard-surface once, and the document itself scrolls. The artboards draw grid-template-rows: 56px 1fr 64px at a fixed height, with only the middle scrolling.",
+    "Four served-page records in docs/ read 'matches' on every atom entry while the composition differs on all six structures; that gap is what DL-169 amended the gate to catch, and docs/2026-09-05-plex-paint-record.md is the first record written under it - its structural table reads 'differs' on all six.",
+    "Guards in tests/ read source text or walk the AST; none exercises a served page, because the suite runs under the system interpreter with no nicegui installed. So a guard can assert that theme.py emits a rule and that app.py names a class, but never that the browser laid it out.",
+    "The primary actions currently sit inline as the last children of the page column, inside the stepper's own step. Moving them into a footer band changes their position in the DOM and therefore the tab order, which the existing keyboard record measured."
+  ],
+  "assumptions": [
+    "ui.header and ui.footer are available in nicegui 3.16.0 and put the page into a QLayout with the middle region scrolling; the exact prop names for removing Quasar's own elevation/padding need reading off the installed package rather than recalled (M).",
+    "The artboards' 56px header band and the existing .wizard-header-bar row render at compatible heights, so moving the row into ui.header is a wrapping change rather than a re-layout (M).",
+    "Applying the .card triplet to the stepper's existing steps is possible without replacing ui.stepper - i.e. a step's header and body can carry the card classes (L; ui.stepper renders Quasar's own QStepper markup and may not admit them, in which case the card triplet lands on the sections outside the stepper and the stepper itself is recorded as an open structure).",
+    "The footer's advancing action can be the same widget object the step builds, re-parented, rather than a duplicate that must be kept in sync (L)."
+  ],
+  "invisible_knowledge": [
+    "DL-084's served-page gate is the only gate that has ever caught a defect in gui/ - five in one wave's baseline commit. Source-text guards have caught none. So the record is the real pass condition and the guards are the regression net.",
+    "A guard that reads a name is true in exactly the broken state: theme.FONT_SANS named IBM Plex throughout the period the page painted Segoe UI. The same trap applies here - asserting that theme.py emits a '.wizard-shell' rule says nothing about whether the browser gave it the viewport. What the guard can honestly assert is the rule's presence and content and the class string app.py names; what it cannot is the layout, and that belongs to the record.",
+    "The Composition-not-built section (DL-170) is deliberately distinct from Framework shortfalls (DL-087) and Design-set divergences (DL-088): a shortfall ends when the framework admits the rule, a divergence ends never, and a composition entry ends by being BUILT. Closing an entry is therefore a claim that the structure exists, not that it was excused.",
+    "Specs.dc.html is the cross-screen contract and governs the status taxonomy and keyboard map; docs/nicegui-gui-analysis.md section 4 governs framework mechanics. An artboard is one screen's rendering of Specs, and a screen disagreeing with Specs is fixed in Specs (DL-071).",
+    "theme.py may not import nicegui, which is why FONT_URL_BASE lives there and app.py's mount reads it (DL-164). The same shape applies to any new class name or dimension: the constant lives below the boundary so a guard under the system interpreter can read it.",
+    "app.py's CRLF is not cosmetic - a mixed-ending edit produces a whole-file diff that hides the actual change."
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - the decision log DL-001..DL-182; its 'Composition not built', 'Framework shortfalls' and 'Design-set divergences' sections.",
+    "traktor_nml/gui/README.md - the nicegui boundary, why the wizard drives the cores in process, where Specs and the analysis disagree, the vendored typeface.",
+    "design/reconnect-wizard/Specs.dc.html - the cross-screen contract: statuses, filter chips, keyboard map.",
+    "design/reconnect-wizard/Main.dc.html - .app, .card triplet, .ft band; the source this work reads its selectors and values from.",
+    "design/reconnect-wizard/Confirm.dc.html, Results.dc.html, Review.dc.html - the other .app instances, for confirming the shell rows are the same across screens.",
+    "docs/nicegui-gui-analysis.md sections 1-5 - framework mechanics; section 5 is the subprocess fallback.",
+    "docs/2026-09-05-plex-paint-record.md - the first record under the amended gate; the shape a record with structural verdicts takes.",
+    "traktor_nml/gui/CLAUDE.md, tests/CLAUDE.md, docs/CLAUDE.md - the navigation indexes."
+  ]
+}
