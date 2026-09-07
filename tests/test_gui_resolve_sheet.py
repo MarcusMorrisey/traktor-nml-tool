@@ -281,3 +281,32 @@ def test_the_step_rail_leaves_the_content_columns_centring_intact():
         + ", which overrides .wizard-content-width's auto margins and stops"
         " the rail centring with its column"
     )
+
+
+def test_every_split_puts_its_rail_at_one_width():
+    """Three steps stand a column beside a rail - the resolve step's
+    conflict table beside its detail rail, and the preview and write
+    steps beside their own second column - and Preview.dc.html:27,
+    Write.dc.html:27 and Resolve.dc.html:53 draw all three at the same
+    rail width. Both rules read DETAIL_RAIL_WIDTH, so the three cannot
+    drift apart (DL-216).
+
+    Mutation: .wizard-step-split's second track was written as a literal
+    404px, the width Write.dc.html carried before the artboards were
+    brought to one measurement. Observed:
+        E           AssertionError: 404px
+        E           assert '404px' == '400px'
+        E
+        E             - 400px
+        E             ?   ^
+        E             + 404px
+        E             ?   ^
+    """
+    for name in (".wizard-resolve-split", ".wizard-step-split"):
+        tracks = re.search(
+            r"grid-template-columns:\s*1fr\s*([^;]+);", _rule(name)
+        )
+        assert tracks is not None, f"{name} declares no two-track split"
+        assert tracks.group(1).strip() == theme.DETAIL_RAIL_WIDTH, (
+            tracks.group(1).strip()
+        )

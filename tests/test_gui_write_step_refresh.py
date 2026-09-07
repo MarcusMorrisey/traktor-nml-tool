@@ -62,6 +62,14 @@ class _FakeDialog:
     def __exit__(self, *exc_info) -> bool:
         return False
 
+    def open(self) -> None:
+        """Shown and hidden by the page rather than by the framework:
+        the reconstruct page's write control opens its confirmation and
+        the write closes it, so the fake carries both."""
+
+    def close(self) -> None:
+        pass
+
     def props(self, *args, **kwargs):
         return self
 

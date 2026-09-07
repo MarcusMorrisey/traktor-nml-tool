@@ -73,6 +73,7 @@ READING_DIGESTS = {
     "2026-09-06-wizard-focus-order-browser-record.md": "dd1dc94601c280dee67ed38aee69f945de782d976ff33aab53b3e66084a0203e",
     "2026-09-07-composition-close-browser-record.md": "24f5629d3285c3ed3575c8bb5b16d295a924aafa443f6c6419c60e829e19b696",
     "2026-09-07-reconstruct-resolve-browser-record.md": "ca763fd3ab58186a8444e0aaa0e9f923a60ccf3ef846931405987619c3ce7d96",
+    "2026-09-07-reconstruct-preview-and-write-browser-record.md": "a205d5157b6f6ad5c773ffc599236640c986183acebbf7c725097da777adab9d",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

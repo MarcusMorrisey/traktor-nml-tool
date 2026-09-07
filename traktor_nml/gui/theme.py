@@ -619,4 +619,68 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    holds over every classes() call. */
 .wizard-note {{ display: flex; gap: {SPACE_8}; font-size: {TYPE_12}; line-height: 1.45; }}
 .wizard-hint {{ margin: 0; font-size: {TYPE_12}; color: {TEXT_FAINT}; display: flex; align-items: center; gap: {SPACE_8}; padding-bottom: {SPACE_8}; }}
+/* Preview.dc.html:27 and Write.dc.html:27's main: the two step screens
+   that read a run put their content beside a rail of the same width the
+   resolve step's own split gives it, so DETAIL_RAIL_WIDTH is the one
+   value all three read. The columns start at the top rather than
+   stretching, because the two hold different amounts and a card
+   stretched to its neighbour's height draws a band of empty ground under
+   its last row (DL-216). */
+.wizard-step-split {{ display: grid; grid-template-columns: 1fr {DETAIL_RAIL_WIDTH}; gap: {SPACE_20}; align-items: start; min-height: 0; }}
+/* Preview.dc.html:28's .col: one column of the split, its boxes stacked
+   at the artboard's own 14px. */
+.wizard-step-column {{ display: flex; flex-direction: column; gap: {SPACE_14}; min-height: 0; }}
+/* Preview.dc.html:68-71's .pl: one listed playlist, its name at the left
+   taking what is left and its count at the right at its own width, ruled
+   off from the row below it. The last row's rule is removed rather than
+   drawn over, so the card's own padding is what ends the list. */
+.wizard-list-row {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: {SPACE_12}; align-items: center; padding: {SPACE_6} {SPACE_2}; border-bottom: 1px solid {SURFACE_5}; font-size: {TYPE_12_5}; }}
+.wizard-list-row:last-child {{ border-bottom: 0; }}
+.wizard-list-name {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.wizard-list-count {{ font: 600 {TYPE_12}/1 {FONT_MONO}; color: {TEXT_MUTED}; white-space: nowrap; }}
+/* Preview.dc.html:72's .scroll: the listing scrolls inside its own card
+   rather than growing the page, which is what keeps the middle the
+   scroll owner the shell record reads it as. */
+.wizard-scroll {{ overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }}
+/* Preview.dc.html:73's .tot and :74's .big: the summed count under the
+   listing, its label at the left and its number at the right. */
+.wizard-total {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: {SPACE_12}; align-items: center; padding: {SPACE_11} {SPACE_12}; border-radius: {RADIUS_LG}; background: {SURFACE_3}; border: 1px solid {BORDER_STRONG}; font-size: {TYPE_13}; font-weight: 600; }}
+.wizard-total-amount {{ font: 600 {TYPE_15}/1 {FONT_MONO}; }}
+/* Preview.dc.html:47-50 and Write.dc.html:42-45's .note: a bordered
+   panel carrying a sentence about the run, tinted by what it is about -
+   the action hue where it states something the run did, the review hue
+   where it names something still to be decided. Its own rule rather than
+   .wizard-note, which is the rail's borderless inline note. */
+.wizard-callout {{ display: flex; gap: {SPACE_10}; padding: {SPACE_11} {SPACE_13}; border-radius: {RADIUS_LG}; border: 1px solid {BORDER}; background: {SURFACE_1}; font-size: {TYPE_12_5}; line-height: 1.5; color: {TEXT_MUTED}; }}
+.wizard-callout-info {{ border-color: {ACTION_TINT_BORDER_ALT}; background: {BORDER_SUBTLE_9}; }}
+.wizard-callout-warn {{ border-color: {STATUS_NEEDS_REVIEW_STRONG}; background: {STATUS_NEEDS_REVIEW_TINT_BG}; }}
+/* Preview.dc.html:53's .meta: the small print under a card's own rows. */
+.wizard-meta {{ margin: 0; font-size: {TYPE_12}; color: {TEXT_FAINT}; display: flex; gap: {SPACE_8}; align-items: center; flex-wrap: wrap; }}
+/* Write.dc.html:47-48's .dest: the output path as its own panel, the
+   path itself set in mono and broken anywhere, because a Windows path
+   offers no break opportunity and this panel is where it is read in
+   full. */
+.wizard-destination {{ display: flex; flex-direction: column; gap: {SPACE_8}; padding: {SPACE_13} {SPACE_14}; border: 1px solid {BORDER_STRONG}; border-radius: {RADIUS_7}; background: {GROUND}; }}
+.wizard-destination-path {{ font: 500 {TYPE_13}/1.4 {FONT_MONO}; word-break: break-all; }}
+/* Write.dc.html:49's .badge: a chip stating one fact about the file
+   beside it. */
+.wizard-badge {{ display: inline-flex; align-items: center; gap: {SPACE_6}; font: 600 {TYPE_11}/1 {FONT_MONO}; letter-spacing: .08em; text-transform: uppercase; padding: {SPACE_5} {SPACE_7}; border-radius: {RADIUS_SM}; border: 1px solid {STATUS_FOUND_TINT_BORDER}; color: {STATUS_FOUND_TINT_TEXT}; background: {STATUS_FOUND_TINT_BG}; align-self: flex-start; }}
+/* Write.dc.html:51-54's .cr: one line of what the new file will hold -
+   its mark, the change and the sentence under it, and the count at the
+   right. The count's ink is its own class, so which tone a row reads at
+   is a class string at the call site rather than a colour written there
+   (DL-188). */
+.wizard-change-row {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: {SPACE_11}; align-items: center; padding: {SPACE_7} {SPACE_2}; border-bottom: 1px solid {SURFACE_5}; font-size: {TYPE_12_5}; }}
+.wizard-change-row:last-child {{ border-bottom: 0; }}
+.wizard-change-detail {{ display: block; font-size: {TYPE_11}; color: {TEXT_SUBTLE_1}; margin-top: {SPACE_2}; line-height: 1.4; }}
+.wizard-change-count {{ font: 600 {TYPE_15}/1 {FONT_MONO}; text-align: right; }}
+.wizard-change-added {{ color: {STATUS_FOUND}; }}
+.wizard-change-untouched {{ color: {TEXT_MUTED}; }}
+/* Write.dc.html:56-60's .dlg: the confirmation the write is asked
+   through, a raised panel over the step, its three assurances listed and
+   its two actions at the right. */
+.wizard-dialog {{ border: 1px solid {BORDER_SUBTLE_7}; border-radius: {RADIUS_XL}; background: {SURFACE_3}; padding: {SPACE_16}; display: flex; flex-direction: column; gap: {SPACE_12}; }}
+.wizard-dialog-list {{ display: flex; flex-direction: column; gap: {SPACE_8}; }}
+.wizard-dialog-item {{ display: flex; gap: {SPACE_9}; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; line-height: 1.5; }}
+.wizard-dialog-actions {{ display: flex; justify-content: flex-end; gap: {SPACE_9}; }}
 """

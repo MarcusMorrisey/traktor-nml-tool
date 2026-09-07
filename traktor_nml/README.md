@@ -1043,6 +1043,38 @@ statement of the same decision would only give it two copies to drift apart.
   stands, with no "previously", "now does", "no longer" or "added",
   and each documentation milestone carries the grep that proves it
   (DL-177).
+- The preview and write steps stand a content column beside a 400px
+  rail, and that width is `DETAIL_RAIL_WIDTH`, the value the resolve
+  step's own split reads. `Preview.dc.html:27`, `Write.dc.html:27` and
+  `Resolve.dc.html:53` draw one rail width between them; where the
+  artboards disagreed - Write drew 404px - the artboard is brought to
+  the measurement first and `theme.py` follows it. The columns are
+  top-aligned rather than stretched, because the two hold different
+  amounts and a card stretched to its neighbour's height draws a band of
+  empty ground under its last row (DL-071, DL-216).
+- A listing that shows some of its rows and sums the rest divides the
+  list once, in `reconstruct_report.py`, rather than slicing in the
+  render and counting again for the summary row. `Preview.dc.html`
+  draws nine named playlists and a tenth standing for the others, and a
+  count in that tenth row that disagrees with the rows above it is the
+  screen contradicting itself over a division it made twice (DL-217).
+- A card is laid out at the content width by carrying
+  `wizard-content-width` or by standing inside a box that does, and the
+  guard reads the containers it stands in rather than its own class
+  string alone. The preview and write steps compose their cards inside a
+  two-column split, and a card there carrying the width class as well
+  would be a second width declared inside the first. The split's own
+  panel is held at the content width by its own guard, so the pair
+  covers what one class string cannot (DL-218).
+- A step that reports the run is redrawn on entry to it, and every
+  sentence it prints is derived from the run and the answers given to
+  it. The preview's note names how many tracks are still held more than
+  one way with no answer, which is `resolve_gate(...).outstanding` - the
+  value the resolve step's own footer prints - so the two cannot
+  disagree; a note derived once at preview time stood over a resolve
+  step where every group had since been answered and said each one had
+  still to be decided. A footer sentence naming a control names the
+  control that stands beside it (DL-204, DL-215, DL-219).
 - Specs' Focus ring, Accessibility rules and Announcements are applied
   through a three-rung ladder - Quasar's own CSS variables and
   constructor arguments first, an `add_head_html` rule at higher

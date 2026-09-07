@@ -450,6 +450,21 @@ def assemble_output(
         "playlists_reconstructed": 0,
         "playlists_skipped_reconstructed": 0,
         "reconstructed_playlists": {},
+        # The three counts a reconstruction run is read by: how many base
+        # playlists held nothing before it, how many of those it filled,
+        # and the names of the ones it could not. A caller reporting the
+        # run reads them off the run rather than re-walking the base
+        # collection, which is the same reason reconstructed_playlists is
+        # carried here. Zero and empty for a run with reconstruct off,
+        # because that run fills no playlist rather than filling none of
+        # none.
+        "empty_playlists": 0,
+        "refilled_playlists": 0,
+        "unfilled_playlists": [],
+        # The COLLECTION ENTRIES count the output carries. Read with
+        # collection_entries_added, it gives the count the collection held
+        # before the run without a second parse of the base text.
+        "collection_entries_total": 0,
     }
 
     if unresolved:
@@ -521,6 +536,16 @@ def assemble_output(
                 output=None, stats=stats, conflict_rows=conflict_rows,
                 errors=[f"ambiguous_playlist_name playlist={name}" for name in duplicate_names],
             )
+
+        # The base playlists holding nothing before this run: a name whose
+        # redirected key sequence is empty. Measured before the loop below
+        # rebuilds any of them, because after the rebuild every filled one
+        # holds keys and the set would read empty.
+        empty_names = {
+            name
+            for name, nodes in base_nodes_by_name.items()
+            if not redirected_playlist_keys(nodes[0], old_to_new_key)
+        }
 
         ambiguous_hits: list[tuple[str, str]] = []
         for name, base_nodes in base_nodes_by_name.items():
@@ -598,6 +623,14 @@ def assemble_output(
         base_root = parse_xml_bytes(base_source.encode("utf-8"))
 
     stats["playlists_reconstructed"] = len(reconstructed)
+    if reconstruct:
+        # An empty name the run rebuilt is filled; one it did not is
+        # unfilled, and it keeps its name and stays empty. The two are
+        # read off the one set measured before the rebuild, so a name
+        # cannot be counted in both.
+        stats["empty_playlists"] = len(empty_names)
+        stats["refilled_playlists"] = len(empty_names & set(reconstructed))
+        stats["unfilled_playlists"] = sorted(empty_names - set(reconstructed))
     # Names and resulting entry counts, so a caller can report which
     # playlists a run rebuilt without recomputing the comparison the
     # pre-pass already made.
@@ -608,11 +641,18 @@ def assemble_output(
     if collection_span is None:
         return SpliceResult(output=None, stats=stats, conflict_rows=conflict_rows, errors=["no_collection"])
 
+    # The count the COLLECTION element declares and the count the stats
+    # report are one number read once, so a caller reporting the run's
+    # size reports what the output says rather than a second sum of the
+    # same two terms.
+    collection_total = len(collection_entries(base_root)) + len(new_entry_texts)
+    stats["collection_entries_total"] = collection_total
+
     builder = OutputBuilder()
     builder.add_verbatim(output[: collection_span.start])
     builder.add_counted_span(
         output, collection_span, "COLLECTION", "ENTRIES", new_entry_texts,
-        count=len(collection_entries(base_root)) + len(new_entry_texts),
+        count=collection_total,
     )
 
     # Import every non-base playlist as a flattened child of the base root folder.

@@ -1094,6 +1094,17 @@ def _resolved(base_text: str, source_text: str, input_idx: int, **kwargs):
     )
 
 
+def _assembled(base_text: str, source_text: str):
+    """assemble_output with reconstruct on over one base and one
+    contribution that carry no divergence, so the run reaches its end
+    with no resolution to supply - which is what a guard reading the
+    stats of a completed run wants."""
+    return assemble_output(
+        base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(source_text)],
+        MatchConfidence.STRICT, reconstruct=True,
+    )
+
+
 def _bitrate_pair() -> tuple:
     """base and one source text holding the same track, diverging on BITRATE
     alone - the smallest input reaching a source pick over a track base owns."""
@@ -1529,3 +1540,61 @@ def test_every_emitted_playlist_key_names_an_emitted_collection_entry() -> None:
     emitted = set(re.findall(r'<PRIMARYKEY\b[^>]*\bKEY="([^"]*)"', result.output))
     assert emitted
     assert sorted(emitted - entries) == []
+
+
+def test_a_reconstruction_run_counts_the_empty_playlists_it_filled_and_names_the_rest() -> None:
+    """A run reports how many base playlists held nothing before it, how
+    many of those it filled, and the names of the ones it could not, so a
+    caller reporting the run reads it off the run rather than walking the
+    base collection a second time.
+
+    A rebuilt playlist and a refilled one are not the same set: a
+    playlist already holding tracks is rebuilt where the source holds
+    more of them, and it was never empty. The fixture holds one of each,
+    so a count of rebuilds standing in for a count of refills is visible.
+
+    Mutation: `stats["refilled_playlists"] = len(empty_names &
+    set(reconstructed))` was changed to `= len(reconstructed)`.
+    Observed:
+        E       assert 2 == 1
+        E        +  where 2 = {'collection_entries_added': 0, 'collection_entries_total': 2, 'conflicts_reported': 0, 'empty_playlists': 2, ...}['refilled_playlists']
+    """
+    one_key = "C:" + "/:Music/:" + "one.mp3"
+    two_key = "C:" + "/:Music/:" + "two.mp3"
+    entries = _entry("A", "One", "one.mp3") + _entry("B", "Two", "two.mp3")
+    base_text = _nml(
+        entries, 2,
+        _playlist("Lost", [], "uuid-lost")
+        + _playlist("Never held", [], "uuid-never")
+        + _playlist("Partial", [one_key], "uuid-partial"),
+    )
+    source_text = _nml(
+        entries, 2,
+        _playlist("Lost", [one_key, two_key], "uuid-src")
+        + _playlist("Partial", [one_key, two_key], "uuid-src-two"),
+    )
+    result = _assembled(base_text, source_text)
+    assert result.output is not None
+    assert result.stats["empty_playlists"] == 2
+    assert result.stats["refilled_playlists"] == 1
+    assert result.stats["unfilled_playlists"] == ["Never held"]
+    # Both were rebuilt; only the one that held nothing was refilled.
+    assert sorted(result.stats["reconstructed_playlists"]) == ["Lost", "Partial"]
+
+
+def test_the_reported_entry_total_is_the_count_the_output_declares() -> None:
+    """The COLLECTION ENTRIES the output carries and the total the stats
+    report are one number read once, so a caller printing the size of the
+    collection about to be written prints what that file says.
+
+    Mutation: `stats["collection_entries_total"] = collection_total` was
+    changed to `= collection_total + 1`. Observed:
+        E       assert 3 == 2
+        E        +  where 3 = {'collection_entries_added': 0, 'collection_entries_total': 3, 'conflicts_reported': 0, 'empty_playlists': 0, ...}['collection_entries_total']
+    """
+    entries = _entry("A", "One", "one.mp3") + _entry("B", "Two", "two.mp3")
+    base_text = _nml(entries, 2, _playlist("Intact", [], "uuid-intact"))
+    result = _assembled(base_text, base_text)
+    assert result.output is not None
+    declared = int(re.search(r'<COLLECTION ENTRIES="(\d+)"', result.output).group(1))
+    assert result.stats["collection_entries_total"] == declared

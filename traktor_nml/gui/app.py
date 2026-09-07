@@ -52,6 +52,7 @@ from ..rewrite import read_and_parse_source, write_bytes_atomically
 from ..splice import assemble_output
 from . import conflict_model
 from . import navigation
+from . import reconstruct_report
 from . import reconstruct_steps
 from . import review_model
 # theme.py is the only source for a colour or size literal in this module (DL-078).
@@ -1624,6 +1625,18 @@ _RECONSTRUCT_ACTION_APPLIERS = {
 }
 
 
+# Write.dc.html:164-166's three assurances: what the confirmation states
+# before the write is made. Each is a fact about this run that the code
+# above enforces - a new file at the chosen path, every input left as it
+# was, and Traktor reading its own collection until the operator imports
+# the new one.
+_WRITE_ASSURANCES = (
+    "A new file is created at the path above.",
+    "No collection you gave this run is touched.",
+    "Traktor is not changed until you import the new file yourself.",
+)
+
+
 def _build_reconstruct_page() -> None:
     """Registers the playlist-reconstruction screen at '/'.
 
@@ -1673,6 +1686,9 @@ def _build_reconstruct_page() -> None:
         # The resolve step's advancing control and the row the rail
         # describes, held so the draw that answers a pick reaches both.
         resolve_holder: dict = {"advance": None, "focused": 0}
+        # The write step's confirmation heading, held so the render that
+        # reads the run reaches the dialog the footer opens.
+        write_holder: dict = {"question": None}
 
         # The rail is the page region's first row and the four step
         # regions follow it, one visible at a time. A region is a
@@ -1707,6 +1723,15 @@ def _build_reconstruct_page() -> None:
                 group.set_visibility(step_number == number)
                 if step_number == number:
                     chrome.footer_note.set_text(note)
+            # The two steps that report the run are drawn on the way in
+            # rather than once: what each says is answered by controls on
+            # the steps beside it - the answers given at resolve, the
+            # output path named at set up - so a panel drawn once would
+            # state the run as it stood before those answers were given.
+            if number == reconstruct_steps.PREVIEW:
+                _render_preview()
+            if number == reconstruct_steps.WRITE:
+                _render_write()
             _draw_step_rail(rail, number)
 
         def advance_to(number: int) -> None:
@@ -2366,6 +2391,303 @@ def _build_reconstruct_page() -> None:
                             resolve_holder["keyboard"] = ui.keyboard(on_key=on_key)
                         draw()
 
+                    def _render_preview() -> None:
+                        """Preview.dc.html: what the held run would write.
+
+                        The left column lists the playlists it filled and
+                        sums the entries that adds; the right names what
+                        the run is - the repair itself, held in memory -
+                        and lists the playlists no collection could fill.
+                        Every number is read off reconstruct_report's
+                        record for this run, so the count in a heading and
+                        the rows under it cannot disagree (DL-215, DL-217).
+                        """
+                        result = result_holder["result"]
+                        report.clear()
+                        if result is None:
+                            return
+                        with report:
+                            if result.errors:
+                                _render_preview_refusal(result)
+                                return
+                            if not result.stats.get("reconstructed_playlists"):
+                                ui.label(
+                                    "Every matched playlist already holds these contents."
+                                ).classes("wizard-body-13")
+                                return
+                            _render_preview_run()
+
+                    def _render_preview_refusal(result) -> None:
+                        """An ambiguity abort is a step-level failure: the
+                        reasons are shown and no output is offered, matching
+                        the CLI's own abort-with-nothing-written (DL-094,
+                        DL-098)."""
+                        ui.label("Nothing was written.").classes(
+                            "wizard-body-13 font-semibold"
+                        )
+                        for error in result.errors:
+                            # The conflict abort's token names rows this same
+                            # run returned, so those rows stand in its place;
+                            # every other token renders as the token it is.
+                            if (
+                                error == conflict_model.CONFLICT_ABORT_TOKEN
+                                and conflict_holder
+                            ):
+                                ui.label(
+                                    f"{len(conflict_holder)} tracks are held "
+                                    "differently by two collections. Resolve names "
+                                    "each one and offers its answers."
+                                ).classes("wizard-body-13")
+                                continue
+                            ui.label(error).classes("font-mono wizard-body-12 text-warning")
+
+                    def _render_preview_run() -> None:
+                        """The two columns Preview.dc.html draws for a run
+                        that assembled: what would be rebuilt at the left,
+                        what the run is and what it could not fill at the
+                        right."""
+                        record = reconstruct_report.preview_report(
+                            result_holder["result"].stats, conflict_holder, decisions
+                        )
+                        with ui.element("div").classes("wizard-step-split"):
+                            with ui.element("div").classes("wizard-step-column"):
+                                with ui.element("section").classes("wizard-card"):
+                                    with ui.element("div").classes("wizard-card-head"):
+                                        ui.label("What would be rebuilt").classes(
+                                            "wizard-card-title"
+                                        )
+                                        ui.label(record.filled_caption).classes(
+                                            "wizard-label"
+                                        )
+                                    with ui.element("div").classes(
+                                        "wizard-card-body wizard-scroll"
+                                    ):
+                                        for row in record.listed:
+                                            playlist_row(row)
+                                        if record.remainder is not None:
+                                            playlist_row(record.remainder)
+                                with ui.element("div").classes("wizard-total"):
+                                    ui.label(record.total_sentence)
+                                    ui.label(record.total_amount).classes(
+                                        "wizard-total-amount"
+                                    )
+                                if record.conflict_sentence:
+                                    with ui.element("div").classes(
+                                        "wizard-callout wizard-callout-warn"
+                                    ):
+                                        ui.label(record.conflict_sentence)
+                            with ui.element("div").classes("wizard-step-column"):
+                                with ui.element("section").classes("wizard-card"):
+                                    with ui.element("div").classes("wizard-card-head"):
+                                        ui.label("What this run did").classes(
+                                            "wizard-card-title"
+                                        )
+                                        ui.label("Nothing written").classes(
+                                            "wizard-label"
+                                        )
+                                    with ui.element("div").classes("wizard-card-body"):
+                                        ui.label(
+                                            "The repair was assembled in full and "
+                                            "held in memory. This is the run itself, "
+                                            "not an estimate of one - the file "
+                                            "written at step 4 is what was assembled "
+                                            "here, so the write cannot disagree with "
+                                            "what is listed."
+                                        ).classes("wizard-body-12-5 wizard-dim")
+                                if record.unfilled:
+                                    with ui.element("section").classes("wizard-card"):
+                                        with ui.element("div").classes(
+                                            "wizard-card-head"
+                                        ):
+                                            ui.label(record.unfilled_title).classes(
+                                                "wizard-card-title"
+                                            )
+                                        with ui.element("div").classes(
+                                            "wizard-card-body"
+                                        ):
+                                            for name in record.unfilled:
+                                                with ui.element("div").classes(
+                                                    "wizard-list-row"
+                                                ):
+                                                    ui.label(name).classes(
+                                                        "wizard-list-name"
+                                                    )
+                                                    ui.label(
+                                                        "no collection held it"
+                                                    ).classes("wizard-list-count")
+                                            ui.label(
+                                                "These keep their names and stay "
+                                                "empty. Adding another collection at "
+                                                "step 1 may fill them."
+                                            ).classes("wizard-meta")
+                                with ui.element("div").classes(
+                                    "wizard-callout wizard-callout-info"
+                                ):
+                                    ui.label(
+                                        "The playlists that already held their "
+                                        "contents are untouched, and are not listed."
+                                    )
+
+                    def playlist_row(row) -> None:
+                        """Preview.dc.html:110's .pl: one listed playlist,
+                        its name at the left and its own entry count at the
+                        right. The count's sentence is the row's, so the
+                        unit is written once for every row that prints
+                        one."""
+                        with ui.element("div").classes("wizard-list-row"):
+                            ui.label(row.name).classes("wizard-list-name")
+                            ui.label(row.entry_count).classes("wizard-list-count")
+
+                    def _render_write() -> None:
+                        """Write.dc.html: what the file about to be written
+                        will hold, and what stays as it is.
+
+                        Redrawn on every entry to the step rather than once,
+                        because two of its numbers - the decided count and
+                        the output path - are answered by controls on the
+                        steps behind it, and a panel drawn before those
+                        answers were given would state the run's size as it
+                        stood at some earlier moment.
+                        """
+                        write_panel.clear()
+                        result = result_holder["result"]
+                        if result is None:
+                            return
+                        destination = output_input.value or ""
+                        record = reconstruct_report.write_report(
+                            result.stats,
+                            conflict_holder,
+                            decisions,
+                            destination,
+                            bool(destination) and Path(destination).exists(),
+                            [
+                                str(path)
+                                for path in (base_holder["path"], *source_holder)
+                                if path
+                            ],
+                        )
+                        write_holder["question"].set_text(record.confirm_question)
+                        with write_panel:
+                            with ui.element("div").classes("wizard-step-split"):
+                                with ui.element("div").classes("wizard-step-column"):
+                                    with ui.element("section").classes("wizard-card"):
+                                        with ui.element("div").classes(
+                                            "wizard-card-head"
+                                        ):
+                                            ui.label(
+                                                "Before anything is written"
+                                            ).classes("wizard-card-title")
+                                            ui.label("Nothing written yet").classes(
+                                                "wizard-label"
+                                            )
+                                        with ui.element("div").classes(
+                                            "wizard-card-body"
+                                        ):
+                                            ui.label("New collection file").classes(
+                                                "wizard-label"
+                                            )
+                                            with ui.element("div").classes(
+                                                "wizard-destination"
+                                            ):
+                                                ui.label(
+                                                    record.destination
+                                                    or "No output path chosen"
+                                                ).classes("wizard-destination-path")
+                                                ui.label(
+                                                    record.destination_badge
+                                                ).classes("wizard-badge")
+                                            ui.label(
+                                                "The write refuses any path this run "
+                                                "read, so nothing you gave it is "
+                                                "overwritten."
+                                            ).classes("wizard-meta")
+                                    with ui.element("section").classes("wizard-card"):
+                                        with ui.element("div").classes(
+                                            "wizard-card-head"
+                                        ):
+                                            ui.label(
+                                                "What the new file will hold"
+                                            ).classes("wizard-card-title")
+                                        with ui.element("div").classes(
+                                            "wizard-card-body"
+                                        ):
+                                            for row in record.rows:
+                                                change_row(row)
+                                            with ui.element("div").classes(
+                                                "wizard-total"
+                                            ):
+                                                ui.label(record.total_sentence)
+                                                ui.label(record.total_amount).classes(
+                                                    "wizard-total-amount"
+                                                )
+                                with ui.element("div").classes("wizard-step-column"):
+                                    with ui.element("section").classes("wizard-card"):
+                                        with ui.element("div").classes(
+                                            "wizard-card-head"
+                                        ):
+                                            ui.label("Your originals").classes(
+                                                "wizard-card-title"
+                                            )
+                                        with ui.element("div").classes(
+                                            "wizard-card-body"
+                                        ):
+                                            for original in record.originals:
+                                                with ui.element("div").classes(
+                                                    "wizard-list-row"
+                                                ):
+                                                    ui.label(original).classes(
+                                                        "font-mono wizard-list-name"
+                                                    )
+                                                    ui.label("Not modified").classes(
+                                                        "wizard-badge"
+                                                    )
+                                            ui.label(
+                                                "Every one was opened read only for "
+                                                "the whole run."
+                                            ).classes("wizard-meta")
+                                    with ui.element("div").classes(
+                                        "wizard-callout wizard-callout-info"
+                                    ):
+                                        ui.label(
+                                            "The file is written in one go. It is "
+                                            "built whole and moved into place, so an "
+                                            "interrupted write leaves no half-written "
+                                            "collection behind."
+                                        )
+                                    with ui.element("div").classes("wizard-callout"):
+                                        ui.label(
+                                            "In Traktor, open the new file with File "
+                                            "- Import Collection, or point Traktor's "
+                                            "collection setting at it. Your existing "
+                                            "collection stays where it is until you "
+                                            "do."
+                                        )
+
+                    def change_row(row) -> None:
+                        """Write.dc.html:108's .cr: one line of what the new
+                        file will hold - the change and the sentence under
+                        it at the left, its count at the right. The count's
+                        ink is the row's own tone token, mapped to a class
+                        here so no colour is written at a call site
+                        (DL-188)."""
+                        with ui.element("div").classes("wizard-change-row"):
+                            with ui.element("span"):
+                                ui.label(row.label)
+                                ui.label(row.detail).classes("wizard-change-detail")
+                            # The subscript is at the call site rather
+                            # than behind a name: the cascade guards read
+                            # every class a classes() call can pass by
+                            # expanding the expression it is handed, and a
+                            # lookup they cannot expand is a call they stop
+                            # checking (DL-188).
+                            tone = {
+                                reconstruct_report.TONE_ADDED:
+                                    "wizard-change-count wizard-change-added",
+                                reconstruct_report.TONE_UNTOUCHED:
+                                    "wizard-change-count wizard-change-untouched",
+                            }[row.tone]
+                            ui.label(row.amount).classes(tone)
+
                     async def preview() -> None:
                         """Runs the same assemble_output call the CLI makes, with
                         reconstruct=True, and renders what it reports. Nothing is
@@ -2390,44 +2712,6 @@ def _build_reconstruct_page() -> None:
                         result_holder["result"] = result
                         _render_resolve()
                         show_step(reconstruct_steps.PREVIEW)
-                        report.clear()
-                        with report:
-                            if result.errors:
-                                # An ambiguity abort is a step-level failure: the
-                                # reasons are shown and no output is offered, matching
-                                # the CLI's own abort-with-nothing-written (DL-094,
-                                # DL-098).
-                                ui.label("Nothing was written.").classes(
-                                    "wizard-body-13 font-semibold"
-                                )
-                                for error in result.errors:
-                                    # The conflict abort's token names rows this same
-                                    # run returned, so those rows stand in its place;
-                                    # every other token renders as the token it is.
-                                    if error == conflict_model.CONFLICT_ABORT_TOKEN and groups:
-                                        ui.label(
-                                            f"{len(groups)} tracks are held differently "
-                                            "by two collections. Resolve names each one "
-                                            "and offers its answers."
-                                        ).classes("wizard-body-13")
-                                        continue
-                                    ui.label(error).classes("font-mono wizard-body-12 text-warning")
-                                return
-                            rebuilt = result.stats.get("reconstructed_playlists") or {}
-                            if not rebuilt:
-                                ui.label(
-                                    "Every matched playlist already holds these contents."
-                                ).classes("wizard-body-13")
-                                return
-                            count = len(rebuilt)
-                            ui.label(
-                                f"{count} playlist would be rebuilt:" if count == 1
-                                else f"{count} playlists would be rebuilt:"
-                            ).classes("wizard-body-13 font-semibold")
-                            for name, count in rebuilt.items():
-                                ui.label(f"{name} - {count} entries").classes(
-                                    "font-mono wizard-body-13 wizard-subtle-1"
-                                )
 
                     async def write_output() -> None:
                         """Writes the output the held run produced, or names why it
@@ -2436,6 +2720,7 @@ def _build_reconstruct_page() -> None:
                         distinct refusals; the conflict one names how many are still
                         to decide and the third names the run's own error, which the
                         report above the controls lists in full (DL-111)."""
+                        write_dialog.close()
                         result = result_holder["result"]
                         refusal = conflict_model.write_refusal(
                             result, decisions, conflict_holder
@@ -2462,22 +2747,38 @@ def _build_reconstruct_page() -> None:
                         )
                         ui.notify(f"Written to {output_path}", type="positive")
 
+        # Both steps are a region holding one column the render fills:
+        # what each shows is read off the held run, so the composition is
+        # built when a run exists rather than built empty and populated.
+        # The two-column split Preview.dc.html:27 and Write.dc.html:27
+        # draw is inside that column, so the split spans the content
+        # width rather than the page's full frame.
         with regions[reconstruct_steps.PREVIEW]:
-            with ui.element("section").classes("wizard-card wizard-content-width"):
-                with ui.element("div").classes("wizard-card-head"):
-                    ui.label("What this merge would write").classes("wizard-card-title")
-                with ui.element("div").classes("wizard-card-body"):
-                    report = ui.column().classes("w-full gap-1")
+            report = ui.column().classes("w-full gap-4 wizard-content-width")
 
         with regions[reconstruct_steps.WRITE]:
-            with ui.element("section").classes("wizard-card wizard-content-width"):
-                with ui.element("div").classes("wizard-card-head"):
-                    ui.label("Write the output").classes("wizard-card-title")
-                with ui.element("div").classes("wizard-card-body"):
-                    ui.label(
-                        "The preview is the run, so this writes the output that "
-                        "preview already assembled."
-                    ).classes("wizard-body-13")
+            write_panel = ui.column().classes("w-full gap-4 wizard-content-width")
+            # Built once and filled per entry to the step: a dialog is a
+            # container the framework mounts at the page root, so
+            # rebuilding it per render would leave one behind for every
+            # visit to the step. Its question is the panel's own record,
+            # set where the panel is drawn.
+            with ui.dialog() as write_dialog:
+                with ui.element("div").classes("wizard-dialog"):
+                    write_holder["question"] = ui.label().classes(
+                        "wizard-heading-sm font-semibold"
+                    )
+                    with ui.element("div").classes("wizard-dialog-list"):
+                        for assurance in _WRITE_ASSURANCES:
+                            with ui.element("div").classes("wizard-dialog-item"):
+                                ui.label(assurance)
+                    with ui.element("div").classes("wizard-dialog-actions"):
+                        ui.button(
+                            "Cancel", on_click=write_dialog.close, color=None
+                        ).classes("wizard-control")
+                        ui.button(
+                            "Write collection", on_click=write_output, color=None
+                        ).classes("wizard-control wizard-control-primary")
 
         # Main.dc.html:29's .ft holds the screen's advancing action, so
         # every primary control is constructed in the band, one group
@@ -2519,9 +2820,9 @@ def _build_reconstruct_page() -> None:
                     on_click=lambda: show_step(reconstruct_steps.RESOLVE),
                     color=None,
                 ).classes("wizard-control")
-                ui.button("Write output", on_click=write_output, color=None).classes(
-                    "wizard-control wizard-control-primary"
-                )
+                ui.button(
+                    "Write collection...", on_click=write_dialog.open, color=None
+                ).classes("wizard-control wizard-control-primary")
 
         footer_groups[reconstruct_steps.SET_UP] = (
             setup_actions,
@@ -2537,6 +2838,7 @@ def _build_reconstruct_page() -> None:
         )
         footer_groups[reconstruct_steps.WRITE] = (
             write_actions,
-            "Write output writes the file the preview assembled.",
+            "Write collection asks before it writes the file the preview "
+            "assembled.",
         )
         show_step(reconstruct_steps.SET_UP)

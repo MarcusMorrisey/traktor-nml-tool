@@ -11,7 +11,8 @@ vendored typeface is.
 in this package that import `nicegui` or `pywebview`. Every other
 module - `review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py`,
 `announce.py`, `conflict_model.py`, `navigation.py`,
-`reconstruct_steps.py`, `_fs_nav.py` and `__init__.py` - imports neither
+`reconstruct_steps.py`, `reconstruct_report.py`, `_fs_nav.py` and
+`__init__.py` - imports neither
 and is reachable from the test suite's
 system interpreter, which has no `nicegui` installed. Every rule worth
 testing sits below that boundary, in the nicegui-free modules, so the
@@ -218,6 +219,18 @@ resolve step's own gate is `conflict_model.resolve_gate`, which answers
 the outstanding count, the decided count and whether the step may be
 left over one walk of the groups, so the footer's sentence and the
 advancing control's enabled state are one reading (DL-204).
+
+`reconstruct_report.py` holds what the two reporting steps say. The
+preview and the write steps each report a held run, and every number and
+every sentence on them is derived there from that run's stats, the
+conflict groups it reported and the answers given to those groups: how
+many empty playlists were filled against how many there were, the
+listing's division into named rows and a row standing for the rest, how
+many tracks are still held more than one way with no answer, what the
+new file will hold, and the confirmation's own question. `app.py` draws
+those records and derives none of them, and both panels are redrawn on
+entry to their step, because what they say is answered by controls on
+the steps beside them (DL-215, DL-217, DL-219).
 
 The resolve step's table dispatches through `keymap.dispatch` at
 `SCOPE_TABLE` and applies through the reconstruct route's own

@@ -69,6 +69,14 @@ class _FakeDialog:
     def __exit__(self, *exc_info) -> bool:
         return False
 
+    def open(self) -> None:
+        """Shown and hidden by the page rather than by the framework:
+        the reconstruct page's write control opens its confirmation and
+        the write closes it, so the fake carries both."""
+
+    def close(self) -> None:
+        pass
+
 
 class _RecordingElement:
     """One rendered element. Records every string pushed onto it
@@ -564,12 +572,12 @@ def test_line_endings_hold_after_the_edit():
 
 
 def test_the_header_band_and_every_content_column_share_one_width_class():
-    """The header row's class string and the class string of every
-    content box - the ones carrying wizard-card - all carry
-    wizard-content-width, which is what makes the band's edges the
-    card's edges. Read out of app.py's own source because the boxes
-    are built inside page functions the recorder above does
-    not enter.
+    """The header row's class string and every content box - the ones
+    carrying wizard-card - are laid out at wizard-content-width, either
+    by carrying it themselves or by standing inside a container that
+    does, which is what makes the band's edges the card's edges. Read
+    out of app.py's own source because the boxes are built inside page
+    functions the recorder above does not enter.
 
     The card box is the class this pairing reads because it is the box
     each section a page composes itself carries. .wizard-content-width
@@ -577,29 +585,84 @@ def test_the_header_band_and_every_content_column_share_one_width_class():
     tests/test_gui_shell.py::test_no_shell_or_card_rule_declares_a_width
     holds from the stylesheet's side.
 
-    Mutation: the reconstruct page's first card box was given
-    'max-w-5xl mx-auto' in place of 'wizard-content-width' and this
-    guard rerun. Observed:
-        E       AssertionError: class strings carrying wizard-card without wizard-content-width: ['wizard-card max-w-5xl mx-auto']
-        E       assert ['wizard-card...-5xl mx-auto'] == []
+    A card inside a two-column split is laid out by the split, which is
+    itself inside a panel carrying the width, so it carries no width of
+    its own: a second width declared inside the first would be a card
+    sized against the page rather than against its column. The split is
+    named here and
+    tests/test_gui_preview_and_write_composition.py::test_each_step_region_holds_one_panel_at_the_content_width
+    holds the other half - that the panel the split is drawn into
+    carries the width (DL-218).
+
+    The ancestor walk stops at the function a card is built in, so a
+    card standing inside a nested render function is read against that
+    function's own containers rather than against the containers of the
+    function it happens to be written inside.
+
+    Mutation: the preview step's split was given 'wizard-step-column'
+    in place of 'wizard-step-split' and this guard rerun. Observed:
+        E       AssertionError: card boxes laid out at no content width: ['wizard-card', 'wizard-card', 'wizard-card']
+        E       assert ['wizard-card...'wizard-card'] == []
         E
-        E         Left contains one more item: 'wizard-card max-w-5xl mx-auto'
+        E         Left contains 3 more items, first extra item: 'wizard-card'
         E         Use -v to get more diff
     """
     source = APP_PATH.read_text(encoding="utf-8")
-    literals = [
+    tree = ast.parse(source)
+    header = [
         node.value
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and "wizard-header-bar" in node.value.split()
     ]
-    header = [text for text in literals if "wizard-header-bar" in text.split()]
     assert header, "no class string carries wizard-header-bar"
     assert all("wizard-content-width" in text.split() for text in header), (
         f"the header band carries no width class: {header}"
     )
-    boxes = [text for text in literals if "wizard-card" in text.split()]
-    assert boxes, "no class string carries wizard-card"
-    adrift = [text for text in boxes if "wizard-content-width" not in text.split()]
-    assert adrift == [], (
-        f"class strings carrying wizard-card without wizard-content-width: {adrift}"
-    )
+
+    parents = {}
+    for node in ast.walk(tree):
+        for child in ast.iter_child_nodes(node):
+            parents[child] = node
+
+    def widths_above(node):
+        """Every class string declared by a with-statement enclosing
+        this call, which is what "inside" means in a page built out of
+        nested context managers."""
+        found = []
+        walker = parents.get(node)
+        while walker is not None:
+            if isinstance(walker, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                break
+            if isinstance(walker, ast.With):
+                found.extend(
+                    text.value
+                    for item in walker.items
+                    for text in ast.walk(item.context_expr)
+                    if isinstance(text, ast.Constant) and isinstance(text.value, str)
+                )
+            walker = parents.get(walker)
+        return found
+
+    boxes = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "classes"
+        and node.args
+        and isinstance(node.args[0], ast.Constant)
+        and "wizard-card" in str(node.args[0].value).split()
+    ]
+    assert boxes, "no classes() call carries wizard-card"
+    adrift = [
+        node.args[0].value
+        for node in boxes
+        if "wizard-content-width" not in node.args[0].value.split()
+        and not any(
+            {"wizard-content-width", "wizard-step-split"} & set(text.split())
+            for text in widths_above(node)
+        )
+    ]
+    assert adrift == [], f"card boxes laid out at no content width: {adrift}"
