@@ -46,7 +46,10 @@ def test_the_split_declares_the_content_column_beside_the_400px_rail():
     """Resolve.dc.html:53's .split is
     `grid-template-columns: 1fr 400px`, the content column taking what is
     left beside a rail at a fixed width, and the sheet declares the same
-    two tracks.
+    two tracks. The flexible one is written `minmax(0, 1fr)`: a bare
+    `1fr` track takes an automatic minimum of its own content, so a cell
+    holding a path that does not wrap widens the track past the column
+    the split stands in and the page scrolls sideways (DL-223).
 
     Mutation: DETAIL_RAIL_WIDTH was changed from "400px" to "360px" in
     theme.py and this guard rerun. Observed:
@@ -56,9 +59,9 @@ def test_the_split_declares_the_content_column_beside_the_400px_rail():
         E         + 360px
     """
     assert theme.DETAIL_RAIL_WIDTH == "400px"
-    assert "grid-template-columns: 1fr 400px" in _rule(".wizard-resolve-split"), (
-        ".wizard-resolve-split declares tracks other than 1fr 400px"
-    )
+    assert "grid-template-columns: minmax(0, 1fr) 400px" in _rule(
+        ".wizard-resolve-split"
+    ), ".wizard-resolve-split declares tracks other than minmax(0, 1fr) 400px"
     assert "display: grid" in _rule(".wizard-resolve-split")
 
 
@@ -291,22 +294,36 @@ def test_every_split_puts_its_rail_at_one_width():
     rail width. Both rules read DETAIL_RAIL_WIDTH, so the three cannot
     drift apart (DL-216).
 
-    Mutation: .wizard-step-split's second track was written as a literal
-    404px, the width Write.dc.html carried before the artboards were
-    brought to one measurement. Observed:
-        E           AssertionError: 404px
-        E           assert '404px' == '400px'
-        E
-        E             - 400px
-        E             ?   ^
-        E             + 404px
-        E             ?   ^
+    Both write the flexible track as `minmax(0, 1fr)`, because a bare
+    `1fr` takes an automatic minimum of its own content: the set-up
+    step's fields hold collection paths that do not wrap, and under a
+    bare `1fr` the track grew to 879px inside a 1024px column and the
+    page scrolled sideways (DL-223).
+
+    Mutation: .wizard-step-split's flexible track was written as a bare
+    `1fr`. Observed:
+        E           AssertionError: .wizard-step-split declares no two-track split
+        E           assert None is not None
     """
     for name in (".wizard-resolve-split", ".wizard-step-split"):
         tracks = re.search(
-            r"grid-template-columns:\s*1fr\s*([^;]+);", _rule(name)
+            r"grid-template-columns:\s*minmax\(0, 1fr\)\s*([^;]+);", _rule(name)
         )
         assert tracks is not None, f"{name} declares no two-track split"
         assert tracks.group(1).strip() == theme.DETAIL_RAIL_WIDTH, (
             tracks.group(1).strip()
         )
+    # The step split stands inside a column the framework lays out with
+    # its items packed to the start, so a grid taking its own content's
+    # width sits narrower than the column and its rail leaves the
+    # column's right edge. It takes the column's width instead (DL-223).
+    assert "width: 100%" in _rule(".wizard-step-split"), (
+        ".wizard-step-split takes its content's width rather than its column's"
+    )
+    # The same reading for the row a path stands in: the source list is a
+    # framework column that packs its rows to the start, so a row taking
+    # its own path's width spills past the card that holds it - read at
+    # 727px inside a 604px card before this (DL-223).
+    assert "width: 100%" in _rule(".wizard-field-row"), (
+        ".wizard-field-row takes its path's width rather than its row's"
+    )

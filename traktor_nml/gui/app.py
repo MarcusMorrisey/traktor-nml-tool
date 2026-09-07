@@ -50,6 +50,7 @@ from ..reconnect_run import ReconnectResult
 from ..confidence import MatchConfidence
 from ..rewrite import read_and_parse_source, write_bytes_atomically
 from ..splice import assemble_output
+from . import collection_summary
 from . import conflict_model
 from . import navigation
 from . import reconstruct_report
@@ -1758,994 +1759,1202 @@ def _build_reconstruct_page() -> None:
             show_step(number)
 
         with regions[reconstruct_steps.SET_UP]:
-            ui.label(
-                "My playlists kept their names but lost their contents; an older "
-                "collection still has them."
-            )
+            # What each chosen collection reports about itself, keyed the
+            # way the page holds the collections themselves: one summary
+            # for the collection being repaired and one per source. Held
+            # beside the paths rather than derived at render, because
+            # summarising parses the file and a render runs on every
+            # redraw of the step.
+            summaries: dict = {"base": None, "sources": {}}
 
-            # Main.dc.html:32-35 draws each section as a card: a bordered
-            # box, a header band carrying the section's title, and a padded
-            # body. The class strings are literals at the call site, which is
-            # what
-            # tests/test_gui_theme.py::test_every_classes_call_expands_to_literals
-            # reads - DL-188 keeps a dimension or a colour out of a call site,
-            # not a class name.
-            with ui.element("section").classes("wizard-card wizard-content-width"):
-                with ui.element("div").classes("wizard-card-head"):
-                    ui.label("The collection to repair").classes("wizard-card-title")
-                with ui.element("div").classes("wizard-card-body"):
-                    with ui.row().classes("items-center wizard-control-group"):
-                        base_display = ui.label("No collection selected").classes(
-                            "font-mono wizard-body-15 wizard-subtle-1 grow"
-                        )
-                        base_remove = ui.button(
-                            "Remove",
-                            on_click=lambda: remove_base(),
-                            color=None,
-                        ).classes("wizard-control wizard-tag-action-outline wizard-body-12")
-                    base_remove.set_visibility(False)
+            def discard_run() -> None:
+                """Discards the run and what it reported.
 
-                    def discard_run() -> None:
-                        """Discards the run and what it reported.
+                A held result was assembled over the collections the run
+                read, so leaving it in place after one of them leaves the
+                page would let the write control write an output built from
+                a collection no control names. The picks stay, and
+                conflict_model re-attaches the ones whose group membership
+                the next run leaves unchanged (DL-115).
+                """
+                result_holder["result"] = None
+                conflict_holder.clear()
+                report.clear()
 
-                        A held result was assembled over the collections the run
-                        read, so leaving it in place after one of them leaves the
-                        page would let the write control write an output built from
-                        a collection no control names. The picks stay, and
-                        conflict_model re-attaches the ones whose group membership
-                        the next run leaves unchanged (DL-115).
-                        """
-                        result_holder["result"] = None
-                        conflict_holder.clear()
-                        report.clear()
+            async def _summarise(path):
+                """One chosen collection's own counts, or None with the
+                reason already notified.
 
-                    async def choose_base() -> None:
-                        path = await pick_file_or_folder(directories_only=False)
-                        if path is None:
-                            return
-                        refusal = conflict_model.base_refusal(path, source_holder)
-                        if refusal is not None:
-                            ui.notify(
-                                conflict_model.selection_refusal_sentence(refusal), type="warning"
-                            )
-                            return
-                        base_holder["path"] = path
-                        base_display.set_text(str(path))
-                        base_remove.set_visibility(True)
-                        discard_run()
+                Parsing is a file read, so it goes through run.io_bound
+                the way every other read on this page does. A file that
+                will not parse is refused here rather than at Preview: the
+                step that took the file is the step that can say so
+                (DL-220).
+                """
+                loaded = await run.io_bound(read_and_parse_source, path)
+                if loaded.error is not None:
+                    ui.notify(loaded.error, type="negative")
+                    return None
+                return collection_summary.summarise(loaded.root)
 
-                    def remove_base() -> None:
-                        """Returns the page to naming no collection to repair."""
-                        base_holder["path"] = None
-                        base_display.set_text("No collection selected")
-                        base_remove.set_visibility(False)
-                        discard_run()
-
-                    ui.button("Choose collection file...", on_click=choose_base, color=None).classes(
-                        "wizard-control wizard-label"
+            async def choose_base() -> None:
+                path = await pick_file_or_folder(directories_only=False)
+                if path is None:
+                    return
+                refusal = conflict_model.base_refusal(path, source_holder)
+                if refusal is not None:
+                    ui.notify(
+                        conflict_model.selection_refusal_sentence(refusal), type="warning"
                     )
+                    return
+                summary = await _summarise(path)
+                if summary is None:
+                    return
+                base_holder["path"] = path
+                summaries["base"] = summary
+                discard_run()
+                draw_base()
+                draw_output_note()
 
-            with ui.element("section").classes("wizard-card wizard-content-width"):
-                with ui.element("div").classes("wizard-card-head"):
-                    ui.label("Collections to take playlists from").classes("wizard-card-title")
-                with ui.element("div").classes("wizard-card-body"):
-                    source_list = ui.column().classes("gap-1")
+            def remove_base() -> None:
+                """Returns the page to naming no collection to repair."""
+                base_holder["path"] = None
+                summaries["base"] = None
+                discard_run()
+                draw_base()
+                draw_output_note()
 
-                    def draw_sources() -> None:
-                        """Redraws the list from source_holder, so the rows and the
-                        holder the run reads say the same thing after a removal."""
-                        source_list.clear()
-                        with source_list:
-                            for path in list(source_holder):
-                                with ui.row().classes("items-center wizard-control-group"):
-                                    ui.label(str(path)).classes(
-                                        "font-mono wizard-body-13 wizard-subtle-1 grow"
-                                    )
-                                    ui.button(
-                                        "Remove",
-                                        on_click=lambda _e, chosen=path: remove_source(chosen),
-                                        color=None,
-                                    ).classes(
-                                        "wizard-control wizard-tag-action-outline wizard-body-12"
-                                    )
+            def remove_source(path) -> None:
+                """Drops one source and discards the run that read it.
 
-                    def remove_source(path) -> None:
-                        """Drops one source and discards the run that read it.
+                A held result was assembled over the sources the run read,
+                so it is discarded with the source that left the list.
+                """
+                source_holder.remove(path)
+                summaries["sources"].pop(path, None)
+                discard_run()
+                draw_sources()
+                draw_output_note()
 
-                        A held result was assembled over the sources the run read,
-                        so it is discarded with the source that left the list.
-                        """
-                        source_holder.remove(path)
-                        discard_run()
-                        draw_sources()
-
-                    async def add_source() -> None:
-                        path = await pick_file_or_folder(directories_only=False)
-                        if path is None:
-                            return
-                        refusal = conflict_model.source_refusal(
-                            path, base_holder["path"], source_holder
-                        )
-                        if refusal is not None:
-                            ui.notify(
-                                conflict_model.selection_refusal_sentence(refusal), type="warning"
-                            )
-                            return
-                        source_holder.append(path)
-                        discard_run()
-                        draw_sources()
-
-                    ui.button("Add source collection...", on_click=add_source, color=None).classes(
-                        "wizard-control"
+            async def add_source() -> None:
+                path = await pick_file_or_folder(directories_only=False)
+                if path is None:
+                    return
+                refusal = conflict_model.source_refusal(
+                    path, base_holder["path"], source_holder
+                )
+                if refusal is not None:
+                    ui.notify(
+                        conflict_model.selection_refusal_sentence(refusal), type="warning"
                     )
+                    return
+                summary = await _summarise(path)
+                if summary is None:
+                    return
+                source_holder.append(path)
+                summaries["sources"][path] = summary
+                discard_run()
+                draw_sources()
+                draw_output_note()
 
-            with ui.element("section").classes("wizard-card wizard-content-width"):
-                with ui.element("div").classes("wizard-card-head"):
-                    ui.label("Where the output goes").classes("wizard-card-title")
-                with ui.element("div").classes("wizard-card-body"):
+            async def choose_output() -> None:
+                directory = await pick_file_or_folder(directories_only=True)
+                if directory is None:
+                    return
+                typed = Path(output_input.value) if output_input.value else None
+                name = (
+                    typed.name if typed is not None and typed.name
+                    else wizard_state.default_output_name(base_holder["path"])
+                )
+                output_input.value = str(directory / name)
+
+            def draw_base() -> None:
+                """Reconstruct.dc.html:104-113: the chosen collection in its
+                field, and under it what the file itself reports.
+
+                The counts are the summary's own phrases rather than a
+                sentence written here, so the count of empty playlists that
+                makes this page worth running is stated by the reading that
+                took it (DL-215, DL-220).
+                """
+                base_field.clear()
+                base_meta.clear()
+                summary = summaries["base"]
+                with base_field:
                     ui.label(
-                        "These are read, never modified. Several are folded in the order added."
-                    ).classes("wizard-body-12 wizard-faint")
-
-                    output_input = ui.input("Output collection path").classes("w-full")
-
-                    async def choose_output() -> None:
-                        directory = await pick_file_or_folder(directories_only=True)
-                        if directory is None:
-                            return
-                        typed = Path(output_input.value) if output_input.value else None
-                        name = (
-                            typed.name if typed is not None and typed.name
-                            else wizard_state.default_output_name(base_holder["path"])
+                        str(base_holder["path"])
+                        if base_holder["path"]
+                        else "No collection selected"
+                    ).classes("wizard-field-value")
+                base_remove.set_visibility(base_holder["path"] is not None)
+                if summary is None:
+                    return
+                with base_meta:
+                    for index, phrase in enumerate(summary.repair_phrases):
+                        if index:
+                            ui.element("span").classes("wizard-meta-divider")
+                        # The empty count is the one phrase the page is
+                        # about, so it is the one phrase that carries its
+                        # own ink.
+                        ui.label(phrase).classes(
+                            "wizard-meta-count" if index == 2 else "wizard-body-12"
                         )
-                        output_input.value = str(directory / name)
 
-                    ui.button("Choose output folder...", on_click=choose_output, color=None).classes(
-                        "wizard-control wizard-label"
-                    )
+            def draw_sources() -> None:
+                """Reconstruct.dc.html:117-123: one row per source, its path
+                in the field and what that collection could supply read from
+                the field's right edge.
 
-            with ui.element("section").classes("wizard-card wizard-content-width"):
-                with ui.element("div").classes("wizard-card-head"):
-                    ui.label("Where the collections disagree").classes("wizard-card-title")
-                with ui.element("div").classes("wizard-card-body"):
-                    # The run-wide fallback, carrying the splice subcommand's own
-                    # two choices onto assemble_output's on_conflict parameter. Its
-                    # default settles nothing, so a divergent group stops the run
-                    # and is shown as a row of its own below.
-                    conflict_choice = ui.select(
-                        {
-                            None: "Ask me - stop and show every conflicting track",
-                            "keep-first": "keep-first - the collection being repaired wins",
-                            "keep-last": "keep-last - the last source added wins",
-                        },
-                        value=None,
-                    ).classes("w-full")
-
-                    def _load():
-                        """Reads and parses the chosen files, returning
-                        (base_bytes, base_root, contributions) or None with the
-                        reason already notified."""
-                        base_path = base_holder["path"]
-                        if base_path is None or not source_holder:
-                            ui.notify(
-                                "Choose a collection to repair and at least one source",
-                                type="warning",
+                Redrawn from source_holder, so the rows and the holder the
+                run reads say the same thing after a removal.
+                """
+                source_list.clear()
+                with source_list:
+                    if not source_holder:
+                        ui.label("No collection added").classes(
+                            "wizard-body-12-5 wizard-faint"
+                        )
+                    for path in list(source_holder):
+                        summary = summaries["sources"].get(path)
+                        with ui.element("div").classes("wizard-field-row"):
+                            with ui.element("span").classes("wizard-field"):
+                                ui.label(str(path)).classes("wizard-field-value")
+                                if summary is not None:
+                                    ui.label(summary.source_note).classes(
+                                        "wizard-field-note"
+                                    )
+                            ui.button(
+                                "Remove",
+                                on_click=lambda _e, chosen=path: remove_source(chosen),
+                                color=None,
+                            ).classes(
+                                "wizard-control wizard-tag-action-outline wizard-body-12"
                             )
-                            return None
-                        base_result = read_and_parse_source(base_path)
-                        if base_result.error is not None:
-                            ui.notify(base_result.error, type="negative")
-                            return None
-                        contributions = []
-                        for path in source_holder:
-                            loaded = read_and_parse_source(path)
-                            if loaded.error is not None:
-                                ui.notify(loaded.error, type="negative")
-                                return None
-                            contributions.append((loaded.source_bytes.decode("utf-8"), loaded.root))
-                        return base_result.source_bytes, base_result.root, contributions
 
+            def draw_output_note() -> None:
+                """Reconstruct.dc.html:141: what the output path is, read
+                against the collections this run reads.
 
-                    def _render_resolve() -> None:
-                        """The resolve step: the tally and the bulk strip above
-                        the split, the conflict grid under its header row at the
-                        left, and the detail rail at the right carrying one
-                        control per distinct answer (Resolve.dc.html).
+                conflict_model.output_refusal is the rule, which is the one
+                the write itself refuses on, so this line cannot describe a
+                path as safe over a write that would refuse it (DL-222).
+                """
+                output_meta.clear()
+                refusal = conflict_model.output_refusal(
+                    output_input.value, base_holder["path"], source_holder
+                )
+                with output_meta:
+                    if refusal is not None:
+                        ui.label(
+                            conflict_model.selection_refusal_sentence(refusal)
+                        ).classes("wizard-meta-count")
+                    elif output_input.value:
+                        ui.label(
+                            "A new file. It does not name any collection above."
+                        ).classes("wizard-body-12")
+                    else:
+                        # A path not yet chosen is not a path that is
+                        # safe: the line says what is missing rather than
+                        # describing a file the page has not been given.
+                        ui.label(
+                            "No output path chosen. Choose a folder, or type "
+                            "the path the new collection is written to."
+                        ).classes("wizard-body-12")
 
-                        Hand-rolled rows rather than ui.aggrid, which claims the
-                        arrow keys Specs binds over this same table (DL-079,
-                        DL-110). Every row and every answer is a grid cell on
-                        .wizard-conflict-grid, so the header row and the body
-                        rows read one set of tracks.
-
-                        Every state the step shows - the pick held for a group,
-                        how many are still undecided, what a bulk action leaves
-                        standing - is read from conflict_model, which is where
-                        the suite can reach it (DL-069, DL-106).
-                        """
-                        groups = conflict_holder
-                        region = regions[reconstruct_steps.RESOLVE]
-                        region.clear()
-                        # One name per input index, the collection being repaired
-                        # at index 0 and each source at its position in the list
-                        # the operator built (DL-154, DL-161).
-                        labels = _collection_labels(source_holder)
-                        table: dict = {}
-
-                        def draw() -> None:
-                            """Redraws the step over the current decisions - the
-                            whole step rather than the row just picked, since a
-                            bulk action moves every undecided row, the count
-                            moves with any pick at all, and the rail describes
-                            whichever row is focused."""
-                            gate = conflict_model.resolve_gate(decisions, groups)
-                            views = decisions.rows(groups)
-                            region.clear()
-                            with region:
-                                bulk_strip(gate)
-                                with ui.element("div").classes("wizard-resolve-split"):
-                                    conflict_table(views)
-                                    detail_rail(views)
-                                # Resolve.dc.html:266's .hint: what a bulk action
-                                # does not reach. It stands under the split
-                                # rather than beside the bulk controls, where it
-                                # would read as a label for them.
-                                ui.label(
-                                    "Deciding all from one collection leaves untouched "
-                                    "any track that collection holds no record of."
-                                ).classes("wizard-hint")
-                            advance = resolve_holder["advance"]
-                            if advance is not None:
-                                advance.set_enabled(gate.all_decided)
-                            footer_groups[reconstruct_steps.RESOLVE] = (
-                                footer_groups[reconstruct_steps.RESOLVE][0],
-                                gate.note,
-                            )
-                            if step_holder["current"] == reconstruct_steps.RESOLVE:
-                                chrome.footer_note.set_text(
-                                    footer_groups[reconstruct_steps.RESOLVE][1]
+            # Reconstruct.dc.html:27: the four cards the step is filled in
+            # through stand in the content column, and what the run will do
+            # with them stands in the rail beside it. Main.dc.html:32-35
+            # draws each card as a bordered box, a header band carrying the
+            # section's title and a padded body. The class strings are
+            # literals at the call site, which is what
+            # tests/test_gui_theme.py::test_every_classes_call_expands_to_literals
+            # reads - DL-188 keeps a dimension or a colour out of a call
+            # site, not a class name.
+            setup_panel = ui.column().classes("w-full gap-4 wizard-content-width")
+            with setup_panel:
+                with ui.element("div").classes("wizard-step-split"):
+                    with ui.element("div").classes("wizard-step-column"):
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label("The collection to repair").classes(
+                                    "wizard-card-title"
                                 )
-
-                        def bulk_strip(gate) -> None:
-                            """Resolve.dc.html:41's .fbar: the tally at the left,
-                            the "Decide all from" label, and one bulk action per
-                            collection the run reads, each settling the undecided
-                            groups its own collection holds a record in and
-                            leaving the rest undecided (DL-154).
-
-                            The sentence counts the groups and nothing else. A
-                            group is one candidate set whose members may span a
-                            subset of the inputs, so naming the count of inputs
-                            the run read would attribute the difference to inputs
-                            a group holds no member in - something the run does
-                            not supply. Resolve.dc.html's own copy names the two
-                            collections its illustrative run reads (DL-206).
-                            """
-                            with ui.element("div").classes("wizard-bulk-strip"):
-                                ui.label(
-                                    f"{len(groups)} tracks carry more than one "
-                                    f"answer - {gate.decided} decided, "
-                                    f"{gate.outstanding} to go"
-                                ).classes("wizard-tally")
-                                ui.element("span").classes("wizard-strip-spacer")
-                                ui.label("Decide all from").classes("wizard-label")
-                                for input_index, label in enumerate(labels):
+                                ui.label("Read only").classes("wizard-label")
+                            with ui.element("div").classes("wizard-card-body"):
+                                with ui.element("div").classes("wizard-field-row"):
+                                    base_field = ui.element("span").classes(
+                                        "wizard-field"
+                                    )
                                     ui.button(
-                                        f"All {label}",
-                                        on_click=lambda _e=None, index=input_index: bulk(index),
+                                        "Choose file...",
+                                        on_click=choose_base,
                                         color=None,
-                                    ).classes("wizard-control wizard-decision-control")
-
-                        def conflict_table(views) -> None:
-                            """Resolve.dc.html:54-60's .tbl: a header row and one
-                            body row per group, both laid out on
-                            .wizard-conflict-grid's five tracks."""
-                            with ui.element("div").classes("wizard-conflict-table"):
-                                with ui.element("div").classes(
-                                    "wizard-conflict-grid wizard-conflict-header"
-                                ).props('role="row"'):
-                                    for heading in (
-                                        "Track", "What differs", "Answers",
-                                        "Held by", "Decision",
-                                    ):
-                                        ui.label(heading)
-                                for index, view in enumerate(views):
-                                    row(index, view)
-
-                        def row(index: int, view) -> None:
-                            """One track's row: its identity key, the attribute
-                            names that diverge, how many answers it offers, the
-                            collections holding it, and its decision. The focused
-                            row alone carries the selected class, which is what
-                            the arrow keys move (Specs.dc.html, "Keyboard")."""
-                            focused = index == resolve_holder["focused"]
-                            classes = "wizard-conflict-grid wizard-conflict-row"
-                            if focused:
-                                classes = (
-                                    "wizard-conflict-grid wizard-conflict-row "
-                                    "wizard-conflict-row-selected"
-                                )
-                            with ui.element("div").classes(add=classes).props(
-                                f'role="row" aria-selected="{str(focused).lower()}"'
-                            ):
-                                ui.label(view.identity_key).classes(
-                                    "font-mono wizard-body-12 "
-                                    "wizard-conflict-track"
-                                )
-                                ui.label(", ".join(view.attrs)).classes("wizard-body-12")
-                                ui.label(str(len(view.candidates))).classes(
-                                    "font-mono wizard-body-12"
-                                )
-                                ui.label(
-                                    ", ".join(
-                                        sorted(
-                                            {
-                                                labels[input_index]
-                                                for candidate in view.candidates
-                                                for input_index, _ in candidate.members
-                                            }
-                                        )
-                                    )
-                                ).classes("wizard-body-12 wizard-subtle-2")
-                                if view.decision == conflict_model.UNDECIDED:
-                                    with ui.element("div").classes(
-                                        "wizard-conflict-decision"
-                                    ):
-                                        ui.button(
-                                            "Choose...",
-                                            on_click=lambda _e=None, at=index: focus(at),
-                                            color=None,
-                                        ).classes(
-                                            "wizard-control wizard-decision-control"
-                                        )
-                                else:
-                                    # The decided cell names the collection that
-                                    # won and carries the undo that takes the
-                                    # decision back, so a row is reopened where
-                                    # it was decided rather than only from the
-                                    # rail, which describes one row at a time.
-                                    with ui.element("div").classes(
-                                        "wizard-conflict-decided wizard-status-found"
-                                    ):
-                                        ui.label(labels[view.decision[0]])
-                                        ui.button(
-                                            "Undo",
-                                            on_click=(
-                                                lambda _e=None, chosen=groups[index]:
-                                                reset(chosen)
-                                            ),
-                                            color=None,
-                                        ).classes(
-                                            "wizard-control wizard-decision-control"
-                                        )
-
-                        def detail_rail(views) -> None:
-                            """Resolve.dc.html:70-95's .det: the focused row's
-                            file at the head, one control per distinct answer in
-                            the body, and the keys and actions in the footer.
-
-                            One control per distinct answer rather than one per
-                            collection: two collections holding identical values
-                            are one answer, and deciding it decides both, so a
-                            control names the record that wins rather than the
-                            collection it came from (DL-148, DL-160).
-                            """
-                            with ui.element("div").classes("wizard-detail-rail"):
-                                if not views:
-                                    with ui.element("div").classes("wizard-detail-head"):
-                                        ui.label(
-                                            "Nothing is held differently."
-                                        ).classes("wizard-body-14-5")
-                                    return
-                                view = views[resolve_holder["focused"]]
-                                group = groups[resolve_holder["focused"]]
-                                with ui.element("div").classes("wizard-detail-head"):
-                                    ui.label(view.identity_key).classes(
-                                        "font-mono wizard-body-14-5"
-                                    )
-                                    # The count is read off the group rather
-                                    # than written into the sentence: a group
-                                    # is held by as many collections as its
-                                    # candidates have members between them,
-                                    # and a sentence naming two while the row
-                                    # beside it names three is the screen
-                                    # disagreeing with the model (DL-215).
-                                    holding = len(
-                                        {
-                                            input_index
-                                            for candidate in view.candidates
-                                            for input_index, _ in candidate.members
-                                        }
-                                    )
-                                    ui.label(
-                                        f"{holding} collections hold this file with "
-                                        "different values. Pick the one that "
-                                        "supplies them."
-                                    ).classes("wizard-body-12 wizard-dim")
-                                with ui.element("div").classes("wizard-detail-body"):
-                                    for position, candidate in enumerate(view.candidates, 1):
-                                        answer(group, view, position, candidate)
-                                    # Resolve.dc.html:245's .note: what a pick
-                                    # names, standing under the answers rather
-                                    # than in the log alone, because the reading
-                                    # it corrects - that an answer is a
-                                    # collection - is the one the operator
-                                    # arrives with (DL-148).
-                                    with ui.element("div").classes(
-                                        "wizard-note wizard-faint"
-                                    ):
-                                        ui.label(
-                                            "A pick names the record that wins, not the "
-                                            "collection it came from. Two collections "
-                                            "holding the identical values are one answer, "
-                                            "and deciding it decides both."
-                                        )
-                                with ui.element("div").classes("wizard-detail-foot"):
-                                    key_hints()
-                                    with ui.element("div").classes(
-                                        "wizard-detail-actions"
-                                    ):
-                                        ui.button(
-                                            "Skip for now",
-                                            on_click=lambda _e=None: focus(
-                                                keymap.dispatch(
-                                                    "ArrowDown",
-                                                    (),
-                                                    keymap.SCOPE_TABLE,
-                                                    row_count=len(views),
-                                                    focused_index=resolve_holder["focused"],
-                                                ).args["index"]
-                                            ),
-                                            color=None,
-                                        ).classes("wizard-control")
-                                        # The rail's primary is the pick itself:
-                                        # the first answer, which is the one the
-                                        # digit 1 takes, so the pointer and the
-                                        # key reach the same decision.
-                                        ui.button(
-                                            "Use answer 1",
-                                            on_click=(
-                                                lambda _e=None, at=group,
-                                                named=conflict_model.candidate_reference(
-                                                    view.candidates[0]
-                                                ): pick(at, named)
-                                            ),
-                                            color=None,
-                                        ).classes("wizard-control wizard-control-primary")
-
-                        def key_hints() -> None:
-                            """Resolve.dc.html:94's .keys: three chip groups,
-                            each naming its own keys beside what they do, rather
-                            than one sentence listing them in prose. A chip is
-                            what Specs.dc.html's "Keyboard" section draws, and
-                            the digits, the arrows and U are the three rows it
-                            binds over a table (DL-071)."""
-                            with ui.element("div").classes("wizard-key-row"):
-                                # The digits are a range and the artboard sets
-                                # its two chips apart with an en dash; the
-                                # arrows are two keys side by side and carry
-                                # none.
-                                for chips, between, phrase in (
-                                    (("1", "9"), "\u2013", "pick an answer"),
-                                    (("\u2191", "\u2193"), "", "move"),
-                                    (("U",), "", "undo"),
-                                ):
-                                    with ui.element("span").classes("wizard-key-hint"):
-                                        for position, chip in enumerate(chips):
-                                            if position and between:
-                                                ui.label(between)
-                                            ui.label(chip).classes("wizard-kbd")
-                                        ui.label(phrase)
-
-                        def answer(group, view, position: int, candidate) -> None:
-                            """One control per distinct answer, carrying the
-                            digit that picks it and the values it supplies. The
-                            decision the view holds is compared against this
-                            candidate's own reference, so the chosen answer alone
-                            carries the chosen class and this module holds no
-                            reading of what a decision means."""
-                            reference = conflict_model.candidate_reference(candidate)
-                            chosen = view.decision == reference
-                            with ui.element("div").classes("wizard-answer-group"):
-                                with ui.element("div").classes("wizard-answer-group-head"):
-                                    ui.label(f"Answer {position}").classes("wizard-label")
-                                    ui.label(str(position)).classes("wizard-kbd")
-                                classes = "wizard-answer"
-                                if chosen:
-                                    classes = "wizard-answer wizard-answer-chosen"
-                                supplied_by = ", ".join(
-                                    labels[index] for index, _ in candidate.members
-                                )
-                                with ui.element("div").classes(add=classes):
-                                    with ui.element("span").classes(
-                                        "wizard-answer-marker"
-                                    ).props(
-                                        f'role="img" aria-label='
-                                        f'"{"Chosen" if chosen else "Not chosen"}"'
-                                    ):
-                                        if chosen:
-                                            ui.element("span").classes("wizard-answer-dot")
-                                    ui.button(
-                                        f"{supplied_by} {' | '.join(candidate.values)}",
-                                        on_click=(
-                                            lambda _e=None, at=group, named=reference:
-                                            pick(at, named)
-                                        ),
+                                    ).classes("wizard-control")
+                                    base_remove = ui.button(
+                                        "Remove",
+                                        on_click=lambda: remove_base(),
                                         color=None,
                                     ).classes(
-                                        "wizard-control font-mono wizard-body-11-5 "
-                                        "wizard-subtle-5"
+                                        "wizard-control wizard-tag-action-outline "
+                                        "wizard-body-12"
                                     )
+                                base_meta = ui.element("p").classes("wizard-meta")
 
-                        def bulk(input_index: int) -> None:
-                            """Settles every group the collection at
-                            input_index holds a record in, on that record.
-
-                            The reference comes from
-                            conflict_model.reference_from_input rather than
-                            from a collection token, so a group that
-                            collection holds no record in is left undecided
-                            rather than settled on a name that matches
-                            nothing (DL-148).
-                            """
-                            decisions.resolve_all(
-                                groups, conflict_model.reference_from_input(input_index)
-                            )
-                            draw()
-
-                        def pick(group, reference) -> None:
-                            """Settles one group on the record `reference`
-                            names, then redraws.
-
-                            reference is an (input index, primary key) pair
-                            from conflict_model.candidate_reference: one file
-                            in two inputs carries the identical
-                            location-derived key, so the input index is what
-                            tells the two apart, and two collections holding
-                            identical values are one answer that this settles
-                            for both (DL-004, DL-148).
-                            """
-                            decisions.resolve(group, reference)
-                            draw()
-
-                        def reset(group) -> None:
-                            """Returns one group to undecided.
-
-                            The decision is dropped from the mapping rather
-                            than written as an undecided token, because a key
-                            absent from the mapping reads back undecided.
-                            """
-                            decisions.reset(group.identity_key)
-                            draw()
-
-                        def focus(index: int) -> None:
-                            """Moves the row the detail rail describes.
-
-                            The index is written into the one holder the
-                            redraw reads, so a move applied by key and one
-                            applied by a control land in the same field.
-                            """
-                            resolve_holder["focused"] = index
-                            draw()
-
-                        def on_key(event) -> None:
-                            """Resolves a keypress through keymap.dispatch at
-                            SCOPE_TABLE and applies it through this route's own
-                            applier table.
-
-                            A name dispatch returns that the table does not carry
-                            is a no-op here and a suite failure in
-                            tests/test_gui_keymap.py, which pins the table's key
-                            set against the actions this table answers (DL-080,
-                            DL-205).
-                            """
-                            if not groups or step_holder["current"] != reconstruct_steps.RESOLVE:
-                                return
-                            action = keymap.dispatch(
-                                event.key.name,
-                                tuple(
-                                    name
-                                    for name, held in (
-                                        ("shift", event.modifiers.shift),
-                                        ("ctrl", event.modifiers.ctrl),
-                                        ("alt", event.modifiers.alt),
-                                    )
-                                    if held
-                                ),
-                                keymap.SCOPE_TABLE,
-                                row_count=len(groups),
-                                focused_index=resolve_holder["focused"],
-                                candidate_count=len(
-                                    groups[resolve_holder["focused"]].candidates
-                                ),
-                            )
-                            if action is None:
-                                return
-                            applier = _RECONSTRUCT_ACTION_APPLIERS.get(action.name)
-                            if applier is not None:
-                                applier(table, action.args)
-
-                        # What an applier is handed: the groups it indexes, the
-                        # holder carrying the focused row, and the three
-                        # callbacks that write a decision. The holder itself is
-                        # passed rather than a copy of its value, so a move
-                        # applied by key and one applied by a control land in the
-                        # one field the render reads.
-                        table.update(
-                            {
-                                "groups": groups,
-                                "holder": resolve_holder,
-                                "focus": focus,
-                                "pick": pick,
-                                "reset": reset,
-                            }
-                        )
-
-                        # Registered once for the life of the page rather than
-                        # per redraw: ui.keyboard binds a handler, and a second
-                        # preview would otherwise bind a second one over the same
-                        # keys. on_key reads conflict_holder, which preview
-                        # rewrites in place, so the one handler always dispatches
-                        # over the groups the last run reported.
-                        if resolve_holder.get("keyboard") is None:
-                            resolve_holder["keyboard"] = ui.keyboard(on_key=on_key)
-                        draw()
-
-                    def _render_preview() -> None:
-                        """Preview.dc.html: what the held run would write.
-
-                        The left column lists the playlists it filled and
-                        sums the entries that adds; the right names what
-                        the run is - the repair itself, held in memory -
-                        and lists the playlists no collection could fill.
-                        Every number is read off reconstruct_report's
-                        record for this run, so the count in a heading and
-                        the rows under it cannot disagree (DL-215, DL-217).
-                        """
-                        result = result_holder["result"]
-                        report.clear()
-                        if result is None:
-                            return
-                        with report:
-                            if result.errors:
-                                _render_preview_refusal(result)
-                                return
-                            if not result.stats.get("reconstructed_playlists"):
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label("Collections to take playlists from").classes(
+                                    "wizard-card-title"
+                                )
+                                ui.button(
+                                    "Add collection...",
+                                    on_click=add_source,
+                                    color=None,
+                                ).classes("wizard-control wizard-body-12")
+                            with ui.element("div").classes("wizard-card-body"):
+                                source_list = ui.column().classes("w-full gap-2")
                                 ui.label(
-                                    "Every matched playlist already holds these contents."
-                                ).classes("wizard-body-13")
-                                return
-                            _render_preview_run()
+                                    "Read, never modified. Several are folded in the "
+                                    "order added - the first to name a playlist wins "
+                                    "it."
+                                ).classes("wizard-meta")
 
-                    def _render_preview_refusal(result) -> None:
-                        """An ambiguity abort is a step-level failure: the
-                        reasons are shown and no output is offered, matching
-                        the CLI's own abort-with-nothing-written (DL-094,
-                        DL-098)."""
-                        ui.label("Nothing was written.").classes(
-                            "wizard-body-13 font-semibold"
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label("Where the output goes").classes(
+                                    "wizard-card-title"
+                                )
+                            with ui.element("div").classes("wizard-card-body"):
+                                with ui.element("div").classes("wizard-field-row"):
+                                    with ui.element("span").classes("wizard-field"):
+                                        # The output name is typed as well
+                                        # as chosen, so the field holds the
+                                        # control itself rather than a
+                                        # label of its value: borderless,
+                                        # because the box around it is the
+                                        # artboard's own field and a second
+                                        # border inside it would be the
+                                        # framework's.
+                                        output_input = (
+                                            ui.input(
+                                                placeholder="No output path chosen",
+                                                on_change=lambda _e: draw_output_note(),
+                                            )
+                                            .props("borderless dense")
+                                            .classes("w-full wizard-field-value")
+                                        )
+                                    ui.button(
+                                        "Choose folder...",
+                                        on_click=choose_output,
+                                        color=None,
+                                    ).classes("wizard-control")
+                                output_meta = ui.element("p").classes("wizard-meta")
+
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label("Where the collections disagree").classes(
+                                    "wizard-card-title"
+                                )
+                            with ui.element("div").classes("wizard-card-body"):
+                                # The run-wide fallback, carrying the splice
+                                # subcommand's own two choices onto
+                                # assemble_output's on_conflict parameter.
+                                # Its default settles nothing, so a
+                                # divergent group stops the run and is shown
+                                # as a row of its own at step 3.
+                                with ui.element("div").classes("wizard-field-row"):
+                                    with ui.element("span").classes("wizard-field"):
+                                        # Inside the artboard's own field
+                                        # rather than beside it: the
+                                        # choice is one of the four
+                                        # things this step is given, and
+                                        # it reads as one. Borderless,
+                                        # because the box around it is
+                                        # the field and a second border
+                                        # inside it would be the
+                                        # framework's.
+                                        conflict_choice = (
+                                            ui.select(
+                                                {
+                                                    None: "Ask me - stop and show every conflicting track",
+                                                    "keep-first": "keep-first - the collection being repaired wins",
+                                                    "keep-last": "keep-last - the last source added wins",
+                                                },
+                                                value=None,
+                                            )
+                                            .props("borderless dense")
+                                            .classes("w-full wizard-field-value")
+                                        )
+                                ui.label(
+                                    "Asking stops at step 3 and shows each one; the "
+                                    "alternatives decide them all without stopping."
+                                ).classes("wizard-meta")
+
+                    with ui.element("div").classes("wizard-step-column"):
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label("What happens next").classes(
+                                    "wizard-card-title"
+                                )
+                            with ui.element("div").classes("wizard-card-body"):
+                                ui.label(
+                                    "A playlist can keep its name and lose everything "
+                                    "in it. An older collection still holds what was "
+                                    "in it, and this puts the contents back without "
+                                    "disturbing anything else."
+                                ).classes("wizard-body-12-5 wizard-dim")
+                                with ui.element("ol").classes("wizard-next-steps"):
+                                    for step in collection_summary.NEXT_STEPS:
+                                        with ui.element("li").classes(
+                                            "wizard-next-step"
+                                        ):
+                                            ui.label(str(step.number)).classes(
+                                                "wizard-next-step-marker"
+                                            )
+                                            with ui.element("span"):
+                                                ui.label(step.title).classes(
+                                                    "wizard-next-step-title"
+                                                )
+                                                ui.label(step.detail)
+                        with ui.element("div").classes(
+                            "wizard-callout wizard-callout-info"
+                        ):
+                            ui.label(
+                                "Nothing is written before step 4, not even a cache. "
+                                "The preview at step 2 reads the collections beside "
+                                "it and holds the result in memory, so leaving before "
+                                "you confirm leaves every file on disk untouched."
+                            )
+
+            draw_base()
+            draw_sources()
+            draw_output_note()
+
+            def _load():
+                """Reads and parses the chosen files, returning
+                (base_bytes, base_root, contributions) or None with the
+                reason already notified."""
+                base_path = base_holder["path"]
+                if base_path is None or not source_holder:
+                    ui.notify(
+                        "Choose a collection to repair and at least one source",
+                        type="warning",
+                    )
+                    return None
+                base_result = read_and_parse_source(base_path)
+                if base_result.error is not None:
+                    ui.notify(base_result.error, type="negative")
+                    return None
+                contributions = []
+                for path in source_holder:
+                    loaded = read_and_parse_source(path)
+                    if loaded.error is not None:
+                        ui.notify(loaded.error, type="negative")
+                        return None
+                    contributions.append((loaded.source_bytes.decode("utf-8"), loaded.root))
+                return base_result.source_bytes, base_result.root, contributions
+
+
+            def _render_resolve() -> None:
+                """The resolve step: the tally and the bulk strip above
+                the split, the conflict grid under its header row at the
+                left, and the detail rail at the right carrying one
+                control per distinct answer (Resolve.dc.html).
+
+                Hand-rolled rows rather than ui.aggrid, which claims the
+                arrow keys Specs binds over this same table (DL-079,
+                DL-110). Every row and every answer is a grid cell on
+                .wizard-conflict-grid, so the header row and the body
+                rows read one set of tracks.
+
+                Every state the step shows - the pick held for a group,
+                how many are still undecided, what a bulk action leaves
+                standing - is read from conflict_model, which is where
+                the suite can reach it (DL-069, DL-106).
+                """
+                groups = conflict_holder
+                region = regions[reconstruct_steps.RESOLVE]
+                region.clear()
+                # One name per input index, the collection being repaired
+                # at index 0 and each source at its position in the list
+                # the operator built (DL-154, DL-161).
+                labels = _collection_labels(source_holder)
+                table: dict = {}
+
+                def draw() -> None:
+                    """Redraws the step over the current decisions - the
+                    whole step rather than the row just picked, since a
+                    bulk action moves every undecided row, the count
+                    moves with any pick at all, and the rail describes
+                    whichever row is focused."""
+                    gate = conflict_model.resolve_gate(decisions, groups)
+                    views = decisions.rows(groups)
+                    region.clear()
+                    with region:
+                        bulk_strip(gate)
+                        with ui.element("div").classes("wizard-resolve-split"):
+                            conflict_table(views)
+                            detail_rail(views)
+                        # Resolve.dc.html:266's .hint: what a bulk action
+                        # does not reach. It stands under the split
+                        # rather than beside the bulk controls, where it
+                        # would read as a label for them.
+                        ui.label(
+                            "Deciding all from one collection leaves untouched "
+                            "any track that collection holds no record of."
+                        ).classes("wizard-hint")
+                    advance = resolve_holder["advance"]
+                    if advance is not None:
+                        advance.set_enabled(gate.all_decided)
+                    footer_groups[reconstruct_steps.RESOLVE] = (
+                        footer_groups[reconstruct_steps.RESOLVE][0],
+                        gate.note,
+                    )
+                    if step_holder["current"] == reconstruct_steps.RESOLVE:
+                        chrome.footer_note.set_text(
+                            footer_groups[reconstruct_steps.RESOLVE][1]
                         )
-                        for error in result.errors:
-                            # The conflict abort's token names rows this same
-                            # run returned, so those rows stand in its place;
-                            # every other token renders as the token it is.
-                            if (
-                                error == conflict_model.CONFLICT_ABORT_TOKEN
-                                and conflict_holder
+
+                def bulk_strip(gate) -> None:
+                    """Resolve.dc.html:41's .fbar: the tally at the left,
+                    the "Decide all from" label, and one bulk action per
+                    collection the run reads, each settling the undecided
+                    groups its own collection holds a record in and
+                    leaving the rest undecided (DL-154).
+
+                    The sentence counts the groups and nothing else. A
+                    group is one candidate set whose members may span a
+                    subset of the inputs, so naming the count of inputs
+                    the run read would attribute the difference to inputs
+                    a group holds no member in - something the run does
+                    not supply. Resolve.dc.html's own copy names the two
+                    collections its illustrative run reads (DL-206).
+                    """
+                    with ui.element("div").classes("wizard-bulk-strip"):
+                        ui.label(
+                            f"{len(groups)} tracks carry more than one "
+                            f"answer - {gate.decided} decided, "
+                            f"{gate.outstanding} to go"
+                        ).classes("wizard-tally")
+                        ui.element("span").classes("wizard-strip-spacer")
+                        ui.label("Decide all from").classes("wizard-label")
+                        for input_index, label in enumerate(labels):
+                            ui.button(
+                                f"All {label}",
+                                on_click=lambda _e=None, index=input_index: bulk(index),
+                                color=None,
+                            ).classes("wizard-control wizard-decision-control")
+
+                def conflict_table(views) -> None:
+                    """Resolve.dc.html:54-60's .tbl: a header row and one
+                    body row per group, both laid out on
+                    .wizard-conflict-grid's five tracks."""
+                    with ui.element("div").classes("wizard-conflict-table"):
+                        with ui.element("div").classes(
+                            "wizard-conflict-grid wizard-conflict-header"
+                        ).props('role="row"'):
+                            for heading in (
+                                "Track", "What differs", "Answers",
+                                "Held by", "Decision",
+                            ):
+                                ui.label(heading)
+                        for index, view in enumerate(views):
+                            row(index, view)
+
+                def row(index: int, view) -> None:
+                    """One track's row: its identity key, the attribute
+                    names that diverge, how many answers it offers, the
+                    collections holding it, and its decision. The focused
+                    row alone carries the selected class, which is what
+                    the arrow keys move (Specs.dc.html, "Keyboard")."""
+                    focused = index == resolve_holder["focused"]
+                    classes = "wizard-conflict-grid wizard-conflict-row"
+                    if focused:
+                        classes = (
+                            "wizard-conflict-grid wizard-conflict-row "
+                            "wizard-conflict-row-selected"
+                        )
+                    with ui.element("div").classes(add=classes).props(
+                        f'role="row" aria-selected="{str(focused).lower()}"'
+                    ):
+                        ui.label(view.identity_key).classes(
+                            "font-mono wizard-body-12 "
+                            "wizard-conflict-track"
+                        )
+                        ui.label(", ".join(view.attrs)).classes("wizard-body-12")
+                        ui.label(str(len(view.candidates))).classes(
+                            "font-mono wizard-body-12"
+                        )
+                        ui.label(
+                            ", ".join(
+                                sorted(
+                                    {
+                                        labels[input_index]
+                                        for candidate in view.candidates
+                                        for input_index, _ in candidate.members
+                                    }
+                                )
+                            )
+                        ).classes("wizard-body-12 wizard-subtle-2")
+                        if view.decision == conflict_model.UNDECIDED:
+                            with ui.element("div").classes(
+                                "wizard-conflict-decision"
+                            ):
+                                ui.button(
+                                    "Choose...",
+                                    on_click=lambda _e=None, at=index: focus(at),
+                                    color=None,
+                                ).classes(
+                                    "wizard-control wizard-decision-control"
+                                )
+                        else:
+                            # The decided cell names the collection that
+                            # won and carries the undo that takes the
+                            # decision back, so a row is reopened where
+                            # it was decided rather than only from the
+                            # rail, which describes one row at a time.
+                            with ui.element("div").classes(
+                                "wizard-conflict-decided wizard-status-found"
+                            ):
+                                ui.label(labels[view.decision[0]])
+                                ui.button(
+                                    "Undo",
+                                    on_click=(
+                                        lambda _e=None, chosen=groups[index]:
+                                        reset(chosen)
+                                    ),
+                                    color=None,
+                                ).classes(
+                                    "wizard-control wizard-decision-control"
+                                )
+
+                def detail_rail(views) -> None:
+                    """Resolve.dc.html:70-95's .det: the focused row's
+                    file at the head, one control per distinct answer in
+                    the body, and the keys and actions in the footer.
+
+                    One control per distinct answer rather than one per
+                    collection: two collections holding identical values
+                    are one answer, and deciding it decides both, so a
+                    control names the record that wins rather than the
+                    collection it came from (DL-148, DL-160).
+                    """
+                    with ui.element("div").classes("wizard-detail-rail"):
+                        if not views:
+                            with ui.element("div").classes("wizard-detail-head"):
+                                ui.label(
+                                    "Nothing is held differently."
+                                ).classes("wizard-body-14-5")
+                            return
+                        view = views[resolve_holder["focused"]]
+                        group = groups[resolve_holder["focused"]]
+                        with ui.element("div").classes("wizard-detail-head"):
+                            ui.label(view.identity_key).classes(
+                                "font-mono wizard-body-14-5"
+                            )
+                            # The count is read off the group rather
+                            # than written into the sentence: a group
+                            # is held by as many collections as its
+                            # candidates have members between them,
+                            # and a sentence naming two while the row
+                            # beside it names three is the screen
+                            # disagreeing with the model (DL-215).
+                            holding = len(
+                                {
+                                    input_index
+                                    for candidate in view.candidates
+                                    for input_index, _ in candidate.members
+                                }
+                            )
+                            ui.label(
+                                f"{holding} collections hold this file with "
+                                "different values. Pick the one that "
+                                "supplies them."
+                            ).classes("wizard-body-12 wizard-dim")
+                        with ui.element("div").classes("wizard-detail-body"):
+                            for position, candidate in enumerate(view.candidates, 1):
+                                answer(group, view, position, candidate)
+                            # Resolve.dc.html:245's .note: what a pick
+                            # names, standing under the answers rather
+                            # than in the log alone, because the reading
+                            # it corrects - that an answer is a
+                            # collection - is the one the operator
+                            # arrives with (DL-148).
+                            with ui.element("div").classes(
+                                "wizard-note wizard-faint"
                             ):
                                 ui.label(
-                                    f"{len(conflict_holder)} tracks are held "
-                                    "differently by two collections. Resolve names "
-                                    "each one and offers its answers."
-                                ).classes("wizard-body-13")
-                                continue
-                            ui.label(error).classes("font-mono wizard-body-12 text-warning")
+                                    "A pick names the record that wins, not the "
+                                    "collection it came from. Two collections "
+                                    "holding the identical values are one answer, "
+                                    "and deciding it decides both."
+                                )
+                        with ui.element("div").classes("wizard-detail-foot"):
+                            key_hints()
+                            with ui.element("div").classes(
+                                "wizard-detail-actions"
+                            ):
+                                ui.button(
+                                    "Skip for now",
+                                    on_click=lambda _e=None: focus(
+                                        keymap.dispatch(
+                                            "ArrowDown",
+                                            (),
+                                            keymap.SCOPE_TABLE,
+                                            row_count=len(views),
+                                            focused_index=resolve_holder["focused"],
+                                        ).args["index"]
+                                    ),
+                                    color=None,
+                                ).classes("wizard-control")
+                                # The rail's primary is the pick itself:
+                                # the first answer, which is the one the
+                                # digit 1 takes, so the pointer and the
+                                # key reach the same decision.
+                                ui.button(
+                                    "Use answer 1",
+                                    on_click=(
+                                        lambda _e=None, at=group,
+                                        named=conflict_model.candidate_reference(
+                                            view.candidates[0]
+                                        ): pick(at, named)
+                                    ),
+                                    color=None,
+                                ).classes("wizard-control wizard-control-primary")
 
-                    def _render_preview_run() -> None:
-                        """The two columns Preview.dc.html draws for a run
-                        that assembled: what would be rebuilt at the left,
-                        what the run is and what it could not fill at the
-                        right."""
-                        record = reconstruct_report.preview_report(
-                            result_holder["result"].stats, conflict_holder, decisions
+                def key_hints() -> None:
+                    """Resolve.dc.html:94's .keys: three chip groups,
+                    each naming its own keys beside what they do, rather
+                    than one sentence listing them in prose. A chip is
+                    what Specs.dc.html's "Keyboard" section draws, and
+                    the digits, the arrows and U are the three rows it
+                    binds over a table (DL-071)."""
+                    with ui.element("div").classes("wizard-key-row"):
+                        # The digits are a range and the artboard sets
+                        # its two chips apart with an en dash; the
+                        # arrows are two keys side by side and carry
+                        # none.
+                        for chips, between, phrase in (
+                            (("1", "9"), "\u2013", "pick an answer"),
+                            (("\u2191", "\u2193"), "", "move"),
+                            (("U",), "", "undo"),
+                        ):
+                            with ui.element("span").classes("wizard-key-hint"):
+                                for position, chip in enumerate(chips):
+                                    if position and between:
+                                        ui.label(between)
+                                    ui.label(chip).classes("wizard-kbd")
+                                ui.label(phrase)
+
+                def answer(group, view, position: int, candidate) -> None:
+                    """One control per distinct answer, carrying the
+                    digit that picks it and the values it supplies. The
+                    decision the view holds is compared against this
+                    candidate's own reference, so the chosen answer alone
+                    carries the chosen class and this module holds no
+                    reading of what a decision means."""
+                    reference = conflict_model.candidate_reference(candidate)
+                    chosen = view.decision == reference
+                    with ui.element("div").classes("wizard-answer-group"):
+                        with ui.element("div").classes("wizard-answer-group-head"):
+                            ui.label(f"Answer {position}").classes("wizard-label")
+                            ui.label(str(position)).classes("wizard-kbd")
+                        classes = "wizard-answer"
+                        if chosen:
+                            classes = "wizard-answer wizard-answer-chosen"
+                        supplied_by = ", ".join(
+                            labels[index] for index, _ in candidate.members
                         )
-                        with ui.element("div").classes("wizard-step-split"):
-                            with ui.element("div").classes("wizard-step-column"):
-                                with ui.element("section").classes("wizard-card"):
-                                    with ui.element("div").classes("wizard-card-head"):
-                                        ui.label("What would be rebuilt").classes(
-                                            "wizard-card-title"
-                                        )
-                                        ui.label(record.filled_caption).classes(
-                                            "wizard-label"
-                                        )
-                                    with ui.element("div").classes(
-                                        "wizard-card-body wizard-scroll"
-                                    ):
-                                        for row in record.listed:
-                                            playlist_row(row)
-                                        if record.remainder is not None:
-                                            playlist_row(record.remainder)
-                                with ui.element("div").classes("wizard-total"):
-                                    ui.label(record.total_sentence)
-                                    ui.label(record.total_amount).classes(
-                                        "wizard-total-amount"
-                                    )
-                                if record.conflict_sentence:
-                                    with ui.element("div").classes(
-                                        "wizard-callout wizard-callout-warn"
-                                    ):
-                                        ui.label(record.conflict_sentence)
-                            with ui.element("div").classes("wizard-step-column"):
-                                with ui.element("section").classes("wizard-card"):
-                                    with ui.element("div").classes("wizard-card-head"):
-                                        ui.label("What this run did").classes(
-                                            "wizard-card-title"
-                                        )
-                                        ui.label("Nothing written").classes(
-                                            "wizard-label"
-                                        )
-                                    with ui.element("div").classes("wizard-card-body"):
-                                        ui.label(
-                                            "The repair was assembled in full and "
-                                            "held in memory. This is the run itself, "
-                                            "not an estimate of one - the file "
-                                            "written at step 4 is what was assembled "
-                                            "here, so the write cannot disagree with "
-                                            "what is listed."
-                                        ).classes("wizard-body-12-5 wizard-dim")
-                                if record.unfilled:
-                                    with ui.element("section").classes("wizard-card"):
-                                        with ui.element("div").classes(
-                                            "wizard-card-head"
-                                        ):
-                                            ui.label(record.unfilled_title).classes(
-                                                "wizard-card-title"
-                                            )
-                                        with ui.element("div").classes(
-                                            "wizard-card-body"
-                                        ):
-                                            for name in record.unfilled:
-                                                with ui.element("div").classes(
-                                                    "wizard-list-row"
-                                                ):
-                                                    ui.label(name).classes(
-                                                        "wizard-list-name"
-                                                    )
-                                                    ui.label(
-                                                        "no collection held it"
-                                                    ).classes("wizard-list-count")
-                                            ui.label(
-                                                "These keep their names and stay "
-                                                "empty. Adding another collection at "
-                                                "step 1 may fill them."
-                                            ).classes("wizard-meta")
+                        with ui.element("div").classes(add=classes):
+                            with ui.element("span").classes(
+                                "wizard-answer-marker"
+                            ).props(
+                                f'role="img" aria-label='
+                                f'"{"Chosen" if chosen else "Not chosen"}"'
+                            ):
+                                if chosen:
+                                    ui.element("span").classes("wizard-answer-dot")
+                            ui.button(
+                                f"{supplied_by} {' | '.join(candidate.values)}",
+                                on_click=(
+                                    lambda _e=None, at=group, named=reference:
+                                    pick(at, named)
+                                ),
+                                color=None,
+                            ).classes(
+                                "wizard-control font-mono wizard-body-11-5 "
+                                "wizard-subtle-5"
+                            )
+
+                def bulk(input_index: int) -> None:
+                    """Settles every group the collection at
+                    input_index holds a record in, on that record.
+
+                    The reference comes from
+                    conflict_model.reference_from_input rather than
+                    from a collection token, so a group that
+                    collection holds no record in is left undecided
+                    rather than settled on a name that matches
+                    nothing (DL-148).
+                    """
+                    decisions.resolve_all(
+                        groups, conflict_model.reference_from_input(input_index)
+                    )
+                    draw()
+
+                def pick(group, reference) -> None:
+                    """Settles one group on the record `reference`
+                    names, then redraws.
+
+                    reference is an (input index, primary key) pair
+                    from conflict_model.candidate_reference: one file
+                    in two inputs carries the identical
+                    location-derived key, so the input index is what
+                    tells the two apart, and two collections holding
+                    identical values are one answer that this settles
+                    for both (DL-004, DL-148).
+                    """
+                    decisions.resolve(group, reference)
+                    draw()
+
+                def reset(group) -> None:
+                    """Returns one group to undecided.
+
+                    The decision is dropped from the mapping rather
+                    than written as an undecided token, because a key
+                    absent from the mapping reads back undecided.
+                    """
+                    decisions.reset(group.identity_key)
+                    draw()
+
+                def focus(index: int) -> None:
+                    """Moves the row the detail rail describes.
+
+                    The index is written into the one holder the
+                    redraw reads, so a move applied by key and one
+                    applied by a control land in the same field.
+                    """
+                    resolve_holder["focused"] = index
+                    draw()
+
+                def on_key(event) -> None:
+                    """Resolves a keypress through keymap.dispatch at
+                    SCOPE_TABLE and applies it through this route's own
+                    applier table.
+
+                    A name dispatch returns that the table does not carry
+                    is a no-op here and a suite failure in
+                    tests/test_gui_keymap.py, which pins the table's key
+                    set against the actions this table answers (DL-080,
+                    DL-205).
+                    """
+                    if not groups or step_holder["current"] != reconstruct_steps.RESOLVE:
+                        return
+                    action = keymap.dispatch(
+                        event.key.name,
+                        tuple(
+                            name
+                            for name, held in (
+                                ("shift", event.modifiers.shift),
+                                ("ctrl", event.modifiers.ctrl),
+                                ("alt", event.modifiers.alt),
+                            )
+                            if held
+                        ),
+                        keymap.SCOPE_TABLE,
+                        row_count=len(groups),
+                        focused_index=resolve_holder["focused"],
+                        candidate_count=len(
+                            groups[resolve_holder["focused"]].candidates
+                        ),
+                    )
+                    if action is None:
+                        return
+                    applier = _RECONSTRUCT_ACTION_APPLIERS.get(action.name)
+                    if applier is not None:
+                        applier(table, action.args)
+
+                # What an applier is handed: the groups it indexes, the
+                # holder carrying the focused row, and the three
+                # callbacks that write a decision. The holder itself is
+                # passed rather than a copy of its value, so a move
+                # applied by key and one applied by a control land in the
+                # one field the render reads.
+                table.update(
+                    {
+                        "groups": groups,
+                        "holder": resolve_holder,
+                        "focus": focus,
+                        "pick": pick,
+                        "reset": reset,
+                    }
+                )
+
+                # Registered once for the life of the page rather than
+                # per redraw: ui.keyboard binds a handler, and a second
+                # preview would otherwise bind a second one over the same
+                # keys. on_key reads conflict_holder, which preview
+                # rewrites in place, so the one handler always dispatches
+                # over the groups the last run reported.
+                if resolve_holder.get("keyboard") is None:
+                    resolve_holder["keyboard"] = ui.keyboard(on_key=on_key)
+                draw()
+
+            def _render_preview() -> None:
+                """Preview.dc.html: what the held run would write.
+
+                The left column lists the playlists it filled and
+                sums the entries that adds; the right names what
+                the run is - the repair itself, held in memory -
+                and lists the playlists no collection could fill.
+                Every number is read off reconstruct_report's
+                record for this run, so the count in a heading and
+                the rows under it cannot disagree (DL-215, DL-217).
+                """
+                result = result_holder["result"]
+                report.clear()
+                if result is None:
+                    return
+                with report:
+                    if result.errors:
+                        _render_preview_refusal(result)
+                        return
+                    if not result.stats.get("reconstructed_playlists"):
+                        ui.label(
+                            "Every matched playlist already holds these contents."
+                        ).classes("wizard-body-13")
+                        return
+                    _render_preview_run()
+
+            def _render_preview_refusal(result) -> None:
+                """An ambiguity abort is a step-level failure: the
+                reasons are shown and no output is offered, matching
+                the CLI's own abort-with-nothing-written (DL-094,
+                DL-098)."""
+                ui.label("Nothing was written.").classes(
+                    "wizard-body-13 font-semibold"
+                )
+                for error in result.errors:
+                    # The conflict abort's token names rows this same
+                    # run returned, so those rows stand in its place;
+                    # every other token renders as the token it is.
+                    if (
+                        error == conflict_model.CONFLICT_ABORT_TOKEN
+                        and conflict_holder
+                    ):
+                        ui.label(
+                            f"{len(conflict_holder)} tracks are held "
+                            "differently by two collections. Resolve names "
+                            "each one and offers its answers."
+                        ).classes("wizard-body-13")
+                        continue
+                    ui.label(error).classes("font-mono wizard-body-12 text-warning")
+
+            def _render_preview_run() -> None:
+                """The two columns Preview.dc.html draws for a run
+                that assembled: what would be rebuilt at the left,
+                what the run is and what it could not fill at the
+                right."""
+                record = reconstruct_report.preview_report(
+                    result_holder["result"].stats, conflict_holder, decisions
+                )
+                with ui.element("div").classes("wizard-step-split"):
+                    with ui.element("div").classes("wizard-step-column"):
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label("What would be rebuilt").classes(
+                                    "wizard-card-title"
+                                )
+                                ui.label(record.filled_caption).classes(
+                                    "wizard-label"
+                                )
+                            with ui.element("div").classes(
+                                "wizard-card-body wizard-scroll"
+                            ):
+                                for row in record.listed:
+                                    playlist_row(row)
+                                if record.remainder is not None:
+                                    playlist_row(record.remainder)
+                        with ui.element("div").classes("wizard-total"):
+                            ui.label(record.total_sentence)
+                            ui.label(record.total_amount).classes(
+                                "wizard-total-amount"
+                            )
+                        if record.conflict_sentence:
+                            with ui.element("div").classes(
+                                "wizard-callout wizard-callout-warn"
+                            ):
+                                ui.label(record.conflict_sentence)
+                    with ui.element("div").classes("wizard-step-column"):
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label("What this run did").classes(
+                                    "wizard-card-title"
+                                )
+                                ui.label("Nothing written").classes(
+                                    "wizard-label"
+                                )
+                            with ui.element("div").classes("wizard-card-body"):
+                                ui.label(
+                                    "The repair was assembled in full and "
+                                    "held in memory. This is the run itself, "
+                                    "not an estimate of one - the file "
+                                    "written at step 4 is what was assembled "
+                                    "here, so the write cannot disagree with "
+                                    "what is listed."
+                                ).classes("wizard-body-12-5 wizard-dim")
+                        if record.unfilled:
+                            with ui.element("section").classes("wizard-card"):
                                 with ui.element("div").classes(
-                                    "wizard-callout wizard-callout-info"
+                                    "wizard-card-head"
+                                ):
+                                    ui.label(record.unfilled_title).classes(
+                                        "wizard-card-title"
+                                    )
+                                with ui.element("div").classes(
+                                    "wizard-card-body"
+                                ):
+                                    for name in record.unfilled:
+                                        with ui.element("div").classes(
+                                            "wizard-list-row"
+                                        ):
+                                            ui.label(name).classes(
+                                                "wizard-list-name"
+                                            )
+                                            ui.label(
+                                                "no collection held it"
+                                            ).classes("wizard-list-count")
+                                    ui.label(
+                                        "These keep their names and stay "
+                                        "empty. Adding another collection at "
+                                        "step 1 may fill them."
+                                    ).classes("wizard-meta")
+                        with ui.element("div").classes(
+                            "wizard-callout wizard-callout-info"
+                        ):
+                            ui.label(
+                                "The playlists that already held their "
+                                "contents are untouched, and are not listed."
+                            )
+
+            def playlist_row(row) -> None:
+                """Preview.dc.html:110's .pl: one listed playlist,
+                its name at the left and its own entry count at the
+                right. The count's sentence is the row's, so the
+                unit is written once for every row that prints
+                one."""
+                with ui.element("div").classes("wizard-list-row"):
+                    ui.label(row.name).classes("wizard-list-name")
+                    ui.label(row.entry_count).classes("wizard-list-count")
+
+            def _render_write() -> None:
+                """Write.dc.html: what the file about to be written
+                will hold, and what stays as it is.
+
+                Redrawn on every entry to the step rather than once,
+                because two of its numbers - the decided count and
+                the output path - are answered by controls on the
+                steps behind it, and a panel drawn before those
+                answers were given would state the run's size as it
+                stood at some earlier moment.
+                """
+                write_panel.clear()
+                result = result_holder["result"]
+                if result is None:
+                    return
+                destination = output_input.value or ""
+                record = reconstruct_report.write_report(
+                    result.stats,
+                    conflict_holder,
+                    decisions,
+                    destination,
+                    bool(destination) and Path(destination).exists(),
+                    [
+                        str(path)
+                        for path in (base_holder["path"], *source_holder)
+                        if path
+                    ],
+                )
+                write_holder["question"].set_text(record.confirm_question)
+                with write_panel:
+                    with ui.element("div").classes("wizard-step-split"):
+                        with ui.element("div").classes("wizard-step-column"):
+                            with ui.element("section").classes("wizard-card"):
+                                with ui.element("div").classes(
+                                    "wizard-card-head"
                                 ):
                                     ui.label(
-                                        "The playlists that already held their "
-                                        "contents are untouched, and are not listed."
+                                        "Before anything is written"
+                                    ).classes("wizard-card-title")
+                                    ui.label("Nothing written yet").classes(
+                                        "wizard-label"
                                     )
-
-                    def playlist_row(row) -> None:
-                        """Preview.dc.html:110's .pl: one listed playlist,
-                        its name at the left and its own entry count at the
-                        right. The count's sentence is the row's, so the
-                        unit is written once for every row that prints
-                        one."""
-                        with ui.element("div").classes("wizard-list-row"):
-                            ui.label(row.name).classes("wizard-list-name")
-                            ui.label(row.entry_count).classes("wizard-list-count")
-
-                    def _render_write() -> None:
-                        """Write.dc.html: what the file about to be written
-                        will hold, and what stays as it is.
-
-                        Redrawn on every entry to the step rather than once,
-                        because two of its numbers - the decided count and
-                        the output path - are answered by controls on the
-                        steps behind it, and a panel drawn before those
-                        answers were given would state the run's size as it
-                        stood at some earlier moment.
-                        """
-                        write_panel.clear()
-                        result = result_holder["result"]
-                        if result is None:
-                            return
-                        destination = output_input.value or ""
-                        record = reconstruct_report.write_report(
-                            result.stats,
-                            conflict_holder,
-                            decisions,
-                            destination,
-                            bool(destination) and Path(destination).exists(),
-                            [
-                                str(path)
-                                for path in (base_holder["path"], *source_holder)
-                                if path
-                            ],
-                        )
-                        write_holder["question"].set_text(record.confirm_question)
-                        with write_panel:
-                            with ui.element("div").classes("wizard-step-split"):
-                                with ui.element("div").classes("wizard-step-column"):
-                                    with ui.element("section").classes("wizard-card"):
-                                        with ui.element("div").classes(
-                                            "wizard-card-head"
-                                        ):
-                                            ui.label(
-                                                "Before anything is written"
-                                            ).classes("wizard-card-title")
-                                            ui.label("Nothing written yet").classes(
-                                                "wizard-label"
-                                            )
-                                        with ui.element("div").classes(
-                                            "wizard-card-body"
-                                        ):
-                                            ui.label("New collection file").classes(
-                                                "wizard-label"
-                                            )
-                                            with ui.element("div").classes(
-                                                "wizard-destination"
-                                            ):
-                                                ui.label(
-                                                    record.destination
-                                                    or "No output path chosen"
-                                                ).classes("wizard-destination-path")
-                                                ui.label(
-                                                    record.destination_badge
-                                                ).classes("wizard-badge")
-                                            ui.label(
-                                                "The write refuses any path this run "
-                                                "read, so nothing you gave it is "
-                                                "overwritten."
-                                            ).classes("wizard-meta")
-                                    with ui.element("section").classes("wizard-card"):
-                                        with ui.element("div").classes(
-                                            "wizard-card-head"
-                                        ):
-                                            ui.label(
-                                                "What the new file will hold"
-                                            ).classes("wizard-card-title")
-                                        with ui.element("div").classes(
-                                            "wizard-card-body"
-                                        ):
-                                            for row in record.rows:
-                                                change_row(row)
-                                            with ui.element("div").classes(
-                                                "wizard-total"
-                                            ):
-                                                ui.label(record.total_sentence)
-                                                ui.label(record.total_amount).classes(
-                                                    "wizard-total-amount"
-                                                )
-                                with ui.element("div").classes("wizard-step-column"):
-                                    with ui.element("section").classes("wizard-card"):
-                                        with ui.element("div").classes(
-                                            "wizard-card-head"
-                                        ):
-                                            ui.label("Your originals").classes(
-                                                "wizard-card-title"
-                                            )
-                                        with ui.element("div").classes(
-                                            "wizard-card-body"
-                                        ):
-                                            for original in record.originals:
-                                                with ui.element("div").classes(
-                                                    "wizard-list-row"
-                                                ):
-                                                    ui.label(original).classes(
-                                                        "font-mono wizard-list-name"
-                                                    )
-                                                    ui.label("Not modified").classes(
-                                                        "wizard-badge"
-                                                    )
-                                            ui.label(
-                                                "Every one was opened read only for "
-                                                "the whole run."
-                                            ).classes("wizard-meta")
+                                with ui.element("div").classes(
+                                    "wizard-card-body"
+                                ):
+                                    ui.label("New collection file").classes(
+                                        "wizard-label"
+                                    )
                                     with ui.element("div").classes(
-                                        "wizard-callout wizard-callout-info"
+                                        "wizard-destination"
                                     ):
                                         ui.label(
-                                            "The file is written in one go. It is "
-                                            "built whole and moved into place, so an "
-                                            "interrupted write leaves no half-written "
-                                            "collection behind."
-                                        )
-                                    with ui.element("div").classes("wizard-callout"):
+                                            record.destination
+                                            or "No output path chosen"
+                                        ).classes("wizard-destination-path")
                                         ui.label(
-                                            "In Traktor, open the new file with File "
-                                            "- Import Collection, or point Traktor's "
-                                            "collection setting at it. Your existing "
-                                            "collection stays where it is until you "
-                                            "do."
+                                            record.destination_badge
+                                        ).classes("wizard-badge")
+                                    ui.label(
+                                        "The write refuses any path this run "
+                                        "read, so nothing you gave it is "
+                                        "overwritten."
+                                    ).classes("wizard-meta")
+                            with ui.element("section").classes("wizard-card"):
+                                with ui.element("div").classes(
+                                    "wizard-card-head"
+                                ):
+                                    ui.label(
+                                        "What the new file will hold"
+                                    ).classes("wizard-card-title")
+                                with ui.element("div").classes(
+                                    "wizard-card-body"
+                                ):
+                                    for row in record.rows:
+                                        change_row(row)
+                                    with ui.element("div").classes(
+                                        "wizard-total"
+                                    ):
+                                        ui.label(record.total_sentence)
+                                        ui.label(record.total_amount).classes(
+                                            "wizard-total-amount"
                                         )
+                        with ui.element("div").classes("wizard-step-column"):
+                            with ui.element("section").classes("wizard-card"):
+                                with ui.element("div").classes(
+                                    "wizard-card-head"
+                                ):
+                                    ui.label("Your originals").classes(
+                                        "wizard-card-title"
+                                    )
+                                with ui.element("div").classes(
+                                    "wizard-card-body"
+                                ):
+                                    for original in record.originals:
+                                        with ui.element("div").classes(
+                                            "wizard-list-row"
+                                        ):
+                                            ui.label(original).classes(
+                                                "font-mono wizard-list-name"
+                                            )
+                                            ui.label("Not modified").classes(
+                                                "wizard-badge"
+                                            )
+                                    ui.label(
+                                        "Every one was opened read only for "
+                                        "the whole run."
+                                    ).classes("wizard-meta")
+                            with ui.element("div").classes(
+                                "wizard-callout wizard-callout-info"
+                            ):
+                                ui.label(
+                                    "The file is written in one go. It is "
+                                    "built whole and moved into place, so an "
+                                    "interrupted write leaves no half-written "
+                                    "collection behind."
+                                )
+                            with ui.element("div").classes("wizard-callout"):
+                                ui.label(
+                                    "In Traktor, open the new file with File "
+                                    "- Import Collection, or point Traktor's "
+                                    "collection setting at it. Your existing "
+                                    "collection stays where it is until you "
+                                    "do."
+                                )
 
-                    def change_row(row) -> None:
-                        """Write.dc.html:108's .cr: one line of what the new
-                        file will hold - the change and the sentence under
-                        it at the left, its count at the right. The count's
-                        ink is the row's own tone token, mapped to a class
-                        here so no colour is written at a call site
-                        (DL-188)."""
-                        with ui.element("div").classes("wizard-change-row"):
-                            with ui.element("span"):
-                                ui.label(row.label)
-                                ui.label(row.detail).classes("wizard-change-detail")
-                            # The subscript is at the call site rather
-                            # than behind a name: the cascade guards read
-                            # every class a classes() call can pass by
-                            # expanding the expression it is handed, and a
-                            # lookup they cannot expand is a call they stop
-                            # checking (DL-188).
-                            tone = {
-                                reconstruct_report.TONE_ADDED:
-                                    "wizard-change-count wizard-change-added",
-                                reconstruct_report.TONE_UNTOUCHED:
-                                    "wizard-change-count wizard-change-untouched",
-                            }[row.tone]
-                            ui.label(row.amount).classes(tone)
+            def change_row(row) -> None:
+                """Write.dc.html:108's .cr: one line of what the new
+                file will hold - the change and the sentence under
+                it at the left, its count at the right. The count's
+                ink is the row's own tone token, mapped to a class
+                here so no colour is written at a call site
+                (DL-188)."""
+                with ui.element("div").classes("wizard-change-row"):
+                    with ui.element("span"):
+                        ui.label(row.label)
+                        ui.label(row.detail).classes("wizard-change-detail")
+                    # The subscript is at the call site rather
+                    # than behind a name: the cascade guards read
+                    # every class a classes() call can pass by
+                    # expanding the expression it is handed, and a
+                    # lookup they cannot expand is a call they stop
+                    # checking (DL-188).
+                    tone = {
+                        reconstruct_report.TONE_ADDED:
+                            "wizard-change-count wizard-change-added",
+                        reconstruct_report.TONE_UNTOUCHED:
+                            "wizard-change-count wizard-change-untouched",
+                    }[row.tone]
+                    ui.label(row.amount).classes(tone)
 
-                    async def preview() -> None:
-                        """Runs the same assemble_output call the CLI makes, with
-                        reconstruct=True, and renders what it reports. Nothing is
-                        written here: the run is the preview, so the write below
-                        cannot disagree with what this shows."""
-                        loaded = await run.io_bound(_load)
-                        if loaded is None:
-                            return
-                        base_bytes, base_root, contributions = loaded
-                        result = await run.io_bound(
-                            assemble_output,
-                            base_bytes.decode("utf-8"), base_root, contributions,
-                            MatchConfidence.STRICT, conflict_choice.value, True,
-                            resolutions=decisions.resolutions(conflict_holder),
-                        )
-                        # The groups the page shows are a projection of the rows
-                        # this run reported: conflict_model reads the membership and
-                        # the per-side values off the rows themselves, so there is no
-                        # second pass over the collections to hand run.io_bound.
-                        groups = conflict_model.conflict_groups(result.conflict_rows)
-                        conflict_holder[:] = groups
-                        result_holder["result"] = result
-                        _render_resolve()
-                        show_step(reconstruct_steps.PREVIEW)
+            async def preview() -> None:
+                """Runs the same assemble_output call the CLI makes, with
+                reconstruct=True, and renders what it reports. Nothing is
+                written here: the run is the preview, so the write below
+                cannot disagree with what this shows."""
+                loaded = await run.io_bound(_load)
+                if loaded is None:
+                    return
+                base_bytes, base_root, contributions = loaded
+                result = await run.io_bound(
+                    assemble_output,
+                    base_bytes.decode("utf-8"), base_root, contributions,
+                    MatchConfidence.STRICT, conflict_choice.value, True,
+                    resolutions=decisions.resolutions(conflict_holder),
+                )
+                # The groups the page shows are a projection of the rows
+                # this run reported: conflict_model reads the membership and
+                # the per-side values off the rows themselves, so there is no
+                # second pass over the collections to hand run.io_bound.
+                groups = conflict_model.conflict_groups(result.conflict_rows)
+                conflict_holder[:] = groups
+                result_holder["result"] = result
+                _render_resolve()
+                show_step(reconstruct_steps.PREVIEW)
 
-                    async def write_output() -> None:
-                        """Writes the output the held run produced, or names why it
-                        cannot. A run that never happened, a run that refused on
-                        conflicts and a run that refused on anything else are three
-                        distinct refusals; the conflict one names how many are still
-                        to decide and the third names the run's own error, which the
-                        report above the controls lists in full (DL-111)."""
-                        write_dialog.close()
-                        result = result_holder["result"]
-                        refusal = conflict_model.write_refusal(
-                            result, decisions, conflict_holder
-                        )
-                        if refusal is not None:
-                            ui.notify(
-                                conflict_model.write_refusal_sentence(refusal), type="warning"
-                            )
-                            return
-                        if not output_input.value:
-                            ui.notify("Choose an output path", type="warning")
-                            return
-                        output_path = Path(output_input.value)
-                        if output_path.resolve() in {
-                            Path(base_holder["path"]).resolve(),
-                            *(Path(p).resolve() for p in source_holder),
-                        }:
-                            ui.notify(
-                                "The output path must differ from every input", type="negative"
-                            )
-                            return
-                        await run.io_bound(
-                            write_bytes_atomically, output_path, result.output.encode("utf-8")
-                        )
-                        ui.notify(f"Written to {output_path}", type="positive")
+            async def write_output() -> None:
+                """Writes the output the held run produced, or names why it
+                cannot. A run that never happened, a run that refused on
+                conflicts and a run that refused on anything else are three
+                distinct refusals; the conflict one names how many are still
+                to decide and the third names the run's own error, which the
+                report above the controls lists in full (DL-111)."""
+                write_dialog.close()
+                result = result_holder["result"]
+                refusal = conflict_model.write_refusal(
+                    result, decisions, conflict_holder
+                )
+                if refusal is not None:
+                    ui.notify(
+                        conflict_model.write_refusal_sentence(refusal), type="warning"
+                    )
+                    return
+                if not output_input.value:
+                    ui.notify("Choose an output path", type="warning")
+                    return
+                output_path = Path(output_input.value)
+                collision = conflict_model.output_refusal(
+                    output_path, base_holder["path"], source_holder
+                )
+                if collision is not None:
+                    ui.notify(
+                        conflict_model.selection_refusal_sentence(collision),
+                        type="negative",
+                    )
+                    return
+                await run.io_bound(
+                    write_bytes_atomically, output_path, result.output.encode("utf-8")
+                )
+                ui.notify(f"Written to {output_path}", type="positive")
 
         # Both steps are a region holding one column the render fills:
         # what each shows is read off the held run, so the composition is

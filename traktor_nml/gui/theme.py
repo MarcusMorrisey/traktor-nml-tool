@@ -258,6 +258,17 @@ DETAIL_RAIL_WIDTH = "400px"
 # resolves to inside .wizard-content-width beside the rail, not against
 # the width the artboard's full-bleed main gives it (DL-213).
 CONFLICT_GRID_TRACKS = "minmax(0, 1fr) 108px 72px 164px 120px"
+# Reconstruct.dc.html:44's .field height - the box a chosen path stands
+# in, taller than a control so the path inside it is not crowded by its
+# own border.
+FIELD_HEIGHT = "36px"
+# Reconstruct.dc.html:19's .bar height, as the meta line spends it: the
+# upright rule between two phrases about one file.
+META_DIVIDER_HEIGHT = "16px"
+# Reconstruct.dc.html:67's .steps .n - the numbered circle beside one of
+# the steps the set-up card lists, a step smaller than the rail's own
+# marker because it is read inside a paragraph rather than as a control.
+NEXT_STEP_MARKER_SIZE = "20px"
 # Resolve.dc.html:23's .st .num - the step rail's own numbered marker,
 # a circle at this size holding the step number or its check mark.
 STEP_MARKER_SIZE = "19px"
@@ -533,7 +544,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-tally {{ display: flex; align-items: center; gap: {SPACE_9}; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; white-space: nowrap; margin: 0; }}
 /* Resolve.dc.html:53's .split: the conflict table at the left taking
    what is left, the detail rail at the right at its fixed width. */
-.wizard-resolve-split {{ display: grid; grid-template-columns: 1fr {DETAIL_RAIL_WIDTH}; gap: {SPACE_16}; min-height: 0; }}
+.wizard-resolve-split {{ display: grid; grid-template-columns: minmax(0, 1fr) {DETAIL_RAIL_WIDTH}; gap: {SPACE_16}; min-height: 0; }}
 /* Resolve.dc.html:54's .tbl and :55's .gr: the bordered box the rows
    sit in, and the five-track grid a header row and every body row are
    laid out on. Both rows read CONFLICT_GRID_TRACKS, so a cell cannot
@@ -626,10 +637,10 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    stretching, because the two hold different amounts and a card
    stretched to its neighbour's height draws a band of empty ground under
    its last row (DL-216). */
-.wizard-step-split {{ display: grid; grid-template-columns: 1fr {DETAIL_RAIL_WIDTH}; gap: {SPACE_20}; align-items: start; min-height: 0; }}
+.wizard-step-split {{ display: grid; grid-template-columns: minmax(0, 1fr) {DETAIL_RAIL_WIDTH}; gap: {SPACE_20}; align-items: start; min-height: 0; width: 100%; }}
 /* Preview.dc.html:28's .col: one column of the split, its boxes stacked
    at the artboard's own 14px. */
-.wizard-step-column {{ display: flex; flex-direction: column; gap: {SPACE_14}; min-height: 0; }}
+.wizard-step-column {{ display: flex; flex-direction: column; gap: {SPACE_14}; min-height: 0; min-width: 0; }}
 /* Preview.dc.html:68-71's .pl: one listed playlist, its name at the left
    taking what is left and its count at the right at its own width, ruled
    off from the row below it. The last row's rule is removed rather than
@@ -683,4 +694,37 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-dialog-list {{ display: flex; flex-direction: column; gap: {SPACE_8}; }}
 .wizard-dialog-item {{ display: flex; gap: {SPACE_9}; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; line-height: 1.5; }}
 .wizard-dialog-actions {{ display: flex; justify-content: flex-end; gap: {SPACE_9}; }}
+/* Reconstruct.dc.html:44's .field and :46's .row: a chosen path stands
+   in a bordered inset box on the page's own ground rather than as loose
+   text beside its button, so what the operator gave the page and what
+   they may still change are told apart by the box around one of them.
+   The box takes the row's width and the control beside it takes its own,
+   which is why the row is its own rule rather than
+   .wizard-control-group. */
+.wizard-field-row {{ display: flex; align-items: center; gap: {SPACE_10}; min-width: 0; width: 100%; }}
+.wizard-field {{ display: flex; align-items: center; gap: {SPACE_10}; background: {GROUND}; border: 1px solid {BORDER_STRONG}; border-radius: {RADIUS_LG}; padding: 0 {SPACE_12}; height: {FIELD_HEIGHT}; flex: 1; min-width: 0; }}
+/* Reconstruct.dc.html:45's .field .mono: a path has no break
+   opportunity in it, so a field narrower than its path shortens rather
+   than spilling past the box that holds it. */
+.wizard-field-value {{ font-family: {FONT_MONO}; font-size: {TYPE_12_5}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+/* Reconstruct.dc.html:121: what a source's own row reports about the
+   file, read from the field's right edge. */
+.wizard-field-note {{ font-family: {FONT_MONO}; font-size: {TYPE_11_5}; color: {TEXT_FAINT}; white-space: nowrap; margin-left: auto; }}
+/* Reconstruct.dc.html:112's .bar inside a .meta: the upright rule
+   between two phrases about one file. It is the header band's own
+   divider at the meta line's own scale, and it is a separator rather
+   than a bullet because the phrases are read as one line. */
+.wizard-meta-divider {{ width: {SPACE_1}; height: {META_DIVIDER_HEIGHT}; background: {BORDER_STRONG}; flex: none; }}
+/* Reconstruct.dc.html:112's own emphasis: the count of empty playlists
+   is what the page exists to repair, so it reads at the review hue
+   rather than at the muted ink of the phrases beside it. */
+.wizard-meta-count {{ color: {STATUS_NEEDS_REVIEW}; font-weight: 600; }}
+/* Reconstruct.dc.html:64-67's .steps: what happens after this step, one
+   row per step, each numbered by the step it names. The marker is the
+   rail's own circle at the list's own size, drawn on the card's ground
+   rather than on the rail's. */
+.wizard-next-steps {{ display: flex; flex-direction: column; gap: {SPACE_11}; margin: 0; padding: 0; list-style: none; }}
+.wizard-next-step {{ display: flex; gap: {SPACE_11}; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; line-height: 1.5; }}
+.wizard-next-step-marker {{ flex: none; width: {NEXT_STEP_MARKER_SIZE}; height: {NEXT_STEP_MARKER_SIZE}; border-radius: 50%; border: 1px solid {BORDER_STRONG}; color: {TEXT_FAINT}; font: 600 {TYPE_11}/1 {FONT_MONO}; display: grid; place-items: center; margin-top: {SPACE_1}; }}
+.wizard-next-step-title {{ display: block; color: {TEXT}; font-weight: 600; font-size: {TYPE_13}; margin-bottom: {SPACE_1}; }}
 """

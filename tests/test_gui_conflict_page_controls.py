@@ -362,9 +362,9 @@ def _open_page(base: Path, sources: list) -> "_Driven":
     app.assemble_output = recording_assemble
     app._build_reconstruct_page()
     recording_ui.pages["/"]()
-    driven.press_async("Choose collection file...")
+    driven.press_async("Choose file...")
     for _ in sources:
-        driven.press_async("Add source collection...")
+        driven.press_async("Add collection...")
     return driven
 
 

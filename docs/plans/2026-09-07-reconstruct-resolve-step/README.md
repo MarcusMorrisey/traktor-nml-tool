@@ -70,11 +70,11 @@ could not take it: the pane's keyboard channel did not reach the page -
 this run does not establish" rather than reporting a ring assembled
 from DOM order (DL-211). Announcements are unread for the same reason.
 
-Step 1's existing content is placed into its step region rather than
-built to `Reconstruct.dc.html`. Its structures carry no entry, because
-this work's scope is the scaffold and step 3. Steps 2 and 4 are built
-to their own artboards and read on a served page in
-`docs/2026-09-07-reconstruct-preview-and-write-browser-record.md`.
+All four steps are built to their own artboards and read on served
+pages: step 3 in the record this plan closes on, steps 2 and 4 in
+`docs/2026-09-07-reconstruct-preview-and-write-browser-record.md`, and
+step 1 in `docs/2026-09-07-reconstruct-setup-browser-record.md`. This
+plan's own scope was the scaffold and step 3.
 
 ## What the gate caught before it stopped
 

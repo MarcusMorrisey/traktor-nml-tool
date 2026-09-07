@@ -1043,6 +1043,38 @@ statement of the same decision would only give it two copies to drift apart.
   stands, with no "previously", "now does", "no longer" or "added",
   and each documentation milestone carries the grep that proves it
   (DL-177).
+- A collection the set-up step is given is reported rather than only
+  named: how many tracks it holds, how many playlists, how many of those
+  hold nothing, and for a source how many it could supply contents from.
+  Those counts are what make the choice checkable before any run - a
+  source with no filled playlist supplies nothing, and a base with no
+  empty playlist has nothing to repair - and they are derived in
+  `collection_summary.py` from the parsed file. A file that will not
+  parse is refused at the step that took it rather than at Preview. What
+  a run reports is `reconstruct_report.py`'s and stays separate: a count
+  describing the file at the moment it was chosen and a count the run
+  produced are different claims (DL-220).
+- A step's own account of what follows it names the steps by
+  `reconstruct_steps.STEPS`' numbers. The set-up step lists the three
+  after it, and a list numbering them itself would be a second table for
+  the rail to disagree with (DL-221).
+- The output path is read against the collections the run reads by
+  `conflict_model.output_refusal`, and the set-up step's line about the
+  output and the write's own refusal both call it. A page describing a
+  path as a new file over a write that would refuse it is the screen and
+  the rule disagreeing about the same path. A path not yet chosen is not
+  a path that collides, and the line says what is missing rather than
+  describing a file the page has not been given (DL-222).
+- A grid track holding text that does not wrap is written
+  `minmax(0, 1fr)` rather than `1fr`, and the box the grid stands in
+  takes its column's width rather than its own content's. A bare `1fr`
+  takes an automatic minimum of its content, so the set-up step's
+  collection paths widened the track to 879px inside a 1024px column and
+  the page scrolled sideways; a grid inside a framework column that packs
+  its items to the start sizes to its content, so the same split then sat
+  62px narrower than its column with its rail off the column's edge; and
+  a row inside the source list did the same at 727px inside a 604px card.
+  Each rule was right read alone (DL-071, DL-189, DL-223).
 - The preview and write steps stand a content column beside a 400px
   rail, and that width is `DETAIL_RAIL_WIDTH`, the value the resolve
   step's own split reads. `Preview.dc.html:27`, `Write.dc.html:27` and

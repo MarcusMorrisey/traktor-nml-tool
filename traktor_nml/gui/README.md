@@ -11,8 +11,9 @@ vendored typeface is.
 in this package that import `nicegui` or `pywebview`. Every other
 module - `review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py`,
 `announce.py`, `conflict_model.py`, `navigation.py`,
-`reconstruct_steps.py`, `reconstruct_report.py`, `_fs_nav.py` and
-`__init__.py` - imports neither
+`reconstruct_steps.py`, `reconstruct_report.py`,
+`collection_summary.py`, `_fs_nav.py` and `__init__.py` - imports
+neither
 and is reachable from the test suite's
 system interpreter, which has no `nicegui` installed. Every rule worth
 testing sits below that boundary, in the nicegui-free modules, so the
@@ -231,6 +232,14 @@ new file will hold, and the confirmation's own question. `app.py` draws
 those records and derives none of them, and both panels are redrawn on
 entry to their step, because what they say is answered by controls on
 the steps beside them (DL-215, DL-217, DL-219).
+
+`collection_summary.py` holds what the set-up step says about a
+collection it has been given: its tracks, its playlists, how many of
+those hold nothing, and for a source how many it could supply contents
+from, all read off the parsed file rather than off a run. It also holds
+`NEXT_STEPS`, the three steps that follow set-up, numbered by
+`reconstruct_steps.STEPS` so the list and the rail above it cannot
+disagree (DL-220, DL-221).
 
 The resolve step's table dispatches through `keymap.dispatch` at
 `SCOPE_TABLE` and applies through the reconstruct route's own

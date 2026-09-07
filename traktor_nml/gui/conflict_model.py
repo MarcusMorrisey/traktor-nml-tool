@@ -62,6 +62,10 @@ NO_PREVIEW = "no_preview"
 ALREADY_LISTED = "already_listed"
 IS_THE_BASE = "is_the_base"
 IS_A_SOURCE = "is_a_source"
+# The output path naming a collection the run reads. Refused for the same
+# reason as the two above and stated at the same place: an output written
+# over an input would destroy the collection the repair was read from.
+OUTPUT_IS_AN_INPUT = "output_is_an_input"
 CONFLICTS_OUTSTANDING = "conflicts_outstanding"
 RUN_REFUSED = "run_refused"
 
@@ -494,6 +498,26 @@ def base_refusal(candidate, sources) -> Optional[str]:
     return None
 
 
+def output_refusal(output, base_path, sources) -> Optional[str]:
+    """Why the output path cannot be written, or None.
+
+    An output naming the collection being repaired or any source answers
+    OUTPUT_IS_AN_INPUT. An empty path answers None: a path not yet chosen
+    is not a path that collides, and the control that asks for one says
+    so in its own words.
+
+    One rule, read by the set-up step's own line about the output and by
+    the write's refusal, so the page cannot describe a path as safe and
+    then refuse to write it (DL-222).
+    """
+    if not output:
+        return None
+    against = [path for path in (base_path, *sources) if path]
+    if any(_same_file(output, path) for path in against):
+        return OUTPUT_IS_AN_INPUT
+    return None
+
+
 def selection_refusal_sentence(reason: str) -> str:
     """The operator-facing sentence for one selection refusal, naming
     what is wrong and which control fixes it. Falls back to naming the
@@ -504,6 +528,11 @@ def selection_refusal_sentence(reason: str) -> str:
         return (
             "That is the collection being repaired. A collection cannot take "
             "playlists from itself; choose a different file."
+        )
+    if reason == OUTPUT_IS_AN_INPUT:
+        return (
+            "The output path names a collection this run reads. Choose a "
+            "different name, so nothing you gave it is overwritten."
         )
     if reason == IS_A_SOURCE:
         return (
