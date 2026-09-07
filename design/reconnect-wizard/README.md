@@ -2,10 +2,11 @@
 
 ## Overview
 
-Phase 1 visual and interaction design for the one workflow in
+Phase 1 visual and interaction design for the workflow in
 [`docs/nicegui-gui-analysis.md`](../../docs/nicegui-gui-analysis.md):
 **"my playlists are broken"** - they still exist, but their tracks will not load
-because the files moved.
+because the files moved. Page 3 of the canvas draws a second job to the same
+contract: **"my playlists kept their names but lost their contents"**.
 
 This is the design the GUI is built against, not a record of what exists: a
 screen here is the contract, and where a screen and `Specs.dc.html` disagree,
@@ -19,6 +20,12 @@ conflict screen the reconstruct page carries at `/` are all served. Two screens 
 `Cancelling.dc.html`, which needs a stop-scan confirmation dialog that nothing
 builds.
 
+Page 3's four screens have no built counterpart either. The reconstruct page
+at `/` serves their four inputs and their conflict rows, in one column with no
+step rail, no per-step footer and no confirmation before the write: its
+sequence is enforced in `write_refusal` and drawn nowhere. These four are the
+contract that sequence is to be built against.
+
 The canvas is published at
 <https://claude.ai/code/artifact/39e2990e-499e-4614-b04b-91fac131f8c6>.
 Edit the sources here and re-seed - the regenerate command is in
@@ -31,9 +38,19 @@ gitignored; only the sources are committed.
 Each `.dc.html` is one screen and `canvas.json` lays them out; the file index is
 in [CLAUDE.md](CLAUDE.md). `Specs.dc.html` is not a screen but the contract the
 others are built against: keyboard map, confidence tokens, accept/reject rules,
-a11y rules. **If a screen and `Specs.dc.html` disagree, fix `Specs.dc.html`
+a11y rules.
+
+**If a screen and `Specs.dc.html` disagree, fix `Specs.dc.html`
 first** - otherwise a per-screen fix silently forks the rule for every other
 screen that shares it.
+
+Page 3 of the canvas draws a second job - playlists that kept their names and
+lost their contents - in four steps: `Reconstruct.dc.html`, `Preview.dc.html`,
+`Resolve.dc.html` and `Write.dc.html`. They sit here rather than in a design
+set of their own because they share this one's shell, its tokens and its
+`Specs.dc.html`; a second set would fork that contract for the header, the
+keyboard map and the a11y rules both workflows already share. The directory
+name is narrower than what it holds.
 
 ## Invariants
 

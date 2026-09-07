@@ -1,0 +1,184 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:800px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:underline}
+.app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
+.hd-l{display:flex;align-items:center;gap:12px;min-width:0}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em;white-space:nowrap}
+.bar{width:1px;height:16px;background:#3C4248;flex:none}
+.task{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail{display:flex;gap:2px;align-items:center;flex:none}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;white-space:nowrap}
+.st .num{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#A5ADB4}
+.st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
+main{padding:22px 24px 6px;display:grid;grid-template-columns:1fr 400px;gap:20px;min-height:0;overflow:hidden}
+.col{display:flex;flex-direction:column;gap:14px;min-height:0}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #2A2E32;background:#17191C}
+.ft-note{margin:0;font-size:12.5px;color:#A5ADB4;display:flex;align-items:center;gap:9px}
+.ft-act{display:flex;gap:10px;align-items:center;flex:none}
+.card{background:#17191C;border:1px solid #2A2E32;border-radius:8px}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;border-bottom:1px solid #2A2E32}
+.card-t{font-weight:600;font-size:13px;margin:0}
+.card-b{padding:15px;display:flex;flex-direction:column;gap:12px}
+.lbl{font:600 11.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8E979E}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.dim{color:#A5ADB4}.faint{color:#8E979E}
+.btn{height:34px;padding:0 15px;border-radius:6px;border:1px solid #3C4248;background:#22262A;color:#E8EBED;font:500 13px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.btn.sm{height:32px;padding:0 12px;font-size:12px}
+.btn-pri{background:#56B4E9;border-color:#56B4E9;color:#0F1113;font-weight:600}
+.btn.off{background:#15171A;border-color:#2A2E32;color:#8A9299;cursor:not-allowed}
+.focus{outline:2px solid #E8EBED;outline-offset:2px}
+.field{display:flex;align-items:center;gap:10px;background:#0F1113;border:1px solid #3C4248;border-radius:6px;padding:0 12px;height:36px;flex:1;min-width:0}
+.field .mono{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row{display:flex;align-items:center;gap:10px}
+.note{display:flex;gap:10px;padding:11px 13px;border-radius:6px;border:1px solid #2A2E32;background:#14171A;font-size:12.5px;color:#A5ADB4;line-height:1.5}
+.note strong{color:#E8EBED;font-weight:600}
+.note.info{border-color:#2F5A72;background:#12222B}
+.note.warn{border-color:#5A4E2A;background:#1F1D14}
+.ico{flex:none}
+.kbd{font:500 11px/1 'IBM Plex Mono',ui-monospace,monospace;background:#22262A;border:1px solid #3C4248;border-bottom-width:2px;border-radius:4px;padding:3px 6px;color:#D2D8DC;white-space:nowrap}
+.meta{font-size:12px;color:#8E979E;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sw{width:34px;height:19px;border-radius:10px;background:#2E3338;border:1px solid #3C4248;position:relative;flex:none}
+.sw i{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#7E868D;display:block}
+.sw.on{background:#1B3D4E;border-color:#2F5A72}
+.sw.on i{left:auto;right:2px;background:#56B4E9}
+.opt{display:flex;gap:11px;align-items:flex-start;padding:11px 12px;border:1px solid #2A2E32;border-radius:6px;background:#14171A}
+.opt.dis{background:#131619}
+.opt-b{min-width:0;display:flex;flex-direction:column;gap:3px}
+.opt-t{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.opt-d{font-size:12px;color:#A5ADB4;line-height:1.45}
+.tag{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;border-radius:4px;border:1px solid #5A4E2A;color:#F5D96B;background:#1F1D14}
+.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:11px;counter-reset:s}
+.steps li{display:flex;gap:11px;font-size:12.5px;color:#A5ADB4;line-height:1.5}
+.steps li b{color:#E8EBED;font-weight:600;display:block;font-size:13px;margin-bottom:1px}
+.steps .n{flex:none;width:20px;height:20px;border-radius:50%;border:1px solid #3C4248;color:#8E979E;font:600 11px/1 'IBM Plex Mono',monospace;display:grid;place-items:center;margin-top:1px}
+  </style>
+</helmet>
+<div class="app">
+
+  <header class="hd">
+    <div class="hd-l">
+      <span class="brand">traktor-nml-tool</span>
+      <span class="bar"></span>
+      <span class="task">My playlists lost their contents</span>
+    </div>
+    <nav class="rail" aria-label="Progress">
+      <span class="st now" aria-current="step"><span class="num">1</span>Set up</span>
+      <span class="st"><span class="num">2</span>Preview</span>
+      <span class="st"><span class="num">3</span>Resolve</span>
+      <span class="st"><span class="num">4</span>Write</span>
+    </nav>
+  </header>
+
+  <main>
+    <div class="col">
+
+      <section class="card">
+        <div class="card-h"><h2 class="card-t">The collection to repair</h2><span class="lbl">Read only</span></div>
+        <div class="card-b">
+          <div class="row">
+            <span class="field focus">
+              <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.8h5.2L13 6.1v8.1H3.5z"/><path d="M8.6 1.9v4.3h4.3"/></svg>
+              <span class="mono">D:\Traktor\collection.nml</span>
+            </span>
+            <button class="btn">Choose file…</button>
+          </div>
+          <p class="meta" style="margin:0">12,418 tracks<span class="bar"></span>47 playlists<span class="bar"></span><strong style="color:#F5D96B;font-weight:600">41 of them empty</strong><span class="bar"></span>this file is never modified</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h">
+          <h2 class="card-t">Collections to take playlists from</h2>
+          <button class="btn sm">+ Add collection</button>
+        </div>
+        <div class="card-b">
+          <div class="row">
+            <span class="field">
+              <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.8h5.2L13 6.1v8.1H3.5z"/><path d="M8.6 1.9v4.3h4.3"/></svg>
+              <span class="mono">D:\Traktor\Backups\collection_2024-11-02.nml</span>
+              <span class="faint mono" style="font-size:11.5px;margin-left:auto">44 playlists with contents</span>
+            </span>
+            <button class="btn sm" aria-label="Remove collection_2024-11-02.nml">Remove</button>
+          </div>
+          <p class="meta" style="margin:0">Read, never modified. Several are folded in the order added — the first to name a playlist wins it.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><h2 class="card-t">Where the output goes</h2></div>
+        <div class="card-b">
+          <div class="row">
+            <span class="field">
+              <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.8h5.2L13 6.1v8.1H3.5z"/><path d="M8.6 1.9v4.3h4.3"/></svg>
+              <span class="mono">D:\Traktor\collection_repaired.nml</span>
+            </span>
+            <button class="btn">Choose folder…</button>
+          </div>
+          <p class="meta" style="margin:0">A new file. It does not collide with any collection above.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><h2 class="card-t">Where the collections disagree</h2></div>
+        <div class="card-b">
+          <div class="row">
+            <span class="field">
+              <span class="mono">Ask me — stop and show every conflicting track</span>
+              <svg class="ico" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto" aria-hidden="true"><path d="M4 6.5L8 10.5l4-4"/></svg>
+            </span>
+          </div>
+          <p class="meta" style="margin:0">Two collections can hold the same track with different values. Asking stops at step 3 with each one shown; the alternatives decide them all one way without stopping.</p>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="col">
+      <section class="card" style="flex:1">
+        <div class="card-h"><h2 class="card-t">What happens next</h2></div>
+        <div class="card-b">
+          <p class="dim" style="margin:0 0 3px;font-size:12.5px;line-height:1.55">A playlist can keep its name and lose everything in it. An older collection still holds what was in it, and this puts the contents back without disturbing anything else.</p>
+          <ol class="steps">
+            <li><span class="n">2</span><span><b>The repair is previewed</b>Every playlist is rebuilt in memory and counted back to you — how many were filled, from which collection, and how many tracks each gained. Nothing is written.</span></li>
+            <li><span class="n">3</span><span><b>You resolve the disagreements</b>Where two collections hold the same track with different values, both are shown side by side and you pick which one supplies it.</span></li>
+            <li><span class="n">4</span><span><b>You confirm the write</b>A new collection file is written only after you confirm. The collection you are repairing is left exactly as it is.</span></li>
+          </ol>
+        </div>
+      </section>
+
+      <div class="note info">
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
+        <span><strong>Nothing is written before step 4</strong> — not even a cache. The preview at step 2 reads the collections above and holds the result in memory, so leaving before you confirm leaves every file on disk untouched.</span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="ft">
+    <p class="ft-note">
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
+      Nothing is written to your collection until you confirm at step 4.
+    </p>
+    <span class="ft-act">
+      <button class="btn">Cancel</button>
+      <button class="btn btn-pri">Preview the repair</button>
+    </span>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

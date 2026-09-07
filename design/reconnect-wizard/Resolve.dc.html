@@ -1,0 +1,279 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}
+body{margin:0;width:1280px;height:800px;background:#0F1113;color:#E8EBED;font:400 14px/1.45 'IBM Plex Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:underline}
+.app{display:grid;grid-template-rows:56px 1fr 64px;height:800px}
+.hd{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-bottom:1px solid #2A2E32;background:#17191C}
+.hd-l{display:flex;align-items:center;gap:12px}
+.brand{font:500 11.5px/1 'IBM Plex Mono',ui-monospace,Consolas,monospace;color:#8E979E;letter-spacing:.05em}
+.bar{width:1px;height:16px;background:#3C4248;flex:none}
+.task{font-weight:600;font-size:14px}
+.rail{display:flex;gap:2px;align-items:center;flex:none}
+.st{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;white-space:nowrap}
+.st .num{font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;border:1px solid currentColor;flex:none}
+.st.done{color:#A5ADB4}
+.st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
+main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;min-height:0;overflow:hidden}
+.ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #2A2E32;background:#17191C}
+.ft-note{margin:0;font-size:12.5px;color:#A5ADB4;display:flex;align-items:center;gap:14px}
+.ft-act{display:flex;gap:10px;align-items:center;flex:none}
+.mono{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace}
+.dim{color:#A5ADB4}.faint{color:#8E979E}
+.lbl{font:600 11.5px/1 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8E979E}
+.btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid #3C4248;background:#22262A;color:#E8EBED;font:500 12.5px/1 'IBM Plex Sans',system-ui,sans-serif;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+.btn.sm{height:32px;padding:0 12px;font-size:12px;gap:6px}
+.btn-pri{background:#56B4E9;border-color:#56B4E9;color:#0F1113;font-weight:600;height:34px;padding:0 15px;font-size:13px}
+.btn-ok{border-color:#2C5449;background:#12211D;color:#4FD3BA}
+.btn-no{border-color:#6A3F2C;background:#21160F;color:#E8956E}
+.focus{outline:2px solid #E8EBED;outline-offset:2px}
+.ico{flex:none}
+.fbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;row-gap:9px}
+.fbar .brk{flex-basis:100%;height:0}
+.search{display:flex;align-items:center;gap:9px;background:#0F1113;border:1px solid #3C4248;border-radius:6px;height:32px;padding:0 11px;width:224px;flex:none}
+.search input{all:unset;font:400 12.5px 'IBM Plex Sans',system-ui,sans-serif;color:#E8EBED;width:100%}
+.chip{height:32px;padding:0 12px;border-radius:6px;border:1px solid #2A2E32;background:#14171A;color:#A5ADB4;font-size:12.5px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap}
+.chip .c{font:600 11px/1 'IBM Plex Mono',monospace;color:#8E979E}
+.chip.on{background:#12222B;border-color:#2F5A72;color:#E8EBED;font-weight:600}
+.chip.on .c{color:#9BD4F5}
+.seg{display:flex;border:1px solid #2A2E32;border-radius:6px;overflow:hidden;height:32px;flex:none}
+.seg span{padding:0 11px;display:flex;align-items:center;font-size:12px;color:#A5ADB4;border-right:1px solid #2A2E32;background:#14171A}
+.seg span:last-child{border-right:0}
+.seg span.on{background:#12222B;color:#E8EBED;font-weight:600}
+.split{display:grid;grid-template-columns:1fr 400px;gap:16px;min-height:0}
+.tbl{border:1px solid #2A2E32;border-radius:8px;background:#17191C;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.gr{display:grid;grid-template-columns:minmax(0,1fr) 132px 84px 196px 140px;align-items:center}
+.th{border-bottom:1px solid #3C4248;background:#1F2225}
+.th>span{padding:10px 12px;font:600 11px/1.2 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:#8E979E}
+.tr{border-bottom:1px solid #23272B}
+.tr>*{padding:10px 12px;min-width:0}
+.tr.sel{background:#16242C;box-shadow:inset 3px 0 0 #56B4E9}
+.stat{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;white-space:nowrap}
+.trk{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trk b{font-weight:600}
+.trk i{font-style:normal;color:#97A0A7}
+.conf{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.mv{font:400 12px/1.3 'IBM Plex Mono',ui-monospace,monospace;color:#9BA4AB;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv em{font-style:normal;color:#56B4E9;padding:0 3px}
+.dec{display:flex;gap:6px;justify-content:flex-end}
+.decd{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:11.5px;font-weight:600;white-space:nowrap}
+.det{border:1px solid #2F5A72;border-radius:8px;background:#141C21;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.det-h{padding:12px 14px;border-bottom:1px solid #253038;display:flex;flex-direction:column;gap:4px}
+.det-h .t{font-size:14.5px;font-weight:600;line-height:1.3}
+.det-h .a{font-size:12px;color:#A5ADB4}
+.det-b{padding:12px 14px;display:flex;flex-direction:column;gap:13px;flex:1;min-height:0}
+.grp{display:flex;flex-direction:column;gap:7px}
+.grp-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cand{border:1px solid #2A2E32;background:#12181C;border-radius:6px;padding:8px 10px;display:flex;gap:9px;align-items:center}
+.cand.on{border-color:#2F5A72;background:#12222B}
+.rad{width:15px;height:15px;border-radius:50%;border:1.5px solid #5A6167;flex:none;display:grid;place-items:center}
+.cand.on .rad{border-color:#56B4E9}
+.cand.on .rad::after{content:"";width:8px;height:8px;border-radius:50%;background:#56B4E9}
+.cand .b{min-width:0;display:flex;flex-direction:column;gap:3px;flex:1}
+.cand .n{font:400 11.5px/1.35 'IBM Plex Mono',monospace;color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cand .m{font-size:11px;color:#8E979E}
+.num{font:600 11px/1 'IBM Plex Mono',monospace;color:#8E979E;border:1px solid #3C4248;border-radius:4px;padding:3px 5px;flex:none}
+.cmpf{display:grid;grid-template-columns:60px 1fr 82px;gap:8px;font-size:12px;align-items:center;padding:5px 0;border-bottom:1px solid #22292E}
+.cmpf:last-child{border-bottom:0}
+.cmpf .k{color:#8E979E;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;text-transform:uppercase}
+.cmpf .v{color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vd{display:flex;align-items:center;gap:5px;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;justify-content:flex-end}
+.det-f{padding:11px 14px;border-top:1px solid #253038;display:flex;flex-direction:column;gap:9px}
+.det-a{display:flex;gap:8px}
+.det-a .btn{flex:1;justify-content:center}
+.keys{display:flex;align-items:center;gap:13px;flex-wrap:wrap;padding:1px 0 8px}
+.kb{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#8E979E}
+.kbd{font:500 11px/1 'IBM Plex Mono',ui-monospace,monospace;background:#22262A;border:1px solid #3C4248;border-bottom-width:2px;border-radius:4px;padding:3px 5px;color:#D2D8DC}
+.ans{font:600 12px/1 'IBM Plex Mono',ui-monospace,monospace;color:#D2D8DC;white-space:nowrap}
+.tally{display:flex;align-items:center;gap:9px;font-size:12.5px;color:#A5ADB4;white-space:nowrap}
+.tally b{color:#E8EBED;font-weight:600}
+.hint{margin:0;font-size:12px;color:#8E979E;display:flex;align-items:center;gap:8px;padding-bottom:8px}
+  </style>
+</helmet>
+<div class="app">
+
+  <header class="hd">
+    <div class="hd-l">
+      <span class="brand">traktor-nml-tool</span>
+      <span class="bar"></span>
+      <span class="task">My playlists lost their contents</span>
+    </div>
+    <nav class="rail" aria-label="Progress">
+      <span class="st done"><span class="num">&check;</span>Set up</span>
+      <span class="st done"><span class="num">&check;</span>Preview</span>
+      <span class="st now" aria-current="step"><span class="num">3</span>Resolve</span>
+      <span class="st"><span class="num">4</span>Write</span>
+    </nav>
+  </header>
+
+  <main>
+
+    <div class="fbar">
+      <p class="tally" style="margin:0"><b>63</b> tracks are held differently by two collections<span class="bar"></span><b>18</b> decided<span class="bar"></span><b>45</b> to go</p>
+      <span style="flex:1"></span>
+      <span class="lbl">Decide all from</span>
+      <button class="btn sm">collection.nml</button>
+      <button class="btn sm">collection_2024-11-02.nml</button>
+    </div>
+
+    <div class="split">
+
+      <div class="tbl">
+        <div class="gr th" role="row">
+          <span>Track</span><span>What differs</span><span>Answers</span><span>Held by</span><span style="text-align:right">Decision</span>
+        </div>
+
+        <div class="gr tr sel focus" aria-selected="true">
+          <span class="trk"><b>Bar A Thym</b> <i>&mdash; Kerri Chandler</i></span>
+          <span class="mv">Title, Artist</span>
+          <span class="ans">2</span>
+          <span class="mv">both collections</span>
+          <span class="dec"><button class="btn sm">Choose&hellip;</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="trk"><b>The Long Walk</b> <i>&mdash; Larry Heard</i></span>
+          <span class="mv">Bpm</span>
+          <span class="ans">2</span>
+          <span class="mv">both collections</span>
+          <span class="decd" style="color:#4FD3BA">collection_2024-11-02.nml<button class="btn sm">Undo</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="trk"><b>Plastic Dreams</b> <i>&mdash; Jaydee</i></span>
+          <span class="mv">Musical key</span>
+          <span class="ans">2</span>
+          <span class="mv">both collections</span>
+          <span class="decd" style="color:#4FD3BA">collection.nml<button class="btn sm">Undo</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="trk"><b>Windows</b> <i>&mdash; Mr. Fingers</i></span>
+          <span class="mv">Title, Album</span>
+          <span class="ans">2</span>
+          <span class="mv">both collections</span>
+          <span class="dec"><button class="btn sm">Choose&hellip;</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="trk"><b>Can You Feel It</b> <i>&mdash; Larry Heard</i></span>
+          <span class="mv">Artist</span>
+          <span class="ans">3</span>
+          <span class="mv">both collections</span>
+          <span class="dec"><button class="btn sm">Choose&hellip;</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="trk"><b>Sueno Latino</b> <i>&mdash; Sueno Latino</i></span>
+          <span class="mv">Bpm, Musical key</span>
+          <span class="ans">2</span>
+          <span class="mv">both collections</span>
+          <span class="dec"><button class="btn sm">Choose&hellip;</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="trk"><b>Nightdrive Thru Babylon</b> <i>&mdash; Dream 2 Science</i></span>
+          <span class="mv">Album</span>
+          <span class="ans">2</span>
+          <span class="mv">both collections</span>
+          <span class="dec"><button class="btn sm">Choose&hellip;</button></span>
+        </div>
+
+        <div class="gr tr">
+          <span class="trk"><b>Melodies From Heaven</b> <i>&mdash; Kirk Franklin</i></span>
+          <span class="mv">Title</span>
+          <span class="ans">2</span>
+          <span class="mv">both collections</span>
+          <span class="dec"><button class="btn sm">Choose&hellip;</button></span>
+        </div>
+      </div>
+
+      <div class="det">
+        <div class="det-h">
+          <span class="t">Bar A Thym</span>
+          <span class="a">Two collections hold this file with different values. Pick the one that supplies them.</span>
+        </div>
+        <div class="det-b">
+
+          <div class="grp">
+            <div class="grp-h"><span class="lbl">The file</span></div>
+            <div class="cmpf"><span class="k">Path</span><span class="v mono" style="grid-column:2 / span 2">E:\Music\House\Kerri Chandler - Bar A Thym.aiff</span></div>
+          </div>
+
+          <div class="grp">
+            <div class="grp-h"><span class="lbl">Answer 1</span><span class="kbd">1</span></div>
+            <div class="cand on">
+              <span class="rad" role="img" aria-label="Chosen"></span>
+              <span class="b">
+                <span class="n">Bar A Thym</span>
+                <span class="n">Kerri Chandler</span>
+                <span class="m">held by collection.nml</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="grp">
+            <div class="grp-h"><span class="lbl">Answer 2</span><span class="kbd">2</span></div>
+            <div class="cand">
+              <span class="rad" role="img" aria-label="Not chosen"></span>
+              <span class="b">
+                <span class="n">Bar A Thym (Original Mix)</span>
+                <span class="n">Kerri Chandler feat. Jerome Sydenham</span>
+                <span class="m">held by collection_2024-11-02.nml</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="note">
+            <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
+            <span>A pick names the record that wins, not the collection it came from. Two collections holding the identical values are one answer, and deciding it decides both.</span>
+          </div>
+
+        </div>
+        <div class="det-f">
+          <div class="keys">
+            <span class="kb"><span class="kbd">1</span>&ndash;<span class="kbd">9</span> pick an answer</span>
+            <span class="kb"><span class="kbd">&uarr;</span><span class="kbd">&darr;</span> move</span>
+            <span class="kb"><span class="kbd">U</span> undo</span>
+          </div>
+          <div class="det-a">
+            <button class="btn">Skip for now</button>
+            <button class="btn btn-pri">Use answer 1</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <p class="hint">
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 2.6v10.8"/><path d="M4.4 9.8L8 13.4l3.6-3.6"/></svg>
+      Deciding all from one collection leaves untouched any track that collection holds no record of.
+    </p>
+
+  </main>
+
+  <footer class="ft">
+    <p class="ft-note">
+      <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#F5D96B" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M8 4v4.4"/><path d="M8 11.2h.01"/><circle cx="8" cy="8" r="6.4"/></svg>
+      <span><strong style="color:#E8EBED">45 still to decide.</strong> Writing stays closed until every one has an answer.</span>
+    </p>
+    <span class="ft-act">
+      <button class="btn">Back to the preview</button>
+      <button class="btn btn-pri off" aria-disabled="true">Continue to write</button>
+    </span>
+  </footer>
+
+</div>
+</x-dc>
+</body>
+</html>

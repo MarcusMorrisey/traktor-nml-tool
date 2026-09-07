@@ -1,7 +1,8 @@
 {
   "pages": [
     { "id": "page-1", "name": "Wizard flow" },
-    { "id": "page-2", "name": "Interaction spec" }
+    { "id": "page-2", "name": "Interaction spec" },
+    { "id": "page-3", "name": "Reconstruct playlists" }
   ],
   "artboards": [
     { "file": "Main.dc.html",       "page": "page-1", "x": 0,    "y": 0,    "w": 1280, "h": 800,  "title": "1 · Set up" },
@@ -13,7 +14,11 @@
     { "file": "Confirm.dc.html",    "page": "page-1", "x": 0,    "y": 1920, "w": 1280, "h": 800,  "title": "4 · Before the write" },
     { "file": "Success.dc.html",    "page": "page-1", "x": 1400, "y": 1920, "w": 1280, "h": 800,  "title": "4b · Written" },
     { "file": "Errors.dc.html",     "page": "page-1", "x": 2800, "y": 1920, "w": 1280, "h": 800,  "title": "Recoverable errors" },
-    { "file": "Specs.dc.html",      "page": "page-2", "x": 0,    "y": 0,    "w": 1280, "h": 1880, "title": "Tokens, keyboard, decision rules" }
+    { "file": "Specs.dc.html",      "page": "page-2", "x": 0,    "y": 0,    "w": 1280, "h": 1880, "title": "Tokens, keyboard, decision rules" },
+    { "file": "Reconstruct.dc.html", "page": "page-3", "x": 0,    "y": 0,    "w": 1280, "h": 800,  "title": "1 · Set up" },
+    { "file": "Preview.dc.html",    "page": "page-3", "x": 1400, "y": 0,    "w": 1280, "h": 800,  "title": "2 · Preview" },
+    { "file": "Resolve.dc.html",     "page": "page-3", "x": 2800, "y": 0,    "w": 1280, "h": 800,  "title": "3 · Resolve" },
+    { "file": "Write.dc.html",      "page": "page-3", "x": 0,    "y": 960, "w": 1280, "h": 800,  "title": "4 · Write" }
   ],
   "annotations": [
     {
@@ -39,6 +44,14 @@
       "y": -250,
       "w": 560,
       "text": "3c is one screen only in this canvas — in the running wizard it is the same detail rail as 3b, filled with a refuted and a re-encoded candidate.\n\nIt is drawn separately because the two rails carry the whole argument: a refuted candidate must show WHAT contradicts and by how much, and a re-encode must show the evidence FOR it, since its tier is a weak one.\n\nNeither adds a status colour."
+    },
+    {
+      "id": "reconstruct-note",
+      "page": "page-3",
+      "x": 0,
+      "y": -250,
+      "w": 620,
+      "text": "A second job, drawn to the same contract: \"my playlists kept their names but lost their contents\".\n\nIt is four stages for the same reason the reconnect wizard is: preview always precedes a write, and a disagreement between two collections is decided by a person before anything is written.\n\nThe four cards in step 1 are inputs, not stages \u2014 they may be filled in any order. Only the stages are ordered.\n\nStep 3 is the one the built page has no shape for at all: its conflict rows appear in the same column under the form, so the decision that gates the write is drawn as more page rather than as a stage.\n\nRead left to right, then down to step 4."
     },
     {
       "id": "spec-note",
