@@ -64,23 +64,53 @@ def test_the_split_declares_the_content_column_beside_the_400px_rail():
 
 def test_the_conflict_grid_declares_the_five_tracks_the_artboard_draws():
     """Resolve.dc.html:55's .gr is `grid-template-columns: minmax(0,1fr)
-    132px 84px 196px 140px` - the track column taking what is left and
+    108px 72px 164px 120px` - the track column taking what is left and
     four fixed columns beside it - and the sheet declares the same five.
 
-    Mutation: the third track was changed from 84px to 96px in
+    The four fixed tracks total 464px, which is what leaves the flexible
+    track a usable width inside a table that is itself inside
+    .wizard-content-width beside a 400px rail. A guard cannot read that
+    arithmetic: the resolved track widths belong to the served-page
+    record.
+
+    Mutation: the third track was changed from 72px to 96px in
     CONFLICT_GRID_TRACKS in theme.py and this guard rerun. Observed:
-        E       AssertionError: assert 'minmax(0, 1f...x 196px 140px' == 'minmax(0, 1f...x 196px 140px'
+        E       AssertionError: assert 'minmax(0, 1f...x 164px 120px' == 'minmax(0, 1f...x 164px 120px'
         E
-        E         - minmax(0, 1fr) 132px 84px 196px 140px
-        E         ?                      ^^
-        E         + minmax(0, 1fr) 132px 96px 196px 140px
-        E         ?                      ^^
+        E         - minmax(0, 1fr) 108px 72px 164px 120px
+        E         + minmax(0, 1fr) 108px 96px 164px 120px
     """
-    assert theme.CONFLICT_GRID_TRACKS == "minmax(0, 1fr) 132px 84px 196px 140px"
+    assert theme.CONFLICT_GRID_TRACKS == "minmax(0, 1fr) 108px 72px 164px 120px"
     assert (
         f"grid-template-columns: {theme.CONFLICT_GRID_TRACKS}"
         in _rule(".wizard-conflict-grid")
     ), ".wizard-conflict-grid declares tracks other than the artboard's five"
+
+
+def test_the_track_cell_shortens_inside_its_track_rather_than_crossing_it():
+    """Resolve.dc.html:62's .trk carries `overflow: hidden`,
+    `text-overflow: ellipsis` and `white-space: nowrap`, and the sheet
+    declares all three on .wizard-conflict-track.
+
+    The cell holds a collection path, which offers no break opportunity,
+    so a flexible track narrower than the path is not a cell that wraps:
+    it is a cell whose text crosses the tracks beside it. min-width: 0 on
+    the row's cells lets the track hold its declared width; these three
+    are what keep the text inside it.
+
+    Mutation: `text-overflow: ellipsis; ` was removed from the
+    .wizard-conflict-track rule in page_stylesheet() and this guard
+    rerun. Observed:
+        E       AssertionError: .wizard-conflict-track must shorten its text, not let it cross the tracks beside it
+        E       assert 'text-overflow: ellipsis' in ' overflow: hidden; white-space: nowrap; '
+    """
+    track = _rule(".wizard-conflict-track")
+    assert "text-overflow: ellipsis" in track, (
+        ".wizard-conflict-track must shorten its text, not let it cross "
+        "the tracks beside it"
+    )
+    assert "white-space: nowrap" in track
+    assert "overflow: hidden" in track
 
 
 def test_the_header_row_sits_on_the_same_tracks_as_the_body_rows():

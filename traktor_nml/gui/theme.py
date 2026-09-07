@@ -254,8 +254,10 @@ DETAIL_RAIL_WIDTH = "400px"
 # because the five tracks are one measurement: a column widened alone
 # moves every column beside it, and the header row and the body rows
 # read the identical string so a cell cannot align in one and not the
-# other.
-CONFLICT_GRID_TRACKS = "minmax(0, 1fr) 132px 84px 196px 140px"
+# other. The four fixed tracks are sized against the width the table
+# resolves to inside .wizard-content-width beside the rail, not against
+# the width the artboard's full-bleed main gives it (DL-213).
+CONFLICT_GRID_TRACKS = "minmax(0, 1fr) 108px 72px 164px 120px"
 # Resolve.dc.html:23's .st .num - the step rail's own numbered marker,
 # a circle at this size holding the step number or its check mark.
 STEP_MARKER_SIZE = "19px"
@@ -547,6 +549,12 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    inside its own track rather than widening it. */
 .wizard-conflict-row {{ border-bottom: 1px solid {SURFACE_5}; }}
 .wizard-conflict-row > * {{ padding: {SPACE_10} {SPACE_12}; min-width: 0; }}
+/* Resolve.dc.html:62's .trk: the identity cell holds a path with no
+   break opportunity in it, so without this it neither wraps nor
+   shortens and its text crosses the tracks beside it. The full path
+   stands in the detail rail's head, which is what makes shortening it
+   here readable rather than lossy (DL-214). */
+.wizard-conflict-track {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 /* Resolve.dc.html:60's .tr.sel: the selected row's tinted ground and
    the action-blue marker inset at its leading edge. */
 .wizard-conflict-row-selected {{ background: {ACTION_TINT_BG_ALT}; box-shadow: inset {SPACE_3} 0 0 {ACTION}; }}

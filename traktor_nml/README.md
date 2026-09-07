@@ -741,14 +741,14 @@ statement of the same decision would only give it two copies to drift apart.
   do. The structural reading is what a person looking at the two
   screens sees first, so it is the reading the gate cannot omit
   (DL-169).
-- The reconstruct page at `/` is outside the structural gate, and the
-  ground is stated wherever a record covers it: no artboard draws that
-  page - all ten draw the reconnect wizard - and `Specs.dc.html`,
-  which governs under DL-088, specifies its behaviour and no
-  composition. A structural verdict needs a drawn structure to read
-  against, so the gate has nothing to compare and says so rather than
-  reading matches by default. Its atom readings are gated as any other
-  surface's are (DL-172).
+- The structural gate covers every route a record measures, the
+  reconstruct page at `/` included: `Reconstruct.dc.html`,
+  `Preview.dc.html`, `Resolve.dc.html` and `Write.dc.html` on canvas
+  page 3 draw that page, so a structural verdict has a drawn structure
+  to read against and a record covering `/` carries one per surface.
+  `Specs.dc.html`, which governs under DL-088, specifies the behaviour
+  the four screens render; the composition is read from the screens.
+  Atom readings are gated as any other surface's are (DL-172, DL-200).
 - A structural differs entry is recorded under its own heading,
   "Composition not built", and not under either heading beside it: a
   framework shortfall is a rule the running framework refuses, a
@@ -915,6 +915,130 @@ statement of the same decision would only give it two copies to drift apart.
   each advancing control is built in the footer band, because its place
   in the DOM sets both the tab order and the point an announcement is
   triggered from (DL-197).
+- The reconstruct page is stepped: `Reconstruct.dc.html`,
+  `Preview.dc.html`, `Resolve.dc.html` and `Write.dc.html` each draw the
+  header as the brand, its divider and the two section tabs, and each
+  draws the four-step rail inside `main` rather than in the header band,
+  so the rail and the tab strip sit in different regions and neither
+  displaces the other. `Specs.dc.html` and the four screens agree on the
+  header, so DL-071 asks nothing of Specs here (DL-198).
+- The rail is a `nav` of this module's own spans rendered from
+  `reconstruct_steps.rail_records`, placed as the page region's first
+  row, rather than a `QStepper` header: `Resolve.dc.html:104` draws
+  `.steprail` inside `main` at `grid-column: 1 / -1`, and a QStepper
+  draws its own numbered strip above its panels and none of the rail's
+  states (DL-199).
+- The reconstruct page at `/` is inside the structural gate, read
+  against the four artboards on canvas page 3 that draw it. A structural
+  verdict needs a drawn structure to read against and now has one, so
+  every record covering that route carries a structural reading per
+  surface beside its atom readings, as a record covering `/reconnect`
+  does (DL-200).
+- The reconstruct page's column model, table geometry and detail rail
+  are its own entries under "Composition not built", separate from the
+  three read against the reconnect wizard's artboards: an entry names
+  the artboard file and selector it is read from, and `Review.dc.html`'s
+  geometry and `Resolve.dc.html`'s are different geometries on different
+  routes, so one entry cannot end for both (DL-201).
+- `reconstruct_steps.STEPS` is the one place a step number or a step
+  label is written, and position is the single point where the table and
+  the step the operator has walked to meet: a row before the current one
+  reads done, the row equal to it reads current, a row after it reads
+  upcoming, and a current number the table does not name leaves every row
+  upcoming rather than marking the first (DL-202).
+- `reconstruct_steps.py` imports no framework, so the rail's records and
+  the reachability rule are read by the suite under the system
+  interpreter; `app.py` renders the records and decides none of them
+  (DL-203).
+- `conflict_model.resolve_gate` answers the outstanding count, the
+  decided count and whether the step may be left in one value over one
+  walk of the groups, and the footer's sentence and the advancing
+  control's enabled state both read it: a count computed for the sentence
+  and an emptiness computed again for the control can disagree, and the
+  disagreement shows as a control the operator can press over a sentence
+  saying they cannot (DL-204).
+- The reconstruct route carries its own name-to-applier table.
+  `keymap.py` is unchanged - its entries already bind digits 1-9 to
+  `pick_candidate` at `SCOPE_TABLE` - and the wizard's own
+  `_ACTION_APPLIERS` is typed on `_WizardPageState`, whose review rows
+  and decisions this route holds none of, so the second table dispatches
+  the same action names onto the resolve table's own holder rather than
+  widening the first. Its key set is a subset of `keymap.ACTION_NAMES`
+  and covers every action the resolve table answers, which is what keeps
+  DL-080's no-fall-through guarantee over both tables (DL-205).
+- The conflict table is a CSS grid: `.wizard-conflict-grid` carries
+  `Resolve.dc.html:55`'s five tracks and both the header row and every
+  body row are laid out on it, so a heading stands over its column.
+  `ui.aggrid` is still not adopted, for the reason DL-079 gives for the
+  review table: it claims the arrow keys Specs binds over this same
+  table (DL-206).
+- The detail rail carries one control per distinct answer, keyed on
+  `conflict_model.candidate_reference`, and the strip above the table
+  carries one bulk action per input collection, keyed on
+  `conflict_model.reference_from_input`. A control names the record that
+  wins rather than the collection it came from, so two collections
+  holding identical values are one control naming both, and a bulk
+  action leaves undecided any group its own collection holds no record
+  in. The chosen answer is marked by a class string at the call site and
+  a dot element rather than by a `::after`, because a guard can read a
+  class and cannot read a pseudo-element (DL-207).
+- Steps 1, 2 and 4 hold the content the reconstruct page composes: the
+  three configuration cards and the conflict-policy control in step 1,
+  the preview report in step 2, and the write card in step 4. Each holds
+  its own cards, holders and callbacks; a step region is a container the
+  page enters with a `with` statement, so the content keeps its own
+  nesting (DL-208).
+- Every guard this work adds is run against a named mutation and fails
+  under it before it is kept, and its docstring carries both the
+  mutation and the verbatim output pytest printed. A line pytest printed
+  longer than the margin is cut with an ellipsis rather than rewrapped,
+  so what stands is what pytest printed (DL-209).
+- A milestone that composes no page takes no served-page record: the
+  gate reads what a browser resolved, and a milestone emitting only
+  decision-log prose and a guard over it has no surface for a browser
+  to read. DL-084's pass condition is read as covering the milestones
+  that build, and DL-190's post-strike record is owed by the milestone
+  that strikes rather than by the one that documents. Nothing leaves
+  "Composition not built" in this work, so DL-190's trigger does not
+  fire (DL-210).
+- A served-page record states the surfaces it did not read, and why,
+  beside the ones it read. The run recording the resolve step could not
+  walk the tab ring - `Tab` pressed with focus seated on a named
+  control left `document.activeElement` where it was - so the record
+  names the keyboard ring unread rather than reporting a ring assembled
+  from DOM order, which would read as a walk that happened. A surface
+  silently absent from a record reads as a surface not owed (DL-211).
+- A record's readings are written above its "Structural verdicts"
+  heading, because
+  `tests/test_docs_browser_record_structure.py::_reading_digest` hashes
+  the verdict rows above that heading: a record written
+  structural-verdicts-first hashes the empty string, and every such
+  record hashes alike (DL-212).
+- The conflict grid's four fixed tracks are sized against the width the
+  table resolves to on the built page, not against the width its
+  artboard draws. `Resolve.dc.html`'s `main` spans the frame at a 24px
+  inset while the built page centres its content at
+  `.wizard-content-width`, so the same four fixed tracks leave the
+  artboard's flexible track 264px and the built page's 54px, and
+  `docs/2026-09-07-reconstruct-resolve-browser-record.md` read a track
+  path crossing the two columns beside it. Each fixed track is sized to
+  the widest value its column holds plus the cell inset; the artboard is
+  retracked first and `theme.py` follows it (DL-071, DL-213).
+- The conflict grid's track cell carries `overflow: hidden`,
+  `text-overflow: ellipsis` and `white-space: nowrap`, which
+  `Resolve.dc.html:62`'s `.trk` draws. A collection path offers no break
+  opportunity, so a cell narrower than its path does not wrap: its text
+  crosses the tracks beside it, which `min-width: 0` on the row's cells
+  permits rather than prevents. The full path stands in the detail
+  rail's head, which is what makes shortening it in the table readable
+  rather than lossy (DL-214).
+- A sentence naming a count reads that count off the model rather than
+  spelling it. The rail's head says how many collections hold the
+  focused file by counting the distinct inputs its candidates name
+  between them; a spelled count is right for the group it was written
+  against and wrong beside every row that disagrees with it, which is
+  the screen misreporting the model rather than styling it badly
+  (DL-215).
 - Every documentation edit in this work describes the file as it
   stands, with no "previously", "now does", "no longer" or "added",
   and each documentation milestone carries the grep that proves it
@@ -1969,9 +2093,12 @@ already settled and ends never, and an entry here ends by being built.
 An entry names the structure, the artboard file and selector it is
 read from, and what `gui/` composes in its place.
 
-Every entry below is read against the reconnect wizard's artboards.
-The reconstruct page at `/` carries no entry, because no artboard
-draws it and the structural gate does not cover it (DL-172).
+Each entry names the route and the artboard it is read against. The
+three below are read against the reconnect wizard's artboards, and the
+reconstruct page's own column model, table geometry and detail rail are
+read against `Resolve.dc.html` and its three siblings on canvas page 3:
+the two sets are different geometries on different routes, so an entry
+ending for one ends nothing for the other (DL-200, DL-201).
 
 An entry ends by being built and read off a served page, not by being
 excused; where a run reads a structure only partly built, the entry is
@@ -2013,7 +2140,24 @@ entries states beneath it the reason it is open.
   its header row are outside this work's scope (DL-191).
 - **Detail rail.** `.det` in `Review.dc.html` is a 400px bordered
   panel with its own header, body and footer holding the candidate
-  cards. `theme.py` emits no rail rule, and the reconstruct page
-  renders its candidate panel below the table in the same column.
-  This entry stands as written: the 400px detail rail is outside this
-  work's scope (DL-191).
+  cards. `theme.py` emits no rail rule for the reconnect wizard's
+  review table, and `/reconnect` renders its candidate panel below the
+  table in the same column.
+  This entry stands as written: the reconnect wizard's detail rail is
+  outside this work's scope (DL-191, DL-201).
+
+Three structures the reconstruct page's own artboards draw carry no
+entry here, each read built in
+`docs/2026-09-10-composition-strike-browser-record.md`, the record taken
+with those entries already absent from this section (DL-190): the
+reconstruct column model, on `.wizard-resolve-split` resolving to a
+content column beside a 400px rail, as `Resolve.dc.html:53`'s `.split`
+draws it; the reconstruct table geometry, on `.wizard-conflict-grid`
+resolving to the five tracks `Resolve.dc.html:55`'s `.gr` draws, with
+`.wizard-conflict-header` standing over the same tracks as every body
+row; and the reconstruct detail rail, on `.wizard-detail-rail` resolving
+to 400px and carrying the head, body and footer `Resolve.dc.html:68`,
+`:69`, `:72` and `:87` draw. The four-step rail and the four step
+regions those structures sit under are read in
+`docs/2026-09-09-reconstruct-resolve-browser-record.md`, the record the
+milestone that built them closed on (DL-200, DL-201).

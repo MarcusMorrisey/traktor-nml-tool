@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import ast
 import re
+import textwrap
 from pathlib import Path
 
 from traktor_nml.gui import reconstruct_steps
@@ -257,6 +258,54 @@ def test_the_page_writes_no_dimension_and_no_class_name_of_its_own():
     """
     written = re.findall(r"\b\d+(?:\.\d+)?px\b", _page_source())
     assert written == [], f"the page writes a dimension: {written}"
+
+
+def test_the_rails_head_counts_the_collections_rather_than_naming_a_number():
+    """The detail rail's head says how many collections hold the focused
+    file, and it builds that sentence from a count it reads off the
+    group rather than from a constant.
+
+    A group is held by as many collections as its candidates name
+    between them, and the fixture the served-page record is taken on
+    holds groups of three. A sentence carrying a spelled count is right
+    for whichever group it was written against and wrong beside every
+    row that disagrees with it, which is the screen misreporting the
+    model rather than styling it badly.
+
+    What this reads is the label's own argument, in the head's subtree
+    alone. A search for a number word over the page's strings passes on
+    this page whatever it composes: the rail's note explains that two
+    collections holding identical values are one answer, and a docstring
+    beside it says the same, so such a search is satisfied by prose that
+    is not the sentence at issue.
+
+    Mutation: the f-string was replaced with the constant `"Two
+    collections hold this file with different values. Pick the one that
+    supplies them."` and this guard rerun. Observed:
+        E       AssertionError: the rail's head states a count it does not read: 'Two collections hold this file with different values. Pick the one that supplies them.'
+        E       assert False
+        E        +  where False = isinstance(Constant(value='Two collections hold this file [...]
+        E        +    where <class 'ast.JoinedStr'> = ast.JoinedStr
+    """
+    head = _named_function_source("_render_resolve")
+    tree = ast.parse(textwrap.dedent(head))
+    labels = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "label"
+        and node.args
+        and "collections hold this file" in ast.dump(node.args[0])
+    ]
+    assert len(labels) == 1, (
+        f"the rail's head label was not found once, found {len(labels)}"
+    )
+    argument = labels[0].args[0]
+    assert isinstance(argument, ast.JoinedStr), (
+        "the rail's head states a count it does not read: "
+        f"{getattr(argument, 'value', argument)!r}"
+    )
 
 
 def test_the_resolve_table_dispatches_through_the_keymap():

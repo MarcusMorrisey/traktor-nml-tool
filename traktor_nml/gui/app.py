@@ -1974,8 +1974,7 @@ def _build_reconstruct_page() -> None:
                                 advance.set_enabled(gate.all_decided)
                             footer_groups[reconstruct_steps.RESOLVE] = (
                                 footer_groups[reconstruct_steps.RESOLVE][0],
-                                f"{gate.outstanding} still to decide. Writing stays "
-                                "closed until every one has an answer.",
+                                gate.note,
                             )
                             if step_holder["current"] == reconstruct_steps.RESOLVE:
                                 chrome.footer_note.set_text(
@@ -2045,7 +2044,8 @@ def _build_reconstruct_page() -> None:
                                 f'role="row" aria-selected="{str(focused).lower()}"'
                             ):
                                 ui.label(view.identity_key).classes(
-                                    "font-mono wizard-body-12"
+                                    "font-mono wizard-body-12 "
+                                    "wizard-conflict-track"
                                 )
                                 ui.label(", ".join(view.attrs)).classes("wizard-body-12")
                                 ui.label(str(len(view.candidates))).classes(
@@ -2118,9 +2118,24 @@ def _build_reconstruct_page() -> None:
                                     ui.label(view.identity_key).classes(
                                         "font-mono wizard-body-14-5"
                                     )
+                                    # The count is read off the group rather
+                                    # than written into the sentence: a group
+                                    # is held by as many collections as its
+                                    # candidates have members between them,
+                                    # and a sentence naming two while the row
+                                    # beside it names three is the screen
+                                    # disagreeing with the model (DL-215).
+                                    holding = len(
+                                        {
+                                            input_index
+                                            for candidate in view.candidates
+                                            for input_index, _ in candidate.members
+                                        }
+                                    )
                                     ui.label(
-                                        "Two collections hold this file with different "
-                                        "values. Pick the one that supplies them."
+                                        f"{holding} collections hold this file with "
+                                        "different values. Pick the one that "
+                                        "supplies them."
                                     ).classes("wizard-body-12 wizard-dim")
                                 with ui.element("div").classes("wizard-detail-body"):
                                     for position, candidate in enumerate(view.candidates, 1):

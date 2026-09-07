@@ -105,6 +105,45 @@ def test_no_groups_at_all_reads_an_open_gate():
     assert gate.all_decided, "an empty group set must leave the gate open"
 
 
+def test_the_gates_sentence_agrees_with_the_control_it_stands_beside():
+    """The footer's sentence is read off the same gate as the advancing
+    control's enabled state, so an open gate does not print a sentence
+    saying writing is shut.
+
+    A sentence written unconditionally is right while anything is
+    outstanding and wrong at the moment it matters most: the operator
+    settles the last group, the control beside the sentence opens, and
+    the sentence still says writing stays closed. That is the
+    disagreement ResolveGate exists to prevent, so the sentence belongs
+    on the gate rather than at the call site (DL-204).
+
+    Mutation: ResolveGate.note's `if self.all_decided:` branch was
+    removed so the sentence is formatted unconditionally, and this guard
+    rerun. Observed:
+        E       AssertionError: an open gate must not say writing is closed
+        E       assert 'closed' not in '0 still to ...s an answer.'
+        E
+        E         'closed' is contained here:
+        E           0 still to decide. Writing stays closed until every one has an answer.
+        E         ?                                  ++++++
+    """
+    groups = _two_groups()
+    decisions = conflict_model.ConflictDecisions()
+
+    shut = conflict_model.resolve_gate(decisions, groups)
+    assert not shut.all_decided
+    assert "2" in shut.note, "a shut gate must print its outstanding count"
+    assert "closed" in shut.note
+
+    decisions.resolve(groups[0], (2, "track.mp3"))
+    decisions.resolve(groups[1], (1, "absent.mp3"))
+    opened = conflict_model.resolve_gate(decisions, groups)
+    assert opened.all_decided
+    assert "closed" not in opened.note.lower(), (
+        "an open gate must not say writing is closed"
+    )
+
+
 def test_a_bulk_resolution_settles_only_the_groups_that_collection_holds():
     """A bulk action for the source at input index 2 settles the group
     that source holds a record in and leaves the other one counted by the

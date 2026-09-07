@@ -9,16 +9,16 @@ builds step 3 to `design/reconnect-wizard/Resolve.dc.html`.
 
 ## What is committed here
 
-M-001 and M-002 of a three-milestone plan.
+All three milestones.
 
-- **M-001** — `conflict_model.py` gains `ResolveGate`, `resolve_gate()`
+- **M-001** - `conflict_model.py` gains `ResolveGate`, `resolve_gate()`
   and `candidate_for_digit()`, so the footer sentence, the advancing
   control's enabled state and Specs' digit-to-answer arithmetic are all
   answered below the nicegui boundary. `theme.py` gains the step-rail,
   split, conflict-table, detail-rail, answer, bulk-strip and tally
   rules. Guards in `tests/test_gui_resolve_rules.py` and
   `tests/test_gui_resolve_sheet.py`.
-- **M-002** — `reconstruct_steps.py` carries the step table, the rail
+- **M-002** - `reconstruct_steps.py` carries the step table, the rail
   records and the reachability rule, and imports no framework.
   `app.py` builds the rail, the four step regions with per-step footer
   groups, and `_render_resolve`: the tally and bulk strip, the conflict
@@ -26,38 +26,54 @@ M-001 and M-002 of a three-milestone plan.
   distinct answer. Guards in `tests/test_gui_reconstruct_steps.py`,
   `tests/test_gui_resolve_composition.py`, and additions to
   `tests/test_gui_keymap.py` and
-  `tests/test_gui_conflict_page_controls.py`.
+  `tests/test_gui_conflict_page_controls.py`. Closed on
+  `docs/2026-09-07-reconstruct-resolve-browser-record.md`.
+- **M-003** - `traktor_nml/README.md` carries DL-198 through DL-215,
+  DL-172's exemption for `/` is struck rather than restated, and the
+  three "Composition not built" entries are narrowed to name the
+  reconnect route and the artboard each is read against. Nothing leaves
+  the section. `gui/README.md` names `reconstruct_steps.py` and says
+  which step mechanism serves which route.
+  `tests/test_docs_browser_record_structure.py` holds the new record's
+  digest.
 
-The suite reads 611 passed, 4 skipped under the system interpreter.
+The suite reads 616 passed, 4 skipped under the system interpreter.
 
-## What this commit owes
+## What the served run found
 
-**M-002 is not closed.** DL-084 as DL-169 amends it makes a milestone's
-pass condition a served-page record carrying a structural reading per
-surface, and no record is written here. The composition M-002 builds —
-the split, the table's grid and header row, the detail rail, the answer
-card and its chosen state, the bulk strip, the tally — has been read
-only off the emitted stylesheet and `app.py`'s source text. Whether the
-browser resolves them as drawn is unread.
+The record closing M-002 was taken on the real page, served by
+`serve_reconstruct.py` in the gate repository with only the native file
+chooser stubbed, and it found three defects the source-text guards
+passed.
 
-Reaching step 3 needs two collections that disagree on a track, loaded
-through the page's own file picker. A pair producing four conflict rows
-over `artist`, each with two candidates, is obtainable from
-`testing/collections/iceJams3_theTroisFroid-playlist-only.nml` against
-a copy of `iceJams3_theTroisFroid-complete-playlist-only.nml` with a
-few `ARTIST` values altered; that pairing was confirmed against
-`assemble_output` directly. Driving the picker to load them was not
-possible in the session that wrote this.
+The conflict grid's four fixed tracks were sized for the width
+`Resolve.dc.html` draws its table at, and the built page centres its
+content, so the flexible track resolved to `54px` and the track paths
+crossed the two columns beside them. The rail's head said "Two
+collections hold this file" beside rows held by three. The footer's
+note said writing stays closed while the control beside it was enabled
+- the exact failure `ResolveGate`'s own docstring names, reached
+because the sentence was formatted at the call site rather than read
+off the gate.
 
-**M-003 has not run.** It carries the decision log, so DL-198 through
-DL-212 are not in `traktor_nml/README.md`. The code committed here
-cites DL-199 and DL-202 through DL-206 in comments and docstrings, and
-each of those citations names an entry the log does not yet hold. A
-reader following one finds nothing until M-003 lands. M-003 also
-revises DL-172, whose stated ground — that no artboard draws `/` — four
-artboards on canvas page 3 have made false, and DL-191, which says the
-column model, table geometry and detail rail entries stand as written
-when this work rewrites all three.
+All three are fixed, each behind a guard proven to fail first, and the
+readings above were retaken on the corrected page. DL-213, DL-214 and
+DL-215 record the three decisions.
+
+## What this work still owes
+
+**The keyboard ring is not re-walked.** DL-197 asks for it once the
+advancing controls are built in the footer band, and they are. The run
+could not take it: the pane's keyboard channel did not reach the page -
+`Tab` pressed with focus seated on a named control left
+`document.activeElement` where it was. The record says so under "What
+this run does not establish" rather than reporting a ring assembled
+from DOM order (DL-211). Announcements are unread for the same reason.
+
+Steps 1, 2 and 4 are drawn and their existing content is placed into
+step regions, not built to their artboards. Their structures are
+unbuilt by design and carry no entry, because this work's scope is the
+scaffold and step 3.
 
 ## What the gate caught before it stopped
 

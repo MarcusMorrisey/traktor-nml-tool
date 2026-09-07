@@ -72,7 +72,16 @@ READING_DIGESTS = {
     "2026-09-05-wizard-shell-browser-record.md": "96af8ac3efe80408c6004de8b51b74ccb52b6d2db5a7d093869d3b21c54176da",
     "2026-09-06-wizard-focus-order-browser-record.md": "dd1dc94601c280dee67ed38aee69f945de782d976ff33aab53b3e66084a0203e",
     "2026-09-07-composition-close-browser-record.md": "24f5629d3285c3ed3575c8bb5b16d295a924aafa443f6c6419c60e829e19b696",
+    "2026-09-07-reconstruct-resolve-browser-record.md": "ca763fd3ab58186a8444e0aaa0e9f923a60ccf3ef846931405987619c3ce7d96",
 }
+
+# A digest is the hash of the readings one run recorded, so it is written
+# by the run that takes them and not before: an entry standing here ahead
+# of its record would hash the readings this file guessed rather than the
+# ones the browser gave. A record is discovered by name and gated by every
+# guard below the moment it exists; only the digest guard skips a record
+# with no entry, and it stops skipping when the run that writes the record
+# writes its digest here too (DL-171, DL-209).
 
 
 def test_the_record_set_is_discovered_and_is_not_empty():

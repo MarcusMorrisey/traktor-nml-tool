@@ -10,8 +10,9 @@ vendored typeface is.
 `app.py`, `file_picker.py` and `__main__.py` are the only three modules
 in this package that import `nicegui` or `pywebview`. Every other
 module - `review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py`,
-`announce.py`, `conflict_model.py`, `navigation.py`, `_fs_nav.py` and
-`__init__.py` - imports neither and is reachable from the test suite's
+`announce.py`, `conflict_model.py`, `navigation.py`,
+`reconstruct_steps.py`, `_fs_nav.py` and `__init__.py` - imports neither
+and is reachable from the test suite's
 system interpreter, which has no `nicegui` installed. Every rule worth
 testing sits below that boundary, in the nicegui-free modules, so the
 suite can reach it (DL-069; guarded by an AST walk in
@@ -197,6 +198,33 @@ once (DL-187). Its place in the DOM is what sets the tab order, and the
 ring that walk produces is read in
 `docs/2026-09-06-wizard-focus-order-browser-record.md` (DL-197).
 
+## The two step mechanisms
+
+Both routes are walked in four steps and neither drives the other's
+mechanism. `/reconnect` runs a `ui.stepper` with a `footer_groups`
+mapping keyed by step title. `/` composes four plain regions inside the
+chrome's middle, one visible at a time, under a `nav` of spans rendered
+from `reconstruct_steps.rail_records`: `Resolve.dc.html:104` draws
+`.steprail` inside `main` at `grid-column: 1 / -1`, and a QStepper draws
+its own numbered strip above its panels and none of the rail's states
+(DL-199).
+
+`reconstruct_steps.py` holds the four-step table, the rail records it
+derives and the reachability rule that decides which step the page may
+show. It is the one place a step number or a step label is written, and
+it imports no framework, so the suite reads it directly and `app.py`
+renders the records and decides none of them (DL-202, DL-203). The
+resolve step's own gate is `conflict_model.resolve_gate`, which answers
+the outstanding count, the decided count and whether the step may be
+left over one walk of the groups, so the footer's sentence and the
+advancing control's enabled state are one reading (DL-204).
+
+The resolve step's table dispatches through `keymap.dispatch` at
+`SCOPE_TABLE` and applies through the reconstruct route's own
+name-to-applier table, since the wizard's `_ACTION_APPLIERS` appliers
+are typed on the wizard's page state. `keymap.py` itself carries the
+digit bindings both tables read (DL-205).
+
 Every dimension either the shell or the cards measure at is a constant
 in `theme.py`, sourced in a comment to the artboard line that states
 it. `theme.py` imports no nicegui, so it is the module a guard under
@@ -206,4 +234,9 @@ What a guard in `tests/` holds of all this is the text: which rule the
 stylesheet emits, which class string a call site names, and where each
 control is constructed. Whether the browser gave the middle the
 viewport, and what it computed for a card, is read on a served page and
-written into a record under `docs/` (DL-084, DL-169, DL-189).
+written into a record under `docs/` (DL-084, DL-169, DL-189). The step
+rail's rendered position across the page region, the conflict grid's
+resolved column widths and the detail rail's resolved width belong to
+that record for the same reason: a guard reading
+`grid-template-columns: 1fr 400px` out of the emitted sheet is true
+whether or not the browser laid the split out on those tracks.

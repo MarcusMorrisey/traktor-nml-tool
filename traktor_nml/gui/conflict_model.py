@@ -337,6 +337,25 @@ class ResolveGate:
     # and not a second count over the groups (DL-204).
     all_decided: bool
 
+    @property
+    def note(self) -> str:
+        """The footer's sentence for this gate.
+
+        Held on the gate rather than formatted at the call site for the
+        same reason all_decided is: the sentence and the advancing
+        control's enabled state are one fact, and a sentence written
+        unconditionally beside a control that opens says writing is shut
+        while the operator is looking at the control that opens it,
+        which is the disagreement this class exists to prevent
+        (DL-204).
+        """
+        if self.all_decided:
+            return "Every track has an answer. Writing is open."
+        return (
+            f"{self.outstanding} still to decide. Writing stays closed "
+            "until every one has an answer."
+        )
+
 
 def resolve_gate(
     decisions: ConflictDecisions, groups: Iterable[ConflictGroup]
