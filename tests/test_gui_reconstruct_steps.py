@@ -132,27 +132,57 @@ def test_a_current_the_table_does_not_name_marks_no_row():
 
 def test_reachability_refuses_a_step_past_a_shut_gate():
     """Set up is always reachable; preview and resolve need a held run;
-    write needs a held run whose divergences are every one decided. The
-    gate is conflict_model.resolve_gate's own answer, so the step this
-    refuses and the count the footer prints cannot disagree (DL-204).
+    write needs a run that produced an output whose divergences are every
+    one decided. The gate is conflict_model.resolve_gate's own answer, so
+    the step this refuses and the count the footer prints cannot disagree
+    (DL-204).
 
-    Mutation: reachable's final `return has_result and all_decided` was
-    replaced with `return has_result` in reconstruct_steps.py and this
+    Mutation: reachable's final `return has_output and all_decided` was
+    replaced with `return has_output` in reconstruct_steps.py and this
     guard rerun. Observed:
         E       AssertionError: the write step is shut while a group is undecided
         E       assert not True
-        E        +  where True = <function reachable at 0x000001E0F96BC3B0>(4, True, False)
-        E        +    where <function reachable at 0x000001E0F96BC3B0> = steps.reachable
+        E        +  where True = <function reachable at 0x000001CAD1D99220>(4, True, True, False)
+        E        +    where <function reachable at 0x000001CAD1D99220> = steps.reachable
         E        +    and   4 = steps.WRITE
     """
-    assert steps.reachable(steps.SET_UP, False, False)
-    assert not steps.reachable(steps.PREVIEW, False, False)
-    assert not steps.reachable(steps.RESOLVE, False, True)
-    assert steps.reachable(steps.RESOLVE, True, False)
-    assert not steps.reachable(steps.WRITE, True, False), (
+    assert steps.reachable(steps.SET_UP, False, False, False)
+    assert not steps.reachable(steps.PREVIEW, False, False, False)
+    assert not steps.reachable(steps.RESOLVE, False, False, True)
+    assert steps.reachable(steps.RESOLVE, True, False, False)
+    assert not steps.reachable(steps.WRITE, True, True, False), (
         "the write step is shut while a group is undecided"
     )
-    assert steps.reachable(steps.WRITE, True, True)
+    assert steps.reachable(steps.WRITE, True, True, True)
+
+
+def test_a_run_that_assembled_nothing_does_not_open_the_write_step():
+    """The write step reports what the new file will hold, so it needs a
+    run that produced one. A run that refused is a held result carrying
+    no output: reaching the write step on it stood the step there
+    printing zeros for the playlists filled and for the tracks the file
+    holds, beside a count of answers read off the decisions rather than
+    off any run (DL-224).
+
+    The resolve step is reachable on that same refused run, and must be:
+    the conflicts it reported are what the operator is there to settle.
+
+    Mutation: reachable's final `return has_output and all_decided` was
+    replaced with `return has_result and all_decided` in
+    reconstruct_steps.py and this guard rerun. Observed:
+        E       AssertionError: a run that produced no output opens the write step
+        E       assert not True
+        E        +  where True = <function reachable at 0x0000020A9EC75220>(4, True, False, True)
+        E        +    where <function reachable at 0x0000020A9EC75220> = steps.reachable
+        E        +    and   4 = steps.WRITE
+    """
+    assert not steps.reachable(steps.WRITE, True, False, True), (
+        "a run that produced no output opens the write step"
+    )
+    assert steps.reachable(steps.RESOLVE, True, False, False), (
+        "the step that settles the conflicts is shut on the run that "
+        "reported them"
+    )
 
 
 def test_a_target_the_table_does_not_name_is_refused():
@@ -164,10 +194,10 @@ def test_a_target_the_table_does_not_name_is_refused():
     rerun. Observed:
         E       AssertionError: a step the table does not name is refused
         E       assert not True
-        E        +  where True = <function reachable at 0x0000027FCCA0C3B0>(9, True, True)
+        E        +  where True = <function reachable at 0x0000027FCCA0C3B0>(9, True, True, True)
         E        +    where <function reachable at 0x0000027FCCA0C3B0> = steps.reachable
     """
-    assert not steps.reachable(9, True, True), (
+    assert not steps.reachable(9, True, True, True), (
         "a step the table does not name is refused"
     )
-    assert not steps.reachable(0, True, True)
+    assert not steps.reachable(0, True, True, True)

@@ -233,6 +233,15 @@ those records and derives none of them, and both panels are redrawn on
 entry to their step, because what they say is answered by controls on
 the steps beside them (DL-215, DL-217, DL-219).
 
+A step that reports a run is reached only on a run that produced one,
+and the walk into the write step re-assembles where the held run reports
+answers other than the ones now given. `conflict_model.run_assembled`
+answers the first and `conflict_model.run_is_current` the second, so the
+page never reads `result.output` itself and never asks twice whether the
+answers have changed. `reconstruct_report.preview_refusal` holds what
+the preview says when its run assembled nothing (DL-224, DL-225,
+DL-226).
+
 `collection_summary.py` holds what the set-up step says about a
 collection it has been given: its tracks, its playlists, how many of
 those hold nothing, and for a source how many it could supply contents

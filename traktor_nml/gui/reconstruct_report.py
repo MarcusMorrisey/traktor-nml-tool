@@ -207,6 +207,72 @@ class WriteReport:
         return f"Write {filled} rebuilt {playlists}?"
 
 
+@dataclass(frozen=True)
+class PreviewRefusal:
+    """What step 2 shows for a run that assembled nothing.
+
+    A refused run reports why it stopped, and the page has to say both
+    what stopped it and what settles it: the conflict abort is not a
+    failure but a question, and the step that answers it is the next one
+    (DL-226).
+    """
+
+    conflicts: int
+    reasons: tuple[str, ...]
+
+    @property
+    def title(self) -> str:
+        """The card's own head. A run stopped by conflicts stopped on a
+        question; a run stopped by anything else stopped on an error, and
+        the two do not read alike."""
+        if self.conflicts and not self.reasons:
+            return "Nothing was assembled yet"
+        return "The repair could not be assembled"
+
+    @property
+    def sentence(self) -> str:
+        """What stopped the run, and which step settles it.
+
+        The count is the group count the run itself reported, so the
+        sentence and the rows the resolve step offers are the one set
+        (DL-215).
+        """
+        if not self.conflicts:
+            return (
+                "The run stopped on what it read. Nothing was written, and "
+                "the reasons it gave are below."
+            )
+        held = "track is" if self.conflicts == 1 else "tracks are"
+        return (
+            f"{self.conflicts} {held} held differently by more than one "
+            "collection, and the repair cannot be assembled until every one "
+            "has an answer. Continue to resolve names each one and offers "
+            "its answers."
+        )
+
+    @property
+    def has_reasons(self) -> bool:
+        return bool(self.reasons)
+
+
+def preview_refusal(errors, groups) -> PreviewRefusal:
+    """The step 2 record for a run that produced no output.
+
+    The conflict abort's own token is dropped from the reasons: the rows
+    it stands for are the groups beside it, and printing the token as
+    well would name the same stop twice, once in the sentence and once as
+    a machine word the operator cannot act on (DL-226).
+    """
+    return PreviewRefusal(
+        conflicts=len(groups),
+        reasons=tuple(
+            error
+            for error in errors
+            if error != conflict_model.CONFLICT_ABORT_TOKEN
+        ),
+    )
+
+
 def preview_report(
     stats: Mapping[str, object],
     groups: Sequence[conflict_model.ConflictGroup],

@@ -1050,6 +1050,41 @@ statement of the same decision would only give it two copies to drift apart.
   stands, with no "previously", "now does", "no longer" or "added",
   and each documentation milestone carries the grep that proves it
   (DL-177).
+- A step that reports a run is reached only on a run that produced one.
+  A run that refused is a held result carrying no output, and treating
+  "a result is held" as "a run assembled" stood the write step there
+  reporting zeros for the playlists filled and for the tracks the file
+  holds, beside a count of chosen answers read off the decisions rather
+  than off any run - one screen describing a file that was never
+  assembled, from two sources at once. `reachable` takes whether the run
+  produced an output as an input of its own, and
+  `conflict_model.run_assembled` decides it, so the view never tests
+  `result.output is None` itself (DL-111, DL-224).
+- A held run reports the answers it was handed, and the walk into the
+  write step re-assembles where those are not the answers now given. The
+  operator settles the conflicts at step 3 and the run that reported
+  them refused before any of them were settled; without the re-run their
+  answers reach a run only if they know to preview a second time.
+  `conflict_model.run_is_current` compares the resolutions mapping the
+  run was handed with the one now held, so a decision made and undone
+  back to where it started leaves the run current and buys no second
+  read of the collections (DL-225).
+- The state a step reaches when its run refuses is composed, not
+  printed. The reconstruct page's preview refuses whenever the
+  collections diverge, which is the first thing most runs see, and it
+  read as two labels drawn onto an empty page. It is a card whose head
+  names the stop, whose sentence names the count the run reported and
+  the step that answers it, and which lists the run's own error tokens
+  where the stop was something other than a conflict - the tokens
+  themselves, because a token is what the CLI prints and what a bug
+  report carries (DL-226).
+- The gate reads what a browser resolved, and a fixture walk is a walk
+  someone chose. Two of this work's defects were found by an operator on
+  their own collection and not by the gate, because the gate's own walk
+  previewed a second time before continuing and never reached the write
+  step on a stale run. A record states the walk it took, so a walk the
+  gate does not take is visible as one it did not take rather than as
+  one that passed (DL-084, DL-227).
 - A collection the set-up step is given is reported rather than only
   named: how many tracks it holds, how many playlists, how many of those
   hold nothing, and for a source how many it could supply contents from.

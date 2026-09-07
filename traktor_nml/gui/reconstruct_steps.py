@@ -165,7 +165,9 @@ def _classes(state: str) -> str:
     return STEP_CLASS
 
 
-def reachable(target: int, has_result: bool, all_decided: bool) -> bool:
+def reachable(
+    target: int, has_result: bool, has_output: bool, all_decided: bool
+) -> bool:
     """Whether the page may show `target`.
 
     SET_UP is always reachable: it is where the collections are named
@@ -178,12 +180,18 @@ def reachable(target: int, has_result: bool, all_decided: bool) -> bool:
     so a resolve step without one would offer answers over groups no run
     reported (DL-107).
 
-    WRITE needs a held run whose divergences are every one decided.
-    all_decided is conflict_model.resolve_gate's own answer, so the step
-    this refuses and the count the footer prints cannot disagree
-    (DL-204). A run that reported no divergence at all reads all_decided
-    True and passes straight through, which is the same answer the gate
-    gives for an empty group set.
+    WRITE needs a run that produced an output, and whose divergences are
+    every one decided. has_output rather than has_result, because a run
+    that refused is a held result carrying no output: the write step
+    reports what the new file will hold, and a refused run holds nothing
+    to report - it stood there printing zeros for the playlists filled
+    and the tracks the file holds beside a count of answers read off the
+    decisions, which is the step describing a file that was never
+    assembled (DL-224). all_decided is conflict_model.resolve_gate's own
+    answer, so the step this refuses and the count the footer prints
+    cannot disagree (DL-204). A run that reported no divergence at all
+    reads all_decided True and passes straight through, which is the same
+    answer the gate gives for an empty group set.
 
     A target no STEPS row names is refused rather than defaulted, so a
     caller holding a number the table does not carry stays where it is.
@@ -194,4 +202,4 @@ def reachable(target: int, has_result: bool, all_decided: bool) -> bool:
         return True
     if target in (PREVIEW, RESOLVE):
         return has_result
-    return has_result and all_decided
+    return has_output and all_decided

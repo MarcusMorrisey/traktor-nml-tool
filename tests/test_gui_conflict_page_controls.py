@@ -540,9 +540,28 @@ def test_per_track_picks_reach_resolutions_and_nothing_else() -> None:
         f"the call also passes {extra}"
     )
     resolutions = [k.value for k in call.keywords if k.arg == "resolutions"][0]
-    assert _calls(resolutions, "resolutions"), (
-        "the resolutions argument must be the decision set's own projection"
-    )
+    # The argument is the projection itself or the name the projection was
+    # bound to one line earlier: the page holds the mapping it handed the
+    # run so a later step can ask whether the run reports the answers now
+    # given, and binding it to a name is how it does that (DL-225).
+    if isinstance(resolutions, ast.Name):
+        bound = [
+            node.value
+            for node in ast.walk(page)
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == resolutions.id
+                for target in node.targets
+            )
+        ]
+        assert bound, f"nothing binds {resolutions.id}"
+        assert all(_calls(value, "resolutions") for value in bound), (
+            "the resolutions argument must be the decision set's own projection"
+        )
+    else:
+        assert _calls(resolutions, "resolutions"), (
+            "the resolutions argument must be the decision set's own projection"
+        )
     for argument in call.args:
         names = {
             node.id for node in ast.walk(argument) if isinstance(node, ast.Name)
@@ -881,9 +900,13 @@ def test_bulk_labels_fall_back_to_the_full_resolved_path_at_the_root() -> None:
 
 def test_app_holds_no_second_definition_of_the_conflict_abort_token() -> None:
     """The conflict abort token has one definition, in conflict_model, and
-    app.py reads it from there rather than declaring its own copy: two
-    copies can drift, and the page renders rows for one token while the
-    refusal is keyed on the other.
+    the modules above it read it from there rather than declaring their
+    own copy: two copies can drift, and the page renders rows for one
+    token while the refusal is keyed on the other.
+
+    Which module reads it is not fixed here - the sentence that stands in
+    its place is derived in reconstruct_report.py and rendered by app.py
+    - so the guard reads the package rather than one file.
 
     Observed with app.py's read at the abort render replaced by the
     literal `if error == "unresolved_conflicts" and groups:`:
@@ -893,20 +916,28 @@ def test_app_holds_no_second_definition_of_the_conflict_abort_token() -> None:
     the attribute read, never via `git checkout`, and re-running
     confirmed it passes.
     """
-    source = _app_source()
-    tree = ast.parse(source)
-    literals = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.Constant)
-        and node.value == conflict_model.CONFLICT_ABORT_TOKEN
-    ]
-    assert not literals, (
-        "app.py must read the conflict abort token from conflict_model; it "
-        f"writes the literal {conflict_model.CONFLICT_ABORT_TOKEN!r} on "
-        f"line(s) {sorted(node.lineno for node in literals)}"
+    package = Path(APP_PATH).resolve().parent
+    reads = []
+    for module in sorted(package.glob("*.py")):
+        if module.name == "conflict_model.py":
+            continue
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        literals = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and node.value == conflict_model.CONFLICT_ABORT_TOKEN
+        ]
+        assert not literals, (
+            f"{module.name} must read the conflict abort token from "
+            f"conflict_model; it writes the literal "
+            f"{conflict_model.CONFLICT_ABORT_TOKEN!r} on line(s) "
+            f"{sorted(node.lineno for node in literals)}"
+        )
+        reads.extend(
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Attribute)
+            and node.attr == "CONFLICT_ABORT_TOKEN"
+        )
+    assert reads, (
+        "no module above conflict_model reads CONFLICT_ABORT_TOKEN"
     )
-    reads = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.Attribute) and node.attr == "CONFLICT_ABORT_TOKEN"
-    ]
-    assert reads, "app.py must read conflict_model.CONFLICT_ABORT_TOKEN"

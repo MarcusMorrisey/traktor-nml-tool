@@ -597,14 +597,20 @@ def test_the_header_band_and_every_content_column_share_one_width_class():
     The ancestor walk stops at the function a card is built in, so a
     card standing inside a nested render function is read against that
     function's own containers rather than against the containers of the
-    function it happens to be written inside.
+    function it happens to be written inside. A `with` naming a panel
+    resolves to the class string that panel was built with: a render
+    function draws into a panel the step region holds, and the panel is
+    what carries the width.
 
-    Mutation: the preview step's split was given 'wizard-step-column'
-    in place of 'wizard-step-split' and this guard rerun. Observed:
-        E       AssertionError: card boxes laid out at no content width: ['wizard-card', 'wizard-card', 'wizard-card']
-        E       assert ['wizard-card...'wizard-card'] == []
+    Mutation: the preview step's panel was given 'w-full gap-4' with its
+    wizard-content-width removed, so the split inside it stood in a panel
+    at no width and the cards under it had nothing to be read against.
+    Observed - the refusal state's own card, which is drawn into that
+    panel directly rather than inside the split its run report stands in:
+        E       AssertionError: card boxes laid out at no content width: ['wizard-card']
+        E       assert ['wizard-card'] == []
         E
-        E         Left contains 3 more items, first extra item: 'wizard-card'
+        E         Left contains one more item: 'wizard-card'
         E         Use -v to get more diff
     """
     source = APP_PATH.read_text(encoding="utf-8")
@@ -626,6 +632,27 @@ def test_the_header_band_and_every_content_column_share_one_width_class():
         for child in ast.iter_child_nodes(node):
             parents[child] = node
 
+    # Each name a classes() call was assigned to, and the class string it
+    # carries: `report = ui.column().classes("... wizard-content-width")`
+    # binds the panel the preview step's renders draw into.
+    panels = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+            continue
+        target = node.targets[0]
+        if not isinstance(target, ast.Name):
+            continue
+        for call in ast.walk(node.value):
+            if (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and call.func.attr == "classes"
+                and call.args
+                and isinstance(call.args[0], ast.Constant)
+                and isinstance(call.args[0].value, str)
+            ):
+                panels.setdefault(target.id, set()).add(call.args[0].value)
+
     def widths_above(node):
         """Every class string declared by a with-statement enclosing
         this call, which is what "inside" means in a page built out of
@@ -636,12 +663,15 @@ def test_the_header_band_and_every_content_column_share_one_width_class():
             if isinstance(walker, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 break
             if isinstance(walker, ast.With):
-                found.extend(
-                    text.value
-                    for item in walker.items
-                    for text in ast.walk(item.context_expr)
-                    if isinstance(text, ast.Constant) and isinstance(text.value, str)
-                )
+                for item in walker.items:
+                    found.extend(
+                        text.value
+                        for text in ast.walk(item.context_expr)
+                        if isinstance(text, ast.Constant)
+                        and isinstance(text.value, str)
+                    )
+                    if isinstance(item.context_expr, ast.Name):
+                        found.extend(panels.get(item.context_expr.id, ()))
             walker = parents.get(walker)
         return found
 

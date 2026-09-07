@@ -439,6 +439,32 @@ def write_refusal(
     return WriteRefusal(RUN_REFUSED, errors=errors)
 
 
+def run_assembled(result) -> bool:
+    """Whether a held run produced an output to report.
+
+    A run that refused is a held result carrying no output, and the two
+    are told apart here rather than at a call site: the page reads this
+    instead of testing `result.output is None` itself, which is the test
+    DL-111 keeps out of the view because it reads a run that aborted and
+    a run that never happened as the same thing.
+    """
+    return result is not None and result.output is not None
+
+
+def run_is_current(used, decisions: "ConflictDecisions", groups) -> bool:
+    """Whether a held run was assembled with the answers now given.
+
+    `used` is the resolutions mapping the run was handed. A run assembled
+    before an answer was given, or before one was changed, reports what
+    some earlier set of answers produced, and the write step reports that
+    run: the operator would be shown - and would write - a file assembled
+    from answers they have since replaced. Comparing the mapping rather
+    than a flag means a decision made and undone back to where it started
+    leaves the run current (DL-225).
+    """
+    return used == decisions.resolutions(groups)
+
+
 def write_refusal_sentence(refusal: WriteRefusal) -> str:
     """The operator-facing sentence for one refusal, naming what is wrong
     and which control fixes it. The conflict sentence names choosing a

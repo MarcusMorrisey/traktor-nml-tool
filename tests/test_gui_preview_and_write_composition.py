@@ -49,6 +49,29 @@ def _named_function(name: str) -> ast.FunctionDef:
     raise AssertionError(f"_build_reconstruct_page defines no {name}")
 
 
+def _body_source_of(name: str) -> str:
+    """One nested function's statements as text, with its docstring left
+    out.
+
+    A guard reading a call out of a function's source is satisfied by
+    that call appearing in the prose above the code, which is a guard
+    green in exactly the broken state: these docstrings name the rules
+    their functions call.
+    """
+    node = _named_function(name)
+    statements = list(node.body)
+    if (
+        statements
+        and isinstance(statements[0], ast.Expr)
+        and isinstance(statements[0].value, ast.Constant)
+        and isinstance(statements[0].value.value, str)
+    ):
+        statements = statements[1:]
+    return "\n".join(
+        ast.get_source_segment(_source(), statement) or "" for statement in statements
+    )
+
+
 def _classes_in(node) -> list:
     """Every literal class string a classes() call in this subtree
     names."""
@@ -246,7 +269,7 @@ def test_the_write_step_counts_the_chosen_answers_off_the_gate_that_opened_it():
     # The step is shut while that gate is: the row and the refusal read
     # one value.
     assert not reconstruct_steps.reachable(
-        reconstruct_steps.WRITE, True, gate.all_decided
+        reconstruct_steps.WRITE, True, True, gate.all_decided
     )
 
 
@@ -430,3 +453,138 @@ def test_both_reporting_steps_are_redrawn_on_the_way_in():
         assert render in show_step, f"show_step draws no panel for step {step}"
     assert "reconstruct_steps.PREVIEW" in show_step
     assert "reconstruct_steps.WRITE" in show_step
+
+
+def test_a_run_is_stale_where_it_reports_answers_other_than_the_ones_given():
+    """A held run reports the answers it was handed. Comparing that
+    mapping with the answers now given is what tells a current run from
+    one assembled before an answer was made or changed, and a decision
+    made and undone back to where it started leaves the run current
+    (DL-225).
+
+    Mutation: `return used == decisions.resolutions(groups)` was changed
+    to `return used is not None`. Observed:
+        E       AssertionError: a run assembled before the answer was given reads current
+        E       assert not True
+        E        +  where True = <function run_is_current at [...]>({}, <traktor_nml.gui.conflict_model.ConflictDecisions object at [...]>, [ConflictGroup(identity_key='one', [...])])
+        E        +    where <function run_is_current at [...]> = conflict_model.run_is_current
+    """
+    groups = [_group("one", "A", "B"), _group("two", "A", "B")]
+    decisions = conflict_model.ConflictDecisions()
+    # The run that refused: it was handed nothing, because nothing was
+    # decided when it ran.
+    used = decisions.resolutions(groups)
+    assert conflict_model.run_is_current(used, decisions, groups)
+    decisions.resolve(
+        groups[0], conflict_model.candidate_reference(groups[0].candidates[1])
+    )
+    assert not conflict_model.run_is_current(used, decisions, groups), (
+        "a run assembled before the answer was given reads current"
+    )
+    # Undone back to where it started, the same run reports the answers
+    # now given again.
+    decisions.reset(groups[0].identity_key)
+    assert conflict_model.run_is_current(used, decisions, groups)
+
+
+def test_a_refused_run_is_told_from_one_that_assembled():
+    """A run that refused is a held result carrying no output, and the
+    page asks conflict_model rather than testing `result.output is None`
+    itself - the test DL-111 keeps out of the view because it reads a run
+    that aborted and a run that never happened as the same thing.
+
+    Mutation: `return result is not None and result.output is not None`
+    was changed to `return result is not None`. Observed:
+        E       AssertionError: a run that produced no output reads assembled
+        E       assert not True
+        E        +  where True = <function run_assembled at [...]>(<tests.test_gui_preview_and_write_composition.[...]._Run object at [...]>)
+        E        +    where <function run_assembled at [...]> = conflict_model.run_assembled
+    """
+
+    class _Run:
+        def __init__(self, output):
+            self.output = output
+
+    assert not conflict_model.run_assembled(None)
+    assert not conflict_model.run_assembled(_Run(None)), (
+        "a run that produced no output reads assembled"
+    )
+    assert conflict_model.run_assembled(_Run("<NML/>"))
+
+
+def test_the_walk_to_the_write_step_re_assembles_a_stale_run():
+    """The write step reports a run, so the walk into it re-assembles
+    where the held run reports something other than the answers now
+    given. Without it the operator answers every conflict and the step
+    still reports the run that refused before they started (DL-224,
+    DL-225).
+
+    Mutation: the `await assemble()` branch was removed from advance_to,
+    which takes the step's own name out of the walk with it. Observed:
+        E       assert 'reconstruct_steps.WRITE' in 'gate = conflict_model.resolve_gate(decisions, conflict_holder)\nresult = result_holder["result"]\nif not reconstruct_[...]show_step(number)'
+    """
+    advance = _body_source_of("advance_to")
+    assert "reconstruct_steps.WRITE" in advance
+    assert "assemble()" in advance, (
+        "the walk to the write step never re-assembles"
+    )
+    assert "run_is_stale()" in advance, (
+        "the walk re-assembles without asking whether the run is stale"
+    )
+    # The staleness rule is the model's, not a second reading here.
+    stale = _body_source_of("run_is_stale")
+    assert "conflict_model.run_assembled" in stale
+    assert "conflict_model.run_is_current" in stale
+
+
+def test_the_refusal_state_is_composed_rather_than_printed():
+    """A run that assembled nothing is the state most runs reach first,
+    so it is a card that says what stopped the run and which step settles
+    it, not a line of text over an empty page (DL-226).
+
+    Mutation: the wizard-card section was removed from
+    _render_preview_refusal, leaving its labels drawn straight into the
+    panel. Observed:
+        E       AssertionError: the refusal draws no card
+        E       assert False
+        E        +  where False = any(<generator object test_the_refusal_state_is_composed_rather_than_printed.<locals>.<genexpr> at [...]>)
+    """
+    classes = _classes_in(_named_function("_render_preview_refusal"))
+    assert any("wizard-card" in text.split() for text in classes), (
+        "the refusal draws no card"
+    )
+    assert any("wizard-card-body" in text.split() for text in classes)
+    body = _body_source_of("_render_preview_refusal")
+    assert "reconstruct_report.preview_refusal" in body, (
+        "the refusal writes its own sentence rather than reading the record's"
+    )
+    assert "record.sentence" in body and "record.title" in body
+
+
+def test_the_refusal_names_the_step_that_settles_it():
+    """The sentence a conflict refusal prints names the count the run
+    reported and the step that answers it, because the refusal is a
+    question rather than a failure. A run stopped by anything else reads
+    as what it is, and its reasons stand under it in the tokens the run
+    gave them - with the conflict token dropped, since the sentence
+    already stands in its place (DL-226).
+
+    Mutation: `if not self.conflicts` was changed to `if self.conflicts`
+    in PreviewRefusal.sentence. Observed:
+        E       AssertionError: The run stopped on what it read. Nothing was written, and the reasons it gave are below.
+        E       assert 'Continue to resolve' in 'The run stopped on what it read. Nothing was written, and the reasons it gave are below.'
+        E        +  where 'The run stopped on what it read. Nothing was written, and the reasons it gave are below.' = PreviewRefusal(conflicts=2, reasons=()).sentence
+    """
+    groups = [_group("one", "A", "B"), _group("two", "A", "B")]
+    conflicts = reconstruct_report.preview_refusal(
+        [conflict_model.CONFLICT_ABORT_TOKEN], groups
+    )
+    assert "Continue to resolve" in conflicts.sentence, conflicts.sentence
+    assert conflicts.sentence.startswith("2 tracks are")
+    assert conflicts.reasons == (), (
+        "the conflict token stands beside the sentence that replaces it"
+    )
+    assert not conflicts.has_reasons
+    other = reconstruct_report.preview_refusal(["ambiguous_playlist_name x"], [])
+    assert other.reasons == ("ambiguous_playlist_name x",)
+    assert other.title == "The repair could not be assembled"

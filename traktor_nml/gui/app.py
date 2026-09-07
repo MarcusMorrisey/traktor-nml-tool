@@ -1735,16 +1735,48 @@ def _build_reconstruct_page() -> None:
                 _render_write()
             _draw_step_rail(rail, number)
 
-        def advance_to(number: int) -> None:
+        def run_is_stale() -> bool:
+            """Whether the held run reports something other than the
+            answers now given.
+
+            A run that produced no output is stale by definition - there
+            is nothing to report - and so is one assembled before an
+            answer was given or changed (DL-225).
+            """
+            if not conflict_model.run_assembled(result_holder["result"]):
+                return True
+            return not conflict_model.run_is_current(
+                result_holder["resolutions"], decisions, conflict_holder
+            )
+
+        async def advance_to(number: int) -> None:
             """Walks to one step, or names why it is shut.
 
-            reachable() reads the held run and the resolve gate, so the
+            The write step is entered on a run that reports the answers
+            now given, so the walk re-assembles first where the held run
+            does not. Without it the operator answers every conflict and
+            the step still reports the run that refused before they
+            started: zeros for what the file holds, beside a count of
+            answers read off the decisions (DL-224, DL-225).
+
+            reachable() reads that run and the resolve gate, so the
             refusal and the sentence the resolve footer prints are one
             answer rather than two (DL-204).
             """
             gate = conflict_model.resolve_gate(decisions, conflict_holder)
+            if (
+                number == reconstruct_steps.WRITE
+                and gate.all_decided
+                and run_is_stale()
+            ):
+                await assemble()
+                gate = conflict_model.resolve_gate(decisions, conflict_holder)
+            result = result_holder["result"]
             if not reconstruct_steps.reachable(
-                number, result_holder["result"] is not None, gate.all_decided
+                number,
+                result is not None,
+                conflict_model.run_assembled(result),
+                gate.all_decided,
             ):
                 ui.notify(
                     conflict_model.write_refusal_sentence(
@@ -2614,40 +2646,55 @@ def _build_reconstruct_page() -> None:
                 report.clear()
                 if result is None:
                     return
-                with report:
-                    if result.errors:
-                        _render_preview_refusal(result)
-                        return
-                    if not result.stats.get("reconstructed_playlists"):
+                # Each of the three fills the panel itself rather than
+                # being called inside one opened here, so what a
+                # composition stands in is readable where it is written.
+                if result.errors:
+                    _render_preview_refusal(result)
+                    return
+                if not result.stats.get("reconstructed_playlists"):
+                    with report:
                         ui.label(
                             "Every matched playlist already holds these contents."
                         ).classes("wizard-body-13")
-                        return
-                    _render_preview_run()
+                    return
+                _render_preview_run()
 
             def _render_preview_refusal(result) -> None:
-                """An ambiguity abort is a step-level failure: the
-                reasons are shown and no output is offered, matching
-                the CLI's own abort-with-nothing-written (DL-094,
-                DL-098)."""
-                ui.label("Nothing was written.").classes(
-                    "wizard-body-13 font-semibold"
+                """A run that assembled nothing, composed as a card of its
+                own rather than left as loose text.
+
+                A refusal is the state most runs reach first - a
+                collection pair with a divergence stops here - so it says
+                what stopped the run and which step settles it, and it
+                reads as a screen rather than a message printed over an
+                empty page. The reasons the run gave stand under it in
+                the tokens it gave them, because a token is what the CLI
+                prints and what a bug report carries (DL-094, DL-098,
+                DL-226).
+                """
+                record = reconstruct_report.preview_refusal(
+                    result.errors, conflict_holder
                 )
-                for error in result.errors:
-                    # The conflict abort's token names rows this same
-                    # run returned, so those rows stand in its place;
-                    # every other token renders as the token it is.
-                    if (
-                        error == conflict_model.CONFLICT_ABORT_TOKEN
-                        and conflict_holder
-                    ):
-                        ui.label(
-                            f"{len(conflict_holder)} tracks are held "
-                            "differently by two collections. Resolve names "
-                            "each one and offers its answers."
-                        ).classes("wizard-body-13")
-                        continue
-                    ui.label(error).classes("font-mono wizard-body-12 text-warning")
+                with report, ui.element("section").classes("wizard-card"):
+                    with ui.element("div").classes("wizard-card-head"):
+                        ui.label(record.title).classes("wizard-card-title")
+                        ui.label("Nothing written").classes("wizard-label")
+                    with ui.element("div").classes("wizard-card-body"):
+                        ui.label(record.sentence).classes(
+                            "wizard-body-12-5 wizard-dim"
+                        )
+                        if record.has_reasons:
+                            with ui.element("div").classes(
+                                "wizard-callout wizard-callout-warn"
+                            ):
+                                with ui.element("div").classes(
+                                    "wizard-step-column"
+                                ):
+                                    for reason in record.reasons:
+                                        ui.label(reason).classes(
+                                            "font-mono wizard-body-12"
+                                        )
 
             def _render_preview_run() -> None:
                 """The two columns Preview.dc.html draws for a run
@@ -2657,7 +2704,7 @@ def _build_reconstruct_page() -> None:
                 record = reconstruct_report.preview_report(
                     result_holder["result"].stats, conflict_holder, decisions
                 )
-                with ui.element("div").classes("wizard-step-split"):
+                with report, ui.element("div").classes("wizard-step-split"):
                     with ui.element("div").classes("wizard-step-column"):
                         with ui.element("section").classes("wizard-card"):
                             with ui.element("div").classes("wizard-card-head"):
@@ -2896,20 +2943,26 @@ def _build_reconstruct_page() -> None:
                     }[row.tone]
                     ui.label(row.amount).classes(tone)
 
-            async def preview() -> None:
+            async def assemble() -> bool:
                 """Runs the same assemble_output call the CLI makes, with
-                reconstruct=True, and renders what it reports. Nothing is
-                written here: the run is the preview, so the write below
-                cannot disagree with what this shows."""
+                reconstruct=True, and holds what it reported. Nothing is
+                written here: the run is the preview, so the write cannot
+                disagree with what the preview shows.
+
+                The answers it was handed are held beside it, which is
+                what lets a later step ask whether the run reports the
+                answers now given rather than an earlier set (DL-225).
+                """
                 loaded = await run.io_bound(_load)
                 if loaded is None:
-                    return
+                    return False
                 base_bytes, base_root, contributions = loaded
+                resolutions = decisions.resolutions(conflict_holder)
                 result = await run.io_bound(
                     assemble_output,
                     base_bytes.decode("utf-8"), base_root, contributions,
                     MatchConfidence.STRICT, conflict_choice.value, True,
-                    resolutions=decisions.resolutions(conflict_holder),
+                    resolutions=resolutions,
                 )
                 # The groups the page shows are a projection of the rows
                 # this run reported: conflict_model reads the membership and
@@ -2918,8 +2971,14 @@ def _build_reconstruct_page() -> None:
                 groups = conflict_model.conflict_groups(result.conflict_rows)
                 conflict_holder[:] = groups
                 result_holder["result"] = result
+                result_holder["resolutions"] = resolutions
                 _render_resolve()
-                show_step(reconstruct_steps.PREVIEW)
+                return True
+
+            async def preview() -> None:
+                """Runs the repair and shows what it reported."""
+                if await assemble():
+                    show_step(reconstruct_steps.PREVIEW)
 
             async def write_output() -> None:
                 """Writes the output the held run produced, or names why it
