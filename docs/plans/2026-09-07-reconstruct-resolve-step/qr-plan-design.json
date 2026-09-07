@@ -1,0 +1,130 @@
+{
+  "phase": "plan-design",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every decision's stated GROUND is checked against the cited file itself, not against a summary of it. Any decision whose premise is contradicted by the cited source is rewritten or withdrawn.",
+      "status": "RESOLVED",
+      "severity": "MUST",
+      "group_id": "parent-qa-001"
+    },
+    {
+      "id": "qa-002",
+      "scope": "DL-198",
+      "check": "VERIFIED FALSE PREMISE. DL-198 claims all fourteen artboards draw the band as brand + divider + task label and that gui/'s tab strip disagrees with Specs. Specs.dc.html lines 154-169 carry a normative section titled 'App header - brand, divider, section tabs' which states the header IS brand + divider + section tab strip, labelled 'Reconstruct playlists' and 'Reconnect wizard', and explicitly states 'The header names the screen through the selected tab and carries no .task element' and that '.task and .rail belong to the wizard artboard's own screen'. The .task at Specs line 67 is Specs' own artboard chrome ('Interaction spec - tokens, keyboard, decision rules'), not a rule. Specs therefore already settles the header, IN FAVOUR of what gui/ builds. DL-198 must be recast as a deliberate amendment that strikes an existing Specs rule, with reasoning against that rule's stated rationale, or withdrawn.",
+      "status": "RESOLVED",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002a",
+      "scope": "DL-199",
+      "check": "DL-199's reword of navigation.SECTIONS to task sentences contradicts Specs lines 156/160-161/165, which name both labels verbatim and bind each to its route. Its 'the switch and the task label name the same fact twice' reasoning is the INVERSE of Specs line 169, which forbids a second name beside the strip for exactly the disagreement reason. The decision must engage that rule or be withdrawn.",
+      "status": "RESOLVED",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002b",
+      "scope": "M-001/CI-M-001-003",
+      "check": "The reword is UNGUARDED by the suite. tests/test_gui_header_tabs.py pins routes, ordering, class strings, aria-current, the nav's aria-label 'Sections', that app.py names neither label, and that __main__.py's title names no label - it reads every label off navigation.SECTIONS, so changing both label strings breaks nothing. navigation.py likewise pins no wording. The only artifact pinning the wording is Specs.dc.html itself. The plan's tradeoff note claiming 'the header-tab guards pin' the wording is false and must be corrected.",
+      "status": "RESOLVED",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-002c",
+      "scope": "M-001/CI-M-001-003",
+      "check": "CI-M-001-003 requires guards asserting 'no tab strip beside' the switcher. test_header_renders_the_brand_the_divider_and_a_labelled_nav asserts exactly one nav labelled 'Sections' holding the two anchors. The intent must say whether that nav survives as the switcher (making the change label-only) or is replaced (making the aria-label and the nav-count assertion part of the change). As written the intent is ambiguous about what is actually rebuilt.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002"
+    },
+    {
+      "id": "qa-003",
+      "scope": "planning_context.constraints",
+      "check": "plan.json's planning_context.constraints is EMPTY while context.json carries 19 MUST/MUST NOT/SHOULD constraints (line endings, nicegui boundary, DL-079, fail-first guards, do-not-regenerate baselines, system interpreter, no build/dist writes). None survived into the plan. Constraints must be documented in the plan.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "group_id": "component-planning-context-completeness"
+    },
+    {
+      "id": "qa-004",
+      "scope": "planning_context.risks",
+      "check": "planning_context.risks is EMPTY. The plan's own material names live hazards with no risk entry or mitigation: nicegui/Quasar framework defaults on new containers (the .wizard-middle 775px defect), the guard-green-in-the-broken-state trap, tab-order change from moving advancing controls between step regions. Each needs a risk with a mitigation.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "group_id": "component-planning-context-completeness"
+    },
+    {
+      "id": "qa-005",
+      "scope": "invisible_knowledge.system",
+      "check": "invisible_knowledge.system is an empty string; readme_entries is an empty list despite DL-198..DL-209 all requiring log statements in traktor_nml/README.md and the constraint that README.md is the decision-log authority.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "group_id": "component-planning-context-completeness"
+    },
+    {
+      "id": "qa-006",
+      "scope": "DL-200/DL-201",
+      "check": "DL-200 strikes DL-172's exemption and DL-201 mints new 'Composition not built' entries for '/'. Confirm the plan states WHERE the new entries are minted (M-004/CI-M-004-001) before the milestone that strikes them, and that DL-190's post-strike record ordering is honoured in M-004's intent order.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "group_id": "component-structural-gate-strike"
+    },
+    {
+      "id": "qa-007",
+      "scope": "DL-205",
+      "check": "DL-205 routes digits 1-9 through keymap.dispatch at SCOPE_TABLE and app.py's _ACTION_APPLIERS. No milestone lists traktor_nml/gui/keymap.py in its files and no code_intent targets it; the decision may be unimplementable as scoped. Check the milestone file lists against DL-205.",
+      "status": "RESOLVED",
+      "severity": "MUST",
+      "group_id": "component-resolve-artboard-geometry"
+    },
+    {
+      "id": "qa-008",
+      "scope": "milestones[*]",
+      "check": "Every milestone has empty requirements, acceptance_criteria and tests arrays. Milestone-level pass conditions exist only inside code_intent prose, so no milestone can be verified closed on its own terms.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "group_id": "concern-milestone-verifiability"
+    },
+    {
+      "id": "qa-009",
+      "scope": "waves",
+      "check": "Four waves each holding exactly one milestone, strictly serial. Confirm the serialization is intended (M-002's nicegui-free rules and sheet do not obviously depend on M-001's header work) rather than an artifact of one-milestone-per-wave defaulting.",
+      "status": "RESOLVED",
+      "severity": "COULD",
+      "group_id": "concern-milestone-verifiability"
+    },
+    {
+      "id": "qa-010",
+      "scope": "*",
+      "check": "Every decision_refs entry resolves to a decision in planning_context.decisions (DL-198..DL-209) and every scope reference names an existing milestone.",
+      "status": "RESOLVED",
+      "severity": "MUST",
+      "group_id": "umbrella"
+    },
+    {
+      "id": "qa-011",
+      "scope": "DL-202",
+      "check": "DL-202 rejects ui.stepper for '/' while DL-208 moves steps 1/2/4 in unchanged and the wizard route keeps its own stepper. Confirm the plan records that the two routes now use two different step mechanisms, and why that divergence is acceptable, since the entry_points name the wizard's footer_groups pattern as the precedent to follow or consciously depart from.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "group_id": "concern-milestone-verifiability"
+    },
+    {
+      "id": "qa-012",
+      "scope": "DL-206/DL-207",
+      "check": "The grid track list and the 400px rail are asserted against Resolve.dc.html. Verify the track values (minmax(0,1fr) 132px 84px 196px 140px) and the split (1fr 400px) against the artboard's own CSS rather than the plan's restatement.",
+      "status": "RESOLVED",
+      "severity": "SHOULD",
+      "group_id": "component-resolve-artboard-geometry"
+    }
+  ]
+}

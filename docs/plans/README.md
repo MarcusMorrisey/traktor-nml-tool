@@ -21,6 +21,7 @@ milestone is shaped the way it is once its diffs are committed.
 | `2026-09-03-record-resolutions` | A conflict resolution naming the record that wins, so an operator merging from several sources can say which one supplies a track's values (DL-148..DL-161) |
 | `2026-09-05-plex-and-composition-gate` | The typeface `theme.py` names, loaded rather than only named, and a served-page gate that reads composition and not only atoms (DL-163..DL-182) |
 | `2026-09-05-wizard-shell-chrome` | The header and footer bands, the middle that owns the viewport, and the card triplet the artboards draw, closing the app-shell, card-structure and footer-band entries under "Composition not built" (DL-183..DL-197) |
+| `2026-09-07-reconstruct-resolve-step` | The reconstruct page's four-step scaffold and its resolve step built to the artboards (DL-198..DL-212). Carries a `README.md`: M-001 and M-002 are committed, M-003 and the served-page record are owed |
 
 The reconnect wizard's own plan is not here: it lives in the sibling
 `traktor-nml-tool-plan` repository (see [DEVELOPING.md](../../DEVELOPING.md#the-layout)),

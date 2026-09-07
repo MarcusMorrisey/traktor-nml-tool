@@ -1,0 +1,87 @@
+{
+  "task_spec": [
+    "SUBJECT: build step 3 (Resolve) of the reconstruct workflow at the `/` route, to the artboard `design/reconnect-wizard/Resolve.dc.html` committed at a6cb9c1 - the conflict table with real grid geometry and a header row, the 400px detail rail carrying one control per distinct answer, one bulk action per input collection, and a footer whose advancing control is gated shut while any group is undecided.",
+    "SUBJECT (the part that makes step 3 possible): the reconstruct page cannot have a 'step 3' unless it is stepped, so this also builds the four-step scaffold - the step rail and four step regions - with steps 1, 2 and 4 holding the content the page already builds, MOVED into their regions rather than redesigned.",
+    "scope: traktor_nml/gui/app.py (composition of the / route), traktor_nml/gui/theme.py (every CSS rule, class name and dimension), traktor_nml/gui/conflict_model.py (any new decision rule, because it is nicegui-free and the suite reaches it), tests/ (new source-text guards), traktor_nml/README.md (decision log), docs/ (the served-page records).",
+    "out-of-scope: redesigning steps 1, 2 or 4 beyond placing their existing content into step regions.",
+    "out-of-scope: the `/reconnect` wizard route - none of its composition changes.",
+    "out-of-scope: accessibility work beyond re-running the existing keyboard and announcement records; NVDA must not be fetched or installed.",
+    "out-of-scope: striking any of the three standing 'Composition not built' entries - see the constraint below on what they cover."
+  ],
+  "constraints": [
+    "MUST: `design/reconnect-wizard/Resolve.dc.html` is the contract this screen is built to. Its siblings on canvas page 3 are Reconstruct.dc.html (step 1), Preview.dc.html (step 2) and Write.dc.html (step 4). Read the artboard rather than the prose describing it.",
+    "MUST: DL-071 - a screen disagreeing with `Specs.dc.html` is fixed in Specs first, never per-screen. Specs binds digits 1-9 to candidate picking, and step 3's rail has to honour that map rather than invent one.",
+    "MUST: revisit DL-172. It exempts `/` from the structural gate on the stated ground that 'no artboard draws that page - all ten draw the reconnect wizard'. canvas.json now carries FOURTEEN artboards and four of them draw `/`, so that ground is gone and `/` has a drawn structure a structural verdict can read against. The exemption cannot be left standing on a false premise; decide what replaces it and say so in the log.",
+    "MUST NOT: strike Column model, Table geometry or Detail rail from 'Composition not built'. All three are read against the RECONNECT wizard's artboards (Review.dc.html and friends) and name what `/reconnect` does not build. Building a split, a grid table and a rail on `/` does not close them. Decide explicitly whether `/`'s versions need entries of their own, and record that decision either way.",
+    "MUST: DL-069's nicegui boundary - only app.py, file_picker.py and __main__.py may import nicegui or pywebview. Every CSS rule, class name and dimension constant lives in theme.py; every decision rule lives in conflict_model.py or another nicegui-free module, because that is the only side the suite can reach. Enforced by an AST walk in tests/test_gui_view_boundary.py.",
+    "MUST: DL-079 - the review table is hand-rolled `ui.row` per record and aggrid is NOT adopted, because aggrid claims the arrow keys Specs binds over that same table. The same reasoning governs any table built here.",
+    "MUST: each milestone closes with a served-page record in docs/, driven in a browser over HTTP, carrying a matches/differs verdict per named surface (DL-084) AND a structural reading per surface (DL-169). DL-190: a milestone that strikes any 'Composition not built' entry closes on its own post-strike record.",
+    "MUST: every new guard is proven to FAIL first - apply the specific mutation, run it, capture the verbatim output, revert, and record both mutation and exact output in the docstring. Beware the guard that is green in exactly the broken state: this project has been bitten three times (FONT_SANS naming IBM Plex while the page painted Segoe UI; a footer assertion the wrong route satisfied; a digest that hashed the empty string).",
+    "MUST: traktor_nml/README.md is the decision-log authority; one statement per decision, cited in prose as `(DL-NNN).`; high-water mark is DL-197, so new entries start at DL-198.",
+    "MUST: line endings per file - app.py is 100% CRLF (read/write with newline=''); theme.py, conflict_model.py, tests/*.py, traktor_nml/README.md and docs/*.md are LF; docs/CLAUDE.md and tests/CLAUDE.md are CRLF with one pre-existing bare LF each. A mixed-ending edit produces a whole-file diff that hides the real change.",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added', 'moved'.",
+    "MUST: never cite a source for something it does not say, line numbers included. Open and check.",
+    "MUST: re-run the keyboard and announcement records - moving the advancing controls between step regions changes tab order.",
+    "MUST NOT: regenerate tests/baselines/manifest.json or the fixture/w002gatefix2 gate fixture.",
+    "MUST NOT: restore a file with `git checkout` - copy aside and restore from the copy.",
+    "MUST NOT: write into or delete build/ or dist/.",
+    "MUST NOT: install anything into the system interpreter. The suite runs with the SYSTEM interpreter at C:\\Users\\marcu\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe, not .venv.",
+    "SHOULD: reuse `.wizard-content-width` and the existing shell rules rather than introducing a second width or band owner; the shell (header band, scrolling middle, footer band, card triplet) is already built and verdicted `matches`."
+  ],
+  "entry_points": [
+    "traktor_nml/gui/app.py:reconstruct - the `/` route. Builds four `.wizard-card` sections, holds `conflict_holder`, `decisions`, `result_holder`, `source_holder`, `base_holder`, and defines `preview()`, `write_output()`, `_render_conflicts()`, `_load()`. Its two primary controls are already built in the footer band via the chrome object. This is the function the step scaffold reshapes.",
+    "traktor_nml/gui/app.py:_render_conflicts - hand-rolled `ui.row` per conflicting track, plus `bulk(input_index)` calling `conflict_model.reference_from_input`, `pick(group, reference)` and `row(group, view)`. This is what step 3's table and rail replace.",
+    "traktor_nml/gui/app.py:_page_chrome - returns the chrome object carrying the middle container, the footer note and the footer action group; both routes enter it. Step regions live inside the middle it yields.",
+    "traktor_nml/gui/app.py:_build_setup_step/_build_scan_step/_build_review_step/_build_write_step - the /reconnect route's step builders and its `state.footer_groups` title->(row, note) mapping with `show_footer_for_step` bound to `stepper.on_value_change`. This is the existing pattern for per-step footers and is the precedent the `/` scaffold should follow or consciously depart from.",
+    "traktor_nml/gui/conflict_model.py - ConflictGroup, ConflictRowView, ConflictDecisions, `conflict_groups()`, `candidate_reference()`, `candidate_holding_input()`, `reference_from_input()`, `write_refusal()`, `write_refusal_sentence()`. Nicegui-free; every new decision rule belongs here.",
+    "traktor_nml/splice.py:ConflictCandidate - `values` (one per attr, in order) and `members` as (input index, primary key) pairs sorted by input index. The key is location-derived (DL-004), so one file in two inputs carries the identical key and the input index tells them apart (DL-148).",
+    "traktor_nml/gui/theme.py:page_stylesheet - the emitted sheet. `.wizard-card`/`-head`/`-title`/`-body`, `.wizard-row`, `.wizard-middle`, `.wizard-header-band`, `.wizard-footer-band`, `.wizard-content-width` are built and verdicted. New table-grid, split and rail rules go here.",
+    "design/reconnect-wizard/Resolve.dc.html - the contract. `.gr` at `minmax(0,1fr) 132px 84px 196px 140px` under a `.th` header row; `.split` at `1fr 400px`; `.det` with `.det-h`/`.det-b`/`.det-f`; `.cand`/`.rad` one per distinct answer; `.tally` and the `Decide all from` bulk buttons; the footer's outstanding count and disabled advancing control.",
+    "tests/test_gui_view_boundary.py - the AST walk enforcing DL-069.",
+    "tests/test_gui_theme.py - already sweeps every `.wizard-*` class the sheet defines for a call site in app.py, asserts `.classes()` calls expand to literals, and bars hex from app.py. New rules are written against these.",
+    "tests/test_gui_shell.py, tests/test_gui_cards.py - the shell and card guards from the previous milestone; the precedent for how a composition guard reads the emitted sheet.",
+    "tests/test_docs_browser_record_structure.py - discovers records in docs/ by name, holds READING_DIGESTS, and checks every structure a record names in a `differs` verdict against a 'Composition not built' entry. A new record must satisfy it."
+  ],
+  "rejected_alternatives": [
+    "aggrid for the conflict table - DL-079 rejects it for the review table because it claims the arrow keys Specs binds; the same objection applies here.",
+    "Building step 3's content without the step scaffold - leaves 'step 3' naming nothing and contradicts the artboard, which draws the rail on every one of the four screens.",
+    "Redesigning steps 1, 2 and 4 in this pass - their artboards exist but building all four is a much larger change; their content moves into step regions unchanged.",
+    "A second design set for the reconstruct workflow - already rejected when the artboards were drawn, because it would fork Specs.dc.html for the header, keyboard map and a11y rules both workflows share.",
+    "Striking the three standing Composition-not-built entries - they are read against the reconnect wizard's artboards and this work does not touch that route."
+  ],
+  "current_understanding": [
+    "The `/` route today: four `.wizard-card` sections in one column at `.wizard-content-width` inside the shell's scrolling middle, with `Preview` and `Write output` in the footer band. Conflicts appear in place below the form after Preview, rendered by `_render_conflicts` as hand-rolled rows.",
+    "The sequence configure -> preview -> resolve -> write is real and enforced, but only in `write_refusal`, which returns one of three refusals: a run that never happened, conflicts outstanding (naming the count), or a run that refused on its own errors. The operator meets the sequence as a warning after clicking Write, never as visible state.",
+    "The shell milestone (commit 3b1ff5d) built the header band, the scrolling middle, the footer band and the card triplet, and a served-page record verdicts all three structures `matches`. Column model, table geometry and detail rail were verdicted `differs` and stand open.",
+    "The four artboards (commit a6cb9c1) are the first drawing of the `/` route. Before them, DL-172's premise held; after them it does not.",
+    "The suite runs under the system interpreter with no nicegui, so every gui/ guard reads source text or walks the AST. No guard exercises a served page - that is what the DL-084 record is for, and it is the only gate that has ever caught a defect in gui/.",
+    "The previous milestone's served-page run found a defect no guard could see: `.wizard-middle` rendered at 775px because its parent `.nicegui-content` carries nicegui's own `align-items: flex-start`. Framework defaults on elements nicegui builds are a live hazard for any new container this work adds."
+  ],
+  "assumptions": [
+    "The `/` route can carry a step scaffold built from the same `ui.stepper` the wizard uses, or from a plainer rail plus swapped regions; which is right depends on whether a Quasar QStepper admits the artboard's header rail and the per-step footer groups (M). The wizard already runs a vertical stepper with `footer_groups` keyed by step title, so the pattern exists either way.",
+    "The artboard's step rail sits in the header band beside the brand, where the wizard's `.rail` sits in `Main.dc.html`. The built header currently carries the brand, a divider and the two section tabs, so the rail has to coexist with the tab strip rather than replace it (M) - the artboards draw a task label and a rail and no tab strip, which is a disagreement Specs has to settle under DL-071.",
+    "The table's five columns can be built as a CSS grid in theme.py with app.py naming only class strings, keeping the hex-free and literal-class rules test_gui_theme.py enforces (H).",
+    "`_render_conflicts`'s existing bulk and pick callbacks can be re-parented into the new table and rail without changing conflict_model's API (M)."
+  ],
+  "invisible_knowledge": [
+    "DL-084's served-page gate is the only gate that has ever caught a defect in gui/ - five in one wave's baseline commit, and one more in the shell milestone. Source-text guards have caught none. The record is the pass condition; the guards are the regression net.",
+    "A guard that reads a name is true in exactly the broken state. Assert the rule's content and the class string app.py names; what the browser resolved belongs to the record. This is DL-165 and DL-189.",
+    "The 'Composition not built' section (DL-170) is distinct from 'Framework shortfalls' (DL-087) and 'Design-set divergences' (DL-088): a shortfall ends when the framework admits the rule, a divergence ends never, and a composition entry ends by being BUILT. Striking one is a claim the structure exists, not that it was excused.",
+    "Specs.dc.html is the cross-screen contract and governs the status taxonomy and keyboard map; docs/nicegui-gui-analysis.md section 4 governs framework mechanics (run.io_bound, ui.log, local_file_picker). An artboard is one screen's rendering of Specs (DL-071, DL-072).",
+    "A resolution names the record that wins - an (input index, primary key) pair - not a base-or-source token, because one file in two inputs carries the identical location-derived key. Two collections holding identical values are ONE candidate, and deciding it decides both. Drawing or coding it as a base-vs-source toggle would be wrong (DL-148).",
+    "The reconstruct page's preview IS the run: `assemble_output` is called with dry_run and the result is held, so the write cannot disagree with what the preview showed. That is why the write is gated on the held result rather than on a re-run.",
+    "app.py's CRLF is not cosmetic - a mixed-ending edit produces a whole-file diff that hides the actual change. The same trap caught tests/CLAUDE.md in the previous milestone, inflating a 4-line change to 144."
+  ],
+  "reference_docs": [
+    "design/reconnect-wizard/Resolve.dc.html - the screen being built.",
+    "design/reconnect-wizard/Reconstruct.dc.html, Preview.dc.html, Write.dc.html - its three siblings; the rail, the task label and the footer pattern are shared across all four.",
+    "design/reconnect-wizard/Specs.dc.html - the cross-screen contract: keyboard map (digits 1-9 pick candidates), status tokens, a11y rules.",
+    "design/reconnect-wizard/Review.dc.html - the reconnect wizard's table and detail rail; the idiom Resolve.dc.html is built on, and the screen whose geometry the standing 'Table geometry' and 'Detail rail' entries are read against.",
+    "design/reconnect-wizard/README.md - the invariants (preview always precedes a write; an output colliding with an input disables writing; every final write needs explicit confirmation and Enter never writes) and the rule that illustrative numbers reconcile across screens.",
+    "traktor_nml/README.md - the decision log DL-001..DL-197, and its 'Composition not built', 'Framework shortfalls' and 'Design-set divergences' sections.",
+    "traktor_nml/gui/README.md - the nicegui boundary, why the wizard drives the cores in process, where Specs and the analysis disagree, and what the guards can and cannot see.",
+    "docs/2026-09-05-wizard-shell-browser-record.md - the shell record; the shape a record with structural verdicts takes, and the `.nicegui-content` defect it caught.",
+    "docs/2026-09-06-wizard-focus-order-browser-record.md - the tab-ring reading this work must re-take, including the note that a focus ring read from script reports the unfocused outline.",
+    "docs/nicegui-gui-analysis.md sections 1-5 - framework mechanics."
+  ]
+}

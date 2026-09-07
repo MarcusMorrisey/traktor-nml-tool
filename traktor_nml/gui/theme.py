@@ -238,6 +238,39 @@ FOCUS_RING_OFFSET = "2px"
 CONTROL_HEIGHT = "32px"
 CONTROL_GAP = SPACE_8
 
+# Resolve.dc.html's own spacing steps, each named for the line that
+# states it: :53's .split gap (16px is SPACE_16 already), :55's .gr cell
+# padding, :57's .th cell padding, the .cand row gap, and the
+# .det-h/.det-b/.det-f insets. A step is a measured value and the rule
+# that spends it says which region it insets (DL-188).
+SPACE_3 = "3px"
+SPACE_7 = "7px"
+SPACE_13 = "13px"
+SPACE_14 = "14px"
+# Resolve.dc.html:53's .split - the content column beside the detail
+# rail, the rail at the width Review.dc.html's own .det carries.
+DETAIL_RAIL_WIDTH = "400px"
+# Resolve.dc.html:55's .gr grid-template-columns, held as one string
+# because the five tracks are one measurement: a column widened alone
+# moves every column beside it, and the header row and the body rows
+# read the identical string so a cell cannot align in one and not the
+# other.
+CONFLICT_GRID_TRACKS = "minmax(0, 1fr) 132px 84px 196px 140px"
+# Resolve.dc.html:23's .st .num - the step rail's own numbered marker,
+# a circle at this size holding the step number or its check mark.
+STEP_MARKER_SIZE = "19px"
+# Resolve.dc.html:79-81's .rad and the dot it carries when chosen. The
+# dot is an element the page renders only for the chosen answer rather
+# than a ::after on the marker, so what carries the chosen state is a
+# class string a guard can read at the call site (DL-189).
+ANSWER_MARKER_SIZE = "15px"
+ANSWER_MARKER_DOT_SIZE = "8px"
+# Resolve.dc.html:79's .rad carries a 1.5px border, thicker than the 1px
+# every other outline on the page takes, so the unchosen marker reads as
+# a control rather than as a hairline. Its own constant because it is the
+# one border width on this screen that is not 1px.
+ANSWER_MARKER_BORDER = "1.5px"
+
 
 def page_stylesheet() -> str:
     """The wizard's stylesheet as one string, every colour and size
@@ -459,4 +492,123 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 /* Main.dc.html:30's .ft-note and :31's .ft-act. */
 .wizard-footer-note {{ margin: 0; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; display: flex; align-items: center; gap: {SPACE_9}; }}
 .wizard-footer-actions {{ display: flex; align-items: center; gap: {SPACE_10}; flex: none; }}
+/* Resolve.dc.html:104's .steprail: the four-step rail as the page
+   region's first row. grid-column: 1 / -1 is carried here for fidelity
+   with the artboard's own declaration and is inert as the sheet stands:
+   .wizard-middle is display: flex; flex-direction: column, and
+   grid-column applies only to a grid item, so the rail already fills the
+   width .wizard-content-width leaves it, because a flex column stretches
+   its items across. The artboard's own main is a single-column grid, where the declaration is equally inert.
+   Giving .wizard-middle a grid display is what would make it live. This
+   is a determinate reading of the sheet, not a question for the served
+   page (DL-189, DL-199). */
+.wizard-step-rail {{ display: flex; gap: {SPACE_2}; align-items: center; grid-column: 1 / -1; }}
+/* Resolve.dc.html:22's .st and :23's .num: one step of the rail and the
+   circular marker it carries. The marker takes its border from
+   currentColor, so a step's own ink is the only thing the two state
+   rules below change. */
+.wizard-step {{ display: flex; align-items: center; gap: {SPACE_8}; padding: {SPACE_6} {SPACE_12}; border-radius: {RADIUS_LG}; font-size: {TYPE_12_5}; color: {TEXT_FAINT}; white-space: nowrap; }}
+.wizard-step-number {{ font: 600 {TYPE_11}/1 {FONT_MONO}; width: {STEP_MARKER_SIZE}; height: {STEP_MARKER_SIZE}; border-radius: 50%; display: grid; place-items: center; border: 1px solid currentColor; flex: none; }}
+/* Resolve.dc.html:24's .st.done and :25-26's .st.now. Both are declared
+   after .wizard-step so the ink of a done or a current step wins at
+   equal specificity, the same ordering .wizard-tab-selected takes
+   against .wizard-tab. */
+.wizard-step-done {{ color: {TEXT_MUTED}; }}
+.wizard-step-current {{ background: {SURFACE_4}; color: {TEXT}; box-shadow: inset 0 0 0 {SPACE_1} {BORDER_STRONG}; font-weight: 600; }}
+/* Resolve.dc.html:26's .st.now .num: the current step's marker,
+   carrying the action blue as its ground and the page ground as its
+   ink - the same pair .wizard-control-primary carries. Its own class
+   rather than a descendant of .wizard-step-current, so the ink is read
+   against the ground the marker actually paints rather than against
+   the ground of the step around it. */
+.wizard-step-number-current {{ background: {ACTION}; border-color: {ACTION}; color: {GROUND}; }}
+/* Resolve.dc.html:41's .fbar and :98's .tally: the strip carrying the
+   bulk actions, and the count sentence at its left. Resolve.dc.html:131
+   sets the two apart with a flex:1 span, so the count reads from the
+   strip's left and the bulk actions from its right. */
+.wizard-bulk-strip {{ display: flex; align-items: center; gap: {SPACE_9}; flex-wrap: wrap; row-gap: {SPACE_9}; }}
+.wizard-strip-spacer {{ flex: 1; }}
+.wizard-tally {{ display: flex; align-items: center; gap: {SPACE_9}; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; white-space: nowrap; margin: 0; }}
+/* Resolve.dc.html:53's .split: the conflict table at the left taking
+   what is left, the detail rail at the right at its fixed width. */
+.wizard-resolve-split {{ display: grid; grid-template-columns: 1fr {DETAIL_RAIL_WIDTH}; gap: {SPACE_16}; min-height: 0; }}
+/* Resolve.dc.html:54's .tbl and :55's .gr: the bordered box the rows
+   sit in, and the five-track grid a header row and every body row are
+   laid out on. Both rows read CONFLICT_GRID_TRACKS, so a cell cannot
+   align in the header and not in the body. */
+.wizard-conflict-table {{ border: 1px solid {BORDER}; border-radius: {RADIUS_XL}; background: {SURFACE_2}; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }}
+.wizard-conflict-grid {{ display: grid; grid-template-columns: {CONFLICT_GRID_TRACKS}; align-items: center; }}
+/* Resolve.dc.html:56-57's .th: the header row's own ground, the rule
+   below it and the mono label its cells carry. */
+.wizard-conflict-header {{ border-bottom: 1px solid {BORDER_STRONG}; background: {SURFACE_3}; }}
+.wizard-conflict-header > * {{ padding: {SPACE_10} {SPACE_12}; font: 600 {TYPE_11}/1.2 {FONT_MONO}; letter-spacing: .07em; text-transform: uppercase; color: {TEXT_FAINT}; }}
+/* Resolve.dc.html:58-59's .tr: the rule under each body row and the
+   inset its cells carry. min-width: 0 is what lets a cell ellipsis
+   inside its own track rather than widening it. */
+.wizard-conflict-row {{ border-bottom: 1px solid {SURFACE_5}; }}
+.wizard-conflict-row > * {{ padding: {SPACE_10} {SPACE_12}; min-width: 0; }}
+/* Resolve.dc.html:60's .tr.sel: the selected row's tinted ground and
+   the action-blue marker inset at its leading edge. */
+.wizard-conflict-row-selected {{ background: {ACTION_TINT_BG_ALT}; box-shadow: inset {SPACE_3} 0 0 {ACTION}; }}
+/* Resolve.dc.html:70's .det and :71, :74, :91's .det-h, .det-b and
+   .det-f: the rail as a bordered column of three bands - a head naming
+   the file, a body holding one control per answer, and a footer holding
+   the keys and the rail's own actions. The rail takes its width from
+   .wizard-resolve-split's second track, so DETAIL_RAIL_WIDTH is
+   written once. */
+.wizard-detail-rail {{ border: 1px solid {ACTION_TINT_BORDER_ALT}; border-radius: {RADIUS_XL}; background: {BORDER_SUBTLE_2}; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }}
+.wizard-detail-head {{ padding: {SPACE_12} {SPACE_14}; border-bottom: 1px solid {BORDER_SUBTLE_5}; display: flex; flex-direction: column; gap: {SPACE_4}; }}
+.wizard-detail-body {{ padding: {SPACE_12} {SPACE_14}; display: flex; flex-direction: column; gap: {SPACE_13}; flex: 1; min-height: 0; }}
+.wizard-detail-foot {{ padding: {SPACE_11} {SPACE_14}; border-top: 1px solid {BORDER_SUBTLE_5}; display: flex; flex-direction: column; gap: {SPACE_9}; }}
+/* Resolve.dc.html:75's .grp and :76's .grp-h: one answer's own block
+   inside the rail's body, and the label row above it carrying the
+   digit that picks it. */
+.wizard-answer-group {{ display: flex; flex-direction: column; gap: {SPACE_7}; }}
+.wizard-answer-group-head {{ display: flex; align-items: center; justify-content: space-between; gap: {SPACE_8}; }}
+/* Resolve.dc.html:77's .cand and :78's .cand.on: one control per
+   distinct answer, and the chosen one's own border and ground. */
+.wizard-answer {{ border: 1px solid {BORDER}; background: {ACTION_TINT_BG}; border-radius: {RADIUS_LG}; padding: {SPACE_8} {SPACE_10}; display: flex; gap: {SPACE_9}; align-items: center; }}
+.wizard-answer-chosen {{ border-color: {ACTION_TINT_BORDER_ALT}; background: {BORDER_SUBTLE_9}; }}
+/* Resolve.dc.html:79's .rad and :81's dot. The dot is its own element,
+   rendered for the chosen answer alone, so what carries the chosen
+   state is a class string at a call site rather than a pseudo-element
+   no guard can read (DL-189). */
+.wizard-answer-marker {{ width: {ANSWER_MARKER_SIZE}; height: {ANSWER_MARKER_SIZE}; border-radius: 50%; border: {ANSWER_MARKER_BORDER} solid {NEUTRAL_INACTIVE}; flex: none; display: grid; place-items: center; }}
+.wizard-answer-chosen .wizard-answer-marker {{ border-color: {ACTION}; }}
+.wizard-answer-dot {{ width: {ANSWER_MARKER_DOT_SIZE}; height: {ANSWER_MARKER_DOT_SIZE}; border-radius: 50%; background: {ACTION}; }}
+/* Resolve.dc.html:68's .dec and :69's .decd: the decision column reads
+   from its right edge in both states - a Choose control while the group
+   is undecided, the winning collection's name beside its own Undo once
+   it is decided. The header's fifth cell is right-aligned by the same
+   reading (Resolve.dc.html:141), so the heading sits over the column it
+   names rather than over the column's empty left. The gap is
+   CONTROL_GAP, not the 6px the artboard's own .dec draws: Specs' 8px
+   between controls is the settled reading wherever the two disagree,
+   which is the divergence "The gap between decision buttons" already
+   records for Review.dc.html's identical pair (DL-088). */
+.wizard-conflict-decision {{ display: flex; gap: {CONTROL_GAP}; justify-content: flex-end; }}
+.wizard-conflict-decided {{ display: flex; align-items: center; gap: {CONTROL_GAP}; justify-content: flex-end; font-size: {TYPE_11_5}; font-weight: 600; white-space: nowrap; }}
+.wizard-conflict-header > *:last-child {{ text-align: right; }}
+/* Resolve.dc.html:92's .det-a and :93's .det-a .btn: the rail's two
+   actions split the footer's width between them, which is why this is
+   its own rule rather than .wizard-control-group - that one packs its
+   controls to the left at their own widths. */
+.wizard-detail-actions {{ display: flex; gap: {SPACE_8}; }}
+.wizard-detail-actions .wizard-control {{ flex: 1; justify-content: center; }}
+/* Resolve.dc.html:94's .keys and :95's .kb: three key hints, each a chip
+   group beside the phrase it performs, rather than one sentence naming
+   the keys in prose - the chips are what Specs' keyboard map draws. */
+/* The chips themselves are .wizard-kbd, the rule emitted above; these
+   two rules set the row and the hint around them, so a key chip reads
+   the same here as it does wherever else the page names one. */
+.wizard-key-row {{ display: flex; align-items: center; gap: {SPACE_13}; flex-wrap: wrap; padding: {SPACE_1} 0 {SPACE_8}; }}
+.wizard-key-hint {{ display: inline-flex; align-items: center; gap: {SPACE_6}; font-size: {TYPE_11_5}; color: {TEXT_FAINT}; }}
+/* Resolve.dc.html:245's .note in the rail's body and :266's .hint under
+   main. .wizard-hint reproduces Resolve.dc.html:100's .hint rule; the
+   artboard declares no rule for .note, and that note sets no colour, so
+   the call site names the ink token it wears and one element cannot end
+   up carrying two colour-setting classes, which tests/test_gui_theme.py
+   holds over every classes() call. */
+.wizard-note {{ display: flex; gap: {SPACE_8}; font-size: {TYPE_12}; line-height: 1.45; }}
+.wizard-hint {{ margin: 0; font-size: {TYPE_12}; color: {TEXT_FAINT}; display: flex; align-items: center; gap: {SPACE_8}; padding-bottom: {SPACE_8}; }}
 """

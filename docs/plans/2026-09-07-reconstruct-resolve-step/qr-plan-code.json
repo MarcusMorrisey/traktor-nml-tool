@@ -1,0 +1,154 @@
+{
+  "phase": "plan-code",
+  "iteration": 4,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every diff applies to the tree at 5a6e469 with correct hunk headers and no collapsed gaps.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Verified: all 13 diffs pass `git apply --check` and apply cleanly in a worktree at 5a6e469."
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Line endings per file: app.py 100% CRLF; theme.py, conflict_model.py, reconstruct_steps.py, tests/*.py, READMEs LF.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Verified post-apply: app.py 2406 CRLF / 0 bare LF; every other touched file 0 CRLF."
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "The suite is green with the whole plan applied.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "610 passed, 7 skipped under the system interpreter."
+    },
+    {
+      "id": "qa-004",
+      "scope": "CC-M-002-006",
+      "check": "DL-069 boundary: reconstruct_steps.py and conflict_model.py import no nicegui and test_gui_view_boundary.py passes.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Neither module imports a framework; the AST walk's allowlist assertion still reads exactly {app.py, file_picker.py, __main__.py}."
+    },
+    {
+      "id": "qa-005",
+      "scope": "CC-M-002-003",
+      "check": "test_the_resolve_table_dispatches_through_the_keymap fails when the resolve dispatch's scope is wrong.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "GREEN IN THE BROKEN STATE. app.py carries two `keymap.SCOPE_TABLE,` occurrences inside _build_reconstruct_page (the Skip-for-now button's inline dispatch at :2099 and the real on_key dispatch at :2194). Changing the real one to SCOPE_DIALOG leaves the substring satisfied by the other: 32 passed. Its docstring's `Observed:` block is empty, so it was never proven to fail.",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "CC-M-002-003",
+      "check": "Every new guard's docstring records the mutation AND pytest's verbatim output (DL-209, the plan's own entry).",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Two new guards carry an empty `Observed:` block: test_gui_resolve_composition.py::test_the_resolve_table_dispatches_through_the_keymap and test_gui_resolve_sheet.py::test_the_answer_control_carries_its_chosen_state_as_its_own_rule. The latter does fail under its named mutation when run; the former does not.",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "CC-M-002-005",
+      "check": "test_a_name_outside_the_keymap_is_caught guards app.py rather than its own literal.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Tautological: it builds the mutated string in the test body and asserts about that string. No change to app.py can fail it. Its Mutation/Observed is prose, not pytest output.",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "CC-M-001-002",
+      "check": "`grid-column: 1 / -1` on .wizard-step-rail is honestly recorded.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "The rail's parent .wizard-middle is `display:flex; flex-direction:column`, so grid-column is inert - determinately, not pending a browser reading. The theme comment and gui/README defer it to the served-page record; the guard is named `test_the_step_rail_spans_the_page_region_from_the_first_column` while asserting only the declaration's presence. A guard whose name claims a rendered fact that is knowably false is the DL-165/DL-189 hazard.",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "CC-M-001-002",
+      "check": "No unrecorded departure from Resolve.dc.html.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Six beyond the two the developer names: (a) .rad border 1.5px -> .wizard-answer-marker 1px (no 1.5px anywhere in theme.py); (b) the Decision column - artboard .dec/.decd are right-aligned and carry a per-row Undo button, plus the header's 5th cell text-align:right; the plan emits no decision-cell rule and renders a plain left-aligned label with no Undo; (c) the rail footer - artboard .det-a is flex with .btn{flex:1} and its primary action is 'Use answer 1'; the plan uses .wizard-control-group with 'Skip for now' / 'Undo this decision' and no primary; (d) artboard .keys' three .kbd chip groups collapsed to one plain sentence label; (e) the .fbar's 'Decide all from' .lbl dropped; (f) the .det-b .note block and main's .hint paragraph not built.",
+      "version": 3
+    },
+    {
+      "id": "qa-010",
+      "scope": "CC-M-002-001",
+      "check": "The tally sentence states only what the run supplies.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "bulk_strip hardcodes 'tracks are held differently by two collections' from the artboard's illustrative copy. The run supports N inputs (labels is built from source_holder), so with three collections the page states a fact the run does not carry.",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "CC-M-002-004",
+      "check": "The three out-of-plan edits to test_gui_conflict_page_controls.py preserve substance.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "Substance preserved: outstanding-call assertion becomes a resolve_gate-call assertion of equal strength; the bulk guard's exact label membership becomes a substring match only because the label text changed, and '1 decided, 1 to go' is still specific. Mild loosening (substring vs whole label) only."
+    },
+    {
+      "id": "qa-012",
+      "scope": "CI-M-003-003",
+      "check": "Intent text agrees with its change.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "note": "CI-M-003-003 says READING_DIGESTS 'carries a digest for each record this work adds'; the change deliberately adds a note and no digests. The intent contradicts its own diff (the missing digests themselves are correct and expected).",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "CI-M-003-001",
+      "check": "Intent text agrees with the README diff on the Composition-not-built entries.",
+      "status": "FAIL",
+      "severity": "COULD",
+      "note": "The intent says the section 'carries the reconstruct page's own column model, table geometry and detail rail entries'; the diff writes 'Three structures the reconstruct page's own artboards draw carry no entry here'. Add-then-strike may be meant, but as written the two disagree.",
+      "version": 2,
+      "finding": "CI-M-003-001 says the reconstruct page carries no Composition-not-built entry and that the three standing entries are each narrowed to name the reconnect route; the README diff does neither cleanly. DL-201 as written states the reconstruct column model/table geometry/detail rail ARE their own entries under that heading and the section intro repeats it, while the closing paragraph and the actual list say they carry no entry - README contradicts itself. And only the Detail rail entry is narrowed: Column model still reads \"every page composes one column at .wizard-content-width\" and Table geometry still reads \"neither table carries a header row\", both false once this work builds the split and the header-row grid on /."
+    },
+    {
+      "id": "qa-014",
+      "scope": "CC-M-001-001",
+      "check": "conflict_model guards fail under their recorded mutations with the recorded output.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "All six mutations reproduced and each fails the named guard; the docstring text is byte-identical to pytest's real output (ellipsis cuts only)."
+    },
+    {
+      "id": "qa-015",
+      "scope": "CC-M-001-004",
+      "check": "Sheet guards fail under their recorded mutations.",
+      "status": "PASS",
+      "severity": "MUST",
+      "note": "Five reproduced (rail width 360px, header gaining its own tracks, rail gaining a width, grid-column deleted, chosen rule reordered): each fails only its own guard."
+    },
+    {
+      "id": "qa-016",
+      "scope": "CC-M-002-003",
+      "check": "test_the_page_enters_one_region_per_step_in_rail_order enforces order for all four steps.",
+      "status": "PASS",
+      "severity": "COULD",
+      "note": "It order-checks SET_UP/PREVIEW/WRITE only; RESOLVE is checked as a bare substring anywhere in the function. The name claims more than the assertion holds.",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "CC-M-001-001",
+      "check": "test_the_module_imports_no_framework's assertion is sound.",
+      "status": "FAIL",
+      "severity": "COULD",
+      "note": "`assert 'nicegui' not in source` over the whole file text forbids conflict_model.py from ever documenting its own boundary in a comment or docstring. It also duplicates test_gui_view_boundary.py's AST walk, and its recorded output (ModuleNotFoundError) is a collection error, not the assertion firing.",
+      "version": 2,
+      "finding": "Unchanged between revisions (CC-M-002-002 is byte-identical apart from an index line; the guard is on reconstruct_steps.py, not conflict_model.py as the scope says). All three objections stand: `assert \"nicegui\" not in source` over the whole file text bars the module from ever naming its own boundary in a comment or docstring; it re-states test_gui_view_boundary.py AST walk; and the recorded Observed, `ModuleNotFoundError: No module named nicegui`, is a collection error raised by the test module importing steps, so the assertion itself was never seen to fire - a DL-209 miss."
+    }
+  ]
+}

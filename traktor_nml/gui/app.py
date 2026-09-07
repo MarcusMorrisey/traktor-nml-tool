@@ -52,6 +52,7 @@ from ..rewrite import read_and_parse_source, write_bytes_atomically
 from ..splice import assemble_output
 from . import conflict_model
 from . import navigation
+from . import reconstruct_steps
 from . import review_model
 # theme.py is the only source for a colour or size literal in this module (DL-078).
 from . import wizard_state
@@ -1541,6 +1542,88 @@ def _collection_labels(sources) -> tuple[str, ...]:
     return ("base", *_source_labels(sources))
 
 
+def _draw_step_rail(rail: ui.element, current: int) -> None:
+    """Redraws the four-step rail over reconstruct_steps.rail_records.
+
+    One span per record, in the order the table returns them, carrying
+    the record's own class string and - on the current record alone -
+    its aria-current value. Neither a number nor a label nor a class
+    name is written here: reconstruct_steps.STEPS holds the table and
+    reconstruct_steps decides which record is current, so this function
+    renders and decides nothing (DL-202, DL-203). The class strings it
+    carries are reconstruct_steps.STEP_CLASS, STEP_DONE_CLASS and
+    STEP_CURRENT_CLASS, whose values are theme.py's own "wizard-step",
+    "wizard-step-done" and "wizard-step-current" rules; the marker
+    carries MARKER_CLASS and MARKER_CURRENT_CLASS, whose values are
+    "wizard-step-number" and "wizard-step-number-current".
+
+    The class string is computed below the framework boundary, so it
+    reaches .classes() through its add= parameter as a value rather
+    than as a literal at this call site; what each entry actually
+    carries is read back from a recording stub in
+    tests/test_gui_reconstruct_steps.py.
+    """
+    rail.clear()
+    with rail:
+        for record in reconstruct_steps.rail_records(current):
+            with ui.element("span").classes(add=record.classes) as entry:
+                ui.label(record.marker).classes(add=record.marker_classes)
+                ui.label(record.label)
+            if record.aria_current is not None:
+                entry.props(f'aria-current="{record.aria_current}"')
+
+
+# The reconstruct route's own name-to-applier table. The wizard's
+# _ACTION_APPLIERS above is typed on _WizardPageState - its appliers read
+# state.review_rows and state.decisions, neither of which this route
+# holds - so the second table dispatches the same action names onto the
+# resolve table's own holder rather than widening the first (DL-205).
+#
+# Its key set is a subset of keymap.ACTION_NAMES and covers every action
+# the resolve table answers, which is what
+# tests/test_gui_keymap.py holds, so DL-080's no-fall-through guarantee
+# covers this table too: a name keymap.dispatch can return and this table
+# does not carry is a suite failure rather than a silent no-op.
+def _reconstruct_move(table: dict, args: dict) -> None:
+    """Moves the resolve table's focus to the index dispatch clamped.
+
+    The move is written through the table's own focus callback rather
+    than into a field of its own, so a move applied by key and one
+    applied by a control land in the one holder the render reads.
+    """
+    table["focus"](args["index"])
+
+
+def _reconstruct_pick(table: dict, args: dict) -> None:
+    """Picks the focused row's nth answer, counting the digit from one.
+
+    Specs binds digits 1-9 to candidate picking over the table, and
+    keymap.dispatch has already refused a digit past the focused row's
+    own candidate count, so the index is inside the row's candidates
+    (DL-071, DL-081).
+    """
+    group = table["groups"][table["holder"]["focused"]]
+    candidate = conflict_model.candidate_for_digit(group.candidates, args["digit"])
+    if candidate is not None:
+        table["pick"](group, conflict_model.candidate_reference(candidate))
+
+
+def _reconstruct_undo(table: dict, args: dict) -> None:
+    """Returns the focused row to undecided, which is the state a key
+    absent from the decision mapping already reads back."""
+    table["reset"](table["groups"][table["holder"]["focused"]])
+
+
+_RECONSTRUCT_ACTION_APPLIERS = {
+    "move_up": _reconstruct_move,
+    "move_down": _reconstruct_move,
+    "move_home": _reconstruct_move,
+    "move_end": _reconstruct_move,
+    "pick_candidate": _reconstruct_pick,
+    "undo_row": _reconstruct_undo,
+}
+
+
 def _build_reconstruct_page() -> None:
     """Registers the playlist-reconstruction screen at '/'.
 
@@ -1580,14 +1663,76 @@ def _build_reconstruct_page() -> None:
         # reads back undecided (DL-107, DL-115).
         decisions = conflict_model.ConflictDecisions()
 
-        # This route composes against the shell both pages are built
-        # from. DL-172 decides what a record may verdict about it, not
-        # which shell it is built from (DL-191). Its holders, its
-        # conflict rendering and its file-picker calls stand as they
-        # are: what differs is where the column and the two primary
-        # controls sit, and that each heading and the controls under it
-        # are a card rather than one box around the whole column.
-        with chrome.middle, ui.column().classes("gap-4 wizard-content-width"):
+        # Which step the page is showing, and the per-step footer
+        # groups the band swaps between. The number is held rather than
+        # derived: reconstruct_steps.reachable says where the operator
+        # may go and this says where they are, and the two are separate
+        # questions (DL-202).
+        step_holder: dict = {"current": reconstruct_steps.SET_UP}
+        footer_groups: dict = {}
+        # The resolve step's advancing control and the row the rail
+        # describes, held so the draw that answers a pick reaches both.
+        resolve_holder: dict = {"advance": None, "focused": 0}
+
+        # The rail is the page region's first row and the four step
+        # regions follow it, one visible at a time. A region is a
+        # container the page enters with a with statement, so each
+        # step's content keeps its own nesting rather than being
+        # re-parented into framework markup, and the rail is a nav of
+        # this module's own spans rather than a QStepper header, which
+        # draws its own numbered strip and no step of the artboard's
+        # rail (DL-199, DL-203).
+        with chrome.middle:
+            rail = ui.element("nav").props('aria-label="Progress"').classes(
+                "wizard-step-rail wizard-content-width"
+            )
+            regions = {
+                number: ui.column().classes("gap-4 wizard-content-width")
+                for number, _ in reconstruct_steps.STEPS
+            }
+
+        def show_step(number: int) -> None:
+            """Shows one step: its region, its footer group and its
+            sentence, and the rail entry marked current.
+
+            Every region and every group is built up front, alongside
+            the step that owns it, so this decides which one is visible
+            rather than which one exists - the same shape the wizard's
+            own show_footer_for_step takes (DL-187).
+            """
+            step_holder["current"] = number
+            for step_number, region in regions.items():
+                region.set_visibility(step_number == number)
+            for step_number, (group, note) in footer_groups.items():
+                group.set_visibility(step_number == number)
+                if step_number == number:
+                    chrome.footer_note.set_text(note)
+            _draw_step_rail(rail, number)
+
+        def advance_to(number: int) -> None:
+            """Walks to one step, or names why it is shut.
+
+            reachable() reads the held run and the resolve gate, so the
+            refusal and the sentence the resolve footer prints are one
+            answer rather than two (DL-204).
+            """
+            gate = conflict_model.resolve_gate(decisions, conflict_holder)
+            if not reconstruct_steps.reachable(
+                number, result_holder["result"] is not None, gate.all_decided
+            ):
+                ui.notify(
+                    conflict_model.write_refusal_sentence(
+                        conflict_model.write_refusal(
+                            result_holder["result"], decisions, conflict_holder
+                        )
+                        or conflict_model.WriteRefusal(conflict_model.NO_PREVIEW)
+                    ),
+                    type="warning",
+                )
+                return
+            show_step(number)
+
+        with regions[reconstruct_steps.SET_UP]:
             ui.label(
                 "My playlists kept their names but lost their contents; an older "
                 "collection still has them."
@@ -1751,8 +1896,6 @@ def _build_reconstruct_page() -> None:
                         value=None,
                     ).classes("w-full")
 
-                    report = ui.column().classes("w-full gap-1")
-
                     def _load():
                         """Reads and parses the chosen files, returning
                         (base_bytes, base_root, contributions) or None with the
@@ -1778,96 +1921,434 @@ def _build_reconstruct_page() -> None:
                         return base_result.source_bytes, base_result.root, contributions
 
 
-                    def _render_conflicts(groups) -> None:
-                        """One hand-rolled ui.row per conflicting track, carrying the
-                        identity key, the attribute names that diverge and one
-                        control per answer the track offers, under the bulk strip
-                        and the outstanding count (Specs.dc.html, "Splice
-                        conflicts").
+                    def _render_resolve() -> None:
+                        """The resolve step: the tally and the bulk strip above
+                        the split, the conflict grid under its header row at the
+                        left, and the detail rail at the right carrying one
+                        control per distinct answer (Resolve.dc.html).
 
-                        Hand-rolled rather than ui.aggrid, which claims the arrow
-                        keys Specs binds over this same table (DL-079, DL-110).
+                        Hand-rolled rows rather than ui.aggrid, which claims the
+                        arrow keys Specs binds over this same table (DL-079,
+                        DL-110). Every row and every answer is a grid cell on
+                        .wizard-conflict-grid, so the header row and the body
+                        rows read one set of tracks.
 
-                        Every state the rows show - the pick held for a group, how
-                        many are still undecided, what a bulk action leaves standing
-                        - is read from conflict_model, which is where the suite can
-                        reach it (DL-069, DL-106).
+                        Every state the step shows - the pick held for a group,
+                        how many are still undecided, what a bulk action leaves
+                        standing - is read from conflict_model, which is where
+                        the suite can reach it (DL-069, DL-106).
                         """
-                        ui.label(
-                            "These tracks are held differently by the collections. "
-                            "Nothing is written while any of them is unsettled."
-                        ).classes("wizard-body-13")
-                        table = ui.column().classes("w-full gap-0")
-                        # One name per input index, the collection being repaired at
-                        # index 0 and each source at its position in the list the
-                        # operator built (DL-154, DL-161).
+                        groups = conflict_holder
+                        region = regions[reconstruct_steps.RESOLVE]
+                        region.clear()
+                        # One name per input index, the collection being repaired
+                        # at index 0 and each source at its position in the list
+                        # the operator built (DL-154, DL-161).
                         labels = _collection_labels(source_holder)
+                        table: dict = {}
 
                         def draw() -> None:
-                            """Redraws the table over the current decisions - the
-                            whole table rather than the row just picked, since a bulk
-                            action moves every undecided row and the count moves with
-                            any pick at all."""
-                            table.clear()
-                            with table:
-                                with ui.row().classes("w-full items-center gap-2"):
-                                    # One bulk action per collection the run reads,
-                                    # each settling the undecided groups its own
-                                    # collection holds a record in and leaving the
-                                    # rest undecided (DL-154).
-                                    for input_index, label in enumerate(labels):
+                            """Redraws the step over the current decisions - the
+                            whole step rather than the row just picked, since a
+                            bulk action moves every undecided row, the count
+                            moves with any pick at all, and the rail describes
+                            whichever row is focused."""
+                            gate = conflict_model.resolve_gate(decisions, groups)
+                            views = decisions.rows(groups)
+                            region.clear()
+                            with region:
+                                bulk_strip(gate)
+                                with ui.element("div").classes("wizard-resolve-split"):
+                                    conflict_table(views)
+                                    detail_rail(views)
+                                # Resolve.dc.html:266's .hint: what a bulk action
+                                # does not reach. It stands under the split
+                                # rather than beside the bulk controls, where it
+                                # would read as a label for them.
+                                ui.label(
+                                    "Deciding all from one collection leaves untouched "
+                                    "any track that collection holds no record of."
+                                ).classes("wizard-hint")
+                            advance = resolve_holder["advance"]
+                            if advance is not None:
+                                advance.set_enabled(gate.all_decided)
+                            footer_groups[reconstruct_steps.RESOLVE] = (
+                                footer_groups[reconstruct_steps.RESOLVE][0],
+                                f"{gate.outstanding} still to decide. Writing stays "
+                                "closed until every one has an answer.",
+                            )
+                            if step_holder["current"] == reconstruct_steps.RESOLVE:
+                                chrome.footer_note.set_text(
+                                    footer_groups[reconstruct_steps.RESOLVE][1]
+                                )
+
+                        def bulk_strip(gate) -> None:
+                            """Resolve.dc.html:41's .fbar: the tally at the left,
+                            the "Decide all from" label, and one bulk action per
+                            collection the run reads, each settling the undecided
+                            groups its own collection holds a record in and
+                            leaving the rest undecided (DL-154).
+
+                            The sentence counts the groups and nothing else. A
+                            group is one candidate set whose members may span a
+                            subset of the inputs, so naming the count of inputs
+                            the run read would attribute the difference to inputs
+                            a group holds no member in - something the run does
+                            not supply. Resolve.dc.html's own copy names the two
+                            collections its illustrative run reads (DL-206).
+                            """
+                            with ui.element("div").classes("wizard-bulk-strip"):
+                                ui.label(
+                                    f"{len(groups)} tracks carry more than one "
+                                    f"answer - {gate.decided} decided, "
+                                    f"{gate.outstanding} to go"
+                                ).classes("wizard-tally")
+                                ui.element("span").classes("wizard-strip-spacer")
+                                ui.label("Decide all from").classes("wizard-label")
+                                for input_index, label in enumerate(labels):
+                                    ui.button(
+                                        f"All {label}",
+                                        on_click=lambda _e=None, index=input_index: bulk(index),
+                                        color=None,
+                                    ).classes("wizard-control wizard-decision-control")
+
+                        def conflict_table(views) -> None:
+                            """Resolve.dc.html:54-60's .tbl: a header row and one
+                            body row per group, both laid out on
+                            .wizard-conflict-grid's five tracks."""
+                            with ui.element("div").classes("wizard-conflict-table"):
+                                with ui.element("div").classes(
+                                    "wizard-conflict-grid wizard-conflict-header"
+                                ).props('role="row"'):
+                                    for heading in (
+                                        "Track", "What differs", "Answers",
+                                        "Held by", "Decision",
+                                    ):
+                                        ui.label(heading)
+                                for index, view in enumerate(views):
+                                    row(index, view)
+
+                        def row(index: int, view) -> None:
+                            """One track's row: its identity key, the attribute
+                            names that diverge, how many answers it offers, the
+                            collections holding it, and its decision. The focused
+                            row alone carries the selected class, which is what
+                            the arrow keys move (Specs.dc.html, "Keyboard")."""
+                            focused = index == resolve_holder["focused"]
+                            classes = "wizard-conflict-grid wizard-conflict-row"
+                            if focused:
+                                classes = (
+                                    "wizard-conflict-grid wizard-conflict-row "
+                                    "wizard-conflict-row-selected"
+                                )
+                            with ui.element("div").classes(add=classes).props(
+                                f'role="row" aria-selected="{str(focused).lower()}"'
+                            ):
+                                ui.label(view.identity_key).classes(
+                                    "font-mono wizard-body-12"
+                                )
+                                ui.label(", ".join(view.attrs)).classes("wizard-body-12")
+                                ui.label(str(len(view.candidates))).classes(
+                                    "font-mono wizard-body-12"
+                                )
+                                ui.label(
+                                    ", ".join(
+                                        sorted(
+                                            {
+                                                labels[input_index]
+                                                for candidate in view.candidates
+                                                for input_index, _ in candidate.members
+                                            }
+                                        )
+                                    )
+                                ).classes("wizard-body-12 wizard-subtle-2")
+                                if view.decision == conflict_model.UNDECIDED:
+                                    with ui.element("div").classes(
+                                        "wizard-conflict-decision"
+                                    ):
                                         ui.button(
-                                            f"All {label}",
-                                            on_click=lambda _e=None, index=input_index: bulk(index),
+                                            "Choose...",
+                                            on_click=lambda _e=None, at=index: focus(at),
+                                            color=None,
+                                        ).classes(
+                                            "wizard-control wizard-decision-control"
+                                        )
+                                else:
+                                    # The decided cell names the collection that
+                                    # won and carries the undo that takes the
+                                    # decision back, so a row is reopened where
+                                    # it was decided rather than only from the
+                                    # rail, which describes one row at a time.
+                                    with ui.element("div").classes(
+                                        "wizard-conflict-decided wizard-status-found"
+                                    ):
+                                        ui.label(labels[view.decision[0]])
+                                        ui.button(
+                                            "Undo",
+                                            on_click=(
+                                                lambda _e=None, chosen=groups[index]:
+                                                reset(chosen)
+                                            ),
+                                            color=None,
+                                        ).classes(
+                                            "wizard-control wizard-decision-control"
+                                        )
+
+                        def detail_rail(views) -> None:
+                            """Resolve.dc.html:70-95's .det: the focused row's
+                            file at the head, one control per distinct answer in
+                            the body, and the keys and actions in the footer.
+
+                            One control per distinct answer rather than one per
+                            collection: two collections holding identical values
+                            are one answer, and deciding it decides both, so a
+                            control names the record that wins rather than the
+                            collection it came from (DL-148, DL-160).
+                            """
+                            with ui.element("div").classes("wizard-detail-rail"):
+                                if not views:
+                                    with ui.element("div").classes("wizard-detail-head"):
+                                        ui.label(
+                                            "Nothing is held differently."
+                                        ).classes("wizard-body-14-5")
+                                    return
+                                view = views[resolve_holder["focused"]]
+                                group = groups[resolve_holder["focused"]]
+                                with ui.element("div").classes("wizard-detail-head"):
+                                    ui.label(view.identity_key).classes(
+                                        "font-mono wizard-body-14-5"
+                                    )
+                                    ui.label(
+                                        "Two collections hold this file with different "
+                                        "values. Pick the one that supplies them."
+                                    ).classes("wizard-body-12 wizard-dim")
+                                with ui.element("div").classes("wizard-detail-body"):
+                                    for position, candidate in enumerate(view.candidates, 1):
+                                        answer(group, view, position, candidate)
+                                    # Resolve.dc.html:245's .note: what a pick
+                                    # names, standing under the answers rather
+                                    # than in the log alone, because the reading
+                                    # it corrects - that an answer is a
+                                    # collection - is the one the operator
+                                    # arrives with (DL-148).
+                                    with ui.element("div").classes(
+                                        "wizard-note wizard-faint"
+                                    ):
+                                        ui.label(
+                                            "A pick names the record that wins, not the "
+                                            "collection it came from. Two collections "
+                                            "holding the identical values are one answer, "
+                                            "and deciding it decides both."
+                                        )
+                                with ui.element("div").classes("wizard-detail-foot"):
+                                    key_hints()
+                                    with ui.element("div").classes(
+                                        "wizard-detail-actions"
+                                    ):
+                                        ui.button(
+                                            "Skip for now",
+                                            on_click=lambda _e=None: focus(
+                                                keymap.dispatch(
+                                                    "ArrowDown",
+                                                    (),
+                                                    keymap.SCOPE_TABLE,
+                                                    row_count=len(views),
+                                                    focused_index=resolve_holder["focused"],
+                                                ).args["index"]
+                                            ),
                                             color=None,
                                         ).classes("wizard-control")
-                                    ui.label(
-                                        f"{decisions.outstanding(groups)} of {len(groups)}"
-                                        " still undecided"
-                                    ).classes("wizard-body-12 wizard-faint")
-                                for group, view in zip(groups, decisions.rows(groups)):
-                                    row(group, view)
+                                        # The rail's primary is the pick itself:
+                                        # the first answer, which is the one the
+                                        # digit 1 takes, so the pointer and the
+                                        # key reach the same decision.
+                                        ui.button(
+                                            "Use answer 1",
+                                            on_click=(
+                                                lambda _e=None, at=group,
+                                                named=conflict_model.candidate_reference(
+                                                    view.candidates[0]
+                                                ): pick(at, named)
+                                            ),
+                                            color=None,
+                                        ).classes("wizard-control wizard-control-primary")
+
+                        def key_hints() -> None:
+                            """Resolve.dc.html:94's .keys: three chip groups,
+                            each naming its own keys beside what they do, rather
+                            than one sentence listing them in prose. A chip is
+                            what Specs.dc.html's "Keyboard" section draws, and
+                            the digits, the arrows and U are the three rows it
+                            binds over a table (DL-071)."""
+                            with ui.element("div").classes("wizard-key-row"):
+                                # The digits are a range and the artboard sets
+                                # its two chips apart with an en dash; the
+                                # arrows are two keys side by side and carry
+                                # none.
+                                for chips, between, phrase in (
+                                    (("1", "9"), "\u2013", "pick an answer"),
+                                    (("\u2191", "\u2193"), "", "move"),
+                                    (("U",), "", "undo"),
+                                ):
+                                    with ui.element("span").classes("wizard-key-hint"):
+                                        for position, chip in enumerate(chips):
+                                            if position and between:
+                                                ui.label(between)
+                                            ui.label(chip).classes("wizard-kbd")
+                                        ui.label(phrase)
+
+                        def answer(group, view, position: int, candidate) -> None:
+                            """One control per distinct answer, carrying the
+                            digit that picks it and the values it supplies. The
+                            decision the view holds is compared against this
+                            candidate's own reference, so the chosen answer alone
+                            carries the chosen class and this module holds no
+                            reading of what a decision means."""
+                            reference = conflict_model.candidate_reference(candidate)
+                            chosen = view.decision == reference
+                            with ui.element("div").classes("wizard-answer-group"):
+                                with ui.element("div").classes("wizard-answer-group-head"):
+                                    ui.label(f"Answer {position}").classes("wizard-label")
+                                    ui.label(str(position)).classes("wizard-kbd")
+                                classes = "wizard-answer"
+                                if chosen:
+                                    classes = "wizard-answer wizard-answer-chosen"
+                                supplied_by = ", ".join(
+                                    labels[index] for index, _ in candidate.members
+                                )
+                                with ui.element("div").classes(add=classes):
+                                    with ui.element("span").classes(
+                                        "wizard-answer-marker"
+                                    ).props(
+                                        f'role="img" aria-label='
+                                        f'"{"Chosen" if chosen else "Not chosen"}"'
+                                    ):
+                                        if chosen:
+                                            ui.element("span").classes("wizard-answer-dot")
+                                    ui.button(
+                                        f"{supplied_by} {' | '.join(candidate.values)}",
+                                        on_click=(
+                                            lambda _e=None, at=group, named=reference:
+                                            pick(at, named)
+                                        ),
+                                        color=None,
+                                    ).classes(
+                                        "wizard-control font-mono wizard-body-11-5 "
+                                        "wizard-subtle-5"
+                                    )
 
                         def bulk(input_index: int) -> None:
+                            """Settles every group the collection at
+                            input_index holds a record in, on that record.
+
+                            The reference comes from
+                            conflict_model.reference_from_input rather than
+                            from a collection token, so a group that
+                            collection holds no record in is left undecided
+                            rather than settled on a name that matches
+                            nothing (DL-148).
+                            """
                             decisions.resolve_all(
                                 groups, conflict_model.reference_from_input(input_index)
                             )
                             draw()
 
                         def pick(group, reference) -> None:
+                            """Settles one group on the record `reference`
+                            names, then redraws.
+
+                            reference is an (input index, primary key) pair
+                            from conflict_model.candidate_reference: one file
+                            in two inputs carries the identical
+                            location-derived key, so the input index is what
+                            tells the two apart, and two collections holding
+                            identical values are one answer that this settles
+                            for both (DL-004, DL-148).
+                            """
                             decisions.resolve(group, reference)
                             draw()
 
-                        def row(group, view) -> None:
-                            """One track's row, offering one control per answer the
-                            group carries. The decision the view holds indexes the
-                            selected class straight onto the candidate reference the
-                            view names, so the chosen answer alone carries the
-                            selected fill and this module holds no reading of what a
-                            decision means."""
-                            selected = {view.decision: "wizard-decision-accept"}
-                            with ui.row().classes("w-full items-center gap-3 wizard-row"):
-                                ui.label(view.identity_key).classes(
-                                    "font-mono wizard-body-12 grow"
-                                )
-                                ui.label(", ".join(view.attrs)).classes("wizard-label")
-                                for candidate in view.candidates:
-                                    reference = conflict_model.candidate_reference(candidate)
-                                    supplied_by = ", ".join(
-                                        labels[index] for index, _ in candidate.members
-                                    )
-                                    ui.button(
-                                        f"{supplied_by} {' | '.join(candidate.values)}",
-                                        on_click=(
-                                            lambda _e=None, chosen=group, named=reference:
-                                            pick(chosen, named)
-                                        ),
-                                        color=None,
-                                    ).classes(
-                                        "wizard-control font-mono wizard-body-12 "
-                                        f"{selected.get(reference, 'wizard-tag-action-outline')}"
-                                    )
+                        def reset(group) -> None:
+                            """Returns one group to undecided.
 
+                            The decision is dropped from the mapping rather
+                            than written as an undecided token, because a key
+                            absent from the mapping reads back undecided.
+                            """
+                            decisions.reset(group.identity_key)
+                            draw()
+
+                        def focus(index: int) -> None:
+                            """Moves the row the detail rail describes.
+
+                            The index is written into the one holder the
+                            redraw reads, so a move applied by key and one
+                            applied by a control land in the same field.
+                            """
+                            resolve_holder["focused"] = index
+                            draw()
+
+                        def on_key(event) -> None:
+                            """Resolves a keypress through keymap.dispatch at
+                            SCOPE_TABLE and applies it through this route's own
+                            applier table.
+
+                            A name dispatch returns that the table does not carry
+                            is a no-op here and a suite failure in
+                            tests/test_gui_keymap.py, which pins the table's key
+                            set against the actions this table answers (DL-080,
+                            DL-205).
+                            """
+                            if not groups or step_holder["current"] != reconstruct_steps.RESOLVE:
+                                return
+                            action = keymap.dispatch(
+                                event.key.name,
+                                tuple(
+                                    name
+                                    for name, held in (
+                                        ("shift", event.modifiers.shift),
+                                        ("ctrl", event.modifiers.ctrl),
+                                        ("alt", event.modifiers.alt),
+                                    )
+                                    if held
+                                ),
+                                keymap.SCOPE_TABLE,
+                                row_count=len(groups),
+                                focused_index=resolve_holder["focused"],
+                                candidate_count=len(
+                                    groups[resolve_holder["focused"]].candidates
+                                ),
+                            )
+                            if action is None:
+                                return
+                            applier = _RECONSTRUCT_ACTION_APPLIERS.get(action.name)
+                            if applier is not None:
+                                applier(table, action.args)
+
+                        # What an applier is handed: the groups it indexes, the
+                        # holder carrying the focused row, and the three
+                        # callbacks that write a decision. The holder itself is
+                        # passed rather than a copy of its value, so a move
+                        # applied by key and one applied by a control land in the
+                        # one field the render reads.
+                        table.update(
+                            {
+                                "groups": groups,
+                                "holder": resolve_holder,
+                                "focus": focus,
+                                "pick": pick,
+                                "reset": reset,
+                            }
+                        )
+
+                        # Registered once for the life of the page rather than
+                        # per redraw: ui.keyboard binds a handler, and a second
+                        # preview would otherwise bind a second one over the same
+                        # keys. on_key reads conflict_holder, which preview
+                        # rewrites in place, so the one handler always dispatches
+                        # over the groups the last run reported.
+                        if resolve_holder.get("keyboard") is None:
+                            resolve_holder["keyboard"] = ui.keyboard(on_key=on_key)
                         draw()
 
                     async def preview() -> None:
@@ -1892,6 +2373,8 @@ def _build_reconstruct_page() -> None:
                         groups = conflict_model.conflict_groups(result.conflict_rows)
                         conflict_holder[:] = groups
                         result_holder["result"] = result
+                        _render_resolve()
+                        show_step(reconstruct_steps.PREVIEW)
                         report.clear()
                         with report:
                             if result.errors:
@@ -1907,7 +2390,11 @@ def _build_reconstruct_page() -> None:
                                     # run returned, so those rows stand in its place;
                                     # every other token renders as the token it is.
                                     if error == conflict_model.CONFLICT_ABORT_TOKEN and groups:
-                                        _render_conflicts(groups)
+                                        ui.label(
+                                            f"{len(groups)} tracks are held differently "
+                                            "by two collections. Resolve names each one "
+                                            "and offers its answers."
+                                        ).classes("wizard-body-13")
                                         continue
                                     ui.label(error).classes("font-mono wizard-body-12 text-warning")
                                 return
@@ -1960,19 +2447,81 @@ def _build_reconstruct_page() -> None:
                         )
                         ui.notify(f"Written to {output_path}", type="positive")
 
+        with regions[reconstruct_steps.PREVIEW]:
+            with ui.element("section").classes("wizard-card wizard-content-width"):
+                with ui.element("div").classes("wizard-card-head"):
+                    ui.label("What this merge would write").classes("wizard-card-title")
+                with ui.element("div").classes("wizard-card-body"):
+                    report = ui.column().classes("w-full gap-1")
+
+        with regions[reconstruct_steps.WRITE]:
+            with ui.element("section").classes("wizard-card wizard-content-width"):
+                with ui.element("div").classes("wizard-card-head"):
+                    ui.label("Write the output").classes("wizard-card-title")
+                with ui.element("div").classes("wizard-card-body"):
+                    ui.label(
+                        "The preview is the run, so this writes the output that "
+                        "preview already assembled."
+                    ).classes("wizard-body-13")
+
         # Main.dc.html:29's .ft holds the screen's advancing action, so
-        # both primary controls are constructed in the band. Each invokes
-        # the function this page defines above - a with statement opens
-        # no scope of its own, so both names are in reach here - which is
-        # how each control exists once and its enabled state is held once
-        # (DL-187).
-        chrome.footer_note.set_text(
-            "Preview reads the collections; Write output writes a new file."
-        )
+        # every primary control is constructed in the band, one group
+        # per step, and show_step decides which group the band shows.
+        # Each invokes a function this page defines above - a with
+        # statement opens no scope of its own, so every name is in reach
+        # here - which is how each control exists once and its enabled
+        # state is held once (DL-187).
         with chrome.footer_actions:
-            ui.button("Preview", on_click=preview, color=None).classes(
-                "wizard-control"
-            )
-            ui.button("Write output", on_click=write_output, color=None).classes(
-                "wizard-control wizard-control-primary"
-            )
+            with ui.row().classes("wizard-footer-actions") as setup_actions:
+                ui.button("Preview", on_click=preview, color=None).classes(
+                    "wizard-control wizard-control-primary"
+                )
+            with ui.row().classes("wizard-footer-actions") as preview_actions:
+                ui.button(
+                    "Back to set up",
+                    on_click=lambda: show_step(reconstruct_steps.SET_UP),
+                    color=None,
+                ).classes("wizard-control")
+                ui.button(
+                    "Continue to resolve",
+                    on_click=lambda: advance_to(reconstruct_steps.RESOLVE),
+                    color=None,
+                ).classes("wizard-control wizard-control-primary")
+            with ui.row().classes("wizard-footer-actions") as resolve_actions:
+                ui.button(
+                    "Back to the preview",
+                    on_click=lambda: show_step(reconstruct_steps.PREVIEW),
+                    color=None,
+                ).classes("wizard-control")
+                resolve_holder["advance"] = ui.button(
+                    "Continue to write",
+                    on_click=lambda: advance_to(reconstruct_steps.WRITE),
+                    color=None,
+                ).classes("wizard-control wizard-control-primary")
+            with ui.row().classes("wizard-footer-actions") as write_actions:
+                ui.button(
+                    "Back to resolve",
+                    on_click=lambda: show_step(reconstruct_steps.RESOLVE),
+                    color=None,
+                ).classes("wizard-control")
+                ui.button("Write output", on_click=write_output, color=None).classes(
+                    "wizard-control wizard-control-primary"
+                )
+
+        footer_groups[reconstruct_steps.SET_UP] = (
+            setup_actions,
+            "Preview reads the collections; nothing is written by it.",
+        )
+        footer_groups[reconstruct_steps.PREVIEW] = (
+            preview_actions,
+            "This is what the merge would write. Nothing is written yet.",
+        )
+        footer_groups[reconstruct_steps.RESOLVE] = (
+            resolve_actions,
+            "Writing stays closed until every track has an answer.",
+        )
+        footer_groups[reconstruct_steps.WRITE] = (
+            write_actions,
+            "Write output writes the file the preview assembled.",
+        )
+        show_step(reconstruct_steps.SET_UP)

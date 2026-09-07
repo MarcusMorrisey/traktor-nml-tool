@@ -573,8 +573,8 @@ def test_no_decision_arithmetic_is_written_inline() -> None:
     meaning of a pick come from conflict_model, which is where the suite
     can reach them (DL-069, DL-106).
 
-    Observed to fail against a real mutation: replacing the outstanding
-    count's `decisions.outstanding(groups)` in app.py with
+    Observed to fail against a real mutation: replacing the gate's
+    `conflict_model.resolve_gate(decisions, groups)` in app.py with
     `sum(1 for view in decisions.rows(groups) if view.decision == "undecided")`
     and running this test raised:
         AssertionError: the page must not count decisions itself; it
@@ -597,11 +597,12 @@ def test_no_decision_arithmetic_is_written_inline() -> None:
         if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub))
     ]
     assert not arithmetic, (
-        "the page must hold no count arithmetic; the outstanding count is "
-        "read from conflict_model.ConflictDecisions.outstanding"
+        "the page must hold no count arithmetic; the outstanding count and "
+        "the decided count are read from conflict_model.resolve_gate"
     )
-    assert _calls(page, "outstanding"), (
-        "the page must render conflict_model's outstanding count"
+    assert _calls(page, "resolve_gate"), (
+        "the page must read conflict_model's resolve gate, which carries the "
+        "outstanding count and the advancing control's enabled state together"
     )
 
 
@@ -709,9 +710,15 @@ def test_a_bulk_action_leaves_a_row_its_collection_holds_no_record_in_undecided(
     assert driven.resolutions[-1] == {held: (2, held)}, (
         "bravo's bulk action must settle only the group bravo holds a record in"
     )
-    assert "1 of 2 still undecided" in driven.label_texts(), (
+    # The phrase read back is the tally's own, the sentence the resolve
+    # step's footer prints from conflict_model.resolve_gate's two counts;
+    # it is read off the labels the drive recorded rather than off the
+    # gate, so what is held is what the page rendered.
+    assert any(
+        "1 decided, 1 to go" in str(text) for text in driven.label_texts()
+    ), (
         "the group bravo holds no record in must still be counted as undecided; "
-        f"the page rendered {[text for text in driven.label_texts() if 'undecided' in str(text)]}"
+        f"the page rendered {[text for text in driven.label_texts() if 'to go' in str(text)]}"
     )
 
 

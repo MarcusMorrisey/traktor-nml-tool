@@ -1,0 +1,226 @@
+{
+  "phase": "plan-docs",
+  "iteration": 1,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "No added documentation line uses change-relative language ('previously', 'now', 'no longer', 'added', 'moved', 'unchanged', 'still not'). Known violations: CC-M-003-001 DL-200 'and now has one', DL-205 'keymap.py is unchanged', DL-206 'ui.aggrid is still not adopted'; CC-M-002-005 comment and docstring 'keymap.py is unchanged'; CC-M-002-003 'has now shipped three times'; CC-M-001-001 'no longer match'.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "CC-M-003-001",
+      "check": "DL-200 reads 'a structural verdict has a drawn structure to read against', with no 'now'.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "CC-M-003-001",
+      "check": "DL-205 states what keymap.py carries rather than that it is unchanged.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "CC-M-003-001",
+      "check": "DL-206 reads 'ui.aggrid is not adopted', with no 'still'.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "CC-M-002-005",
+      "check": "The module comment and the guard docstring state keymap.py's bindings as they stand, not that keymap.py is unchanged.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "CC-M-003-001",
+      "check": "DL-201 states one end state, not a mint-then-strike transit: the reconstruct page's column model, table geometry and detail rail carry no entry under 'Composition not built', because gui/ composes all three on /. planning_context DL-201, RA-007 and readme_entries must be rewritten to match, since no commit boundary in this plan exists at which a minted entry would be true.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-composition-not-built",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "CC-M-003-001",
+      "check": "Nothing is struck from 'Composition not built' in M-003, so the closing paragraph must not cite DL-190 and the record must not be named or described as a post-strike/composition-strike record.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-composition-not-built",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "CC-M-002-001",
+      "check": "reset()'s docstring cites DL-115 for 'a key absent from the mapping already reads back undecided'. DL-115 states the re-preview key/candidate match rule and says no such thing. Drop the citation or cite a decision that states it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-citations",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "CC-M-003-001",
+      "check": "planning_context DL-209 (each milestone closes on its own served-page record) has no entry in the README diff; the diff numbers the mutation/verbatim-output decision DL-209 instead. Renumber so every planned decision DL-198..DL-210 has exactly one statement.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decision-log-numbering",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "readme_entries",
+      "check": "The traktor_nml readme_entries summary says DL-198..DL-209 and describes DL-201 as minting entries and DL-209 as the per-milestone record; it must match the entries actually written (DL-198..DL-210).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decision-log-numbering",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "CC-M-003-001, CC-M-003-002",
+      "check": "'Resolve.dc.html:104 draws .steprail inside main' is a false citation: :104 is the .steprail CSS rule; the nav inside main is at :121 (main opens at :120). Cite :121 for placement and :104 for the rule.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-citations",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "CC-M-003-001",
+      "check": "DL-191's own statement (README ~L886-890: the two-column main, the review table's grid geometry and the 400px detail rail 'stand as written') is left untouched while the three entries it governs are rewritten and theme.py starts emitting a two-column rule, a grid table and a rail. Either revise DL-191 the way DL-200 revises DL-172, or stop claiming the entries stand as written.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-composition-not-built",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "CC-M-003-002",
+      "check": "gui/README.md contradicts itself on the rail: the new section says the rail running the region's width is a reading of the sheet and not a question for a served page, while the closing paragraph puts where the rail lands in the page region in the record. Given the .nicegui-content align-items: flex-start defect, the rendered width is a record reading; only the inertness of grid-column: 1 / -1 is a sheet reading.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-sheet-vs-served-page",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "M-002, M-003",
+      "check": "docs/2026-09-09-reconstruct-resolve-browser-record.md and docs/2026-09-10-composition-strike-browser-record.md are named in milestone files lists and cited from traktor_nml/README.md, but no code_change writes either, and no docs/CLAUDE.md index row is planned for either. Add the record-writing change and the index row in the same commit that writes each record.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-browser-records",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "M-001, M-002",
+      "check": "DL-198..DL-210 are cited from code and test docstrings in M-001 and M-002 but minted only in M-003's commit, so at those two commits the citations name nothing. Land each decision's README statement in the milestone whose commit first cites it, or state why the log trails.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decision-log-numbering",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "CC-M-003-001",
+      "check": "DL-205 characterises the second applier table as satisfying DL-080. DL-080's guard pins _ACTION_APPLIERS' key set to keymap.ACTION_NAMES; a subset of ACTION_NAMES in a second table is a different property. State the second table's own guarantee rather than implying DL-080's guard reaches it.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-citations",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "CC-M-003-003",
+      "check": "The comment's closing clause ('it stops skipping when the run that writes the record writes its digest here too') describes an intended future write. Say what the file holds; and say which change writes the two digests, since no planned code_change does.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-browser-records",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "M-002, M-003",
+      "check": "Record filenames are dated 2026-09-09 and 2026-09-10 while today is 2026-09-07. A record is named for the day its run happened; fixing the date in the plan will misname it if the run lands on another day.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-browser-records",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "*",
+      "check": "Every artboard line citation resolves to what the cited line says. Verified correct at 5a6e469: Resolve.dc.html :22 .st, :23 .num, :24 .st.done, :25-26 .st.now and .st.now .num, :41 .fbar, :53 .split, :54 .tbl, :55 .gr five tracks, :56-57 .th, :58-59 .tr, :60 .tr.sel, :68 .dec, :69 .decd, :70 :71 :74 :91 .det .det-h .det-b .det-f, :75 .grp, :76 .grp-h, :77-78 .cand, :79-81 .rad, :92-93 .det-a, :94 .keys, :95 .kb, :98 .tally, :100 .hint, :104 .steprail rule, :122-124 rail markers, :131 flex:1 spacer, :141 right-aligned fifth heading, :245 .note, :266 .hint; Main 1fr 400px, Confirm 1fr 404px, Results 1fr 384px, Review .gr 126px minmax(0,1fr) 100px 196px 134px; canvas.json 14 artboards, 4 on page-3. The negative claim that the artboard declares no rule for .note holds. Only the :104 placement claim (qa-007) fails.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "CC-M-001-002, CC-M-002-001",
+      "check": "The prior pass's three citation errors are corrected and not reintroduced: .keys is cited at :94 (CC-M-002-001 fixes :91 to :94), .kb at :95, and .wizard-hint reproduces Resolve.dc.html:100's .hint. Confirmed correct.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-citations",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "M-002 record",
+      "check": "M-002's record reads /'s column model, table geometry and detail rail. If any reads differs, test_every_structure_a_record_names_resolves_in_the_decision_log demands a 'Composition not built' entry that DL-201 says does not exist. Say what the record does when a / structure reads differs.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-composition-not-built",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "*",
+      "check": "Every code_change with a non-empty diff carries a doc_diff. M-003's three changes carry header-only doc_diffs because their diffs are themselves documentation; confirm that is intended rather than a dropped overlay.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "*",
+      "check": "Every doc_diff is a valid unified diff with correct paths and hunk headers, and every added .md or .py line respects the per-file line ending rule (traktor_nml/README.md, gui/README.md, docs/*.md and tests/*.py LF; docs/CLAUDE.md CRLF).",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-020",
+      "scope": "*",
+      "check": "Added comments give the reason, not a restatement of the code. The docstrings on bulk, pick, reset, focus, _record and _classes and the theme rule comments read as WHY; confirm no added comment merely names what the line does.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    }
+  ]
+}

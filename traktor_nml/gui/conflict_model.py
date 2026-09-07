@@ -314,6 +314,75 @@ class ConflictDecisions:
         ]
 
 
+@dataclass(frozen=True)
+class ResolveGate:
+    """The resolve step's own gate: how many groups carry no answer,
+    how many carry one, and whether the step may be left.
+
+    One value carrying both, because the footer's sentence and the
+    advancing control's enabled state are one fact read twice: a count
+    computed for the sentence and an emptiness computed again for the
+    control can disagree, and the disagreement shows as a control the
+    operator can press over a sentence saying they cannot (DL-204).
+    """
+
+    # Groups carrying no answer yet: the number the footer's sentence
+    # prints.
+    outstanding: int
+    # Groups carrying one: the second number of the same sentence, held
+    # beside the first so the two are read off one walk rather than
+    # counted twice.
+    decided: int
+    # Whether the resolve step may be left, which is `outstanding == 0`
+    # and not a second count over the groups (DL-204).
+    all_decided: bool
+
+
+def resolve_gate(
+    decisions: ConflictDecisions, groups: Iterable[ConflictGroup]
+) -> ResolveGate:
+    """The gate over these groups: the count of undecided groups and
+    whether every one carries an answer.
+
+    groups is walked once and all_decided is derived from that one
+    count, so the two can never disagree. A group whose membership or
+    whose answers differ from the ones its held pick was made against
+    reads undecided here for the reason decision() gives, so a
+    re-preview offering different answers shuts the gate (DL-158,
+    DL-204).
+
+    No group at all reads zero outstanding and an open gate: a run that
+    reported no divergence has nothing to resolve, and the step it gates
+    is one the operator passes straight through.
+    """
+    held = list(groups)
+    outstanding = decisions.outstanding(held)
+    return ResolveGate(
+        outstanding=outstanding,
+        decided=len(held) - outstanding,
+        all_decided=outstanding == 0,
+    )
+
+
+def candidate_for_digit(
+    candidates: tuple[ConflictCandidate, ...], digit: int
+) -> Optional[ConflictCandidate]:
+    """The answer Specs' digit keys name, counting from one, or None
+    where the group offers no such answer.
+
+    Specs binds digits 1-9 to candidate picking and the page renders the
+    same digit beside each answer, so the digit and the position are one
+    fact and it is counted here rather than at a call site: a page
+    subtracting one itself would hold a decision rule the suite cannot
+    reach (DL-069, DL-071). A digit outside the group's answers reads
+    None rather than raising, which is the same answer keymap.dispatch
+    gives for a digit past the focused row's candidate count.
+    """
+    if digit < 1 or digit > len(candidates):
+        return None
+    return candidates[digit - 1]
+
+
 def write_refusal(
     result: Optional[SpliceResult],
     decisions: ConflictDecisions,

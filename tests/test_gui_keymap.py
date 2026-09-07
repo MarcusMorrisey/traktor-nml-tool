@@ -532,3 +532,103 @@ def test_jump_to_search_has_no_entry():
         candidate_count=9,
     )
     assert action is None
+
+
+# The reconstruct route carries a second applier table. keymap.py itself
+# carries the digit bindings both tables read: its entries bind digits
+# 1-9 to pick_candidate at SCOPE_TABLE. What these two guards hold is
+# that the second table is inside the contract the first is held to
+# (DL-205).
+#
+# The table is read out of app.py's source text rather than imported:
+# app.py imports nicegui and the suite runs under an interpreter that has
+# none, so a regex over the file is the only reading of that module
+# available here (DL-069).
+_RECONSTRUCT_TABLE = re.compile(
+    r"_RECONSTRUCT_ACTION_APPLIERS\s*=\s*\{(.*?)\n\}", re.DOTALL
+)
+
+# The actions the resolve table answers: the four movements Specs binds
+# over a table, the digit pick, and the per-row undo. Written here rather
+# than derived from the table under test, so a name dropped from the
+# table is a failure rather than a shrinking expectation.
+_RESOLVE_TABLE_ACTIONS = {
+    "move_up",
+    "move_down",
+    "move_home",
+    "move_end",
+    "pick_candidate",
+    "undo_row",
+}
+
+
+def _reconstruct_applier_keys() -> set:
+    """The key set _RECONSTRUCT_ACTION_APPLIERS' source text binds."""
+    source = _APP_PY.read_text(encoding="utf-8")
+    match = _RECONSTRUCT_TABLE.search(source)
+    assert match is not None, "_RECONSTRUCT_ACTION_APPLIERS table not found in app.py"
+    return set(re.findall(r'"([a-z_]+)":', match.group(1)))
+
+
+def test_the_reconstruct_applier_table_is_inside_the_keymap_contract():
+    """Every key _RECONSTRUCT_ACTION_APPLIERS binds is an action name
+    keymap.dispatch can return, and the table holds an applier for every
+    action the resolve table answers. A name the table does not carry
+    would be a keypress that resolves and then does nothing, which is
+    what DL-080's no-fall-through guarantee exists to prevent.
+
+    Mutation: the `"undo_row": _reconstruct_undo,` line was deleted from
+    _RECONSTRUCT_ACTION_APPLIERS in app.py and this guard rerun.
+    Observed:
+        E       AssertionError: the resolve table answers an action with no applier: {'undo_row'}
+        E       assert {'undo_row'} == set()
+        E
+        E         Extra items in the left set:
+        E         'undo_row'
+        E         Use -v to get more diff
+
+    Mutation, the other direction: `"pick_collection": _reconstruct_pick,`
+    - a name keymap.ENTRIES carries no row for - was added to
+    _RECONSTRUCT_ACTION_APPLIERS in app.py and this guard rerun.
+    Observed:
+        E       AssertionError: the table binds a name keymap cannot return: {'pick_collection'}
+        E       assert {'pick_collection'} == set()
+        E
+        E         Extra items in the left set:
+        E         'pick_collection'
+        E         Use -v to get more diff
+    """
+    keys = _reconstruct_applier_keys()
+    outside = keys - set(keymap.ACTION_NAMES)
+    assert outside == set(), (
+        f"the table binds a name keymap cannot return: {outside}"
+    )
+    unanswered = _RESOLVE_TABLE_ACTIONS - keys
+    assert unanswered == set(), (
+        f"the resolve table answers an action with no applier: {unanswered}"
+    )
+
+
+def test_the_digit_entries_stay_bound_to_pick_candidate_over_the_table():
+    """keymap.py carries the digit bindings: digits 1-9 resolve to
+    pick_candidate at SCOPE_TABLE, and the resolve table reads that
+    binding rather than declaring one of its own (DL-071, DL-205).
+
+    Mutation: the digit expansion's scope in ENTRIES was changed from
+    SCOPE_TABLE to SCOPE_DIALOG in keymap.py and this guard rerun.
+    Observed:
+        E           AssertionError: digits 1-9 pick a candidate over the table
+        E           assert None is not None
+    """
+    for digit in range(1, 10):
+        action = keymap.dispatch(
+            str(digit),
+            (),
+            keymap.SCOPE_TABLE,
+            row_count=9,
+            focused_index=0,
+            candidate_count=9,
+        )
+        assert action is not None, "digits 1-9 pick a candidate over the table"
+        assert action.name == "pick_candidate"
+        assert action.args == {"digit": digit}
