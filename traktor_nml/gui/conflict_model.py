@@ -481,14 +481,22 @@ def write_refusal_sentence(refusal: WriteRefusal) -> str:
             "Choose a collection for each row above, then run Preview again."
         )
     if refusal.reason == RUN_REFUSED:
-        # The page has already drawn "Nothing was written." above the
-        # controls with one line per error token, so the sentence names
-        # the first of those tokens and sends the operator to that
-        # report for the rest rather than inventing a count.
-        named = refusal.errors[0] if refusal.errors else "the run reported no reason"
+        # The preview step draws the run's own reasons, one per token, so
+        # this names how many there are and sends the operator to the step
+        # that lists them rather than printing one token here and leaving
+        # the rest unmentioned. It names the step by the control that
+        # walks to it, because a sentence naming a place the operator
+        # cannot see from here is a sentence they cannot act on (DL-229).
+        count = len(refusal.errors)
+        if not count:
+            return (
+                "The preview stopped and gave no reason. Nothing was "
+                "written."
+            )
+        reasons = "reason" if count == 1 else "reasons"
         return (
-            f"The preview stopped: {named}. Nothing was written; see the "
-            "report above the controls for what stopped this run."
+            f"The preview stopped and nothing was written. Back to the "
+            f"preview lists the {count} {reasons} it gave."
         )
     return f"Write refused: {refusal.reason}"
 

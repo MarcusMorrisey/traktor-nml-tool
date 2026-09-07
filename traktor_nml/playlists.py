@@ -59,24 +59,29 @@ def find_sorting_info(root: ET.Element) -> list[ET.Element]:
     return root.findall(".//INDEXING/SORTING_INFO")
 
 
-def playlist_paths(root: ET.Element) -> dict[str, ET.Element]:
-    """Map each playlist NODE to the backslash-joined folder path that
+def playlist_path_pairs(root: ET.Element) -> list[tuple[str, ET.Element]]:
+    """Every playlist NODE with the backslash-joined folder path that
     SORTING_INFO's own PATH attribute uses to name it - ancestor FOLDER
     names down to (and including) the playlist's own NAME, with the tree's
     own root FOLDER (conventionally $ROOT) excluded, matching the encoding
     confirmed against the real fixture corpus. lxml elements carry no
     parent pointers of their own, so this is computed top-down by walking
-    the PLAYLISTS tree rather than read off each NODE directly."""
-    result: dict[str, ET.Element] = {}
+    the PLAYLISTS tree rather than read off each NODE directly.
+
+    A list rather than a mapping, so a caller that has to tell one path
+    held twice from one path held once can see it: a mapping collapses
+    the pair and reports the collision as a single entry.
+    """
+    pairs: list[tuple[str, ET.Element]] = []
     playlists_root = root.find(".//PLAYLISTS/NODE")
     if playlists_root is None:
-        return result
+        return pairs
 
     def walk(node: ET.Element, prefix: list[str]) -> None:
         node_type = node.attrib.get("TYPE")
         name = node.attrib.get("NAME", "")
         if node_type == "PLAYLIST":
-            result["\\".join(prefix + [name])] = node
+            pairs.append(("\\".join(prefix + [name]), node))
         elif node_type == "FOLDER":
             subnodes = node.find("SUBNODES")
             if subnodes is not None:
@@ -88,7 +93,12 @@ def playlist_paths(root: ET.Element) -> dict[str, ET.Element]:
         for child in root_subnodes:
             walk(child, [])
 
-    return result
+    return pairs
+
+
+def playlist_paths(root: ET.Element) -> dict[str, ET.Element]:
+    """The same paths as a mapping, for a caller that looks one up."""
+    return dict(playlist_path_pairs(root))
 
 
 def _sorting_info_fragment(sorting_info: ET.Element, new_path: str) -> str:

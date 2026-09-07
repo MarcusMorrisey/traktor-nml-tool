@@ -888,8 +888,14 @@ def test_two_paths_naming_one_file_are_one_collection(tmp_path) -> None:
 
 def test_a_non_conflict_abort_is_not_read_as_outstanding_conflicts() -> None:
     """A run that aborted on something other than conflicts is not read as
-    a conflict refusal, and its sentence names the run's own error rather
-    than a conflict count.
+    a conflict refusal, and its sentence sends the operator to the step
+    that lists the run's own reasons rather than printing a conflict
+    count.
+
+    The reasons themselves stay on the refusal, where the preview step
+    reads them: the sentence names how many there are and where to see
+    them, because a toast reciting one machine token and leaving the rest
+    unmentioned is a message the operator cannot act on (DL-229).
 
     assemble_output aborts on many things besides unresolved conflicts -
     a location collision among them - and a refusal keyed on `output is
@@ -920,9 +926,9 @@ def test_a_non_conflict_abort_is_not_read_as_outstanding_conflicts() -> None:
     assert refusal.errors == ("entry_location_collision key=C:/:Music/:x.mp3",)
 
     sentence = write_refusal_sentence(refusal)
-    assert "entry_location_collision key=C:/:Music/:x.mp3" in sentence
     assert "conflict(s) still to decide" not in sentence
-    assert "0" not in sentence
+    assert "1 reason" in sentence, sentence
+    assert "Back to the preview" in sentence, sentence
 
 
 def test_the_conflict_abort_still_answers_outstanding_conflicts() -> None:

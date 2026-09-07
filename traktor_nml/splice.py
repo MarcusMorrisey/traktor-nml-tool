@@ -39,6 +39,7 @@ from .playlists import (
     import_playlists,
     merged_playlist_entries,
     node_primary_keys,
+    playlist_path_pairs,
     redirected_playlist_keys,
 )
 from .spans import OutputBuilder, SpanIndex, find_element_span
@@ -494,65 +495,96 @@ def assemble_output(
         )
 
     # Reconstruction pre-pass: a base playlist whose redirected key
-    # sequence differs from the same-named incoming ones is rebuilt in
-    # place from the union of all of them, keeping base's own NODE, UUID
-    # and folder position. Runs here because old_to_new_key exists by this
+    # sequence differs from the incoming playlist at the same folder path
+    # is rebuilt in place from the union of all of them, keeping base's
+    # own NODE, UUID and folder position. Runs here because old_to_new_key exists by this
     # line and no builder call has consumed a span yet, so rewriting
     # base_source and re-parsing is still free (DL-096).
     reconstructed: dict[str, int] = {}
     matched: set[str] = set()
     if reconstruct:
-        base_nodes_by_name: dict[str, list] = {}
-        for node in find_playlist_nodes(base_root):
-            base_nodes_by_name.setdefault(node.attrib.get("NAME", ""), []).append(node)
+        # Playlists pair by the folder path they sit at, which is the
+        # identity Traktor's own SORTING_INFO PATH gives them, not by
+        # bare NAME. A real collection reuses a name freely across
+        # folders: one measured 1187-playlist collection holds them under
+        # 768 distinct names and 1187 distinct paths, so 303 of its names
+        # are held by two or more playlists that are not the same
+        # playlist. Keying by name called every one of those ambiguous
+        # and refused the whole run (DL-228).
+        base_by_path: dict[str, list] = {}
+        for path, node in playlist_path_pairs(base_root):
+            base_by_path.setdefault(path, []).append(node)
+        incoming_by_path: dict[str, list] = {}
         incoming_by_name: dict[str, list] = {}
         incoming_dupes: set[str] = set()
         for _, root in contributions:
-            names_here: dict[str, int] = {}
-            for node in find_playlist_nodes(root):
-                name = node.attrib.get("NAME", "")
-                incoming_by_name.setdefault(name, []).append(node)
-                names_here[name] = names_here.get(name, 0) + 1
-            # Counted per contribution, not across them: one name appearing
+            paths_here: dict[str, int] = {}
+            for path, node in playlist_path_pairs(root):
+                incoming_by_path.setdefault(path, []).append(node)
+                incoming_by_name.setdefault(
+                    node.attrib.get("NAME", ""), []
+                ).append(node)
+                paths_here[path] = paths_here.get(path, 0) + 1
+            # Counted per contribution, not across them: one path appearing
             # in several --input files is the fold DL-092 asks for, while
-            # the same name twice inside one file has no single playlist to
+            # the same path twice inside one file has no single playlist to
             # reconstruct from (DL-098).
-            incoming_dupes |= {n for n, count in names_here.items() if count > 1}
+            incoming_dupes |= {p for p, count in paths_here.items() if count > 1}
 
-        # A NAME occurring more than once on either side has no single
+        # A PATH occurring more than once on either side has no single
         # playlist to reconstruct or to reconstruct from, so it aborts
         # rather than picking one by document order (DL-098). Matching is
-        # exact and case-sensitive, so names differing only in case are
+        # exact and case-sensitive, so paths differing only in case are
         # distinct playlists and never pair up.
-        duplicate_names = sorted(
-            {name for name, nodes in base_nodes_by_name.items() if len(nodes) > 1 and name in incoming_by_name}
-            | {name for name in incoming_dupes if name in base_nodes_by_name}
+        duplicate_paths = sorted(
+            {path for path, nodes in base_by_path.items() if len(nodes) > 1 and path in incoming_by_path}
+            | {path for path in incoming_dupes if path in base_by_path}
         )
-        if duplicate_names:
+        if duplicate_paths:
             conflict_rows.extend(
-                ConflictRow(name, "playlist_name", "ambiguous") for name in duplicate_names
+                ConflictRow(path, "playlist_name", "ambiguous") for path in duplicate_paths
             )
             return SpliceResult(
                 output=None, stats=stats, conflict_rows=conflict_rows,
-                errors=[f"ambiguous_playlist_name playlist={name}" for name in duplicate_names],
+                errors=[f"ambiguous_playlist_name playlist={path}" for path in duplicate_paths],
             )
 
-        # The base playlists holding nothing before this run: a name whose
+        # How many base playlists carry each bare name, for the fallback
+        # below: a playlist that moved to another folder between the two
+        # collections has no counterpart at its own path, and its name is
+        # the only other thing that identifies it.
+        base_name_counts: dict[str, int] = {}
+        for nodes in base_by_path.values():
+            for node in nodes:
+                name = node.attrib.get("NAME", "")
+                base_name_counts[name] = base_name_counts.get(name, 0) + 1
+
+        # The base playlists holding nothing before this run: a path whose
         # redirected key sequence is empty. Measured before the loop below
         # rebuilds any of them, because after the rebuild every filled one
         # holds keys and the set would read empty.
         empty_names = {
-            name
-            for name, nodes in base_nodes_by_name.items()
+            path
+            for path, nodes in base_by_path.items()
             if not redirected_playlist_keys(nodes[0], old_to_new_key)
         }
 
         ambiguous_hits: list[tuple[str, str]] = []
-        for name, base_nodes in base_nodes_by_name.items():
-            incoming_nodes = incoming_by_name.get(name)
-            if not incoming_nodes:
-                continue
+        for path, base_nodes in base_by_path.items():
             base_node = base_nodes[0]
+            name = base_node.attrib.get("NAME", "")
+            incoming_nodes = incoming_by_path.get(path)
+            if not incoming_nodes:
+                # No counterpart at that path. A playlist that moved
+                # folders is still the same playlist, so it pairs on its
+                # name where that name names exactly one playlist on each
+                # side; where it does not, there is nothing that says
+                # which of them this is, and it is left alone rather than
+                # rebuilt from a guess.
+                by_name = incoming_by_name.get(name, [])
+                if base_name_counts.get(name) != 1 or len(by_name) != 1:
+                    continue
+                incoming_nodes = by_name
             base_keys = redirected_playlist_keys(base_node, old_to_new_key)
             # Compared against the incoming side's own ordered union rather
             # than against the merged result: merging puts base first, so a
@@ -569,8 +601,10 @@ def assemble_output(
                 # and the incoming copy is dropped rather than imported -
                 # a '<name> (2)' holding exactly what base already holds is
                 # the duplicate reconstruction exists to prevent, so a
-                # matched name is skipped whether or not it needed
-                # rebuilding (DL-093).
+                # matched playlist is skipped whether or not it needed
+                # rebuilding (DL-093). Recorded by name, because the
+                # import pass below reads the names an incoming playlist
+                # carries rather than the path it came from.
                 matched.add(name)
                 continue
             merged = merged_playlist_entries(base_node, incoming_nodes, old_to_new_key)
@@ -595,7 +629,7 @@ def assemble_output(
             rebuilt.attrib["ENTRIES"] = str(len(merged))
             span = span_indexes[0].span_of(playlist_elem)
             replacements.append((span.start, span.end, ET.tostring(rebuilt, encoding="unicode")))
-            reconstructed[name] = len(merged)
+            reconstructed[path] = len(merged)
             matched.add(name)
 
         if ambiguous_hits:
@@ -631,9 +665,10 @@ def assemble_output(
         stats["empty_playlists"] = len(empty_names)
         stats["refilled_playlists"] = len(empty_names & set(reconstructed))
         stats["unfilled_playlists"] = sorted(empty_names - set(reconstructed))
-    # Names and resulting entry counts, so a caller can report which
-    # playlists a run rebuilt without recomputing the comparison the
-    # pre-pass already made.
+    # Folder paths and resulting entry counts, so a caller can report
+    # which playlists a run rebuilt without recomputing the comparison the
+    # pre-pass already made, and can tell two playlists sharing a name
+    # apart when it does.
     stats["reconstructed_playlists"] = dict(sorted(reconstructed.items()))
 
     output = base_source

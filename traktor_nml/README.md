@@ -1050,6 +1050,31 @@ statement of the same decision would only give it two copies to drift apart.
   stands, with no "previously", "now does", "no longer" or "added",
   and each documentation milestone carries the grep that proves it
   (DL-177).
+- A playlist is identified by the folder path it sits at, which is what
+  Traktor's own SORTING_INFO PATH names it by, and the reconstruction
+  pairs base to source on that path. A bare NAME does not identify a
+  playlist: a real collection reuses one freely across folders, and the
+  collection this was measured against holds 1187 playlists under 768
+  distinct names and 1187 distinct paths, so 303 of its names are held by
+  two or more playlists that are not the same playlist. Keying by name
+  called each of those ambiguous and refused the entire run - a repair
+  refused over a name two unrelated playlists happen to share. A path
+  held twice inside one collection is still refused, which is the
+  collision the name check was reaching for and is rare where a name
+  collision is not (DL-098, DL-228).
+- A playlist with no counterpart at its own path pairs on its name where
+  that name names exactly one playlist on each side, so a playlist moved
+  between folders is still rebuilt from its own copy. Where the name is
+  held more than once, nothing says which playlist the copy belongs to
+  and it is left alone rather than rebuilt from a guess (DL-228).
+- A refusal names how many reasons the run gave and the control that
+  walks to the step listing them, rather than reciting one machine token
+  and leaving the rest unmentioned. The tokens stay on the refusal and
+  the preview step prints them, because a token is what the CLI prints
+  and what a bug report carries; what a toast carries is what the
+  operator does next. A sentence naming a place the operator cannot see
+  from where they are standing is a sentence they cannot act on
+  (DL-226, DL-229).
 - A step that reports a run is reached only on a run that produced one.
   A run that refused is a held result carrying no output, and treating
   "a result is held" as "a run assembled" stood the write step there

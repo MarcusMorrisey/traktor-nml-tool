@@ -1598,3 +1598,131 @@ def test_the_reported_entry_total_is_the_count_the_output_declares() -> None:
     assert result.output is not None
     declared = int(re.search(r'<COLLECTION ENTRIES="(\d+)"', result.output).group(1))
     assert result.stats["collection_entries_total"] == declared
+
+
+def _folder(name: str, inner: str) -> str:
+    """A FOLDER node holding the playlists in `inner`, which is where a
+    collection puts a playlist whose name another folder also uses."""
+    return (
+        f'<NODE TYPE="FOLDER" NAME="{name}">'
+        f'<SUBNODES COUNT="{inner.count(chr(60) + "NODE")}">{inner}</SUBNODES>'
+        "</NODE>"
+    )
+
+
+def test_one_name_in_two_folders_is_two_playlists() -> None:
+    """A playlist is identified by the folder path it sits at, which is
+    what Traktor's own SORTING_INFO PATH names it by, not by its bare
+    NAME. A real collection reuses a name freely across folders - one
+    measured collection holds 1187 playlists under 768 names - so keying
+    by name calls those ambiguous and refuses to rebuild anything
+    (DL-228).
+
+    Both empty playlists here are named `Jan`, in folders `2020` and
+    `2024`, and each has a counterpart of its own in the source holding
+    different tracks. Each is rebuilt from its own counterpart.
+
+    Mutation: `base_by_path` was built from `node.attrib["NAME"]` in
+    place of the path, and `incoming_by_path` with it. Observed:
+        E       AssertionError: assert ['ambiguous_p...playlist=Jan'] == []
+        E
+        E         Left contains one more item: 'ambiguous_playlist_name playlist=Jan'
+        E         Use -v to get more diff
+    """
+    one_key = "C:" + "/:Music/:" + "one.mp3"
+    two_key = "C:" + "/:Music/:" + "two.mp3"
+    entries = _entry("A", "One", "one.mp3") + _entry("B", "Two", "two.mp3")
+    base_text = _nml(
+        entries, 2,
+        _folder("2020", _playlist("Jan", [], "uuid-2020"))
+        + _folder("2024", _playlist("Jan", [], "uuid-2024")),
+    )
+    source_text = _nml(
+        entries, 2,
+        _folder("2020", _playlist("Jan", [one_key], "uuid-src-2020"))
+        + _folder("2024", _playlist("Jan", [two_key], "uuid-src-2024")),
+    )
+    result = _assembled(base_text, source_text)
+    assert result.errors == []
+    assert result.output is not None
+    # Keyed by path, so the two are told apart in the report as well.
+    assert result.stats["reconstructed_playlists"] == {
+        "2020\\Jan": 1,
+        "2024\\Jan": 1,
+    }
+    assert result.stats["empty_playlists"] == 2
+    assert result.stats["refilled_playlists"] == 2
+    # Each took its own counterpart's track rather than the union of both.
+    first = result.output.index("uuid-2020")
+    second = result.output.index("uuid-2024")
+    assert result.output.count(one_key, first, second) == 1
+    assert result.output.count(two_key, first, second) == 0
+
+
+def test_one_path_held_twice_is_still_refused() -> None:
+    """Two playlists at the same path have no single playlist to rebuild
+    or to rebuild from, so the run refuses rather than picking one by
+    document order (DL-098). This is the collision the name check was
+    reaching for; it is rare where a name collision is not.
+
+    Mutation: the `duplicate_paths` abort was deleted from splice.py.
+    Observed:
+        E       AssertionError: assert [] == ['ambiguous_p...st=2020\\\\Jan']
+        E
+        E         Right contains one more item: 'ambiguous_playlist_name playlist=2020\\\\Jan'
+        E         Use -v to get more diff
+    """
+    one_key = "C:" + "/:Music/:" + "one.mp3"
+    entries = _entry("A", "One", "one.mp3") + _entry("B", "Two", "two.mp3")
+    base_text = _nml(
+        entries, 2,
+        _folder(
+            "2020",
+            _playlist("Jan", [], "uuid-a") + _playlist("Jan", [], "uuid-b"),
+        ),
+    )
+    source_text = _nml(
+        entries, 2, _folder("2020", _playlist("Jan", [one_key], "uuid-src")),
+    )
+    result = _assembled(base_text, source_text)
+    assert result.errors == ["ambiguous_playlist_name playlist=2020\\Jan"]
+    assert result.output is None
+
+
+def test_a_playlist_that_moved_folders_pairs_on_its_name() -> None:
+    """A playlist with no counterpart at its own path is still the same
+    playlist if it moved folders between the two collections, so it pairs
+    on its name where that name names exactly one playlist on each side.
+    Where it does not, nothing says which of them it is and it is left
+    alone rather than rebuilt from a guess (DL-228).
+
+    Mutation: the by-name fallback was removed from the loop, leaving
+    `continue` where a path has no counterpart. Observed:
+        E       AssertionError: assert {} == {'2024\\\\Jan': 1}
+        E
+        E         Right contains 1 more item:
+        E         {'2024\\\\Jan': 1}
+        E         Use -v to get more diff
+    """
+    one_key = "C:" + "/:Music/:" + "one.mp3"
+    entries = _entry("A", "One", "one.mp3") + _entry("B", "Two", "two.mp3")
+    base_text = _nml(
+        entries, 2, _folder("2024", _playlist("Jan", [], "uuid-base")),
+    )
+    source_text = _nml(
+        entries, 2, _folder("archive", _playlist("Jan", [one_key], "uuid-src")),
+    )
+    result = _assembled(base_text, source_text)
+    assert result.errors == []
+    assert result.stats["reconstructed_playlists"] == {"2024\\Jan": 1}
+
+    # Two playlists share the name, so the move cannot be followed: which
+    # of them the source's copy belongs to is not said by anything.
+    ambiguous_base = _nml(
+        entries, 2,
+        _folder("2024", _playlist("Jan", [], "uuid-a"))
+        + _folder("2020", _playlist("Jan", [], "uuid-b")),
+    )
+    unfollowable = _assembled(ambiguous_base, source_text)
+    assert unfollowable.errors == []
+    assert unfollowable.stats["reconstructed_playlists"] == {}
