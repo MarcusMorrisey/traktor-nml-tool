@@ -129,14 +129,14 @@ of them (DL-201).
 ## What this run does not establish
 
 **The keyboard ring is not re-walked.** Moving the advancing controls
-into per-step footer groups changes the tab order, and re-reading it is
-owed. It is not read here: the pane's keyboard channel did not reach
-the page. `Tab` was pressed with focus seated on a named control and
-`document.activeElement` did not move, so no ring was walked and none
-is reported. `docs/2026-09-06-wizard-focus-order-browser-record.md`
-reads the ring on the Set up step before the step regions existed, and
-the reading it holds does not cover this page. This is the one surface
-M-002 still owes.
+into per-step footer groups changes the tab order. It is not read here:
+the pane's keyboard channel did not reach the page - `Tab` was pressed
+with focus seated on a named control and `document.activeElement` did
+not move - so no ring was walked and none is reported.
+`docs/2026-09-06-wizard-focus-order-browser-record.md` reads the ring on
+the Set up step before the step regions existed, and the reading it
+holds does not cover this page. That reading is not taken for this
+version: accessibility is out of scope for it, and DL-197 says so.
 
 Announcements are not read here for the same reason: nothing was driven
 by key.

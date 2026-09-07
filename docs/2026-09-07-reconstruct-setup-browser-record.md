@@ -137,9 +137,9 @@ wizard's own artboards on `/reconnect`, which composes none of them
 **The keyboard ring is not walked.** The pane's keyboard channel does
 not reach the page - `Tab` pressed with focus seated on a named control
 leaves `document.activeElement` where it was - so no ring was walked and
-none is reported. This is the reading DL-197 asks for and it is still
-owed, as the two records before this one also say. Announcements are
-unread for the same reason.
+none is reported. That reading is not taken for this version:
+accessibility is out of scope for it, and DL-197 says so. Announcements
+are unread for the same reason.
 
 **The artboard's icon marks are not built.** `Reconstruct.dc.html` draws
 an SVG file mark inside each field and one in the callout. No page in

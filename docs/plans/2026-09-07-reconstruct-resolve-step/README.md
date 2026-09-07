@@ -60,15 +60,15 @@ All three are fixed, each behind a guard proven to fail first, and the
 readings above were retaken on the corrected page. DL-213, DL-214 and
 DL-215 record the three decisions.
 
-## What this work still owes
+## What this work does not read
 
-**The keyboard ring is not re-walked.** DL-197 asks for it once the
-advancing controls are built in the footer band, and they are. The run
-could not take it: the pane's keyboard channel did not reach the page -
-`Tab` pressed with focus seated on a named control left
-`document.activeElement` where it was. The record says so under "What
-this run does not establish" rather than reporting a ring assembled
-from DOM order (DL-211). Announcements are unread for the same reason.
+**The keyboard ring is not re-walked.** The run could not take it: the
+pane's keyboard channel did not reach the page - `Tab` pressed with
+focus seated on a named control left `document.activeElement` where it
+was - and the record says so rather than reporting a ring assembled from
+DOM order (DL-211). It is not taken for this version at all:
+accessibility is out of scope for it, and DL-197 says so. Announcements
+are unread for the same reason.
 
 All four steps are built to their own artboards and read on served
 pages: step 3 in the record this plan closes on, steps 2 and 4 in

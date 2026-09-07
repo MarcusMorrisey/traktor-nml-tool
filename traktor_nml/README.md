@@ -911,10 +911,17 @@ statement of the same decision would only give it two copies to drift apart.
 - The card triplet is the whole of the box rule: `.wizard-surface` is
   absent from the stylesheet and from every call site, because a rule no
   call site names fails the class-reach guard (DL-196).
-- The keyboard record and the announcement record are read again once
-  each advancing control is built in the footer band, because its place
-  in the DOM sets both the tab order and the point an announcement is
-  triggered from (DL-197).
+- The keyboard record and the announcement record are not read again
+  for this version. Their ground for a re-read stands - each advancing
+  control is built in the footer band, and its place in the DOM sets
+  both the tab order and the point an announcement is triggered from -
+  but accessibility work is out of scope for this version, and a reading
+  that changes nothing about the code is a reading this version does not
+  take. `docs/2026-09-06-wizard-focus-order-browser-record.md` holds the
+  ring as it was walked before the step regions existed, and it says
+  which page and which step it covers. A record written after this
+  states that the ring is unread and why, rather than leaving it as a
+  debt the next record inherits (DL-197).
 - The reconstruct page is stepped: `Reconstruct.dc.html`,
   `Preview.dc.html`, `Resolve.dc.html` and `Write.dc.html` each draw the
   header as the brand, its divider and the two section tabs, and each

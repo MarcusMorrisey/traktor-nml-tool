@@ -140,10 +140,9 @@ wizard's own artboards on `/reconnect`, which composes none of them
 **The keyboard ring is not walked.** The pane's keyboard channel does
 not reach the page - `Tab` pressed with focus seated on a named control
 leaves `document.activeElement` where it was - so no ring was walked and
-none is reported. This is the reading DL-197 asks for and it is still
-owed, as `docs/2026-09-07-reconstruct-resolve-browser-record.md` also
-says. Announcements are unread for the same reason: nothing was driven
-by key.
+none is reported. That reading is not taken for this version:
+accessibility is out of scope for it, and DL-197 says so. Announcements
+are unread for the same reason.
 
 **The write itself is not exercised.** The run stops at the
 confirmation, which was opened and cancelled. Nothing was written, and

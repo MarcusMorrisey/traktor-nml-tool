@@ -108,8 +108,8 @@ neither file names. That is the reading this gate exists to take
 
 The keyboard ring, the focus order and the announcements are not read
 here. The advancing controls moved from the column into the band, which
-moves them in the DOM, and the reading that covers it is the record
-DL-197 requires.
+moves them in the DOM. That reading is not taken for this version:
+accessibility is out of scope for it, and DL-197 says so.
 
 Nothing here exercises the wheel or the frozen build.
 
