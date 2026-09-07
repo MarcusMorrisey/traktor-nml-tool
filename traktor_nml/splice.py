@@ -27,6 +27,7 @@ PRIMARYKEY values are re-serialised.
 
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass, field
 from typing import Optional
@@ -462,6 +463,14 @@ def assemble_output(
         "empty_playlists": 0,
         "refilled_playlists": 0,
         "unfilled_playlists": [],
+        # Playlist entries placed on a track the collection holds more
+        # than once, in total and per playlist. Reported rather than
+        # refused: the entry resolves to the record the merge itself
+        # redirects that key to, and a run that refuses every playlist
+        # over a handful of duplicated tracks answers nothing the
+        # operator can act on (DL-230).
+        "entries_on_duplicated_tracks": 0,
+        "playlists_on_duplicated_tracks": {},
         # The COLLECTION ENTRIES count the output carries. Read with
         # collection_entries_added, it gives the count the collection held
         # before the run without a second parse of the base text.
@@ -569,7 +578,9 @@ def assemble_output(
             if not redirected_playlist_keys(nodes[0], old_to_new_key)
         }
 
-        ambiguous_hits: list[tuple[str, str]] = []
+        # path -> how many of its rebuilt entries resolve to a track the
+        # base holds more than once.
+        on_duplicated: dict[str, int] = {}
         for path, base_nodes in base_by_path.items():
             base_node = base_nodes[0]
             name = base_node.attrib.get("NAME", "")
@@ -609,13 +620,29 @@ def assemble_output(
                 continue
             merged = merged_playlist_entries(base_node, incoming_nodes, old_to_new_key)
 
-            for node in incoming_nodes:
-                for pk in node_primary_keys(node):
-                    raw = pk.attrib.get("KEY", "")
-                    if raw in ambiguous_keys:
-                        ambiguous_hits.append((name, raw))
-            if ambiguous_hits:
-                continue
+            # An incoming entry whose identity group holds more than one
+            # base record has no single right redirect target, and it is
+            # placed on the one the merge already redirects that key to -
+            # base_members[0] - rather than dropped or refused. Dropping
+            # it loses a track from a playlist this run exists to rebuild;
+            # refusing loses every playlist. Both are worse answers than
+            # placing it on a record the collection holds for that same
+            # track and saying how many were placed that way (DL-094,
+            # DL-122, DL-230).
+            redirected_here = {
+                old_to_new_key.get(raw, raw)
+                for node in incoming_nodes
+                for pk in node_primary_keys(node)
+                for raw in (pk.attrib.get("KEY", ""),)
+                if raw in ambiguous_keys
+            }
+            placed = sum(1 for key in merged if key in redirected_here)
+            if placed:
+                on_duplicated[path] = placed
+                conflict_rows.extend(
+                    ConflictRow(key, "ambiguous_redirect", "placed_on_first")
+                    for key in sorted(redirected_here)
+                )
 
             playlist_elem = base_node.find("PLAYLIST")
             if playlist_elem is None:
@@ -631,15 +658,6 @@ def assemble_output(
             replacements.append((span.start, span.end, ET.tostring(rebuilt, encoding="unicode")))
             reconstructed[path] = len(merged)
             matched.add(name)
-
-        if ambiguous_hits:
-            conflict_rows.extend(
-                ConflictRow(key, "ambiguous_redirect", "ambiguous") for _, key in ambiguous_hits
-            )
-            return SpliceResult(
-                output=None, stats=stats, conflict_rows=conflict_rows,
-                errors=[f"ambiguous_redirect playlist={name} key={key}" for name, key in ambiguous_hits],
-            )
 
     # Applied below both of the block's aborts, which return with output
     # None: a refused run discards its entry patches with everything else
@@ -658,6 +676,8 @@ def assemble_output(
 
     stats["playlists_reconstructed"] = len(reconstructed)
     if reconstruct:
+        stats["entries_on_duplicated_tracks"] = sum(on_duplicated.values())
+        stats["playlists_on_duplicated_tracks"] = dict(sorted(on_duplicated.items()))
         # An empty name the run rebuilt is filled; one it did not is
         # unfilled, and it keeps its name and stays empty. The two are
         # read off the one set measured before the rebuild, so a name
@@ -831,13 +851,26 @@ def assemble_output(
     # emit a key the pass above admits, and this was not added on the
     # strength of one. It is a scan of a string the run already holds, and
     # the emit path is where a redirect that went wrong would show.
+    # Both sides are unescaped before they are compared, because the two
+    # are not written by the same hand: a LOCATION carried through
+    # verbatim keeps whatever escaping its own file used, while a
+    # PRIMARYKEY inside a re-serialised playlist carries the escaping the
+    # serialiser chose. A file name holding a tab reaches this check as a
+    # literal tab on one side and as `&#9;` on the other, and a name
+    # holding an ampersand the same way - the same value, written twice,
+    # read as two values and reported as a key naming no entry (DL-231).
     collection_text = output.split("</COLLECTION>")[0]
     emitted_entries = {
-        f"{volume}{dir_value}{file_name}"
+        html.unescape(f"{volume}{dir_value}{file_name}")
         for dir_value, file_name, volume in _EMITTED_LOCATION_RE.findall(collection_text)
     }
     unresolved_emitted = sorted(
-        {key for key in _EMITTED_KEY_RE.findall(output) if key not in emitted_entries}
+        {
+            key
+            for raw in _EMITTED_KEY_RE.findall(output)
+            for key in (html.unescape(raw),)
+            if key not in emitted_entries
+        }
     )
     if unresolved_emitted:
         return SpliceResult(

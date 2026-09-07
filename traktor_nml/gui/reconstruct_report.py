@@ -364,6 +364,26 @@ def write_report(
             tone=TONE_UNTOUCHED,
         ),
     )
+    # A fifth row only where there is something to report: an entry that
+    # landed on a track the collection holds more than once is placed
+    # rather than dropped, and a row reading zero would name a thing this
+    # run did not do (DL-230).
+    on_duplicated = int(stats.get("entries_on_duplicated_tracks") or 0)
+    if on_duplicated:
+        held_by = len(dict(stats.get("playlists_on_duplicated_tracks") or {}))
+        playlists = "playlist" if held_by == 1 else "playlists"
+        rows = rows + (
+            ChangeRow(
+                label="Entries on a track the collection holds more than once",
+                detail=(
+                    f"Across {held_by} {playlists}. Each is placed on the "
+                    "first of those copies, which is the one the merge "
+                    "points at too."
+                ),
+                count=on_duplicated,
+                tone=TONE_UNTOUCHED,
+            ),
+        )
     return WriteReport(
         destination=destination,
         destination_exists=destination_exists,

@@ -1050,6 +1050,26 @@ statement of the same decision would only give it two copies to drift apart.
   stands, with no "previously", "now does", "no longer" or "added",
   and each documentation milestone carries the grep that proves it
   (DL-177).
+- A run reports what it could not do cleanly and writes the rest; it
+  does not refuse everything over the part it could not. A playlist entry
+  whose track the collection holds more than once is placed on the first
+  of those copies - the record the merge redirects that key to - and the
+  run counts how many landed that way and in which playlists, which the
+  write step prints as a row of its own. Refusing instead answered
+  nothing an operator could act on: the duplicates are in their own
+  collection, no control in this tool removes them, and one measured run
+  refused 1187 playlists over 369 such entries. Dropping the entries
+  silently would be worse again, since losing tracks from a playlist is
+  the thing this tool exists to undo (DL-094, DL-122, DL-230).
+- A comparison between two pieces of one XML document unescapes both
+  sides first. The emitted-key self-check reads a LOCATION out of text
+  carried through verbatim and a PRIMARYKEY out of a playlist the run
+  re-serialised, and the two writers spell a character differently: a
+  measured collection writes a tab in a file name as `&#x9;` and the
+  serialiser writes the same tab as `&#09;`. Compared as written that is
+  a key naming no entry, and the run refuses over a name every reader of
+  the output resolves correctly. The check is worth keeping - it reads
+  the artefact the operator gets - so it compares values (DL-231).
 - A playlist is identified by the folder path it sits at, which is what
   Traktor's own SORTING_INFO PATH names it by, and the reconstruction
   pairs base to source on that path. A bare NAME does not identify a
@@ -1234,12 +1254,13 @@ statement of the same decision would only give it two copies to drift apart.
   holds exactly what base already carries; neither is content the
   operator asked to add (DL-093).
 - An incoming `PRIMARYKEY` whose identity group holds more than one base
-  record aborts the whole write with the ambiguity reported, since no
-  single base key is the right redirect target and folding it in would
-  guess which base track the entry meant. `_resolve_conflicts` returns
-  those keys as a named element of its result rather than raising: the
-  merge itself is unaffected and only reconstruction treats them as
-  fatal (DL-094, DL-100).
+  record is placed on the record the merge redirects that key to, and the
+  run counts it. No single base key is the right redirect target, so the
+  entry is placed on the one the collection merge already uses for the
+  same key rather than on a second guess of its own.
+  `_resolve_conflicts` returns those keys as a named element of its
+  result rather than raising, and the reconstruction reads them to count
+  what it placed (DL-094, DL-100, DL-230).
 - Reconstruction is opt-in behind `--reconstruct-playlists`, and the
   `"<name> (2)"` rename stays the default. Reconstruction changes the
   shape of an existing caller's output rather than adding to it, so
@@ -1525,8 +1546,8 @@ statement of the same decision would only give it two copies to drift apart.
   several distinct base tracks on the strength of one pick. The patched
   entry is the same `base_members[0]` the winner branch selects, so the
   merge path's behaviour for such a group differs only in the values on
-  that one entry, and the reconstruction path still aborts on it
-  (DL-122).
+  that one entry, and the reconstruction places its playlist entries on
+  that same record (DL-122, DL-230).
 - The splice module docstring's scope note states that base's `ENTRY`
   spans are rewritten only for the attributes an operator's source pick
   names, rather than that base's bytes are never rewritten. The note was

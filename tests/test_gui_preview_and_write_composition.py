@@ -588,3 +588,42 @@ def test_the_refusal_names_the_step_that_settles_it():
     other = reconstruct_report.preview_refusal(["ambiguous_playlist_name x"], [])
     assert other.reasons == ("ambiguous_playlist_name x",)
     assert other.title == "The repair could not be assembled"
+
+
+def test_the_write_step_reports_the_entries_placed_on_a_duplicated_track():
+    """An entry whose track the collection holds more than once is placed
+    on the first of those copies rather than dropped or refused, and the
+    write step says how many landed that way and across how many
+    playlists. Placed silently, it would be the one thing the file holds
+    that the step describing the file does not mention (DL-230).
+
+    A run with none of them draws no row: a row reading zero names a
+    thing the run did not do.
+
+    Mutation: the `if on_duplicated:` guard was removed, so the row was
+    appended for every run. Observed:
+        E       AssertionError: a run with none of them draws the row anyway
+        E       assert 5 == 4
+        E        +  where 5 = len((ChangeRow(label='Playlists filled again', [...], count=0, tone='untouched')))
+        E        +    where (ChangeRow(label='Playlists filled again', [...])) = WriteReport(destination='out.nml', [...]).rows
+    """
+    plain = reconstruct_report.write_report(
+        _stats(), [], conflict_model.ConflictDecisions(), "out.nml", False, []
+    )
+    assert len(plain.rows) == 4, "a run with none of them draws the row anyway"
+
+    reported = reconstruct_report.write_report(
+        _stats(
+            entries_on_duplicated_tracks=369,
+            playlists_on_duplicated_tracks={"a": 300, "b": 69},
+        ),
+        [], conflict_model.ConflictDecisions(), "out.nml", False, [],
+    )
+    assert len(reported.rows) == 5
+    row = reported.rows[4]
+    assert row.count == 369
+    assert "2 playlists" in row.detail, row.detail
+    assert row.tone == reconstruct_report.TONE_UNTOUCHED
+    # The first row still carries the count the confirmation names, so the
+    # extra row cannot displace it.
+    assert reported.confirm_question == "Write 0 rebuilt playlists?"

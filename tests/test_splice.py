@@ -1396,8 +1396,9 @@ def test_a_duplicate_playlist_name_abort_discards_the_source_picks_patch() -> No
 def test_a_source_pick_on_two_base_records_patches_the_first_only() -> None:
     """A group with several base records has no single right redirect target,
     so the pick patches base_members[0]'s entry alone and the group's non-base
-    key stays ambiguous, which the reconstruction path still refuses
-    (DL-094, DL-122).
+    key stays ambiguous. The reconstruction places that entry on the record
+    the merge redirects the key to - base_members[0] - and counts it, rather
+    than dropping the entry or refusing the run (DL-094, DL-122, DL-230).
 
     Observed with the append written as a loop over every base member,
     `for _base_idx, base_rec in base_members:`: AssertionError `assert 2 ==
@@ -1425,9 +1426,19 @@ def test_a_source_pick_on_two_base_records_patches_the_first_only() -> None:
     assert 'FILE="a1.mp3"' in first and 'BITRATE="128"' in first
     assert 'FILE="a2.mp3"' in second and 'BITRATE="320"' in second
 
-    refused = _resolved(base_text, source_text, 1, reconstruct=True)
-    assert refused.output is None
-    assert refused.errors == ["ambiguous_redirect playlist=MySet key=C:/:Music/:a3.mp3"]
+    rebuilt = _resolved(base_text, source_text, 1, reconstruct=True)
+    assert rebuilt.output is not None
+    assert rebuilt.errors == []
+    # a3's key redirects to a1, which base's own playlist already holds, so
+    # the rebuilt list is base's entry then the one it lacked - and the run
+    # reports the one entry that landed on a track base holds twice.
+    assert _pkeys(rebuilt.output) == [
+        "C:" + "/:Music/:" + "a1.mp3",
+        "C:" + "/:Music/:" + "other.mp3",
+    ]
+    assert rebuilt.stats["entries_on_duplicated_tracks"] == 1
+    assert rebuilt.stats["playlists_on_duplicated_tracks"] == {"MySet": 1}
+    assert rebuilt.stats["playlists_reconstructed"] == 1
 
 
 def test_the_base_input_file_is_byte_identical_across_a_patching_run(tmp_path: Path) -> None:
@@ -1726,3 +1737,70 @@ def test_a_playlist_that_moved_folders_pairs_on_its_name() -> None:
     unfollowable = _assembled(ambiguous_base, source_text)
     assert unfollowable.errors == []
     assert unfollowable.stats["reconstructed_playlists"] == {}
+
+
+def test_a_name_holding_a_tab_is_not_read_as_two_different_keys() -> None:
+    """The emitted-key self-check compares values, not their escaping.
+
+    A LOCATION carried through verbatim keeps the escaping its own file
+    used, while a PRIMARYKEY inside a re-serialised playlist carries the
+    escaping the serialiser chose. A collection measured for this holds a
+    file name with a tab in it, written `&#x9;` on both sides of its own
+    file; the rebuilt playlist writes the same tab `&#09;`. The same
+    value, spelled two ways, read as a key naming no entry - and the run
+    refuses over a name the output spells correctly either way (DL-231).
+
+    Mutation: the two html.unescape calls were removed from the check.
+    Observed:
+        E       AssertionError: assert ['emitted_key...mp;&#9;b.mp3'] == []
+        E
+        E         Left contains one more item: 'emitted_key_unresolved key=C:/:Music/:a&amp;&#9;b.mp3'
+        E         Use -v to get more diff
+    """
+    awkward = "a&amp;&#x9;b.mp3"
+    key = "C:" + "/:Music/:" + awkward
+    other_key = "C:" + "/:Music/:" + "other.mp3"
+    entries = _entry("A", "One", awkward) + _entry("B", "Other", "other.mp3")
+    base_text = _nml(entries, 2, _playlist("MySet", [key], "uuid-base"))
+    source_text = _nml(entries, 2, _playlist("MySet", [key, other_key], "uuid-src"))
+    result = _assembled(base_text, source_text)
+    assert result.errors == []
+    assert result.output is not None
+    # The rebuilt playlist holds both, the awkward name among them.
+    assert result.stats["reconstructed_playlists"] == {"MySet": 2}
+
+
+def test_an_entry_on_a_track_the_base_holds_twice_is_placed_and_counted() -> None:
+    """A playlist entry whose identity group holds more than one base
+    record is placed on the record the merge redirects that key to, and
+    the run reports how many landed that way and in which playlists.
+    Refusing the run instead answers nothing an operator can act on: the
+    duplicates are in their collection and no control here removes them
+    (DL-094, DL-122, DL-230).
+
+    Mutation: `placed = sum(1 for key in merged if key in
+    redirected_here)` was changed to `placed = 0`. Observed:
+        E       assert 0 == 1
+    """
+    a1 = _entry("A", "Song", "a1.mp3", time="100.0")
+    a2 = _entry("A", "Song", "a2.mp3", time="100.0")
+    other = _entry("B", "Other", "other.mp3")
+    a1_key = "C:" + "/:Music/:" + "a1.mp3"
+    a2_key = "C:" + "/:Music/:" + "a2.mp3"
+    other_key = "C:" + "/:Music/:" + "other.mp3"
+    # Base holds the same track twice, so the source's entry for it has
+    # two candidate redirect targets.
+    base_text = _nml(a1 + a2 + other, 3, _playlist("MySet", [], "uuid-base"))
+    source_text = _nml(
+        a1 + other, 2, _playlist("MySet", [a1_key, other_key], "uuid-src"),
+    )
+    result = _assembled(base_text, source_text)
+    assert result.errors == []
+    assert result.output is not None
+    assert result.stats["entries_on_duplicated_tracks"] == 1
+    assert result.stats["playlists_on_duplicated_tracks"] == {"MySet": 1}
+    # The playlist was rebuilt rather than skipped, and the entry landed
+    # on the first of the two records base holds for that track.
+    assert result.stats["reconstructed_playlists"] == {"MySet": 2}
+    assert _pkeys(result.output) == [a1_key, other_key]
+    assert a2_key not in _pkeys(result.output)
