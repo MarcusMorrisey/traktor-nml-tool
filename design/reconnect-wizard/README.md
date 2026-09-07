@@ -52,6 +52,13 @@ set of their own because they share this one's shell, its tokens and its
 keyboard map and the a11y rules both workflows already share. The directory
 name is narrower than what it holds.
 
+Their header is the one `Specs.dc.html` contracts - brand, divider, section tab
+strip, and nothing else. The four-step rail sits in the page above the step's
+content rather than in the band, because Specs states that the strip is the
+whole of the header and that `.task` and `.rail` belong to the wizard
+artboard's own screen. A rail in the band would put a second name beside the
+one the selected tab already carries, which is the case Specs argues against.
+
 ## Invariants
 
 These are safety properties of the workflow, not stylistic preferences. A screen

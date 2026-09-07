@@ -24,7 +24,7 @@ a{color:#56B4E9;text-decoration:none}a:hover{color:#8FCFF2;text-decoration:under
 .st.done{color:#A5ADB4}
 .st.now{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
 .st.now .num{background:#56B4E9;border-color:#56B4E9;color:#0F1113}
-main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;min-height:0;overflow:hidden}
+main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:12px;min-height:0;overflow:hidden}
 .ft{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 24px;border-top:1px solid #2A2E32;background:#17191C}
 .ft-note{margin:0;font-size:12.5px;color:#A5ADB4;display:flex;align-items:center;gap:14px}
 .ft-act{display:flex;gap:10px;align-items:center;flex:none}
@@ -98,6 +98,10 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;
 .tally{display:flex;align-items:center;gap:9px;font-size:12.5px;color:#A5ADB4;white-space:nowrap}
 .tally b{color:#E8EBED;font-weight:600}
 .hint{margin:0;font-size:12px;color:#8E979E;display:flex;align-items:center;gap:8px;padding-bottom:8px}
+.tabs{display:flex;gap:2px;align-items:center}
+.tab{display:flex;align-items:center;padding:6px 12px;border-radius:6px;font-size:12.5px;color:#8E979E;text-decoration:none;white-space:nowrap}
+.tab.on{background:#22262A;color:#E8EBED;box-shadow:inset 0 0 0 1px #3C4248;font-weight:600}
+.steprail{display:flex;gap:2px;align-items:center;grid-column:1 / -1;margin:0}
   </style>
 </helmet>
 <div class="app">
@@ -106,17 +110,21 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;
     <div class="hd-l">
       <span class="brand">traktor-nml-tool</span>
       <span class="bar"></span>
-      <span class="task">My playlists lost their contents</span>
+      <nav class="tabs" aria-label="Sections">
+        <a class="tab on" href="/" aria-current="page">Reconstruct playlists</a>
+        <a class="tab" href="/reconnect">Reconnect wizard</a>
+      </nav>
     </div>
-    <nav class="rail" aria-label="Progress">
+  </header>
+
+  <main>
+    <nav class="steprail" aria-label="Progress">
       <span class="st done"><span class="num">&check;</span>Set up</span>
       <span class="st done"><span class="num">&check;</span>Preview</span>
       <span class="st now" aria-current="step"><span class="num">3</span>Resolve</span>
       <span class="st"><span class="num">4</span>Write</span>
     </nav>
-  </header>
 
-  <main>
 
     <div class="fbar">
       <p class="tally" style="margin:0"><b>63</b> tracks are held differently by two collections<span class="bar"></span><b>18</b> decided<span class="bar"></span><b>45</b> to go</p>
