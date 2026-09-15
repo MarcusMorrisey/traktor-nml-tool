@@ -164,22 +164,56 @@ class PreviewReport:
 
 @dataclass(frozen=True)
 class WriteReport:
-    """What step 4 shows before anything is written: where the output
-    goes, whether that path already exists, what the new file will hold,
-    and which collections the run read without modifying."""
+    """What step 4 shows about the file it is about to write, or has:
+    where the output goes, the state of that path, what the file holds,
+    and which collections the run read without modifying.
+
+    `written` carries the one difference between the two states. The step
+    does not become another screen once the write lands - the operator is
+    looking at the card they just confirmed, and every other thing on it
+    is still true: the change list described the file and now describes
+    it in the present tense, the originals are still unmodified, and the
+    note about opening it in Traktor is the next thing to do rather than
+    a thing to do later. Only the tense and the status move (DL-240).
+    """
 
     destination: str
     destination_exists: bool
     rows: tuple[ChangeRow, ...]
     tracks_total: int
     originals: tuple[str, ...]
+    written: bool = False
+
+    @property
+    def head_title(self) -> str:
+        """The card's own head at `Write.dc.html:92`."""
+        return "Written" if self.written else "Before anything is written"
+
+    @property
+    def head_badge(self) -> str:
+        """The status beside that head. It is the one place the step
+        says whether the file exists yet, so it reads as a state rather
+        than as an instruction."""
+        return "Written" if self.written else "Nothing written yet"
+
+    @property
+    def contents_title(self) -> str:
+        """The head of the change list at `Write.dc.html:104`. The list
+        itself does not change: it described what the file would hold
+        and now describes what it holds."""
+        return "What the new file holds" if self.written else "What the new file will hold"
 
     @property
     def destination_badge(self) -> str:
-        """The badge beside the path at `Write.dc.html:98`. A path that
-        already exists is said so plainly rather than left unsaid: the
-        write replaces it, and the operator is the one who decides
-        whether that is what they meant."""
+        """The badge beside the path at `Write.dc.html:98`.
+
+        A written path says so. Before the write, a path that already
+        exists is said so plainly rather than left unsaid: the write
+        replaces it, and the operator is the one who decides whether
+        that is what they meant.
+        """
+        if self.written:
+            return "Written"
         return "Already exists" if self.destination_exists else "Does not exist yet"
 
     @property
@@ -321,6 +355,7 @@ def write_report(
     destination: str,
     destination_exists: bool,
     originals: Iterable[str],
+    written: bool = False,
 ) -> WriteReport:
     """The step 4 record for one held run and the answers given to it.
 
@@ -409,6 +444,7 @@ def write_report(
             ),
         )
     return WriteReport(
+        written=written,
         destination=destination,
         destination_exists=destination_exists,
         rows=rows,

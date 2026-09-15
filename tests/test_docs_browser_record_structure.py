@@ -77,6 +77,7 @@ READING_DIGESTS = {
     "2026-09-07-reconstruct-setup-browser-record.md": "7faff10b12fd46d23ffeee0c465ecff634032dbc330d476d65b2965fbb74193f",
     "2026-09-07-reconstruct-stale-run-browser-record.md": "ebc2f041052776259c4c6749145de24cb199b50f8db4e25047ff3db519f40cbd",
     "2026-09-15-reconstruct-salvage-browser-record.md": "ab3a0251c15db195d121abffdc1e905e374b4e03f37140dc314761a528077640",
+    "2026-09-15-write-step-after-the-write-browser-record.md": "32dfbfadf3db8e36441a21e886003215da2cb59fb63a7665e7b0429757a3c61a",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

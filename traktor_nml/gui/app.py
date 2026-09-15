@@ -1690,6 +1690,11 @@ def _build_reconstruct_page() -> None:
         # The write step's confirmation heading, held so the render that
         # reads the run reaches the dialog the footer opens.
         write_holder: dict = {"question": None}
+        # The output path this run has written, or None. Set where the
+        # write lands and cleared wherever the file on disk stops being
+        # what the step describes - which is any new assembly, since the
+        # bytes a later run produces are not the bytes already written.
+        written_holder: dict = {"path": None}
 
         # The rail is the page region's first row and the four step
         # regions follow it, one visible at a time. A region is a
@@ -2820,6 +2825,13 @@ def _build_reconstruct_page() -> None:
                         for path in (base_holder["path"], *source_holder)
                         if path
                     ],
+                    # This run wrote this path. Both halves matter: a
+                    # path the operator has since edited names a file
+                    # this run did not write, and a run assembled since
+                    # the write produced bytes the file on disk does not
+                    # hold. Either one puts the step back before the
+                    # write, which is where it truly is (DL-240).
+                    written=bool(destination) and written_holder["path"] == destination,
                 )
                 write_holder["question"].set_text(record.confirm_question)
                 with write_panel:
@@ -2829,10 +2841,10 @@ def _build_reconstruct_page() -> None:
                                 with ui.element("div").classes(
                                     "wizard-card-head"
                                 ):
-                                    ui.label(
-                                        "Before anything is written"
-                                    ).classes("wizard-card-title")
-                                    ui.label("Nothing written yet").classes(
+                                    ui.label(record.head_title).classes(
+                                        "wizard-card-title"
+                                    )
+                                    ui.label(record.head_badge).classes(
                                         "wizard-label"
                                     )
                                 with ui.element("div").classes(
@@ -2860,9 +2872,9 @@ def _build_reconstruct_page() -> None:
                                 with ui.element("div").classes(
                                     "wizard-card-head"
                                 ):
-                                    ui.label(
-                                        "What the new file will hold"
-                                    ).classes("wizard-card-title")
+                                    ui.label(record.contents_title).classes(
+                                        "wizard-card-title"
+                                    )
                                 with ui.element("div").classes(
                                     "wizard-card-body"
                                 ):
@@ -2990,6 +3002,10 @@ def _build_reconstruct_page() -> None:
                 conflict_holder[:] = groups
                 result_holder["result"] = result
                 result_holder["resolutions"] = resolutions
+                # A run assembled after a write produced bytes the file
+                # on disk does not hold, so the step is before its write
+                # again.
+                written_holder["path"] = None
                 _render_resolve()
                 return True
 
@@ -3031,6 +3047,13 @@ def _build_reconstruct_page() -> None:
                 await run.io_bound(
                     write_bytes_atomically, output_path, result.output.encode("utf-8")
                 )
+                written_holder["path"] = str(output_path)
+                # The step describes the file; the file now exists, so
+                # the step is redrawn to say so. Left alone it went on
+                # reading "Before anything is written" and "Does not
+                # exist yet" behind a toast naming the file it had just
+                # written (DL-240).
+                _render_write()
                 ui.notify(f"Written to {output_path}", type="positive")
 
         # Both steps are a region holding one column the render fills:

@@ -1180,16 +1180,28 @@ other number is stated in this file.
   against Traktor. A screen naming another program's controls can only
   be checked in that program, so it says the one route that was
   confirmed there and nothing more (DL-239).
-- The write step draws the state before a write. After a confirmed write
-  it is not redrawn, so its head still reads that nothing has been
-  written and its destination card still reads that the file does not
-  exist, while the toast beside them names the file just written.
-  Write.dc.html draws no state after a write, and DL-071 puts that in
-  the design before the screen: redrawing the step against the drawing
-  that exists would have the destination card say the file exists under
-  a head saying nothing was written.
-  docs/2026-09-15-reconstruct-salvage-browser-record.md is where it was
-  read (DL-071, DL-234).
+- The write step draws two states and is redrawn between them: before
+  its write, and after. It does not become another screen once the write
+  lands - the operator is looking at the card they just confirmed, and
+  everything else on it is still true, the change list having described
+  the file and now describing it, the originals still unmodified, and
+  the note about opening it in Traktor being the next thing to do rather
+  than a thing to do later. Only the tense and the status move, which is
+  three strings `WriteReport` derives - `head_title`, `head_badge` and
+  `contents_title` - plus a destination badge reading `Written`. A
+  second screen for the state after a write would put the operator
+  somewhere new at the moment they most need to recognise where they
+  are; `Write.dc.html` draws no such screen and this composes against
+  the design set's own card, label and badge rules instead (DL-071,
+  DL-234, DL-240).
+- `written` is not "a write happened" but "this run wrote the path this
+  field now names". A path the operator edits after writing names a file
+  this run did not write, and a run assembled after a write produced
+  bytes the file on disk does not hold; either puts the step back before
+  its write, which is where it truly is. It is also distinct from
+  `destination_exists`: a path holding a file somebody else left there
+  reads `Already exists`, which is the badge that warns the operator it
+  will be replaced (DL-240).
 - A playlist is identified by the folder path it sits at, which is what
   Traktor's own SORTING_INFO PATH names it by, and the reconstruction
   pairs base to source on that path. A bare NAME does not identify a

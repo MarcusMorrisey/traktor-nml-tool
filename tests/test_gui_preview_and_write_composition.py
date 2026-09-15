@@ -678,3 +678,107 @@ def test_the_write_step_reports_the_entries_dropped_for_a_missing_track():
         [], conflict_model.ConflictDecisions(), "out.nml", False, [],
     )
     assert one.rows[4].detail.startswith("1 track across 1 playlist."), one.rows[4].detail
+
+
+def test_the_write_step_describes_the_file_once_it_exists():
+    """A confirmed write leaves the step describing a file that now
+    exists, so its head, its status and the tense of its change list say
+    so. Everything else on the card stands: the change list described the
+    file and now describes it, the originals are still unmodified, and
+    the note about opening it in Traktor is the next thing to do
+    (DL-240).
+
+    Mutation: the three properties reduced to their pre-write
+    branch - `head_title` to `"Before anything is written"`, `head_badge`
+    to `"Nothing written yet"`, `contents_title` to `"What the new file
+    will hold"`. Observed:
+        E       AssertionError: assert 'Before anything is written' == 'Written'
+        E         - Written
+        E         + Before anything is written
+    """
+    before = reconstruct_report.write_report(
+        _stats(), [], conflict_model.ConflictDecisions(), "out.nml", False, []
+    )
+    assert before.head_title == "Before anything is written"
+    assert before.head_badge == "Nothing written yet"
+    assert before.destination_badge == "Does not exist yet"
+    assert before.contents_title == "What the new file will hold"
+
+    after = reconstruct_report.write_report(
+        _stats(), [], conflict_model.ConflictDecisions(), "out.nml", True, [],
+        written=True,
+    )
+    assert after.head_title == "Written"
+    assert after.head_badge == "Written"
+    assert after.destination_badge == "Written"
+    assert after.contents_title == "What the new file holds"
+    # The list itself is the same list: a write changes the tense of the
+    # sentence above it, not what the run did.
+    assert [row.label for row in after.rows] == [row.label for row in before.rows]
+    assert after.confirm_question == before.confirm_question
+
+
+def test_a_path_that_exists_but_this_run_did_not_write_is_not_called_written():
+    """`destination_exists` and `written` are different facts: a path the
+    operator points at a file somebody else left there already exists and
+    has not been written by this run, and the badge that warns them it
+    will be replaced is the one they need (DL-240).
+
+    Mutation: `if self.written:` in destination_badge widened to
+    `if self.written or self.destination_exists:`. Observed:
+        E       AssertionError: assert 'Written' == 'Already exists'
+        E         - Already exists
+        E         + Written
+    """
+    existing = reconstruct_report.write_report(
+        _stats(), [], conflict_model.ConflictDecisions(), "out.nml", True, []
+    )
+    assert existing.written is False
+    assert existing.destination_badge == "Already exists"
+    assert existing.head_badge == "Nothing written yet"
+
+
+def test_the_write_redraws_the_step_and_a_new_run_puts_it_back():
+    """The step describes the file, so the handler that writes the file
+    redraws the step; and a run assembled afterwards produces bytes the
+    file on disk does not hold, so it clears the written path and the
+    step is before its write again (DL-240).
+
+    Read as source text: what the browser paints from this is a
+    served-page reading (DL-189).
+
+    Mutation: the `_render_write()` call between the write and its
+    toast deleted, which is the state DL-234 recorded. Observed:
+        E       AssertionError: the step that describes the file is not redrawn when the file appears
+        E       assert '_render_write()' in 'write_dialog.close()[...]written_holder["path"] = str(output_path)
+ui.notify(f"Written to {output_path}", type="positive")'
+
+    And separately, `written_holder["path"] = None` deleted from
+    assemble. Observed:
+        E       AssertionError: a new run leaves the step claiming a file it did not write
+        E       assert 'written_holder["path"] = None' in 'loaded = await run.io_bound(_load)[...]result_holder["resolutions"] = resolutions
+_render_resolve()
+return True'
+    """
+    confirm = _body_source_of("write_output")
+    assert 'written_holder["path"] = str(output_path)' in confirm, (
+        "the write does not record the path it wrote"
+    )
+    assert "_render_write()" in confirm, (
+        "the step that describes the file is not redrawn when the file appears"
+    )
+    # Redrawn before the toast that names the file. Anchored to that
+    # toast rather than to the first `ui.notify` in the function, which
+    # belongs to a refusal branch that returns before any write.
+    written_toast = confirm.index('ui.notify(f"Written to')
+    assert confirm.index("_render_write()") < written_toast, confirm
+
+    assembled = _body_source_of("assemble")
+    assert 'written_holder["path"] = None' in assembled, (
+        "a new run leaves the step claiming a file it did not write"
+    )
+
+    # The panel reads the two together: a path the operator edited names a
+    # file this run did not write.
+    render = _body_source_of("_render_write")
+    assert 'written_holder["path"] == destination' in render, render
