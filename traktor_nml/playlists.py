@@ -36,6 +36,11 @@ class ImportedPlaylist:
     is_verbatim: bool
     original_name: str
     final_name: str
+    # The PRIMARYKEY values the fragment carries, after redirection and
+    # after any unresolvable entry was dropped. Read off the walk the
+    # import already makes, so a caller checking what was emitted has
+    # them without parsing the fragment back (DL-232).
+    primary_keys: tuple[str, ...] = ()
 
 
 @dataclass
@@ -247,20 +252,22 @@ def import_playlists(
         final_name = available_playlist_name(original_name, existing_names)
         renamed = final_name != original_name
 
-        needs_redirect = any(
-            old_to_new_key.get(pk.attrib.get("KEY", "")) not in (None, pk.attrib.get("KEY", ""))
-            for pk in node_primary_keys(node)
-        )
+        # One walk of the node's keys answers both questions and yields
+        # the keys the fragment will carry. A playlist tree search is not
+        # free at collection scale - one measured pair holds 1,187
+        # playlists - and asking twice walked it twice.
+        raw_keys = [pk.attrib.get("KEY", "") for pk in node_primary_keys(node)]
+        redirected = [old_to_new_key.get(raw, raw) for raw in raw_keys]
+        needs_redirect = any(new != raw for raw, new in zip(raw_keys, redirected))
         has_orphan = valid_keys is not None and any(
-            old_to_new_key.get(raw, raw) not in valid_keys
-            for pk in node_primary_keys(node)
-            for raw in (pk.attrib.get("KEY", ""),)
+            key not in valid_keys for key in redirected
         )
 
         if not renamed and not needs_redirect and not has_orphan:
             span = span_index.span_of(node)
             fragment = span.text(source_text)
             is_verbatim = True
+            emitted = redirected
         else:
             node_copy = ET.fromstring(ET.tostring(node))
             if renamed:
@@ -276,10 +283,11 @@ def import_playlists(
                     playlist_elem.attrib["UUID"] = uuid.uuid4().hex
             _redirect_keys(node_copy, old_to_new_key)
             if has_orphan:
-                result.dropped_refs.extend(
-                    (original_name, key)
-                    for key in _drop_from_node(node_copy, valid_keys)
-                )
+                dropped = _drop_from_node(node_copy, valid_keys)
+                result.dropped_refs.extend((original_name, key) for key in dropped)
+                emitted = [key for key in redirected if key in valid_keys]
+            else:
+                emitted = redirected
             fragment = ET.tostring(node_copy, encoding="unicode")
             is_verbatim = False
 
@@ -290,6 +298,7 @@ def import_playlists(
             ImportedPlaylist(
                 fragment=fragment, is_verbatim=is_verbatim,
                 original_name=original_name, final_name=final_name,
+                primary_keys=tuple(emitted),
             )
         )
 

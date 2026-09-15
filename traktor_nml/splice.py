@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import html
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -689,10 +690,12 @@ def assemble_output(
         playlist_elem = node.find("PLAYLIST")
         if playlist_elem is None or id(playlist_elem) in rebuilt_playlists:
             continue
+        # Walked once, and the copy below is paid for only where the walk
+        # found something to drop: a base playlist holding nothing
+        # unresolvable keeps its own bytes, which is most of them.
         if all(
-            old_to_new_key.get(raw, raw) in valid_keys
-            for pk in node_primary_keys(node)
-            for raw in (pk.attrib.get("KEY", ""),)
+            old_to_new_key.get(key, key) in valid_keys
+            for key in (pk.attrib.get("KEY", "") for pk in node_primary_keys(node))
         ):
             continue
         trimmed = ET.fromstring(ET.tostring(playlist_elem))
@@ -763,6 +766,8 @@ def assemble_output(
     sorting_info_fragments: list[str] = []
     sorting_info_dropped: list[str] = []
     unresolved_refs: list[tuple[str, str]] = []
+    # (playlist name, key) for every key the imported fragments carry.
+    emitted_playlist_keys: list[tuple[str, str]] = []
     renamed_count = 0
     skipped_reconstructed = 0
     for contribution_idx, (source_text, root) in enumerate(contributions, start=1):
@@ -781,6 +786,9 @@ def assemble_output(
                 skipped_reconstructed += 1
                 continue
             playlist_fragments.append(imported.fragment)
+            emitted_playlist_keys.extend(
+                (imported.final_name, key) for key in imported.primary_keys
+            )
             if imported.final_name != imported.original_name:
                 # Counted per surviving fragment rather than from
                 # result.renamed, which also counts a rename applied to a
@@ -809,12 +817,11 @@ def assemble_output(
     # to nothing (DL-232). The track count is the distinct keys, which is
     # far smaller than the entry count whenever one missing track sits in
     # several playlists.
-    entries_dropped: dict[str, int] = {}
-    for name, _ in dropped_refs:
-        entries_dropped[name] = entries_dropped.get(name, 0) + 1
     stats["entries_dropped_unresolvable"] = len(dropped_refs)
     stats["tracks_dropped_unresolvable"] = len({key for _, key in dropped_refs})
-    stats["playlists_with_dropped_entries"] = dict(sorted(entries_dropped.items()))
+    stats["playlists_with_dropped_entries"] = dict(
+        sorted(Counter(name for name, _ in dropped_refs).items())
+    )
 
     subnodes_span = find_element_span(output, "SUBNODES")
     if subnodes_span is None:
@@ -839,25 +846,29 @@ def assemble_output(
         builder.add_verbatim(output[indexing_span.end:])
     output = builder.build()
 
-    # Self-check: every PRIMARYKEY the run emits resolves to a collection
-    # entry the output holds. The three passes above drop the ones that do
-    # not - from a rebuilt playlist, from a base playlist left in place,
-    # and from an imported fragment - so anything still standing here is a
-    # reference no pass reached, which is this module's own defect and not
-    # the operator's collection. Read off what was emitted: base_root
-    # re-parsed from the patched source, and each imported fragment,
-    # rather than off the unpatched inputs the drops were made against.
+    # Every PRIMARYKEY the run emits resolves to a collection entry the
+    # output holds. The three passes above drop the ones that do not -
+    # from a rebuilt playlist, from a base playlist left in place, and
+    # from an imported fragment - so a reference standing here is one no
+    # pass reached, which is this module's own defect and not the
+    # operator's collection. It is reported as a refusal rather than
+    # asserted, because every other way this function declines to write
+    # is a refusal a caller can print, and a defect that reaches an
+    # operator should refuse the write rather than end the process.
+    #
+    # Read off what was emitted: base_root re-parsed from the patched
+    # source, and the keys each import recorded as it walked the node it
+    # serialised, rather than off the unpatched inputs the drops were
+    # made against. Parsing the fragments back would re-parse every
+    # imported playlist to recover what the import already knew.
     for node in find_playlist_nodes(base_root):
         name = node.attrib.get("NAME", "")
         for pk in node_primary_keys(node):
             if pk.attrib.get("KEY", "") not in valid_keys:
                 unresolved_refs.append((name, pk.attrib.get("KEY", "")))
-    for fragment in playlist_fragments:
-        node = parse_xml_bytes(fragment.encode("utf-8"))
-        name = node.attrib.get("NAME", "")
-        for pk in node_primary_keys(node):
-            if pk.attrib.get("KEY", "") not in valid_keys:
-                unresolved_refs.append((name, pk.attrib.get("KEY", "")))
+    for name, key in emitted_playlist_keys:
+        if key not in valid_keys:
+            unresolved_refs.append((name, key))
 
     if unresolved_refs:
         errors = [f"unresolved_reference playlist={name} key={key}" for name, key in unresolved_refs]
