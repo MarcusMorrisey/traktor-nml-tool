@@ -2919,11 +2919,21 @@ def _build_reconstruct_page() -> None:
                                 # "stays where it is until you do" made a
                                 # promise about what importing does to
                                 # their collection, which is Traktor's
-                                # business and not this run's (DL-239).
+                                # business and not this run's.
+                                #
+                                # One route, because one route is what
+                                # Traktor has. An alternative naming a
+                                # "collection setting" to point at the
+                                # file was written here unverified and
+                                # names nothing in the program: Traktor's
+                                # directory preference is a root folder,
+                                # not a path to one .nml. Confirmed by an
+                                # operator against Traktor itself, which
+                                # is the only place this was checkable
+                                # (DL-239).
                                 ui.label(
-                                    "In Traktor, open the new file with File "
-                                    "- Import Collection, or point Traktor's "
-                                    "collection setting at it."
+                                    "In Traktor, open the new file with "
+                                    "File - Import Collection."
                                 )
 
             def change_row(row) -> None:

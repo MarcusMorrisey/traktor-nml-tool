@@ -1171,7 +1171,15 @@ other number is stated in this file.
   reading NOT MODIFIED beside it, and which read here as a warning that
   importing would move something. What Traktor does with a file it
   imports is Traktor's, and a sentence implying otherwise is this screen
-  describing a program it cannot see (DL-239).
+  describing a program it cannot see.
+
+  The same note offered a second route - point Traktor's "collection
+  setting" at the file - which names nothing in the program: Traktor's
+  directory preference is a root folder, not a path to one `.nml`. It
+  was written here unverified and stood until an operator read it
+  against Traktor. A screen naming another program's controls can only
+  be checked in that program, so it says the one route that was
+  confirmed there and nothing more (DL-239).
 - The write step draws the state before a write. After a confirmed write
   it is not redrawn, so its head still reads that nothing has been
   written and its destination card still reads that the file does not
