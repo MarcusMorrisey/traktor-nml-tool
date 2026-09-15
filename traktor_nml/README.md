@@ -1153,6 +1153,16 @@ other number is stated in this file.
   start of each playlist it rebuilds and the drop pass skips those, so
   neither depends on another object staying alive to stay correct
   (DL-237).
+- A row saying what a run added counts what it added. A rebuilt playlist
+  that was not empty keeps its own entries and gains the rest, so its
+  contents and the run's additions are two numbers, and
+  `playlist_entries_added` is the second. Summing the contents credited
+  the run with entries the operator already had - on one measured pair,
+  17,311 against the 17,254 it put there - and paired that total with a
+  row counting the playlists that had been empty, so two numbers on one
+  card described different populations. `reconstructed_playlists` still
+  carries the contents, which is what the preview's per-playlist rows
+  name and label as entries held (DL-215, DL-238).
 - The write step draws the state before a write. After a confirmed write
   it is not redrawn, so its head still reads that nothing has been
   written and its destination card still reads that the file does not

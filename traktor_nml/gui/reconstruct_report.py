@@ -307,7 +307,7 @@ def preview_report(
         remainder=remainder,
         filled=int(stats.get("refilled_playlists") or 0),
         empty=int(stats.get("empty_playlists") or 0),
-        entries_added=sum(r.entries for r in rows),
+        entries_added=int(stats.get("playlist_entries_added") or 0),
         unfilled=tuple(stats.get("unfilled_playlists") or ()),
         conflicts=len(groups),
         outstanding=conflict_model.resolve_gate(decisions, groups).outstanding,
@@ -332,7 +332,11 @@ def write_report(
     gate = conflict_model.resolve_gate(decisions, groups)
     filled = int(stats.get("refilled_playlists") or 0)
     unfilled = len(tuple(stats.get("unfilled_playlists") or ()))
-    added = sum(int(v) for v in dict(stats.get("reconstructed_playlists") or {}).values())
+    # What the run added, not what the rebuilt playlists hold: a playlist
+    # that was not empty keeps its own entries and gains the rest, and
+    # counting its contents here would name entries the operator already
+    # had as ones this run put there (DL-238).
+    added = int(stats.get("playlist_entries_added") or 0)
     rows = (
         ChangeRow(
             label="Playlists filled again",

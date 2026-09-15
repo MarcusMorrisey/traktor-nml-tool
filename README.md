@@ -62,17 +62,46 @@ dependencies are available as extras: `pip install .[tags]` for `mutagen`,
 `pip install .[fingerprint]` for `pyacoustid`, `pip install .[gui]` for
 `nicegui`, or `pip install .[all]` for all three together.
 
-With the `gui` extra installed, `python -m traktor_nml.gui` starts the
-reconnect wizard: a four-step (set up, scan, review, write) desktop
-window over the same reconnection cores `rewrite-from-reconnect` uses,
-for reviewing ambiguous and refuted matches interactively instead of
-adjudicating them from the ambiguity CSV.
-
 `pyacoustid` also needs the `fpcalc` binary (from [Chromaprint](https://acoustid.org/chromaprint)) on `PATH` to compute fingerprints, **and** the chromaprint shared library to compare them - the standalone `fpcalc` download ships the binary only. With any of the three missing, `--fingerprint` names which one and matches nothing rather than failing. Everything else degrades gracefully if these are absent.
+
+## The desktop app
+
+With the `gui` extra installed, `python -m traktor_nml.gui` opens a
+desktop window holding two sections, reached by the tabs in its header.
+Both run the same cores the subcommands do, over the same collections,
+and neither writes anything until you confirm the write on its last step.
+
+**Reconstruct playlists** is the repair described above, as four steps:
+
+1. **Set up** - name the collection to repair, one or more older
+   collections to take playlist contents from, and where the new file
+   goes. Each collection reads back its own tracks, playlists and how
+   many of those are empty, so you can see you picked the file you meant.
+2. **Preview** - assembles the repair in memory and counts it back: which
+   playlists were filled, how many entries that added, and which ones no
+   collection could fill. Nothing is written.
+3. **Resolve** - where the collections hold one track with different
+   values, every answer is listed with the collections that hold it and
+   you pick which record supplies it, one track at a time or all from one
+   collection at once. This is what `--on-conflict` decides in bulk from
+   the command line.
+4. **Write** - states what the new file will hold before it is written,
+   including what the run could not do cleanly: entries placed on a track
+   the collection holds twice, and entries dropped because no collection
+   holds the track they name.
+
+**Reconnect wizard** is `rewrite-from-reconnect` as four steps - set up,
+scan, review, write - for reviewing ambiguous and refuted matches
+interactively instead of adjudicating them from the ambiguity CSV.
+
+The window is the same page served over a local port; nothing leaves the
+machine, and every collection it reads is opened read-only for the whole
+run.
 
 ## Usage
 
 ```bash
+python -m traktor_nml.gui     # the desktop app
 python traktor_nml_tool.py --help
 python traktor_nml_tool.py inspect collection.nml
 python traktor_nml_tool.py rewrite-from-reconnect old.nml new.nml --scan-root D:/Music --dry-run

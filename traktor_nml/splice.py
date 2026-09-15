@@ -528,6 +528,9 @@ def assemble_output(
     # line and no builder call has consumed a span yet, so rewriting
     # base_source and re-parsing is still free (DL-096).
     reconstructed: dict[str, int] = {}
+    # Entries the rebuilds added, as against the entries they hold: the
+    # two differ by whatever a non-empty rebuilt playlist already carried.
+    entries_added = 0
     matched: set[str] = set()
     # The spans the pre-pass rebuilds, so the drop pass below leaves them
     # to it: a rebuilt playlist was already filtered against valid_keys
@@ -691,6 +694,14 @@ def assemble_output(
             rebuilt_spans.add(span.start)
             replacements.append((span.start, span.end, ET.tostring(rebuilt, encoding="unicode")))
             reconstructed[path] = len(merged)
+            # What the rebuild put there that base did not already hold.
+            # A rebuilt playlist that was not empty keeps its own entries
+            # and gains the rest, so its whole contents are what it holds
+            # and only the remainder is what this run added. Counting the
+            # contents as additions would credit the run with entries the
+            # operator already had (DL-215, DL-238).
+            held_before = set(base_keys)
+            entries_added += sum(1 for key in merged if key not in held_before)
             matched.add(name)
 
     # A base playlist this run does not rebuild can still carry a
@@ -742,6 +753,7 @@ def assemble_output(
         base_root = parse_xml_bytes(base_source.encode("utf-8"))
 
     stats["playlists_reconstructed"] = len(reconstructed)
+    stats["playlist_entries_added"] = entries_added
     if reconstruct:
         stats["entries_on_duplicated_tracks"] = sum(on_duplicated.values())
         stats["playlists_on_duplicated_tracks"] = dict(sorted(on_duplicated.items()))

@@ -141,6 +141,10 @@ def test_the_listing_and_the_row_standing_for_the_rest_are_one_division():
     record = reconstruct_report.preview_report(
         _stats(reconstructed_playlists=rebuilt), [], conflict_model.ConflictDecisions()
     )
+    assert record.entries_added == 0, (
+        "a run that added nothing reports nothing added, whatever its "
+        "rebuilt playlists hold"
+    )
     assert len(record.listed) == reconstruct_report.LISTED_PLAYLISTS
     assert record.remainder is not None
     assert record.remainder.name == "and 11 more"
@@ -148,10 +152,11 @@ def test_the_listing_and_the_row_standing_for_the_rest_are_one_division():
     # above it printed.
     assert record.remainder.entries == sum(range(1, 12)), record.remainder.entries
     # Every entry is counted once: the nine listed plus the summed rest
-    # is the whole run.
-    assert (
-        sum(row.entries for row in record.listed) + record.remainder.entries
-        == record.entries_added
+    # is the whole run. Read against the rebuilt totals rather than
+    # against entries_added, which counts something else: what the run put
+    # there, as against what those playlists hold once it has (DL-238).
+    assert sum(row.entries for row in record.listed) + record.remainder.entries == sum(
+        rebuilt.values()
     )
 
 
