@@ -319,10 +319,10 @@ def test_a_fresh_set_and_one_reset_key_by_key_behave_identically() -> None:
 
 
 def test_a_bulk_action_leaves_an_explicit_pick_standing() -> None:
-    """resolve_all settles every undecided group its predicate answers
+    """resolve_where_answered settles every undecided group its predicate answers
     for and leaves a group already decided another way standing.
 
-    Observed with resolve_all's guard dropped (the `if self.decision(
+    Observed with resolve_where_answered's guard dropped (the `if self.decision(
     group) != UNDECIDED: continue` lines removed, so it resolves every
     group): AssertionError on `assert decisions.decision(picked) ==
     picked_reference`, reported as `assert (0, 'C:/:Base/:track.mp3') ==
@@ -336,7 +336,7 @@ def test_a_bulk_action_leaves_an_explicit_pick_standing() -> None:
 
     decisions = ConflictDecisions()
     decisions.resolve(picked, picked_reference)
-    decisions.resolve_all(groups, reference_from_input(0))
+    decisions.resolve_where_answered(groups, reference_from_input(0))
 
     assert decisions.decision(picked) == picked_reference
     assert decisions.decision(other) == _reference_at(other, 0)
@@ -374,7 +374,7 @@ def test_a_bulk_action_leaves_a_group_its_collection_has_no_record_in_undecided(
     untouched = held["C:/:Base/:track.mp3"]
 
     decisions = ConflictDecisions()
-    decisions.resolve_all(groups, reference_from_input(2))
+    decisions.resolve_where_answered(groups, reference_from_input(2))
 
     assert candidate_holding_input(untouched.candidates, 2) is None
     assert decisions.decision(covered) == (2, "C:/:Two/:other.mp3")

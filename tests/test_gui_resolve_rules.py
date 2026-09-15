@@ -153,7 +153,7 @@ def test_a_bulk_resolution_settles_only_the_groups_that_collection_holds():
     picker would not choose, so this cannot pass by coinciding with that
     picker's own answer.
 
-    Mutation: resolve_all's `if reference is not None:` in
+    Mutation: resolve_where_answered's `if reference is not None:` in
     traktor_nml/gui/conflict_model.py was replaced with
     `if reference is None: reference = candidate_reference(group.candidates[0])`
     followed by the unconditional resolve, and this guard rerun.
@@ -164,7 +164,7 @@ def test_a_bulk_resolution_settles_only_the_groups_that_collection_holds():
     """
     groups = _two_groups()
     decisions = conflict_model.ConflictDecisions()
-    decisions.resolve_all(groups, conflict_model.reference_from_input(2))
+    decisions.resolve_where_answered(groups, conflict_model.reference_from_input(2))
 
     gate = conflict_model.resolve_gate(decisions, groups)
     assert gate.outstanding == 1, (

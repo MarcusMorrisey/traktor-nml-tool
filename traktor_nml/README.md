@@ -74,6 +74,14 @@ is stated once, so a citation resolves against that single statement wherever
 it sits, never against a bullet in this section specifically; a second
 statement of the same decision would only give it two copies to drift apart.
 
+Three blocks of numbers are stated outside this file, and a citation to one
+resolves there. `DL-001`..`DL-013` are defined by the Decision Log table in
+`docs/traktor_nml_tool_execution_plan.md`, whose surrounding document is
+historical while that table is not; `DL-014`..`DL-023` by
+`docs/decision-log-014-023-reconstructed.md`; and `DL-024`..`DL-039` and
+`DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
+other number is stated in this file.
+
 - `matching.py`'s cascade accepts injected key providers; `fingerprint.py`
   supplies one behind an availability guard, so the core matching path
   never becomes import-guard-laden for a native chromaprint dependency
@@ -1089,6 +1097,14 @@ statement of the same decision would only give it two copies to drift apart.
   than what it read: a reference still standing after those three passes
   is this module's own defect, not the operator's collection (DL-230,
   DL-232).
+- A name states what the thing does, not what a reader might hope it
+  does. `conflict_model.resolve_where_answered` settles every undecided
+  group its predicate answers a reference for and leaves the rest
+  standing, which is what a bulk action for one collection needs: a
+  group that collection holds no record in keeps no value of anyone
+  else's. A name promising every group would describe a control that
+  overwrites answers this one leaves alone, and a reader who trusted it
+  would look for a bug where there is none (DL-154, DL-235).
 - A sentence's noun agrees with the count it follows, read off that
   count. The resolve step's tally strip is
   conflict_model.resolve_tally_sentence, and a run whose collections
@@ -1972,7 +1988,8 @@ statement of the same decision would only give it two copies to drift apart.
   another collection's values (DL-154).
 - `conflict_model.py`'s decision vocabulary is `UNDECIDED` plus a
   candidate reference, and no side token is a mapping value. `resolve`,
-  `resolve_all`, `resolutions`, `decision` and `_Decision` each carry the
+  `resolve_where_answered`, `resolutions`, `decision` and `_Decision`
+  each carry the
   mapping value, so each takes a candidate reference and the guard over a
   fixed token set goes with them. The words base and source survive as
   operator-facing labels and in `write_refusal_sentence`, where they name

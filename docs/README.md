@@ -46,7 +46,7 @@ that remaining work.
 
 **Implemented; rationale still binding.** `2026-08-24-build-playlist-plan.md`
 and `2026-08-25-matching-tolerance-decisions.md` carry the decision logs
-(DL-024..DL-035, DL-040..DL-041) that `traktor_nml/README.md` cites by number.
+(DL-024..DL-039, DL-040..DL-043) that `traktor_nml/README.md` cites by number.
 The code has moved on from the plans' code listings, but the reasoning chains
 are the record of why the current shape was chosen.
 
@@ -57,7 +57,14 @@ source but defined by no table. The Decision column states what the code
 demonstrably does; the Reasoning column is inferred from the citations and is
 not recovered deliberation.
 
-**Historical.** `traktor_nml_tool_plan.md` and
+**Authoritative for its Decision Log table only.**
+`traktor_nml_tool_execution_plan.md`'s "Decision Log" section defines
+DL-001..DL-013, the earliest block and the most cited: the package README, the
+CLAUDE.md indexes, the source and the tests name those thirteen numbers
+between them upward of eighty times, DL-004 alone around thirty. Nothing else
+defines them. The rest of that document is historical, below.
+
+**Historical.** `traktor_nml_tool_plan.md` and the remainder of
 `traktor_nml_tool_execution_plan.md` record the original Phase 1/2 design, and
 `chat_export.md` / `chat_export_full.md` export the development conversation.
 These describe intent at the time of writing and have not been maintained since;

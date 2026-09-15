@@ -2528,7 +2528,7 @@ def _build_reconstruct_page() -> None:
                     rather than settled on a name that matches
                     nothing (DL-148).
                     """
-                    decisions.resolve_all(
+                    decisions.resolve_where_answered(
                         groups, conflict_model.reference_from_input(input_index)
                     )
                     draw()

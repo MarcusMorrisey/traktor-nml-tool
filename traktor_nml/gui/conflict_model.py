@@ -145,7 +145,7 @@ def candidate_holding_input(
 def reference_from_input(
     input_index: int,
 ) -> Callable[[tuple[ConflictCandidate, ...]], Optional[CandidateRef]]:
-    """The predicate a bulk action for one collection hands resolve_all:
+    """The predicate a bulk action for one collection hands resolve_where_answered:
     it answers the reference of the candidate that collection supplies,
     or None for a group the collection holds no record in."""
 
@@ -264,7 +264,7 @@ class ConflictDecisions:
             return UNDECIDED
         return held.reference
 
-    def resolve_all(
+    def resolve_where_answered(
         self,
         groups: Iterable[ConflictGroup],
         predicate: Callable[[tuple[ConflictCandidate, ...]], Optional[CandidateRef]],
@@ -272,6 +272,12 @@ class ConflictDecisions:
         """Settle every undecided group the predicate answers a reference
         for, leaving a group already decided standing and leaving a group
         the predicate answers None for undecided.
+
+        Named for what it settles rather than for "all": a bulk action
+        reaches a group only where the collection it names holds a record
+        in that group, and a name promising every group would describe a
+        control that overwrites answers this one leaves alone (DL-154,
+        DL-235).
 
         A bulk action for one collection hands the predicate built by
         reference_from_input, so a group that collection holds no record
