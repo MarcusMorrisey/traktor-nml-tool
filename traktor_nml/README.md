@@ -1163,6 +1163,15 @@ other number is stated in this file.
   card described different populations. `reconstructed_playlists` still
   carries the contents, which is what the preview's per-playlist rows
   name and label as entries held (DL-215, DL-238).
+- A screen says what this run did and what to do next, and makes no
+  promise about what another program will do afterwards. The write
+  step's closing note told the operator their existing collection
+  "stays where it is until you do" - reassurance the originals card two
+  rows above had already given properly, by naming each collection and
+  reading NOT MODIFIED beside it, and which read here as a warning that
+  importing would move something. What Traktor does with a file it
+  imports is Traktor's, and a sentence implying otherwise is this screen
+  describing a program it cannot see (DL-239).
 - The write step draws the state before a write. After a confirmed write
   it is not redrawn, so its head still reads that nothing has been
   written and its destination card still reads that the file does not

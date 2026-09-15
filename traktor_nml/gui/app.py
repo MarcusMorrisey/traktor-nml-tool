@@ -2910,12 +2910,20 @@ def _build_reconstruct_page() -> None:
                                     "collection behind."
                                 )
                             with ui.element("div").classes("wizard-callout"):
+                                # What to do with the file, and nothing
+                                # else. Whether the run touched the
+                                # operator's own collections is answered
+                                # by the originals card above, which
+                                # names each one and reads NOT MODIFIED
+                                # beside it; saying it again here as
+                                # "stays where it is until you do" made a
+                                # promise about what importing does to
+                                # their collection, which is Traktor's
+                                # business and not this run's (DL-239).
                                 ui.label(
                                     "In Traktor, open the new file with File "
                                     "- Import Collection, or point Traktor's "
-                                    "collection setting at it. Your existing "
-                                    "collection stays where it is until you "
-                                    "do."
+                                    "collection setting at it."
                                 )
 
             def change_row(row) -> None:
