@@ -428,7 +428,17 @@ def test_the_write_is_asked_before_it_is_made_and_the_asking_closes_with_it():
         for keyword in call.keywords
         if keyword.arg == "on_click"
     }
-    assert handlers == {"write_dialog.open", "write_output"}, handlers
+    # One control opens the dialog and writes nothing; the other writes.
+    # Read as that property rather than as two exact strings: the opener
+    # also redraws the step, so that the dialog states what the write
+    # will do to the path as it stands now (DL-241).
+    assert len(handlers) == 2, handlers
+    opener = {h for h in handlers if "write_dialog.open" in h}
+    assert len(opener) == 1, handlers
+    assert "write_output" not in opener.pop(), (
+        "the footer control writes instead of asking first"
+    )
+    assert "write_output" in handlers, handlers
     write = ast.get_source_segment(_source(), _named_function("write_output")) or ""
     assert "write_dialog.close()" in write, (
         "the write does not close the dialog it was asked through"
@@ -715,7 +725,11 @@ def test_the_write_step_describes_the_file_once_it_exists():
     # The list itself is the same list: a write changes the tense of the
     # sentence above it, not what the run did.
     assert [row.label for row in after.rows] == [row.label for row in before.rows]
-    assert after.confirm_question == before.confirm_question
+    # The question does change, and should: writing again to a path this
+    # run has already written replaces the file that is now there, which
+    # is what the dialog has to say (DL-241).
+    assert before.confirm_question == "Write 0 rebuilt playlists?"
+    assert after.confirm_question.startswith("Replace the file at that path")
 
 
 def test_a_path_that_exists_but_this_run_did_not_write_is_not_called_written():
@@ -782,3 +796,53 @@ return True'
     # file this run did not write.
     render = _body_source_of("_render_write")
     assert 'written_holder["path"] == destination' in render, render
+
+
+def test_a_write_over_an_existing_file_says_so_before_it_asks():
+    """The write replaces whatever stands at the output path, so on a
+    path already holding a file the confirmation says what it is about
+    to destroy and its control names the act.
+
+    A confirmation that misstates what it destroys is worse than none:
+    it spends the operator's attention reassuring them. "A new file is
+    created at the path above" was read by an operator over a file the
+    run then replaced (DL-241).
+
+    PLACEHOLDER-R1
+    """
+    fresh = reconstruct_report.write_report(
+        _stats(), [], conflict_model.ConflictDecisions(), "out.nml", False, []
+    )
+    assert fresh.confirm_action == "Write collection"
+    assert fresh.confirm_assurances[0] == "A new file is created at the path above."
+    assert fresh.destination_note.startswith("The write refuses any path")
+
+    over = reconstruct_report.write_report(
+        _stats(), [], conflict_model.ConflictDecisions(), "out.nml", True, []
+    )
+    assert over.confirm_action == "Replace file"
+    assert "replaced" in over.confirm_assurances[0], over.confirm_assurances[0]
+    assert "not recoverable" in over.confirm_assurances[0], over.confirm_assurances[0]
+    assert over.confirm_question.startswith("Replace the file at that path")
+    assert over.destination_note.startswith("A file already stands here")
+    # The other two lines hold either way: they are about the run's own
+    # inputs and about Traktor, neither of which the path changes.
+    assert fresh.confirm_assurances[1:] == over.confirm_assurances[1:]
+
+
+def test_the_dialog_is_filled_from_the_record_rather_than_built_once():
+    """What the write will do to the path depends on what stands there
+    now, so the dialog's lines and its control are set where the panel is
+    drawn, and the footer control redraws before opening it (DL-241).
+
+    Read as source text: what the browser paints is a served-page
+    reading (DL-189).
+
+    PLACEHOLDER-R2
+    """
+    render = _body_source_of("_render_write")
+    assert 'write_holder["confirm"].set_text(record.confirm_action)' in render, render
+    assert "record.confirm_assurances" in render, render
+    assert "record.destination_note" in _source(), (
+        "the step's note under the path is still a literal"
+    )

@@ -1202,6 +1202,20 @@ other number is stated in this file.
   `destination_exists`: a path holding a file somebody else left there
   reads `Already exists`, which is the badge that warns the operator it
   will be replaced (DL-240).
+- A confirmation states what it is about to destroy. `write_bytes_
+  atomically` ends in `os.replace`, so the write replaces whatever
+  stands at the output path and keeps no copy of it; the dialog's first
+  line said "A new file is created at the path above" either way, and an
+  operator read that over a file the run then replaced. On a path
+  already holding a file the question names the replacement, the line
+  says what it holds now is not recoverable, and the primary control
+  reads `Replace file` rather than `Write collection`. The note under
+  the path says it too, because the badge is a state and the note is
+  what the write will do about it. A confirmation that misstates what it
+  destroys is worse than none: it spends the operator's attention
+  reassuring them. The dialog is filled where the panel is drawn and the
+  footer control redraws before opening it, so what it states is what
+  stands at that path now (DL-241).
 - A playlist is identified by the folder path it sits at, which is what
   Traktor's own SORTING_INFO PATH names it by, and the reconstruction
   pairs base to source on that path. A bare NAME does not identify a

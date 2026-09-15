@@ -233,10 +233,67 @@ class WriteReport:
         change row's count read off the row rather than recounted, so the
         dialog cannot promise a number the list beside it does not carry
         (DL-215).
+
+        A path already holding a file is a different question: the
+        operator is not being asked to create something but to destroy
+        something, and the question says which (DL-241).
         """
         filled = self.rows[0].count if self.rows else 0
         playlists = plural(filled, "playlist", "playlists")
+        if self.destination_exists:
+            return f"Replace the file at that path with {filled} rebuilt {playlists}?"
         return f"Write {filled} rebuilt {playlists}?"
+
+    @property
+    def confirm_assurances(self) -> tuple[str, ...]:
+        """The lines under the dialog's question.
+
+        The first states what happens to the path. The write replaces
+        whatever stands there, so on a path already holding a file the
+        line that says a new file is created is not true, and a
+        confirmation that misstates what it is about to destroy is worse
+        than no confirmation at all: it spends the operator's attention
+        reassuring them (DL-241).
+
+        The other two hold either way: the run's own inputs are refused
+        as an output, and nothing reaches Traktor until the operator
+        imports the file themselves.
+        """
+        if self.destination_exists:
+            first = (
+                "The file already at that path is replaced, and what it "
+                "holds now is not recoverable."
+            )
+        else:
+            first = "A new file is created at the path above."
+        return (
+            first,
+            "No collection you gave this run is touched.",
+            "Traktor is not changed until you import the new file yourself.",
+        )
+
+    @property
+    def confirm_action(self) -> str:
+        """The dialog's primary control. It names the act, so a control
+        reading `Write collection` never stands under a question about
+        replacing one (DL-241)."""
+        return "Replace file" if self.destination_exists else "Write collection"
+
+    @property
+    def destination_note(self) -> str:
+        """The line under the path at `Write.dc.html:100`.
+
+        A path already holding a file says so here as well as in its
+        badge, because the badge is a state and this is what the write
+        will do about it.
+        """
+        refuses = (
+            "The write refuses any path this run read, so nothing you "
+            "gave it is overwritten."
+        )
+        if self.written or not self.destination_exists:
+            return refuses
+        return "A file already stands here and the write replaces it. " + refuses
 
 
 @dataclass(frozen=True)

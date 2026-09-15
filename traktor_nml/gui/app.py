@@ -1631,13 +1631,6 @@ _RECONSTRUCT_ACTION_APPLIERS = {
 # above enforces - a new file at the chosen path, every input left as it
 # was, and Traktor reading its own collection until the operator imports
 # the new one.
-_WRITE_ASSURANCES = (
-    "A new file is created at the path above.",
-    "No collection you gave this run is touched.",
-    "Traktor is not changed until you import the new file yourself.",
-)
-
-
 def _build_reconstruct_page() -> None:
     """Registers the playlist-reconstruction screen at '/'.
 
@@ -1689,7 +1682,7 @@ def _build_reconstruct_page() -> None:
         resolve_holder: dict = {"advance": None, "focused": 0}
         # The write step's confirmation heading, held so the render that
         # reads the run reaches the dialog the footer opens.
-        write_holder: dict = {"question": None}
+        write_holder: dict = {"question": None, "assurances": None, "confirm": None}
         # The output path this run has written, or None. Set where the
         # write lands and cleared wherever the file on disk stops being
         # what the step describes - which is any new assembly, since the
@@ -2834,6 +2827,12 @@ def _build_reconstruct_page() -> None:
                     written=bool(destination) and written_holder["path"] == destination,
                 )
                 write_holder["question"].set_text(record.confirm_question)
+                write_holder["confirm"].set_text(record.confirm_action)
+                write_holder["assurances"].clear()
+                with write_holder["assurances"]:
+                    for assurance in record.confirm_assurances:
+                        with ui.element("div").classes("wizard-dialog-item"):
+                            ui.label(assurance)
                 with write_panel:
                     with ui.element("div").classes("wizard-step-split"):
                         with ui.element("div").classes("wizard-step-column"):
@@ -2863,11 +2862,9 @@ def _build_reconstruct_page() -> None:
                                         ui.label(
                                             record.destination_badge
                                         ).classes("wizard-badge")
-                                    ui.label(
-                                        "The write refuses any path this run "
-                                        "read, so nothing you gave it is "
-                                        "overwritten."
-                                    ).classes("wizard-meta")
+                                    ui.label(record.destination_note).classes(
+                                        "wizard-meta"
+                                    )
                             with ui.element("section").classes("wizard-card"):
                                 with ui.element("div").classes(
                                     "wizard-card-head"
@@ -3077,15 +3074,19 @@ def _build_reconstruct_page() -> None:
                     write_holder["question"] = ui.label().classes(
                         "wizard-heading-sm font-semibold"
                     )
-                    with ui.element("div").classes("wizard-dialog-list"):
-                        for assurance in _WRITE_ASSURANCES:
-                            with ui.element("div").classes("wizard-dialog-item"):
-                                ui.label(assurance)
+                    # Filled where the panel is drawn, like the
+                    # question above: what the write is about to do to
+                    # the path depends on what stands there now, so a
+                    # line built once at page construction would state
+                    # the wrong one (DL-241).
+                    write_holder["assurances"] = ui.element("div").classes(
+                        "wizard-dialog-list"
+                    )
                     with ui.element("div").classes("wizard-dialog-actions"):
                         ui.button(
                             "Cancel", on_click=write_dialog.close, color=None
                         ).classes("wizard-control")
-                        ui.button(
+                        write_holder["confirm"] = ui.button(
                             "Write collection", on_click=write_output, color=None
                         ).classes("wizard-control wizard-control-primary")
 
@@ -3130,7 +3131,13 @@ def _build_reconstruct_page() -> None:
                     color=None,
                 ).classes("wizard-control")
                 ui.button(
-                    "Write collection...", on_click=write_dialog.open, color=None
+                    # Redrawn before it opens: a file can appear at the
+                    # output path between the step being drawn and the
+                    # operator pressing this, and the dialog is where
+                    # they are told what the write will do to it.
+                    "Write collection...",
+                    on_click=lambda: (_render_write(), write_dialog.open()),
+                    color=None
                 ).classes("wizard-control wizard-control-primary")
 
         footer_groups[reconstruct_steps.SET_UP] = (
