@@ -50,6 +50,9 @@ class ImportResult:
     sorting_info: list[str] = field(default_factory=list)  # rewritten SORTING_INFO fragments to carry over
     dropped_sorting_info: list[str] = field(default_factory=list)  # PATHs that could not be carried over
     dropped_refs: list[tuple[str, str]] = field(default_factory=list)  # (playlist name, key) dropped as unresolvable
+    # (playlist name, key) for a resolvable key that left on a removed
+    # ENTRY. Empty in every ordinary run; see DroppedEntries.
+    carried_away: list[tuple[str, str]] = field(default_factory=list)
 
 
 def find_playlist_nodes(root: ET.Element) -> list[ET.Element]:
@@ -125,32 +128,61 @@ def _redirect_keys(node_copy: ET.Element, old_to_new_key: dict[str, str]) -> Non
             pk.attrib["KEY"] = new_key
 
 
-def _drop_from_node(node_copy: ET.Element, valid_keys: set[str]) -> list[str]:
+@dataclass
+class DroppedEntries:
+    """What one call to drop_unresolvable_entries removed.
+
+    `entries` counts ENTRY elements and `unresolvable` names the keys that
+    caused each removal, so a caller reporting "entries dropped" and
+    "tracks dropped" reads each off the thing it names. The two agree in
+    the ordinary case, where an ENTRY carries one PRIMARYKEY.
+
+    `carried_away` is the rest: a key on a removed ENTRY that valid_keys
+    does hold, which leaves the playlist because its entry does. Nothing
+    in this package drops a resolvable key on purpose, so the list exists
+    to keep that from happening silently rather than to be routine - a
+    caller that finds it non-empty has lost a track it could have kept.
+    """
+    entries: int = 0
+    unresolvable: list[str] = field(default_factory=list)
+    carried_away: list[str] = field(default_factory=list)
+
+
+def _drop_from_node(node_copy: ET.Element, valid_keys: set[str]) -> DroppedEntries:
     """drop_unresolvable_entries reached through a playlist NODE, which is
     what import_playlists holds; a NODE with no PLAYLIST child carries no
     entries to drop."""
     playlist = node_copy.find("PLAYLIST")
-    return [] if playlist is None else drop_unresolvable_entries(playlist, valid_keys)
+    if playlist is None:
+        return DroppedEntries()
+    return drop_unresolvable_entries(playlist, valid_keys)
 
 
-def drop_unresolvable_entries(playlist: ET.Element, valid_keys: set[str]) -> list[str]:
+def drop_unresolvable_entries(playlist: ET.Element, valid_keys: set[str]) -> DroppedEntries:
     """Remove from an in-memory PLAYLIST element every ENTRY carrying a
     PRIMARYKEY outside valid_keys, restate its ENTRIES count from what
-    survives, and return the dropped keys in the order they appeared.
-    Keys are read after redirection, so a source entry redirected onto a
-    base record is judged by the record it now points at. Whole ENTRY
-    elements are removed rather than rebuilt, so anything else an entry
-    carries travels with it."""
-    dropped: list[str] = []
+    survives, and report what left in document order.
+
+    Keys are read as they stand on the element, so a caller holding a
+    tree whose keys are redirected is judged on the redirected keys and a
+    caller holding an untouched one on its own. Whole ENTRY elements are
+    removed rather than rebuilt, so anything else an entry carries
+    travels with it - including any further PRIMARYKEY, which is what
+    `carried_away` records.
+    """
+    result = DroppedEntries()
     for entry in list(playlist):
         keys = [pk.attrib.get("KEY", "") for pk in entry.findall(".//PRIMARYKEY")]
         unresolvable = [key for key in keys if key not in valid_keys]
-        if unresolvable:
-            dropped.extend(unresolvable)
-            playlist.remove(entry)
-    if dropped:
+        if not unresolvable:
+            continue
+        result.entries += 1
+        result.unresolvable.extend(unresolvable)
+        result.carried_away.extend(key for key in keys if key in valid_keys)
+        playlist.remove(entry)
+    if result.entries:
         playlist.attrib["ENTRIES"] = str(len(list(playlist)))
-    return dropped
+    return result
 
 
 def available_playlist_name(requested_name: str, existing_names: set[str]) -> str:
@@ -284,8 +316,20 @@ def import_playlists(
             _redirect_keys(node_copy, old_to_new_key)
             if has_orphan:
                 dropped = _drop_from_node(node_copy, valid_keys)
-                result.dropped_refs.extend((original_name, key) for key in dropped)
-                emitted = [key for key in redirected if key in valid_keys]
+                result.dropped_refs.extend(
+                    (original_name, key) for key in dropped.unresolvable
+                )
+                result.carried_away.extend(
+                    (original_name, key) for key in dropped.carried_away
+                )
+                # Read off the trimmed copy rather than predicted from
+                # the keys that went in: what the fragment carries is
+                # what serialising it will carry, and a prediction that
+                # disagreed with the dropper would put a key this
+                # playlist no longer holds into primary_keys.
+                emitted = [
+                    pk.attrib.get("KEY", "") for pk in node_primary_keys(node_copy)
+                ]
             else:
                 emitted = redirected
             fragment = ET.tostring(node_copy, encoding="unicode")

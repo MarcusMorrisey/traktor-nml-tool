@@ -1129,6 +1129,30 @@ other number is stated in this file.
   every other `gui/` module in the import order, and
   `tests/test_gui_wording.py` sweeps `gui/` for a screen spelling the
   choice out for itself (DL-069, DL-215, DL-233, DL-236).
+- A guard and the work it gates ask the same question in the same terms.
+  The base-side drop pass reads a playlist's keys as they stand, which is
+  what `drop_unresolvable_entries` reads of that same untouched element;
+  redirecting them in the guard alone put the two in different key spaces
+  and made the guard true in exactly the state where the dropper had
+  something to do, which is the shape DL-189 names (DL-189, DL-237).
+- A pass that removes an ENTRY reports every key that left with it. An
+  ENTRY is removed whole, so a second `PRIMARYKEY` on it goes too, even
+  where the collection holds that track; `DroppedEntries` carries the
+  unresolvable keys and the resolvable ones apart, and `entries` counts
+  elements rather than keys so a caller reporting entries and tracks
+  reads each off the thing it names. A Traktor playlist entry names one
+  track, so `entries_carried_away` is empty in an ordinary run - which is
+  what makes a filled one worth reading, since losing a track the
+  collection does hold is the thing this tool exists to undo (DL-232,
+  DL-237).
+- Bookkeeping over elements is keyed by byte offset, not by `id()`. Under
+  lxml an element is a transient proxy, and once nothing references it
+  the proxy is collected and its address can be reused by an unrelated
+  one - the hazard `spans.py` documents and defends against by retaining
+  every element it walks. The reconstruction pre-pass records the span
+  start of each playlist it rebuilds and the drop pass skips those, so
+  neither depends on another object staying alive to stay correct
+  (DL-237).
 - The write step draws the state before a write. After a confirmed write
   it is not redrawn, so its head still reads that nothing has been
   written and its destination card still reads that the file does not

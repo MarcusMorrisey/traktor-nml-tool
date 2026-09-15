@@ -498,6 +498,12 @@ def assemble_output(
     # output over it (DL-232).
     valid_keys = {r.primary_key for r in records_by_input[0]} | {r.primary_key for _, r in new_entries_records}
     dropped_refs: list[tuple[str, str]] = []
+    # A resolvable key that left because the ENTRY carrying it was
+    # removed for a second, unresolvable key on the same entry. Empty in
+    # every ordinary run - a Traktor playlist entry names one track - and
+    # reported rather than dropped silently, because losing a track the
+    # collection does hold is the thing this tool exists to undo.
+    carried_away: list[tuple[str, str]] = []
 
     # One replacement list over base_source, seeded with the source picks'
     # entry patches and extended below by the reconstruction block's rebuilt
@@ -523,11 +529,17 @@ def assemble_output(
     # base_source and re-parsing is still free (DL-096).
     reconstructed: dict[str, int] = {}
     matched: set[str] = set()
-    # The PLAYLIST elements the pre-pass rebuilds, so the drop pass below
-    # leaves their spans to it: a rebuilt playlist was already filtered
-    # against valid_keys and a second patch over the same span would
-    # collide with the first.
-    rebuilt_playlists: set[int] = set()
+    # The spans the pre-pass rebuilds, so the drop pass below leaves them
+    # to it: a rebuilt playlist was already filtered against valid_keys
+    # and a second patch over the same span would collide with the first.
+    #
+    # Keyed by span start rather than by id(element). Under lxml an
+    # element is a transient proxy, and once nothing references it the
+    # proxy is collected and its address can be reused by an unrelated
+    # one - the hazard SpanIndex documents and defends against by
+    # retaining every element it walks. Keying on an offset needs no such
+    # defence and no dependency on another object staying alive.
+    rebuilt_spans: set[int] = set()
     if reconstruct:
         # Playlists pair by the folder path they sit at, which is the
         # identity Traktor's own SORTING_INFO PATH gives them, not by
@@ -668,7 +680,6 @@ def assemble_output(
             playlist_elem = base_node.find("PLAYLIST")
             if playlist_elem is None:
                 continue
-            rebuilt_playlists.add(id(playlist_elem))
             rebuilt = ET.fromstring(ET.tostring(playlist_elem))
             for child in list(rebuilt):
                 rebuilt.remove(child)
@@ -677,6 +688,7 @@ def assemble_output(
                 ET.SubElement(entry, "PRIMARYKEY", {"TYPE": "TRACK", "KEY": key})
             rebuilt.attrib["ENTRIES"] = str(len(merged))
             span = span_indexes[0].span_of(playlist_elem)
+            rebuilt_spans.add(span.start)
             replacements.append((span.start, span.end, ET.tostring(rebuilt, encoding="unicode")))
             reconstructed[path] = len(merged)
             matched.add(name)
@@ -688,21 +700,29 @@ def assemble_output(
     # that entry carried goes with it (DL-232).
     for node in find_playlist_nodes(base_root):
         playlist_elem = node.find("PLAYLIST")
-        if playlist_elem is None or id(playlist_elem) in rebuilt_playlists:
+        if playlist_elem is None:
+            continue
+        if span_indexes[0].span_of(playlist_elem).start in rebuilt_spans:
             continue
         # Walked once, and the copy below is paid for only where the walk
         # found something to drop: a base playlist holding nothing
         # unresolvable keeps its own bytes, which is most of them.
+        #
+        # Read as the keys stand, which is the same question
+        # drop_unresolvable_entries asks of the same untouched element
+        # below. Redirecting them here would put the guard in one key
+        # space and the work it gates in another, and the guard would
+        # then be true in exactly the state where the dropper had
+        # something to do (DL-189).
         if all(
-            old_to_new_key.get(key, key) in valid_keys
-            for key in (pk.attrib.get("KEY", "") for pk in node_primary_keys(node))
+            pk.attrib.get("KEY", "") in valid_keys for pk in node_primary_keys(node)
         ):
             continue
         trimmed = ET.fromstring(ET.tostring(playlist_elem))
         name = node.attrib.get("NAME", "")
-        dropped_refs.extend(
-            (name, key) for key in drop_unresolvable_entries(trimmed, valid_keys)
-        )
+        dropped = drop_unresolvable_entries(trimmed, valid_keys)
+        dropped_refs.extend((name, key) for key in dropped.unresolvable)
+        carried_away.extend((name, key) for key in dropped.carried_away)
         span = span_indexes[0].span_of(playlist_elem)
         replacements.append((span.start, span.end, ET.tostring(trimmed, encoding="unicode")))
 
@@ -758,7 +778,12 @@ def assemble_output(
     )
 
     # Import every non-base playlist as a flattened child of the base root folder.
-    existing_names = {node.attrib.get("NAME", "") for node in find_playlist_nodes(base_root)}
+    # Walked once and held: the self-check below reads the same tree at
+    # the same revision, and nothing between here and there changes it.
+    # Holding the list also keeps every element's lxml proxy alive for as
+    # long as the walk's results are in use.
+    base_playlist_nodes = find_playlist_nodes(base_root)
+    existing_names = {node.attrib.get("NAME", "") for node in base_playlist_nodes}
     # A reconstructed name is skipped below rather than renamed, so it
     # is left out of the in-use set the rename rule consults.
     existing_names -= matched
@@ -786,8 +811,14 @@ def assemble_output(
                 skipped_reconstructed += 1
                 continue
             playlist_fragments.append(imported.fragment)
+            # Only what the self-check below would report. In a run
+            # where the three passes did their work this stays empty,
+            # rather than holding one tuple per entry of every imported
+            # playlist to be scanned and found clean.
             emitted_playlist_keys.extend(
-                (imported.final_name, key) for key in imported.primary_keys
+                (imported.final_name, key)
+                for key in imported.primary_keys
+                if key not in valid_keys
             )
             if imported.final_name != imported.original_name:
                 # Counted per surviving fragment rather than from
@@ -803,6 +834,9 @@ def assemble_output(
         skipped = {p.original_name for p in result.playlists if p.original_name in matched}
         dropped_refs.extend(
             (name, key) for name, key in result.dropped_refs if name not in skipped
+        )
+        carried_away.extend(
+            (name, key) for name, key in result.carried_away if name not in skipped
         )
     stats["playlists_imported"] = len(playlist_fragments)
     stats["playlists_renamed"] = renamed_count
@@ -822,6 +856,9 @@ def assemble_output(
     stats["playlists_with_dropped_entries"] = dict(
         sorted(Counter(name for name, _ in dropped_refs).items())
     )
+    # Normally empty; a caller that finds it filled has lost a track the
+    # collection holds, and the key names which.
+    stats["entries_carried_away"] = [key for _, key in carried_away]
 
     subnodes_span = find_element_span(output, "SUBNODES")
     if subnodes_span is None:
@@ -861,14 +898,12 @@ def assemble_output(
     # serialised, rather than off the unpatched inputs the drops were
     # made against. Parsing the fragments back would re-parse every
     # imported playlist to recover what the import already knew.
-    for node in find_playlist_nodes(base_root):
+    for node in base_playlist_nodes:
         name = node.attrib.get("NAME", "")
         for pk in node_primary_keys(node):
             if pk.attrib.get("KEY", "") not in valid_keys:
                 unresolved_refs.append((name, pk.attrib.get("KEY", "")))
-    for name, key in emitted_playlist_keys:
-        if key not in valid_keys:
-            unresolved_refs.append((name, key))
+    unresolved_refs.extend(emitted_playlist_keys)
 
     if unresolved_refs:
         errors = [f"unresolved_reference playlist={name} key={key}" for name, key in unresolved_refs]

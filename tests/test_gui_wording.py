@@ -24,9 +24,16 @@ GUI_DIR = Path(__file__).resolve().parents[1] / "traktor_nml" / "gui"
 # shape every screen in this package wrote out for itself before the
 # rule had one home. Read as source text, because what it forbids is a
 # spelling and not a value.
+#
+# Each literal is matched on its own rather than as a matching pair, and
+# anything may stand between the `== 1` and the `else`, so
+# `"track" if n == 1 else 'tracks'` and
+# `"track" if n == 1 and held else "tracks"` are caught as well as the
+# plain form. A guard against a spelling returning is worth only the
+# spellings it actually covers.
+_STRING = r"""(?:"[^"\n]*"|'[^'\n]*')"""
 _INLINE_PLURAL = re.compile(
-    r'"[^"]*"\s+if\s+[^\n]*?==\s*1\s+else\s+"[^"]*"'
-    r"|'[^']*'\s+if\s+[^\n]*?==\s*1\s+else\s+'[^']*'"
+    _STRING + r"\s+if\s+[^\n]*?==\s*1\b[^\n]*?\s+else\s+" + _STRING
 )
 
 

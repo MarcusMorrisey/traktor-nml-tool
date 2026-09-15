@@ -1899,3 +1899,56 @@ def test_the_dropped_entries_are_counted_apart_from_the_tracks_they_name(tmp_pat
     assert result.stats["entries_dropped_unresolvable"] == 2
     assert result.stats["tracks_dropped_unresolvable"] == 1
     assert result.stats["playlists_with_dropped_entries"] == {"First": 1, "Second": 1}
+
+
+def test_a_dropped_entry_reports_every_key_that_left_with_it(tmp_path: Path) -> None:
+    """An ENTRY is removed whole, so a second PRIMARYKEY on that same
+    entry leaves with it even where the collection does hold that track.
+    The run says so rather than losing it silently: the unresolvable key
+    is what the entry was dropped for, and the resolvable one is reported
+    apart from it (DL-232, DL-237).
+
+    A Traktor playlist entry names one track, so entries_carried_away is
+    empty in an ordinary run - which is what makes a filled one worth
+    reading.
+
+    Mutation: in playlists.drop_unresolvable_entries, the line
+    `result.carried_away.extend(key for key in keys if key in valid_keys)`
+    deleted. Observed:
+        E       AssertionError: a resolvable key left the playlist unreported
+        E       assert [] == ['C:/:Music/:one.mp3']
+        E         Right contains one more item: 'C:/:Music/:one.mp3'
+    """
+    from traktor_nml.playlists import drop_unresolvable_entries
+    from traktor_nml.xmlio import parse_xml_bytes
+
+    playlist = parse_xml_bytes(
+        (
+            '<PLAYLIST ENTRIES="2" TYPE="LIST">'
+            "<ENTRY>"
+            f'<PRIMARYKEY TYPE="TRACK" KEY="{_key("one")}"></PRIMARYKEY>'
+            f'<PRIMARYKEY TYPE="TRACK" KEY="{_key("ghost")}"></PRIMARYKEY>'
+            "</ENTRY>"
+            "<ENTRY>"
+            f'<PRIMARYKEY TYPE="TRACK" KEY="{_key("two")}"></PRIMARYKEY>'
+            "</ENTRY>"
+            "</PLAYLIST>"
+        ).encode("utf-8")
+    )
+    dropped = drop_unresolvable_entries(playlist, {_key("one"), _key("two")})
+
+    assert dropped.entries == 1, "the entry count is entries, not keys"
+    assert dropped.unresolvable == [_key("ghost")]
+    assert dropped.carried_away == [_key("one")], (
+        "a resolvable key left the playlist unreported"
+    )
+    # What the element now holds agrees with what was reported to have left.
+    surviving = _pkeys(_ET_tostring(playlist))
+    assert surviving == [_key("two")]
+    assert playlist.attrib["ENTRIES"] == "1"
+
+
+def _ET_tostring(element) -> str:
+    from traktor_nml.xmlio import ET
+
+    return ET.tostring(element, encoding="unicode")
