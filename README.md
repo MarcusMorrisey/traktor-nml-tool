@@ -10,7 +10,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
   - against a newer collection covering the same tracks (`rewrite-from-collection-compare`), or
   - against the actual files on disk, scanning one or more directories and matching by audio tags and optionally acoustic fingerprints (`rewrite-from-reconnect`).
 - **Merge** additional `.nml` files into a base collection (`splice`), or **partition** one collection into several outputs by playlist (`split`).
-- **Reconstruct playlists** in a base collection from the same-named playlists in an older one (`splice --reconstruct-playlists`), for a collection whose playlists survive by name while their contents do not.
+- **Reconstruct playlists** in a base collection from the playlists at the same folder path in an older one (`splice --reconstruct-playlists`), for a collection whose playlists survive by name while their contents do not.
 - **Build a playlist** from an external plain-text track list, matched against a base collection (`build-playlist`). Outputs a self-contained single-playlist NML by default; use `--full-collection` to retain the source collection.
 - **Discover candidate files** for an external track list across one or more folders (`discover-tracks`); writes a review CSV and never modifies an NML.
 - **Discover collection candidates** for an external track list with the same relaxed scoring (`discover-collection-tracks`); writes a review CSV and never modifies an NML.
@@ -21,15 +21,24 @@ Matching also **refutes** a candidate whose `FILESIZE` or `PLAYTIME_FLOAT` contr
 
 ### Reconstructing playlists
 
-`splice --reconstruct-playlists` targets a base collection whose playlists carry their names without their contents, with an older collection holding those contents. A base playlist is rebuilt only when its contents differ from the same-named incoming ones, compared as an ordered sequence of track identities rather than as entry counts, so `[one, two]` against `[two, three]` is a difference and a reordering is too.
+`splice --reconstruct-playlists` targets a base collection whose playlists carry their names without their contents, with an older collection holding those contents. A base playlist pairs with the incoming playlist at the same folder path - `Folder\Sub\Name`, the identity Traktor's own `SORTING_INFO PATH` gives it - and is rebuilt only when its contents differ from that one's, compared as an ordered sequence of track identities rather than as entry counts, so `[one, two]` against `[two, three]` is a difference and a reordering is too.
+
+A bare `NAME` does not identify a playlist, because a real collection reuses one freely across folders: one measured collection holds 1,187 playlists under 768 distinct names. A playlist with no counterpart at its own path falls back to its name, but only where that name names exactly one playlist on each side; where it names more, nothing says which playlist the older copy belongs to and base's is left alone rather than rebuilt from a guess.
 
 A rebuilt playlist keeps base's own node, UUID and folder position; its entries become base's own in their existing order, followed by every incoming entry not already among them, folded across each `--input` file in the order given and deduplicated. A playlist whose contents already match is left untouched and its incoming copy is not imported. Without the flag, a same-named incoming playlist is imported beside base's as `"<name> (2)"`, which is the default for every existing invocation.
 
 When two collections hold one track and disagree about its tags, `splice` refuses rather than picking for you. `--on-conflict keep-first` or `keep-last` settles every such track for the whole run; without it the run aborts and the `--conflict-report` CSV names each disagreement. The wizard's Reconstruct playlists screen resolves them one track at a time instead, offering the values each collection holds.
 
-`splice` also refuses to write an output that would break the collection it assembled: two entries for one file, an entry count that does not match what it merged, or a playlist key naming no entry. Each is reported and nothing is written.
+`splice` also refuses to write an output that would break the collection it assembled: two entries for one file (`entry_location_collision`), or an entry count that does not match what it merged (`collection_entry_count`). Each is reported and nothing is written.
 
-Two situations abort the run with nothing written, rather than resolving by document order: a playlist `NAME` appearing more than once inside a single file, and an incoming entry whose track identity matches more than one entry in base. Both are reported through the same `--conflict-report` CSV as a merge conflict. Track identity is resolved through the same cascade the merge itself uses, so a base and an older collection referring to one track at different paths still pair up.
+One situation aborts the run with nothing written, rather than resolving by document order: a playlist folder path appearing more than once on either side, which offers no single playlist to rebuild or to rebuild from. It is reported through the same `--conflict-report` CSV as a merge conflict.
+
+Two other situations are reported and written rather than refused, because the condition is in the collections the run reads and refusing it would discard every playlist the run rebuilt:
+
+- An incoming entry whose track identity matches more than one entry in base is placed on the first of them - the record the merge already redirects that key to - and counted in `entries_on_duplicated_tracks`, with the playlists carrying them in `playlists_on_duplicated_tracks`.
+- A playlist entry naming a track no collection in the run holds an entry for is dropped from the playlist carrying it and counted in `entries_dropped_unresolvable`, with the distinct tracks in `tracks_dropped_unresolvable` and the playlists in `playlists_with_dropped_entries`. Traktor resolves such a reference to nothing, so carrying it into a repaired file would preserve a pointer to nothing.
+
+Track identity is resolved through the same cascade the merge itself uses, so a base and an older collection referring to one track at different paths still pair up.
 
 `build-playlist` is deliberately not in that list even though it runs the same cascade: a plain-text track list carries no size or duration, so there is nothing for the check to contradict and it can never fire. A flag there would do nothing.
 

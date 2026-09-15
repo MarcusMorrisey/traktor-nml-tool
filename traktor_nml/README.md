@@ -1311,16 +1311,16 @@ statement of the same decision would only give it two copies to drift apart.
   measured in, and every byte outside a rebuilt `PLAYLIST` element and
   outside the attribute values a source pick names inside a base
   `ENTRY` is copied verbatim (DL-096, DL-102).
-- Playlist name matching is exact and case-sensitive. Traktor treats two
-  names differing only in case as distinct playlists, so a casefolded
+- Playlist path matching is exact and case-sensitive. Traktor treats two
+  playlists whose paths differ only in case as distinct, so a casefolded
   lookup would rebuild one from the other and leave the same track
-  reachable through both (DL-098).
-- A `NAME` occurring more than once within one document, on either side,
-  aborts with nothing written rather than resolving by document order.
-  Counting is per contribution rather than across them: one name
+  reachable through both (DL-098, DL-228).
+- A folder path occurring more than once within one document, on either
+  side, aborts with nothing written rather than resolving by document
+  order. Counting is per contribution rather than across them: one path
   appearing in several `--input` files is the fold DL-092 asks for, while
-  the same name twice inside one file offers no single playlist to
-  reconstruct or to reconstruct from (DL-098).
+  the same path twice inside one file offers no single playlist to
+  reconstruct or to reconstruct from (DL-098, DL-228).
 - The `SORTING_INFO` entry belonging to a skipped incoming playlist is
   discarded, since base's own entry already governs the surviving node
   and a second entry for one name would describe a playlist the output
