@@ -28,6 +28,7 @@ from traktor_nml.gui.conflict_model import (
     CONFLICTS_OUTSTANDING,
     CONFLICT_ABORT_TOKEN,
     ConflictDecisions,
+    resolve_tally_sentence,
     NO_PREVIEW,
     RUN_REFUSED,
     UNDECIDED,
@@ -954,3 +955,21 @@ def test_the_conflict_abort_still_answers_outstanding_conflicts() -> None:
     assert refusal.outstanding == len(groups)
     assert refusal.errors == ()
     assert f"{len(groups)} conflict(s) still to decide" in write_refusal_sentence(refusal)
+
+
+def test_the_resolve_tally_agrees_with_the_count_it_names():
+    """A run whose collections diverge over one track is the ordinary
+    case, and the strip above the table reads its noun off that count
+    rather than assuming more than one (DL-233).
+
+    Mutation: the ternary in conflict_model.resolve_tally_sentence
+    replaced by the plural alone, `tracks = "tracks carry"`. Observed,
+    which is what the served page read before the correction:
+        E       AssertionError: assert '1 tracks car...ided, 1 to go' == '1 track carr...ided, 1 to go'
+        E         - 1 track carries more than one answer - 0 decided, 1 to go
+        E         + 1 tracks carry more than one answer - 0 decided, 1 to go
+    """
+    one = resolve_tally_sentence(1, 0, 1)
+    assert one == "1 track carries more than one answer - 0 decided, 1 to go"
+    many = resolve_tally_sentence(34, 34, 0)
+    assert many == "34 tracks carry more than one answer - 34 decided, 0 to go"

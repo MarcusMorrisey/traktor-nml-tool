@@ -465,6 +465,19 @@ def run_is_current(used, decisions: "ConflictDecisions", groups) -> bool:
     return used == decisions.resolutions(groups)
 
 
+def resolve_tally_sentence(total: int, decided: int, outstanding: int) -> str:
+    """The resolve step's tally strip: how many tracks carry more than one
+    answer, how many are settled and how many are left.
+
+    The noun agrees with the count it follows. A run carrying one such
+    track is the ordinary case on a pair of collections that barely
+    diverge, and a screen reading "1 tracks" is the screen misreporting
+    the model it is describing rather than styling it badly - the same
+    rule DL-215 states for a spelled count (DL-233)."""
+    tracks = "track carries" if total == 1 else "tracks carry"
+    return f"{total} {tracks} more than one answer - {decided} decided, {outstanding} to go"
+
+
 def write_refusal_sentence(refusal: WriteRefusal) -> str:
     """The operator-facing sentence for one refusal, naming what is wrong
     and which control fixes it. The conflict sentence names choosing a

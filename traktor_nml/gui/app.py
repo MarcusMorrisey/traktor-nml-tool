@@ -2263,9 +2263,9 @@ def _build_reconstruct_page() -> None:
                     """
                     with ui.element("div").classes("wizard-bulk-strip"):
                         ui.label(
-                            f"{len(groups)} tracks carry more than one "
-                            f"answer - {gate.decided} decided, "
-                            f"{gate.outstanding} to go"
+                            conflict_model.resolve_tally_sentence(
+                                len(groups), gate.decided, gate.outstanding
+                            )
                         ).classes("wizard-tally")
                         ui.element("span").classes("wizard-strip-spacer")
                         ui.label("Decide all from").classes("wizard-label")

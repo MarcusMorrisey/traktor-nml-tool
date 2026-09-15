@@ -1089,6 +1089,25 @@ statement of the same decision would only give it two copies to drift apart.
   than what it read: a reference still standing after those three passes
   is this module's own defect, not the operator's collection (DL-230,
   DL-232).
+- A sentence's noun agrees with the count it follows, read off that
+  count. The resolve step's tally strip is
+  conflict_model.resolve_tally_sentence, and a run whose collections
+  diverge over one track reads "1 track carries more than one answer" -
+  the ordinary case on a pair that barely diverge, and one a served page
+  read as "1 tracks" while the refusal sentence one step earlier had the
+  singular right. Two screens describing one number disagreeing about it
+  is the screen misreporting the model rather than styling it badly,
+  which is the rule DL-215 states for a spelled count (DL-215, DL-233).
+- The write step draws the state before a write. After a confirmed write
+  it is not redrawn, so its head still reads that nothing has been
+  written and its destination card still reads that the file does not
+  exist, while the toast beside them names the file just written.
+  Write.dc.html draws no state after a write, and DL-071 puts that in
+  the design before the screen: redrawing the step against the drawing
+  that exists would have the destination card say the file exists under
+  a head saying nothing was written.
+  docs/2026-09-15-reconstruct-salvage-browser-record.md is where it was
+  read (DL-071, DL-234).
 - A playlist is identified by the folder path it sits at, which is what
   Traktor's own SORTING_INFO PATH names it by, and the reconstruction
   pairs base to source on that path. A bare NAME does not identify a
