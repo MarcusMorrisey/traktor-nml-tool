@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional
 
 from ..splice import ConflictCandidate, ConflictRow, SpliceResult
+from .wording import plural
 
 # The one decision state this module owns as a token. A decided key
 # carries an (input index, primary key) pair instead; undecided is this
@@ -480,7 +481,7 @@ def resolve_tally_sentence(total: int, decided: int, outstanding: int) -> str:
     diverge, and a screen reading "1 tracks" is the screen misreporting
     the model it is describing rather than styling it badly - the same
     rule DL-215 states for a spelled count (DL-233)."""
-    tracks = "track carries" if total == 1 else "tracks carry"
+    tracks = plural(total, "track carries", "tracks carry")
     return f"{total} {tracks} more than one answer - {decided} decided, {outstanding} to go"
 
 
@@ -512,7 +513,7 @@ def write_refusal_sentence(refusal: WriteRefusal) -> str:
                 "The preview stopped and gave no reason. Nothing was "
                 "written."
             )
-        reasons = "reason" if count == 1 else "reasons"
+        reasons = plural(count, "reason", "reasons")
         return (
             f"The preview stopped and nothing was written. Back to the "
             f"preview lists the {count} {reasons} it gave."

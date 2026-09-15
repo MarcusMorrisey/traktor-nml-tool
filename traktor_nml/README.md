@@ -1114,6 +1114,21 @@ other number is stated in this file.
   singular right. Two screens describing one number disagreeing about it
   is the screen misreporting the model rather than styling it badly,
   which is the rule DL-215 states for a spelled count (DL-215, DL-233).
+- That rule is stated once, in `gui/wording.py`, and every screen reads
+  its word from `plural`. Written out per sentence it was right wherever
+  somebody remembered it and wrong everywhere else, which is how one
+  served page came to read "1 tracks carry more than one answer" a step
+  after a refusal that had the singular right. Both forms are given at
+  the call site rather than derived from the singular: the forms this
+  package needs are not all a trailing `s` - "track carries" against
+  "tracks carry", "track is" against "tracks are" - and a helper
+  appending a letter would be right for the nouns and wrong for exactly
+  the sentences hardest to catch reading the code. Zero takes the
+  plural, because a change-list row reading `0 playlist` reads as a typo
+  rather than as a count. The module imports nothing, so it sits below
+  every other `gui/` module in the import order, and
+  `tests/test_gui_wording.py` sweeps `gui/` for a screen spelling the
+  choice out for itself (DL-069, DL-215, DL-233, DL-236).
 - The write step draws the state before a write. After a confirmed write
   it is not redrawn, so its head still reads that nothing has been
   written and its destination card still reads that the file does not

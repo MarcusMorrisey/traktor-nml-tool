@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from ..model import collection_entries
 from ..playlists import find_playlist_nodes, node_primary_keys
 from . import reconstruct_steps
+from .wording import plural
 
 
 @dataclass(frozen=True)
@@ -65,9 +66,9 @@ class CollectionSummary:
             else "none of them empty"
         )
         return (
-            f"{self.tracks:,} {'track' if self.tracks == 1 else 'tracks'}",
+            f"{self.tracks:,} {plural(self.tracks, 'track', 'tracks')}",
             f"{self.playlists:,} "
-            f"{'playlist' if self.playlists == 1 else 'playlists'}",
+            f"{plural(self.playlists, 'playlist', 'playlists')}",
             empty,
             "this file is never modified",
         )
@@ -80,7 +81,7 @@ class CollectionSummary:
         so it says so rather than reading `0 playlists with contents`."""
         if not self.filled:
             return "no playlists with contents"
-        playlists = "playlist" if self.filled == 1 else "playlists"
+        playlists = plural(self.filled, "playlist", "playlists")
         return f"{self.filled:,} {playlists} with contents"
 
 

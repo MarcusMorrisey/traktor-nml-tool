@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from typing import Iterable, Mapping, Optional, Sequence
 
 from . import conflict_model
+from .wording import plural
 
 # How many playlists `Preview.dc.html:110-118` lists by name before the
 # row at :119 stands for the rest. The artboard draws nine named rows and
@@ -120,17 +121,14 @@ class PreviewReport:
         if not self.conflicts:
             return ""
         if not self.outstanding:
-            held = "track" if self.conflicts == 1 else "tracks"
+            held = plural(self.conflicts, "track", "tracks")
             return (
                 f"Every one of the {self.conflicts} {held} held "
                 "differently by more than one collection has an answer. "
                 "Step 3 is where those answers are changed."
             )
-        held, each = (
-            ("track is", "It has")
-            if self.outstanding == 1
-            else ("tracks are", "Each one has")
-        )
+        held = plural(self.outstanding, "track is", "tracks are")
+        each = plural(self.outstanding, "It has", "Each one has")
         return (
             f"{self.outstanding} {held} held differently by more than one "
             f"collection with no answer yet. {each} to be decided before "
@@ -203,7 +201,7 @@ class WriteReport:
         (DL-215).
         """
         filled = self.rows[0].count if self.rows else 0
-        playlists = "playlist" if filled == 1 else "playlists"
+        playlists = plural(filled, "playlist", "playlists")
         return f"Write {filled} rebuilt {playlists}?"
 
 
@@ -242,7 +240,7 @@ class PreviewRefusal:
                 "The run stopped on what it read. Nothing was written, and "
                 "the reasons it gave are below."
             )
-        held = "track is" if self.conflicts == 1 else "tracks are"
+        held = plural(self.conflicts, "track is", "tracks are")
         return (
             f"{self.conflicts} {held} held differently by more than one "
             "collection, and the repair cannot be assembled until every one "
@@ -371,7 +369,7 @@ def write_report(
     on_duplicated = int(stats.get("entries_on_duplicated_tracks") or 0)
     if on_duplicated:
         held_by = len(dict(stats.get("playlists_on_duplicated_tracks") or {}))
-        playlists = "playlist" if held_by == 1 else "playlists"
+        playlists = plural(held_by, "playlist", "playlists")
         rows = rows + (
             ChangeRow(
                 label="Entries on a track the collection holds more than once",
@@ -392,8 +390,8 @@ def write_report(
     if dropped:
         tracks = int(stats.get("tracks_dropped_unresolvable") or 0)
         lost_from = len(dict(stats.get("playlists_with_dropped_entries") or {}))
-        track_word = "track" if tracks == 1 else "tracks"
-        playlists = "playlist" if lost_from == 1 else "playlists"
+        track_word = plural(tracks, "track", "tracks")
+        playlists = plural(lost_from, "playlist", "playlists")
         rows = rows + (
             ChangeRow(
                 label="Entries dropped, pointing at a missing track",
