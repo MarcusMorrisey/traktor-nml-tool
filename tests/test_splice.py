@@ -1804,3 +1804,98 @@ def test_an_entry_on_a_track_the_base_holds_twice_is_placed_and_counted() -> Non
     assert result.stats["reconstructed_playlists"] == {"MySet": 2}
     assert _pkeys(result.output) == [a1_key, other_key]
     assert a2_key not in _pkeys(result.output)
+
+
+def test_a_base_playlist_keeps_its_resolvable_entries_when_one_names_nothing(tmp_path: Path) -> None:
+    """A base playlist the run does not rebuild, carrying one entry for a
+    track no collection in the run holds: the run writes, that playlist
+    keeps its other two entries, and the dangling one is gone.
+
+    Mutation: in splice.assemble_output, the drop pass's guard
+    `if playlist_elem is None or id(playlist_elem) in rebuilt_playlists:`
+    replaced by `if True:`, so no base playlist is patched. Observed:
+    `AssertionError: assert 2 == 0` on exit_code, with stderr
+    `unresolved_reference playlist=Keep key=C:/:Music/:ghost.mp3` and
+    `splice_aborted=true` - the whole run refused over the one entry.
+    """
+    result, text = _reconstruct(
+        tmp_path,
+        _playlist("Keep", [_key("one"), _key("ghost"), _key("two")], "uuid-base"),
+        _playlist("Elsewhere", [_key("three")], "uuid-prev"),
+    )
+    assert result.exit_code == 0
+    assert _pkeys(text) == [_key("one"), _key("two"), _key("three")]
+    assert 'ENTRIES="2" TYPE="LIST" UUID="uuid-base"' in text
+
+
+def test_a_rebuilt_playlists_union_drops_the_member_that_names_nothing(tmp_path: Path) -> None:
+    """The reconstruction pre-pass builds a playlist from the union of
+    base's and the older collection's entries. A union member naming a
+    track no collection holds is dropped from the rebuild, and the
+    playlist is written with what survives.
+
+    Mutation: in splice.assemble_output, the pre-pass line
+    `unresolvable = [key for key in merged if key not in valid_keys]`
+    replaced by `unresolvable = []`. Observed: `assert 2 == 0` on
+    exit_code, with stderr `unresolved_reference playlist=MySet
+    key=C:/:Music/:ghost.mp3` and `splice_aborted=true`.
+    """
+    result, text = _reconstruct(
+        tmp_path,
+        _playlist("MySet", [], "uuid-base"),
+        _playlist("MySet", [_key("one"), _key("ghost"), _key("two")], "uuid-prev"),
+    )
+    assert result.exit_code == 0
+    assert _names(text) == ["MySet"]
+    assert _pkeys(text) == [_key("one"), _key("two")]
+
+
+def test_an_imported_playlist_drops_the_entry_that_names_nothing(tmp_path: Path) -> None:
+    """A playlist that exists only in the older collection is imported
+    whole. One of its entries naming a track no collection holds is
+    dropped from the imported fragment, and its ENTRIES count is restated
+    from what survives.
+
+    Mutation: in splice.assemble_output, the import_playlists call's
+    `valid_keys` argument replaced by `None`, so the import pass judges
+    nothing. Observed: `AssertionError: assert 2 == 0` on exit_code, with
+    stderr `unresolved_reference playlist=Imported
+    key=C:/:Music/:ghost.mp3` and `splice_aborted=true`.
+    """
+    result, text = _reconstruct(
+        tmp_path,
+        _playlist("BaseOnly", [_key("one")], "uuid-base"),
+        _playlist("Imported", [_key("two"), _key("ghost"), _key("three")], "uuid-prev"),
+    )
+    assert result.exit_code == 0
+    assert _names(text) == ["BaseOnly", "Imported"]
+    assert _pkeys(text) == [_key("one"), _key("two"), _key("three")]
+    assert 'ENTRIES="2"' in text.split('NAME="Imported"')[1]
+
+
+def test_the_dropped_entries_are_counted_apart_from_the_tracks_they_name(tmp_path: Path) -> None:
+    """One missing track sitting in two playlists is two dropped entries
+    and one dropped track, and each playlist that lost one is named with
+    its own count.
+
+    Mutation: in splice.assemble_output,
+    `stats["tracks_dropped_unresolvable"] = len({key for _, key in
+    dropped_refs})` replaced by `len(dropped_refs)`, so one missing track
+    in two playlists reads as two tracks. Observed: `assert 2 == 1` on
+    tracks_dropped_unresolvable.
+    """
+    base_text = _nml(
+        _E3,
+        3,
+        _playlist("First", [_key("one"), _key("ghost")], "uuid-a")
+        + _playlist("Second", [_key("ghost"), _key("two")], "uuid-b"),
+    )
+    base_root = parse_xml_bytes(base_text.encode("utf-8"))
+    result = assemble_output(
+        base_text, base_root, [], MatchConfidence.STRICT, "keep-first", True
+    )
+    assert result.errors == []
+    assert result.output is not None
+    assert result.stats["entries_dropped_unresolvable"] == 2
+    assert result.stats["tracks_dropped_unresolvable"] == 1
+    assert result.stats["playlists_with_dropped_entries"] == {"First": 1, "Second": 1}

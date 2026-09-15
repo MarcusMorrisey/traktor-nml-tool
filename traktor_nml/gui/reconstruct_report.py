@@ -384,6 +384,28 @@ def write_report(
                 tone=TONE_UNTOUCHED,
             ),
         )
+    # A row only where there is something to report: an entry naming a
+    # track no collection this run read holds is dropped rather than kept
+    # or refused, and a row reading zero would name a thing this run did
+    # not do (DL-232).
+    dropped = int(stats.get("entries_dropped_unresolvable") or 0)
+    if dropped:
+        tracks = int(stats.get("tracks_dropped_unresolvable") or 0)
+        lost_from = len(dict(stats.get("playlists_with_dropped_entries") or {}))
+        track_word = "track" if tracks == 1 else "tracks"
+        playlists = "playlist" if lost_from == 1 else "playlists"
+        rows = rows + (
+            ChangeRow(
+                label="Entries dropped, pointing at a missing track",
+                detail=(
+                    f"{tracks} {track_word} across {lost_from} {playlists}. "
+                    "Neither collection holds an entry for them, so the "
+                    "playlists keep everything else and lose these."
+                ),
+                count=dropped,
+                tone=TONE_UNTOUCHED,
+            ),
+        )
     return WriteReport(
         destination=destination,
         destination_exists=destination_exists,

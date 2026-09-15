@@ -627,3 +627,49 @@ def test_the_write_step_reports_the_entries_placed_on_a_duplicated_track():
     # The first row still carries the count the confirmation names, so the
     # extra row cannot displace it.
     assert reported.confirm_question == "Write 0 rebuilt playlists?"
+
+
+def test_the_write_step_reports_the_entries_dropped_for_a_missing_track():
+    """An entry naming a track no collection this run read holds is
+    dropped from the playlist carrying it, and the write step says how
+    many entries went, how many distinct tracks they named, and across
+    how many playlists. Dropped silently, it would be the one way the
+    written playlists differ from the ones they were rebuilt from that
+    the step describing them does not mention (DL-232).
+
+    A run with none of them draws no row.
+
+    Mutation: the `if dropped:` guard was replaced by `if True:`, so
+    the row was appended for every run. Observed:
+        E       AssertionError: a run with none of them draws the row anyway
+        E       assert 5 == 4
+        E        +  where 5 = len((ChangeRow(label='Playlists filled again', [...], count=0, tone='untouched')))
+    """
+    plain = reconstruct_report.write_report(
+        _stats(), [], conflict_model.ConflictDecisions(), "out.nml", False, []
+    )
+    assert len(plain.rows) == 4, "a run with none of them draws the row anyway"
+
+    reported = reconstruct_report.write_report(
+        _stats(
+            entries_dropped_unresolvable=21,
+            tracks_dropped_unresolvable=8,
+            playlists_with_dropped_entries={"a": 20, "b": 1},
+        ),
+        [], conflict_model.ConflictDecisions(), "out.nml", False, [],
+    )
+    assert len(reported.rows) == 5
+    row = reported.rows[4]
+    assert row.count == 21
+    assert row.detail.startswith("8 tracks across 2 playlists."), row.detail
+    assert row.tone == reconstruct_report.TONE_UNTOUCHED
+
+    one = reconstruct_report.write_report(
+        _stats(
+            entries_dropped_unresolvable=1,
+            tracks_dropped_unresolvable=1,
+            playlists_with_dropped_entries={"a": 1},
+        ),
+        [], conflict_model.ConflictDecisions(), "out.nml", False, [],
+    )
+    assert one.rows[4].detail.startswith("1 track across 1 playlist."), one.rows[4].detail

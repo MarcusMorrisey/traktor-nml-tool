@@ -1070,6 +1070,25 @@ statement of the same decision would only give it two copies to drift apart.
   a key naming no entry, and the run refuses over a name every reader of
   the output resolves correctly. The check is worth keeping - it reads
   the artefact the operator gets - so it compares values (DL-231).
+- A playlist entry naming a track no collection in the run holds is
+  dropped from the playlist that carries it, counted, and reported; it
+  does not refuse the output. The reference is already broken in the
+  files the run reads - Traktor itself resolves it to nothing - so
+  keeping it would carry a pointer to nothing into a repaired file, and
+  refusing over it discards every playlist the run rebuilt. One measured
+  pair of an operator's own collections refused a 684-playlist rebuild
+  over 21 such entries naming 8 tracks. Three passes drop them, one per
+  place a playlist reaches the output by: the reconstruction pre-pass
+  filters its merged union, a base playlist the run leaves in place is
+  patched to remove the whole ENTRY, and import_playlists does the same
+  to an imported fragment. The count of entries and the count of
+  distinct tracks are reported apart, because one missing track sitting
+  in many playlists is many entries and one track, and the write step
+  prints a row naming both and the playlists that lost one. The
+  unresolved_reference check stays, reading what the run emits rather
+  than what it read: a reference still standing after those three passes
+  is this module's own defect, not the operator's collection (DL-230,
+  DL-232).
 - A playlist is identified by the folder path it sits at, which is what
   Traktor's own SORTING_INFO PATH names it by, and the reconstruction
   pairs base to source on that path. A bare NAME does not identify a

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Optional
 
 from .spans import SpanIndex
 from .xmlio import ET
@@ -43,6 +44,7 @@ class ImportResult:
     renamed: dict[str, str] = field(default_factory=dict)  # original_name -> final_name
     sorting_info: list[str] = field(default_factory=list)  # rewritten SORTING_INFO fragments to carry over
     dropped_sorting_info: list[str] = field(default_factory=list)  # PATHs that could not be carried over
+    dropped_refs: list[tuple[str, str]] = field(default_factory=list)  # (playlist name, key) dropped as unresolvable
 
 
 def find_playlist_nodes(root: ET.Element) -> list[ET.Element]:
@@ -118,6 +120,34 @@ def _redirect_keys(node_copy: ET.Element, old_to_new_key: dict[str, str]) -> Non
             pk.attrib["KEY"] = new_key
 
 
+def _drop_from_node(node_copy: ET.Element, valid_keys: set[str]) -> list[str]:
+    """drop_unresolvable_entries reached through a playlist NODE, which is
+    what import_playlists holds; a NODE with no PLAYLIST child carries no
+    entries to drop."""
+    playlist = node_copy.find("PLAYLIST")
+    return [] if playlist is None else drop_unresolvable_entries(playlist, valid_keys)
+
+
+def drop_unresolvable_entries(playlist: ET.Element, valid_keys: set[str]) -> list[str]:
+    """Remove from an in-memory PLAYLIST element every ENTRY carrying a
+    PRIMARYKEY outside valid_keys, restate its ENTRIES count from what
+    survives, and return the dropped keys in the order they appeared.
+    Keys are read after redirection, so a source entry redirected onto a
+    base record is judged by the record it now points at. Whole ENTRY
+    elements are removed rather than rebuilt, so anything else an entry
+    carries travels with it."""
+    dropped: list[str] = []
+    for entry in list(playlist):
+        keys = [pk.attrib.get("KEY", "") for pk in entry.findall(".//PRIMARYKEY")]
+        unresolvable = [key for key in keys if key not in valid_keys]
+        if unresolvable:
+            dropped.extend(unresolvable)
+            playlist.remove(entry)
+    if dropped:
+        playlist.attrib["ENTRIES"] = str(len(list(playlist)))
+    return dropped
+
+
 def available_playlist_name(requested_name: str, existing_names: set[str]) -> str:
     """Take a requested name and the set of names already in use and return
     the requested name when free, otherwise the first free numbered-suffix
@@ -181,6 +211,7 @@ def import_playlists(
     old_to_new_key: dict[str, str],
     existing_names: set[str],
     span_index: SpanIndex,
+    valid_keys: Optional[set[str]] = None,
 ) -> ImportResult:
     """Import every playlist NODE in non_base_root's tree, sourced from
     source_text for verbatim span transplantation.
@@ -194,6 +225,12 @@ def import_playlists(
     A node is located by its tree identity through span_index rather than
     by a document-wide UUID text search, so a PLAYLIST child with no UUID
     attribute is no longer a failure.
+
+    valid_keys, where given, is every primary key the output holds a
+    collection entry for. An ENTRY whose redirected key is outside it
+    names a track no collection in the run holds, and it is dropped from
+    the imported playlist and reported in dropped_refs rather than
+    carried into an output that would reference nothing (DL-232).
     """
     result = ImportResult()
     node_to_path = {id(node): path for path, node in playlist_paths(non_base_root).items()}
@@ -214,8 +251,13 @@ def import_playlists(
             old_to_new_key.get(pk.attrib.get("KEY", "")) not in (None, pk.attrib.get("KEY", ""))
             for pk in node_primary_keys(node)
         )
+        has_orphan = valid_keys is not None and any(
+            old_to_new_key.get(raw, raw) not in valid_keys
+            for pk in node_primary_keys(node)
+            for raw in (pk.attrib.get("KEY", ""),)
+        )
 
-        if not renamed and not needs_redirect:
+        if not renamed and not needs_redirect and not has_orphan:
             span = span_index.span_of(node)
             fragment = span.text(source_text)
             is_verbatim = True
@@ -233,6 +275,11 @@ def import_playlists(
                     # import, not by this test suite.
                     playlist_elem.attrib["UUID"] = uuid.uuid4().hex
             _redirect_keys(node_copy, old_to_new_key)
+            if has_orphan:
+                result.dropped_refs.extend(
+                    (original_name, key)
+                    for key in _drop_from_node(node_copy, valid_keys)
+                )
             fragment = ET.tostring(node_copy, encoding="unicode")
             is_verbatim = False
 
