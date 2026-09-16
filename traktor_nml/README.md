@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-297`:
+This file is the authority for the log's high-water mark, which is `DL-298`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2546,6 +2546,22 @@ names, so the next plan numbers from there.
   no `target_folder` is passed. The output folder applies either way. This
   supersedes DL-272's statement that the form has no separate output-path
   control (DL-297).
+- The resolve rail's key track is sized to the longest label in
+  `answer_detail.LABELS` drawn whole with its difference mark, not to
+  the artboard's first 60px. `Resolve.dc.html`'s `.cmpf` drew only
+  TITLE, ARTIST, BITRATE and FILESIZE, so the longest label was never
+  drawn and PLAYTIME_FLOAT overlapped its value; a marked FILESIZE
+  overran it too. The labels stay the NML attribute names (DL-254) and a
+  key is never truncated, so the track grows: IBM Plex Mono's 0.6em
+  advance plus the key's 0.05em spacing is 7.15px a character at 11px,
+  PLAYTIME_FLOAT's fourteen are 100.1px, and the 5px mark and 5px gap
+  make 110.1px, taken up to `111px`. The artboard is amended first, with
+  a PLAYTIME_FLOAT row drawn on both answers (DL-071). The value column
+  pays for it: at the rail's 400px it is 115.8px rather than 166.8px, and
+  a longer value is clipped by the cell's existing ellipsis, read in
+  `docs/2026-09-16-resolve-key-track-browser-record.md`. A guard computes
+  the needed width from `LABELS` and the metrics `theme.py` states, so a
+  longer label fails the suite rather than the page (DL-298).
 
 ## Invariants
 

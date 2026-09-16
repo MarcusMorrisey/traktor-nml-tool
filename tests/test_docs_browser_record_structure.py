@@ -100,6 +100,12 @@ READING_DIGESTS = {
     # (ref: DL-084, DL-169, DL-295, DL-297). The digest is computed from the
     # record as the browser run left it.
     "2026-09-16-build-playlist-inputs-browser-record.md": "db998d509708aa74ecdb1284046aaba938098eaaf7a97dceb0afc70cb92934ef",
+    # The resolve rail's key track closes on a served-page record reading
+    # every label's rendered width against the track, marked and unmarked,
+    # the value column left and a long value's truncation, with structural
+    # verdicts against the amended .cmpf (ref: DL-084, DL-169, DL-298). The
+    # digest is computed from the record as the browser run left it.
+    "2026-09-16-resolve-key-track-browser-record.md": "eb2215068db5bb50cbe3dd644ac21e472817b133fcea2e178f13b1fc2428cfbf",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

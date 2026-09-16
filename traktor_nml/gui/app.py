@@ -2613,7 +2613,7 @@ def _build_reconstruct_page() -> None:
                         with ui.element("div").classes("wizard-resolve-split"):
                             conflict_table(views)
                             detail_rail(views)
-                        # Resolve.dc.html:292's .hint: what a bulk action
+                        # Resolve.dc.html:294's .hint: what a bulk action
                         # does not reach. It stands under the split
                         # rather than beside the bulk controls, where it
                         # would read as a label for them.
@@ -2816,7 +2816,7 @@ def _build_reconstruct_page() -> None:
                         with ui.element("div").classes("wizard-detail-body"):
                             for position, candidate in enumerate(view.candidates, 1):
                                 answer(group, view, position, candidate)
-                            # Resolve.dc.html:271's .note: what a pick
+                            # Resolve.dc.html:273's .note: what a pick
                             # names, standing under the answers rather
                             # than in the log alone, because the reading
                             # it corrects - that an answer is a

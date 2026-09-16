@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 
-from traktor_nml.gui import theme
+from traktor_nml.gui import answer_detail, theme
 
 
 def _rule(selector: str) -> str:
@@ -223,6 +223,55 @@ def test_the_field_row_declares_the_three_tracks_the_artboard_draws():
         f"grid-template-columns: {theme.ANSWER_FIELD_KEY_TRACK} 1fr "
         f"{theme.ANSWER_FIELD_RAW_TRACK}"
     ) in rule
+
+
+def _px(value: str) -> float:
+    assert value.endswith("px"), value
+    return float(value[: -len("px")])
+
+
+def _em(value: str) -> float:
+    assert value.endswith("em"), value
+    return float(value[: -len("em")])
+
+
+def test_the_key_track_holds_the_longest_label_whole_with_its_mark():
+    """The key track is at least as wide as the longest label in
+    answer_detail.LABELS needs, computed from the metrics theme.py
+    states: the mono advance plus the letter-spacing per character at
+    TYPE_11, then the difference mark and the key's gap beside it. A
+    label longer than any the track was sized for fails here rather
+    than overlapping its value on the page (ref: DL-298).
+
+    The metrics are read from the constants the sheet interpolates, and
+    the key rule is checked to carry them, so the sum is the width the
+    sheet asks the key for rather than a second copy of a number.
+
+    Mutation: ANSWER_FIELD_KEY_TRACK was set back to "60px" in theme.py
+    and this guard rerun. Observed:
+        E       AssertionError: PLAYTIME_FLOAT needs 110.10px with its mark; the key track is 60px
+        E       assert 60.0 >= 110.10000000000001
+        E        +  where 60.0 = _px('60px')
+        E        +    where '60px' = theme.ANSWER_FIELD_KEY_TRACK
+    """
+    key = _rule(".wizard-answer-field-key")
+    assert f"font: 500 {theme.TYPE_11}/1 {theme.FONT_MONO}" in key
+    assert f"letter-spacing: {theme.ANSWER_FIELD_KEY_TRACKING}" in key
+    assert f"gap: {theme.SPACE_5}" in key
+    size = _px(theme.TYPE_11)
+    per_char = size * (
+        theme.ANSWER_FIELD_KEY_ADVANCE_EM + _em(theme.ANSWER_FIELD_KEY_TRACKING)
+    )
+    longest = max(answer_detail.LABELS.values(), key=len)
+    needed = (
+        len(longest) * per_char
+        + _px(theme.ANSWER_FIELD_MARK_SIZE)
+        + _px(theme.SPACE_5)
+    )
+    assert _px(theme.ANSWER_FIELD_KEY_TRACK) >= needed, (
+        f"{longest} needs {needed:.2f}px with its mark; the key track is "
+        f"{theme.ANSWER_FIELD_KEY_TRACK}"
+    )
 
 
 def test_the_field_key_and_the_difference_mark_carry_their_own_rules():

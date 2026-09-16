@@ -288,12 +288,29 @@ ANSWER_MARKER_BORDER = "1.5px"
 # DL-078), and each is read off the artboard the screen is built to
 # (ref: DL-071).
 #
+# Resolve.dc.html:92's .cmpf .k - the key's own metrics. IBM Plex Mono
+# advances every glyph 600 units of its 1000-unit em, and the key adds
+# .05em of letter-spacing after each glyph, the last one included, so
+# one key character costs 0.65em: 7.15px at TYPE_11. The advance is a
+# number rather than a CSS string because it is a property of the face
+# the sheet never emits, read only to size ANSWER_FIELD_KEY_TRACK.
+ANSWER_FIELD_KEY_ADVANCE_EM = 0.6
+ANSWER_FIELD_KEY_TRACKING = "0.05em"
 # Resolve.dc.html:90's .cmpf - the field row's three tracks: the
 # attribute name, the value, and the raw string the file carries. The
 # key track is fixed so every answer's keys align down the rail; the
 # value takes what is left; the raw track is fixed so the strings the
 # operator compares stand at one edge.
-ANSWER_FIELD_KEY_TRACK = "60px"
+#
+# The key track is derived, not picked: it holds the longest label in
+# answer_detail.LABELS whole, with its difference mark beside it. That
+# label is PLAYTIME_FLOAT, 14 characters at 7.15px = 100.1px, plus
+# ANSWER_FIELD_MARK_SIZE (5px) and the key's SPACE_5 gap (5px) = 110.1px,
+# rounded up to the whole pixel: 111px. A key is never truncated and the
+# labels are the NML attribute names (ref: DL-254), so the track grows to
+# the label rather than the label shrinking to the track; the value
+# track gives up the 51px (ref: DL-298).
+ANSWER_FIELD_KEY_TRACK = "111px"
 ANSWER_FIELD_RAW_TRACK = "82px"
 # Resolve.dc.html:101's .cmpf .d - the mark on a row whose value differs
 # across the answers. Smaller than ANSWER_MARKER_DOT_SIZE, which is the
@@ -665,7 +682,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-answer-fields .q-btn__content {{ width: 100%; flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; text-align: left; }}
 .wizard-answer-field {{ display: grid; grid-template-columns: {ANSWER_FIELD_KEY_TRACK} 1fr {ANSWER_FIELD_RAW_TRACK}; gap: {SPACE_8}; align-items: center; padding: {SPACE_5} 0; border-bottom: 1px solid {BORDER_SUBTLE_4}; }}
 .wizard-answer-field:last-child {{ border-bottom: 0; }}
-.wizard-answer-field-key {{ display: flex; align-items: center; gap: {SPACE_5}; min-width: 0; font: 500 {TYPE_11}/1 {FONT_MONO}; letter-spacing: 0.05em; text-transform: uppercase; }}
+.wizard-answer-field-key {{ display: flex; align-items: center; gap: {SPACE_5}; min-width: 0; font: 500 {TYPE_11}/1 {FONT_MONO}; letter-spacing: {ANSWER_FIELD_KEY_TRACKING}; text-transform: uppercase; }}
 .wizard-answer-field-value {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 /* Resolve.dc.html:97's .cmpf .r. The typeface is stated here beside the
    key's, because a Quasar font class on the label would set a family of
@@ -709,7 +726,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    the same here as it does wherever else the page names one. */
 .wizard-key-row {{ display: flex; align-items: center; gap: {SPACE_13}; flex-wrap: wrap; padding: {SPACE_1} 0 {SPACE_8}; }}
 .wizard-key-hint {{ display: inline-flex; align-items: center; gap: {SPACE_6}; font-size: {TYPE_11_5}; color: {TEXT_FAINT}; }}
-/* Resolve.dc.html:271's .note in the rail's body and :292's .hint under
+/* Resolve.dc.html:273's .note in the rail's body and :294's .hint under
    main. .wizard-hint reproduces Resolve.dc.html:114's .hint rule; the
    artboard declares no rule for .note, and that note sets no colour, so
    the call site names the ink token it wears and one element cannot end
