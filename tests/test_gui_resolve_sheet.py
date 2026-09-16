@@ -234,9 +234,20 @@ def test_the_field_key_and_the_difference_mark_carry_their_own_rules():
     ANSWER_MARKER_DOT_SIZE in the .wizard-answer-field-mark rule in
     theme.py and this guard rerun. Observed:
         E       AssertionError: assert 'width: 5px' in ' width: 8px; height: 8px; border-radius: 50%; background: #56B4E9; flex: none; '
+
+    Mutation: the `font: 400 {TYPE_11}/1.3 {FONT_MONO};` declaration was
+    dropped from .wizard-answer-field-raw in theme.py and this guard
+    rerun. Observed:
+        E       assert "'IBM Plex Mono', ui-monospace, Consolas, monospace" in ' overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; '
+        E        +  where "'IBM Plex Mono', ui-monospace, Consolas, monospace" = theme.FONT_MONO
+        E        +  and   ' overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; ' = _rule('.wizard-answer-field-raw')
     """
     key = _rule(".wizard-answer-field-key")
     assert "text-transform: uppercase" in key and theme.FONT_MONO in key
+    # The raw string is mono for the same reason the key is: it is the
+    # value as the file carries it, and a digit has to line up under a
+    # digit for two answers to be told apart by eye.
+    assert theme.FONT_MONO in _rule(".wizard-answer-field-raw")
     mark = _rule(".wizard-answer-field-mark")
     assert f"width: {theme.ANSWER_FIELD_MARK_SIZE}" in mark
     assert theme.ANSWER_FIELD_MARK_SIZE != theme.ANSWER_MARKER_DOT_SIZE

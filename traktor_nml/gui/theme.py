@@ -645,7 +645,11 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-answer-field:last-child {{ border-bottom: 0; }}
 .wizard-answer-field-key {{ display: flex; align-items: center; gap: {SPACE_5}; min-width: 0; font: 500 {TYPE_11}/1 {FONT_MONO}; letter-spacing: 0.05em; text-transform: uppercase; }}
 .wizard-answer-field-value {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-.wizard-answer-field-raw {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }}
+/* Resolve.dc.html:97's .cmpf .r. The typeface is stated here beside the
+   key's, because a Quasar font class on the label would set a family of
+   its own and the artboard's mono would not be the one that renders
+   (ref: DL-069). */
+.wizard-answer-field-raw {{ font: 400 {TYPE_11}/1.3 {FONT_MONO}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }}
 /* The mark on a row the answers disagree on. A dot and nothing else:
    no rule here states a colour conditioned on a value's magnitude, so
    the screen never claims a larger filesize is the better one

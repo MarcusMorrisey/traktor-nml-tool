@@ -337,6 +337,56 @@ def test_the_field_grid_writes_no_count_into_a_sentence():
     )
 
 
+def test_no_field_label_sets_a_typeface_over_the_rule_that_names_it():
+    """The key and the raw string take the mono the sheet states for
+    them. A Quasar font class on the label sets a family of its own over
+    the rule's, so the artboard's typeface is named in theme.py and never
+    on the page (DL-069).
+
+    The trap this reads past is the one DL-189 names: the sheet's
+    .wizard-answer-field-key rule carried theme.FONT_MONO throughout the
+    period the key painted in the generic stack, so a guard reading that
+    rule is true in exactly the broken state. What discriminates is the
+    page, which is read here.
+
+    Mutation: `ui.label(field.label).classes("wizard-faint")` was changed
+    back to `ui.label(field.label).classes("font-mono wizard-faint")` and
+    this guard rerun. Observed:
+        E       AssertionError: a field label sets a typeface over the rule that names it: ['font-mono wizard-faint']
+        E       assert ['font-mono wizard-faint'] == []
+        E
+        E         Left contains one more item: 'font-mono wizard-faint'
+        E         Use -v to get more diff
+    """
+    setting = []
+    tree = ast.parse(textwrap.dedent(_named_function_source("field_row")))
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "classes"
+        ):
+            continue
+        setting += [
+            "".join(
+                piece.value
+                for piece in ast.walk(node)
+                if isinstance(piece, ast.Constant)
+                and isinstance(piece.value, str)
+            )
+            for _ in (0,)
+            if any(
+                isinstance(piece, ast.Constant)
+                and isinstance(piece.value, str)
+                and "font-" in piece.value
+                for piece in ast.walk(node)
+            )
+        ]
+    assert setting == [], (
+        f"a field label sets a typeface over the rule that names it: {setting}"
+    )
+
+
 def test_every_step_registers_a_footer_group_and_a_note():
     """Each of the four steps registers its own action group and its own
     sentence, and show_step decides which the band shows, so the control
