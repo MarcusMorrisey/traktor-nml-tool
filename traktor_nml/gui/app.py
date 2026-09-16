@@ -29,6 +29,12 @@ tests/test_gui_view_boundary.py, which locates the call below and
 asserts wizard_state.amended_result appears in its provider's body.
 """
 
+# This file carries CRLF line endings throughout, alone in the
+# package. Reading and rewriting it with newline set to the empty
+# string keeps those endings intact, so a diff shows the edit rather
+# than every line in the file; answer_detail.py, theme.py and the
+# files under tests/ are LF (ref: DL-258).
+
 from __future__ import annotations
 
 import argparse
@@ -50,6 +56,7 @@ from ..reconnect_run import ReconnectResult
 from ..confidence import MatchConfidence
 from ..rewrite import read_and_parse_source, write_bytes_atomically
 from ..splice import assemble_output
+from . import answer_detail
 from . import collection_summary
 from . import conflict_model
 from . import navigation
@@ -58,6 +65,7 @@ from . import reconstruct_steps
 from . import review_model
 # theme.py is the only source for a colour or size literal in this module (DL-078).
 from . import wizard_state
+from . import wording
 from .file_picker import pick_file_or_folder
 from .wizard_state import WizardState
 from . import theme
@@ -2224,7 +2232,7 @@ def _build_reconstruct_page() -> None:
                         with ui.element("div").classes("wizard-resolve-split"):
                             conflict_table(views)
                             detail_rail(views)
-                        # Resolve.dc.html:266's .hint: what a bulk action
+                        # Resolve.dc.html:292's .hint: what a bulk action
                         # does not reach. It stands under the split
                         # rather than beside the bulk controls, where it
                         # would read as a label for them.
@@ -2358,7 +2366,7 @@ def _build_reconstruct_page() -> None:
                                 )
 
                 def detail_rail(views) -> None:
-                    """Resolve.dc.html:70-95's .det: the focused row's
+                    """Resolve.dc.html:70-109's .det: the focused row's
                     file at the head, one control per distinct answer in
                     the body, and the keys and actions in the footer.
 
@@ -2378,6 +2386,10 @@ def _build_reconstruct_page() -> None:
                         view = views[resolve_holder["focused"]]
                         group = groups[resolve_holder["focused"]]
                         with ui.element("div").classes("wizard-detail-head"):
+                            # The head is the one place the file is
+                            # named. The rail carries no second labelled
+                            # Path row, which in a rail this narrow would
+                            # print the same string twice (ref: DL-250).
                             ui.label(view.identity_key).classes(
                                 "font-mono wizard-body-14-5"
                             )
@@ -2395,15 +2407,35 @@ def _build_reconstruct_page() -> None:
                                     for input_index, _ in candidate.members
                                 }
                             )
+                            # The word the count picks comes from
+                            # wording.plural like every other
+                            # count-bearing sentence in this package,
+                            # rather than standing flat on the reasoning
+                            # that a group held by one collection is not
+                            # a conflict: that reasoning is a property of
+                            # the model the sentence would then be
+                            # silently relying on, and an inline
+                            # conditional on a count is the shape
+                            # tests/test_gui_wording.py forbids under
+                            # gui/ (DL-215, DL-257).
+                            #
+                            # One f-string rather than three pieces added
+                            # together: a `+` anywhere in this page reads
+                            # as count arithmetic written where the suite
+                            # cannot reach it, which
+                            # tests/test_gui_conflict_page_controls.py
+                            # bars outright (DL-106).
+                            held = wording.plural(
+                                holding, "collection holds", "collections hold"
+                            )
                             ui.label(
-                                f"{holding} collections hold this file with "
-                                "different values. Pick the one that "
-                                "supplies them."
+                                f"{holding} {held} this file with different "
+                                f"values. Pick the one that supplies them."
                             ).classes("wizard-body-12 wizard-dim")
                         with ui.element("div").classes("wizard-detail-body"):
                             for position, candidate in enumerate(view.candidates, 1):
                                 answer(group, view, position, candidate)
-                            # Resolve.dc.html:245's .note: what a pick
+                            # Resolve.dc.html:271's .note: what a pick
                             # names, standing under the answers rather
                             # than in the log alone, because the reading
                             # it corrects - that an answer is a
@@ -2452,7 +2484,7 @@ def _build_reconstruct_page() -> None:
                                 ).classes("wizard-control wizard-control-primary")
 
                 def key_hints() -> None:
-                    """Resolve.dc.html:94's .keys: three chip groups,
+                    """Resolve.dc.html:108's .keys: three chip groups,
                     each naming its own keys beside what they do, rather
                     than one sentence listing them in prose. A chip is
                     what Specs.dc.html's "Keyboard" section draws, and
@@ -2475,10 +2507,113 @@ def _build_reconstruct_page() -> None:
                                     ui.label(chip).classes("wizard-kbd")
                                 ui.label(phrase)
 
+                def chosen_marker(chosen: bool) -> None:
+                    """The dot that says which answer the group holds.
+
+                    Its own function so that answer() reads as the shape
+                    of one answer rather than as the drawing of every
+                    part of it: the marker, the field rows and the
+                    control each stand alone and answer() stays under
+                    the size and nesting this package holds a function
+                    to.
+                    """
+                    with ui.element("span").classes(
+                        "wizard-answer-marker"
+                    ).props(
+                        f'role="img" aria-label='
+                        f'"{"Chosen" if chosen else "Not chosen"}"'
+                    ):
+                        if chosen:
+                            ui.element("span").classes("wizard-answer-dot")
+
+                def field_row(field) -> None:
+                    """One tracked attribute of one answer: its name,
+                    what its value means, and the raw string the written
+                    file will hold.
+
+                    What a field is called, how its value reads and
+                    whether it carries the difference mark are all
+                    decided in answer_detail, which imports no nicegui,
+                    so the suite reaches every one of them and this
+                    function only places them (DL-069, DL-246).
+                    """
+                    with ui.element("div").classes("wizard-answer-field"):
+                        with ui.element("span").classes(
+                            "wizard-answer-field-key"
+                        ):
+                            if field.differs:
+                                ui.element("span").classes(
+                                    "wizard-answer-field-mark"
+                                )
+                            ui.label(field.label).classes(
+                                "font-mono wizard-faint"
+                            )
+                        ui.label(field.formatted or field.raw).classes(
+                            "wizard-answer-field-value wizard-body-12 "
+                            "wizard-subtle-5"
+                        )
+                        # The raw string stands beside the formatted one
+                        # rather than instead of it: what the written
+                        # file carries is what tells two answers apart
+                        # when they differ by a digit. A field with no
+                        # formatted companion has already printed its raw
+                        # value in the cell above, so this one is empty
+                        # and the three tracks hold (DL-243).
+                        ui.label(
+                            field.raw if field.formatted else ""
+                        ).classes(
+                            "wizard-answer-field-raw font-mono "
+                            "wizard-body-11 wizard-faint"
+                        )
+
+                def answer_control(group, view, candidate, reference,
+                                   supplied_by: str) -> None:
+                    """The control that picks this answer: the record,
+                    drawn row by row, with the collections holding it
+                    under it.
+
+                    The field block is the control, so the thing the
+                    operator points at is the record they are choosing
+                    and the "held by ..." line reads as the
+                    informational line it is rather than as the thing
+                    being picked (DL-148, DL-257).
+
+                    What is picked is the record, not the collection
+                    that supplied it: two collections holding identical
+                    values are one answer, and deciding it decides both.
+
+                    The rows are hand-built ui.element and ui.label, as
+                    every table-shaped surface in this package is
+                    (ref: DL-079).
+                    """
+                    with ui.button(
+                        on_click=(
+                            lambda _e=None, at=group, named=reference:
+                            pick(at, named)
+                        ),
+                        color=None,
+                    ).classes("wizard-control wizard-answer-fields"):
+                        for field in answer_detail.answer_fields(
+                            view.attrs, view.agreed, candidate
+                        ):
+                            field_row(field)
+                        ui.label(f"held by {supplied_by}").classes(
+                            "wizard-answer-holders wizard-body-11 "
+                            "wizard-faint"
+                        )
+
                 def answer(group, view, position: int, candidate) -> None:
                     """One control per distinct answer, carrying the
-                    digit that picks it and the values it supplies. The
-                    decision the view holds is compared against this
+                    digit that picks it and the record it supplies.
+
+                    The record, not a joined line of values: the rail
+                    draws one row per tracked attribute the group
+                    carries, each naming the attribute, what its value
+                    means and the raw string the written file will hold,
+                    so the operator tells the answers apart by reading
+                    them (DL-242, DL-243).
+
+                    The decision the view holds is compared against this
                     candidate's own reference, so the chosen answer alone
                     carries the chosen class and this module holds no
                     reading of what a decision means."""
@@ -2495,24 +2630,9 @@ def _build_reconstruct_page() -> None:
                             labels[index] for index, _ in candidate.members
                         )
                         with ui.element("div").classes(add=classes):
-                            with ui.element("span").classes(
-                                "wizard-answer-marker"
-                            ).props(
-                                f'role="img" aria-label='
-                                f'"{"Chosen" if chosen else "Not chosen"}"'
-                            ):
-                                if chosen:
-                                    ui.element("span").classes("wizard-answer-dot")
-                            ui.button(
-                                f"{supplied_by} {' | '.join(candidate.values)}",
-                                on_click=(
-                                    lambda _e=None, at=group, named=reference:
-                                    pick(at, named)
-                                ),
-                                color=None,
-                            ).classes(
-                                "wizard-control font-mono wizard-body-11-5 "
-                                "wizard-subtle-5"
+                            chosen_marker(chosen)
+                            answer_control(
+                                group, view, candidate, reference, supplied_by
                             )
 
                 def bulk(input_index: int) -> None:

@@ -1,0 +1,392 @@
+{
+  "phase": "plan-design",
+  "iteration": 2,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "planning_context.constraints is empty; all 8 constraints from context.json (5 MUST, 2 MUST NOT, 1 SHOULD) must be recorded in the plan so later iterations can verify against them",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST to reuse buildplaylist.assemble_output and tracklist.parse_tracklist/resolve_tracklist as the core the GUI drives, never reimplementing matching/resolution/node synthesis in gui/, is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST NOT to change traktor_nml/commands/build_playlist_cmd.py's CLI behavior, stdout/stderr/exit-code contract or written output bytes is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST that new nicegui-free logic imports no nicegui/pywebview so the system pytest interpreter can guard it directly (DL-069) is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001d",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST to follow the header-tab mechanism from docs/plans/2026-09-03-header-tabs exactly (anchor per route, aria-current=page plus wizard-tab-selected, equality comparison never membership) is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001e",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST NOT to schedule a keyboard-contract or announcements/accessibility milestone for this screen is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001f",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST that new decision log entries start at DL-260 and that the live README.md high-water mark is re-verified immediately before minting is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001g",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The MUST that the new plan lives under traktor-nml-tool/docs/plans/<date>-<topic>/ and never under the frozen sibling traktor-nml-tool-plan repo is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001h",
+      "parent_id": "qa-001",
+      "scope": "planning_context.constraints",
+      "check": "The SHOULD to determine in an early milestone whether a wireframe must be drafted before UI requirements are written is recorded as a constraint",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "planning_context.risks is empty; no risk is identified and therefore none carries a mitigation",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "A risk records that README.md's DL high-water mark can move before this plan mints DL-260 (same-day plan-directory-less commits already observed), with re-verification immediately before writing as its mitigation",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002b",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "A risk records that the GUI's write path can diverge from build_playlist_cmd.py's output bytes as either side changes, with a named guard as its mitigation",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002c",
+      "parent_id": "qa-002",
+      "scope": "planning_context.risks",
+      "check": "A risk records that the nicegui-free boundary can regress when a new gui/ module is added, naming test_gui_view_boundary.py's AST walk as the mitigation that already catches it",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "planning_context.rejected_alternatives is empty; the four reasoned rejections in context.json (grafting onto the reconnect wizard, duplicating core logic in gui/, a new nav mechanism, scheduling accessibility work now) are unrecorded in the plan",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "invisible_knowledge is entirely empty (system \"\", invariants [], tradeoffs []) against five items supplied in context.json",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "invisible_knowledge.system",
+      "check": "invisible_knowledge.system carries prose describing the CLI+GUI package, its header-tab shell and the core/surface layering a reader needs before the milestones make sense",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "scope": "invisible_knowledge.invariants",
+      "check": "invariants record the thin-surface layering (every write command pairs a commands/ surface with a core module; the GUI is a second surface over the same core) and the nicegui-boundary rule that only app.py/file_picker.py/__main__.py import the framework",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-004c",
+      "parent_id": "qa-004",
+      "scope": "invisible_knowledge.tradeoffs",
+      "check": "tradeoffs record the read-only-report vs interactive-review choice and DL-028's constraint that an externally-sourced playlist has no source span and always takes the ElementTree-serialization path",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "requirements, acceptance_criteria and tests arrays in all four milestones are comma-split sentence fragments using ';' as an in-string separator (e.g. M-001's 'base-collection chooser', 'tracklist chooser', '...report.;navigation.SECTIONS carries...'), leaving no discrete, individually checkable criterion",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "All 11 code_intents carry a fully empty documentation block (module_comment null, docstrings/function_blocks/inline_comments empty), including the new module buildplaylist_view.py whose siblings all carry module docstrings",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "Every code_intent has function: null; no intent names the function it adds or changes, though CI-M-003-001 describes a specific new _build_build_playlist_page",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "Every file path, test path and referenced symbol in the plan resolves against the live repo; three already fail (qa-014, qa-015, qa-016)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-008",
+      "version": 3
+    },
+    {
+      "id": "qa-009",
+      "scope": "M-004",
+      "check": "M-004 carries flags: [\"documentation-only\"] but is_documentation_only: false; the two contradict and a consumer reading either one alone gets the wrong answer",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-milestone-m004",
+      "version": 3
+    },
+    {
+      "id": "qa-010",
+      "scope": "plan.waves",
+      "check": "waves is empty and no milestone carries a dependency field, though M-003 depends on both M-001's navigation row and M-002's view module",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-relationship-representation",
+      "version": 3
+    },
+    {
+      "id": "qa-011",
+      "scope": "plan.readme_entries",
+      "check": "readme_entries is empty though M-004 exists solely to write README entries for DL-260..DL-266 and the docs/plans table",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-milestone-m004",
+      "version": 3
+    },
+    {
+      "id": "qa-012",
+      "scope": "DL-265",
+      "check": "DL-265 states the artboard 'is the milestone this plan opens with', but M-001 also ships navigation.py and its tests, so the artboard does not actually gate the screen's requirements as the decision claims",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m001",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "DIAG-001",
+      "check": "All four DIAG-001 edges source from 'page'; the nav/view/core/shared layering and the artboard that is the screen's design of record are not represented",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-relationship-representation",
+      "version": 3
+    },
+    {
+      "id": "qa-014",
+      "parent_id": "qa-008",
+      "scope": "CI-M-003-002",
+      "check": "The intent extends tests/test_gui_import_isolation.py's 'module list imported on the nicegui-free interpreter', but that file guards that commands/ and cli.py import nothing FROM gui/ (the opposite direction) and has no such list. The real nicegui-boundary guard is tests/test_gui_view_boundary.py::test_only_app_file_picker_and_main_import_the_framework, which AST-walks gui/ automatically and needs no extension. The intent is unimplementable as written",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-008",
+      "version": 3
+    },
+    {
+      "id": "qa-015",
+      "parent_id": "qa-008",
+      "scope": "CI-M-003-003",
+      "check": "The intent extends tests/test_gui_module_imports.py 'mirroring the existing assertion pattern for wizard_state.amended_result', but that assertion lives in tests/test_gui_view_boundary.py:204 (_calls_amended_result); test_gui_module_imports.py holds only test_every_gui_module_actually_imports and its negative control",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-008",
+      "version": 3
+    },
+    {
+      "id": "qa-016",
+      "parent_id": "qa-008",
+      "scope": "M-001",
+      "check": "tests/test_gui_header_tabs.py appears in no milestone's file list, yet adding a third route breaks test_header_renders_two_links_in_table_order, test_app_py_registers_exactly_the_two_routes, test_app_py_names_no_route_outside_its_two_registrations and test_app_py_names_neither_tab_label; the plan lands red",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-008",
+      "version": 3
+    },
+    {
+      "id": "qa-017",
+      "scope": "CI-M-001-002",
+      "check": "navigation.py's module docstring ('the reconstruct page answers / and stands leftmost, the reconnect wizard answers /reconnect and stands second') and SECTIONS' comment ('either route or either label') both hard-code two rows; the intent changes only the tuple, leaving prose that contradicts the code",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m001",
+      "version": 3
+    },
+    {
+      "id": "qa-018",
+      "scope": "M-001",
+      "check": "traktor_nml/gui/CLAUDE.md's file table describes navigation.py's SECTIONS as two-route ('either route or either label') and carries no row for buildplaylist_view.py; no milestone touches the file DL-261 leans on as the home of the convention",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m001",
+      "version": 3
+    },
+    {
+      "id": "qa-019",
+      "scope": "M-002",
+      "check": "tests/CLAUDE.md carries a per-test-file table (one row per guard, naming what it guards and when to change it); no milestone adds a row for test_gui_buildplaylist_view.py",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m002",
+      "version": 3
+    },
+    {
+      "id": "qa-020",
+      "scope": "M-001",
+      "check": "M-001's enumerated controls name no output-path chooser (base chooser, tracklist chooser, name, target folder, two switches, Write, report), yet M-003 checks rewrite.path_collides against an output path and writes one; the form is under-specified against its own write path",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-milestone-m001",
+      "version": 3
+    },
+    {
+      "id": "qa-021",
+      "scope": "planning_context.decisions",
+      "check": "The CLI's --dry-run and --unresolved-report CSV are absent from the GUI form with no decision recording the cut, though DL-264 discusses the unresolved report at length (DECISION_LOG_MISSING)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decisions-missing",
+      "version": 3
+    },
+    {
+      "id": "qa-022",
+      "scope": "M-003",
+      "check": "M-003's acceptance criterion asserts the GUI 'writes the same output bytes assemble_output/build_output already produce for the same inputs at the CLI', but names no test that compares GUI-written bytes to CLI-written bytes; the MUST NOT on CLI byte-identity has no guard",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-unbacked-assertions",
+      "version": 3
+    },
+    {
+      "id": "qa-023",
+      "scope": "DL-263",
+      "check": "DL-263 carries a 2-step reasoning chain where the other six carry 3; the pitfall enumeration it credits to DL-129..DL-147 is asserted rather than restated, so a reader cannot check the precedent actually covers a third row",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "affinity-unbacked-assertions",
+      "version": 3
+    },
+    {
+      "id": "qa-024",
+      "scope": "CI-M-002-001",
+      "check": "run_summary returns one sentence for both an aborted and a written run; no decision records whether its wording tracks build_playlist_cmd.py's own phrasing or deliberately diverges, so the GUI may state a refusal the CLI words differently",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m002",
+      "version": 3
+    },
+    {
+      "id": "qa-025",
+      "scope": "planning_context.decisions",
+      "check": "No decision records how a failed read, parse or write surfaces in the GUI; the CLI answers with exit codes the GUI has none of, and the plan's error surface is therefore unspecified (DECISION_LOG_MISSING)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decisions-missing",
+      "version": 3
+    },
+    {
+      "id": "qa-026",
+      "scope": "planning_context.decisions",
+      "check": "No decision records whether the fixed MatchConfidence.LOOSE (forced because a text-only line has no path/size/time to match on) is surfaced to the operator or left implicit",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decisions-missing",
+      "version": 3
+    },
+    {
+      "id": "qa-027",
+      "scope": "planning_context.decisions",
+      "check": "No decision records the out-of-scope stance on keyboard/focus-ring/accessibility for this screen; a future reader sees the absence with no logged reason and the standing user preference is invisible in the plan",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-decisions-missing",
+      "version": 3
+    }
+  ]
+}

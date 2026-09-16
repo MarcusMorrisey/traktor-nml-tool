@@ -1,0 +1,72 @@
+{
+  "task_spec": [
+    "SUBJECT: make the resolve step's detail rail show, per distinct answer, each divergent field paired with its field name and a readable formatting of its value beside the raw value, so the operator can tell the answers apart and pick correctly - today all values run together in one button label.",
+    "scope: traktor_nml/gui/app.py answer() (~2478) and detail_rail() (~2360); a nicegui-free formatting module under traktor_nml/gui/; traktor_nml/gui/theme.py rules; tests/; docs/ served-page record; possibly the gate fixture at C:\\codex\\traktor-nml-tool-gate",
+    "out-of-scope: the conflict table, the bulk actions, the footer and its gating, steps 1/2/4, the /reconnect route, accessibility and keyboard work (DL-197)",
+    "out-of-scope: any value-ranking colour (user explicitly cut colouring the larger filesize green)"
+  ],
+  "constraints": [
+    "MUST: DL-069 nicegui boundary - only app.py, file_picker.py, __main__.py import nicegui; every formatting rule and every difference computation lives in a nicegui-free module the suite can reach; every CSS class/dimension lives in theme.py",
+    "MUST: DL-079 - hand-rolled ui.row/ui.element, never aggrid",
+    "MUST: DL-148 - a resolution names the record that wins, not a base-or-source token",
+    "MUST: DL-215 - a sentence naming a count reads that count off the model",
+    "MUST: plurals go through traktor_nml/gui/wording.plural; tests/test_gui_wording.py forbids inline `x if n == 1 else y` anywhere under gui/ except wording.py",
+    "MUST: DL-071 - a screen disagreeing with the artboard is fixed in the design first",
+    "MUST: every guard proven to FAIL FIRST, docstring carrying the specific mutation and the VERBATIM observed output; DL-189 - beware a guard that is green in exactly the broken state",
+    "MUST: app.py stays 100% CRLF (write with newline=''); theme.py and tests/ are LF",
+    "MUST: DL-084 as amended by DL-169 - the milestone closes on a served-page record in docs/ with a verdict row per surface plus structural verdicts against design/reconnect-wizard/Resolve.dc.html, digest registered in tests/test_docs_browser_record_structure.py",
+    "MUST: new decision-log entries start at DL-242 (traktor_nml/README.md is the authority, high-water mark DL-241)",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'",
+    "MUST: never cite a source for something it does not say, line numbers included",
+    "MUST-NOT: regenerate tests/baselines/manifest.json or fixture/w002gatefix2",
+    "MUST-NOT: restore a file with git checkout (copy aside, restore from the copy)",
+    "MUST-NOT: write into build/ or dist/; install anything into the system interpreter; spawn background agents",
+    "MUST: run the suite with C:\\Users\\marcu\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe, not .venv"
+  ],
+  "entry_points": [
+    "traktor_nml/gui/app.py:2478 answer() - builds the per-answer control; the single ui.button at ~2507 with label f\"{supplied_by} {' | '.join(candidate.values)}\" is the thing being replaced",
+    "traktor_nml/gui/app.py:2360 detail_rail() - the rail head (identity key + holding-count sentence) and the body that calls answer()",
+    "traktor_nml/gui/conflict_model.py:99 ConflictRowView - carries attrs (field names) alongside candidates; the pairing with candidate.values exists and is unused",
+    "traktor_nml/splice.py:65 ConflictCandidate - values: tuple[str, ...], one per name in attrs, in that order; members: ((input index, primary key), ...)",
+    "traktor_nml/splice.py:52 _TRACKED_ATTRS = ('artist','title','album','filesize','playtime_float','bitrate') - the only field names attrs can ever contain",
+    "traktor_nml/splice.py:340-341 - attrs is computed as the attrs that DIVERGE across the group's members, not all six",
+    "traktor_nml/gui/theme.py - wizard-answer, wizard-answer-group, wizard-detail-rail rules live here",
+    "traktor_nml/gui/wording.py:plural - the only place a count picks a word",
+    "design/reconnect-wizard/Resolve.dc.html - the artboard: .grp 'The file' group with a .cmpf Path key/value row, per-answer .n value lines, .m 'held by ...' line"
+  ],
+  "rejected_alternatives": [
+    "colouring the larger filesize green - user cut it: the tool does not know bigger is better",
+    "showing only the differing fields as a diff - rejected in the mockup: each answer should read as a record, with a mark carrying the difference",
+    "aggrid for any table here - DL-079"
+  ],
+  "current_understanding": [
+    "The rail draws: head (identity key + 'N collections hold this file with different values'), then one wizard-answer-group per distinct candidate, each with an 'Answer k' label, a digit chip, a chosen-marker dot, and one ui.button whose label joins every value with ' | '. There are no field names on screen at all.",
+    "ConflictRowView.attrs and ConflictCandidate.values are index-aligned tuples, so zip(view.attrs, candidate.values) yields (field name, raw value) pairs directly.",
+    "Traktor's FILESIZE is in KB, not bytes - traktor_nml/matching.py:126 compares FILESIZE against bytes/1024. A megabyte formatting must divide by 1024 once, not twice. The mockup's '8.1 MB / 8,123,456' pairing is therefore wrong about units and must not be copied literally.",
+    "PLAYTIME_FLOAT is seconds as a float string; BITRATE is bits per second in Traktor (needs confirming) so a 'kbps' rendering divides by 1000.",
+    "Values are raw XML attribute strings and may be empty ('' when the record carries no INFO element - traktor_nml/model.py:217-219), so every formatter must survive an empty or non-numeric string by falling back to the value as-is."
+  ],
+  "assumptions": [
+    "THE DOT MAY BE VACUOUS (M-H confidence, must be verified in exploration): attrs holds exactly the attributes that differ across the group's members, and two records sharing a candidate agree on every attr by construction - so any attr that differs between two records puts them in different candidates. That makes every field in the rail a differing field whenever there are exactly two answers, and a dot on every row says nothing. The dot only discriminates with three or more candidates, where a field can agree between two answers and differ at the third. Decision 3 of the approved mockup therefore needs either a narrower rule (mark where this answer differs from the currently chosen answer) or cutting; the plan must settle this explicitly and surface it to the user rather than shipping an always-on dot.",
+    "DECISION 5 IS ALREADY SATISFIED BY THE MODEL (H): 'every field, not only the differing ones' cannot be violated, because attrs never holds a non-differing field. The rail cannot show album when album agrees. Worth stating in the record so the screen is not read as hiding fields.",
+    "THE 'The file' GROUP MAY DUPLICATE THE HEAD (M): the rail head already prints view.identity_key in mono. Adding a labelled Path row under a 'The file' group prints the same string twice unless the head changes. Needs resolving against Resolve.dc.html, in the design first per DL-071.",
+    "The gate fixture at C:\\codex\\traktor-nml-tool-gate carries ONE conflict (M-H); whether it carries enough divergent attrs and enough candidates to exercise the labelled grid and the difference rule must be checked, and the fixture extended if not.",
+    "BITRATE unit is bits per second (M) - to be confirmed from a real collection or from matching.py/model.py before any kbps division ships."
+  ],
+  "invisible_knowledge": [
+    "A rail control names the RECORD that wins, not the collection that supplied it: two collections holding identical values are one answer and deciding it decides both (DL-148, DL-160). The 'held by ...' line is informational and must not become the thing being picked.",
+    "The raw value is what the written file carries. A screen showing only '8.1 MB' would hide which record actually wins, which is why the approved design keeps the raw string visible in mono beside the formatted one.",
+    "Counts on screen are read off the model, never written into a sentence (DL-215) - the rail head's holding-count already does this and the new grid must not reintroduce a hardcoded count.",
+    "This project has repeatedly shipped guards that were green in exactly the broken state (DL-189); for a formatting change the trap is a guard asserting on the formatter's output alone while the screen never calls it.",
+    "Tradeoff accepted: one field per line makes the rail taller. The rail is 400px wide and the answer count is small, so vertical cost is preferred to an unreadable single line."
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - decision-log authority, DL-069/071/079/084/148/169/189/197/215/241",
+    "design/reconnect-wizard/Resolve.dc.html - the artboard this screen is built to",
+    "design/reconnect-wizard/Specs.dc.html - cross-screen rules, digit binding",
+    "C:\\Users\\marcu\\AppData\\Local\\Temp\\claude\\C--codex-traktor-nml-tool-plan\\5d2bb3c9-3996-4336-ba60-40c2aef6bbeb\\scratchpad\\resolve-rail-mockup.html - the approved target, minus decision 4",
+    "docs/2026-09-15-write-step-after-the-write-browser-record.md - the shape a served-page record takes",
+    "tests/test_gui_wording.py - the plural rule and the fail-first docstring convention",
+    "tests/test_docs_browser_record_structure.py - where a record's verdict-row digest is registered"
+  ]
+}

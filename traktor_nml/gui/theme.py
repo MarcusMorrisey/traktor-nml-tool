@@ -272,17 +272,34 @@ NEXT_STEP_MARKER_SIZE = "20px"
 # Resolve.dc.html:23's .st .num - the step rail's own numbered marker,
 # a circle at this size holding the step number or its check mark.
 STEP_MARKER_SIZE = "19px"
-# Resolve.dc.html:79-81's .rad and the dot it carries when chosen. The
+# Resolve.dc.html:83-85's .rad and the dot it carries when chosen. The
 # dot is an element the page renders only for the chosen answer rather
 # than a ::after on the marker, so what carries the chosen state is a
 # class string a guard can read at the call site (DL-189).
 ANSWER_MARKER_SIZE = "15px"
 ANSWER_MARKER_DOT_SIZE = "8px"
-# Resolve.dc.html:79's .rad carries a 1.5px border, thicker than the 1px
+# Resolve.dc.html:83's .rad carries a 1.5px border, thicker than the 1px
 # every other outline on the page takes, so the unchosen marker reads as
 # a control rather than as a hairline. Its own constant because it is the
 # one border width on this screen that is not 1px.
 ANSWER_MARKER_BORDER = "1.5px"
+# Every dimension the field rows draw with stands here, the one source
+# this package allows for a size or colour literal (ref: DL-069,
+# DL-078), and each is read off the artboard the screen is built to
+# (ref: DL-071).
+#
+# Resolve.dc.html:90's .cmpf - the field row's three tracks: the
+# attribute name, the value, and the raw string the file carries. The
+# key track is fixed so every answer's keys align down the rail; the
+# value takes what is left; the raw track is fixed so the strings the
+# operator compares stand at one edge.
+ANSWER_FIELD_KEY_TRACK = "60px"
+ANSWER_FIELD_RAW_TRACK = "82px"
+# Resolve.dc.html:101's .cmpf .d - the mark on a row whose value differs
+# across the answers. Smaller than ANSWER_MARKER_DOT_SIZE, which is the
+# chosen marker's dot: the two dots mean different things and are not
+# one size.
+ANSWER_FIELD_MARK_SIZE = "5px"
 
 
 def page_stylesheet() -> str:
@@ -505,7 +522,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 /* Main.dc.html:30's .ft-note and :31's .ft-act. */
 .wizard-footer-note {{ margin: 0; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; display: flex; align-items: center; gap: {SPACE_9}; }}
 .wizard-footer-actions {{ display: flex; align-items: center; gap: {SPACE_10}; flex: none; }}
-/* Resolve.dc.html:104's .steprail: the four-step rail as the page
+/* Resolve.dc.html:118's .steprail: the four-step rail as the page
    region's first row. grid-column: 1 / -1 is carried here for fidelity
    with the artboard's own declaration and is inert as the sheet stands:
    .wizard-middle is display: flex; flex-direction: column, and
@@ -535,8 +552,8 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    against the ground the marker actually paints rather than against
    the ground of the step around it. */
 .wizard-step-number-current {{ background: {ACTION}; border-color: {ACTION}; color: {GROUND}; }}
-/* Resolve.dc.html:41's .fbar and :98's .tally: the strip carrying the
-   bulk actions, and the count sentence at its left. Resolve.dc.html:131
+/* Resolve.dc.html:41's .fbar and :112's .tally: the strip carrying the
+   bulk actions, and the count sentence at its left. Resolve.dc.html:145
    sets the two apart with a flex:1 span, so the count reads from the
    strip's left and the bulk actions from its right. */
 .wizard-bulk-strip {{ display: flex; align-items: center; gap: {SPACE_9}; flex-wrap: wrap; row-gap: {SPACE_9}; }}
@@ -569,7 +586,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 /* Resolve.dc.html:60's .tr.sel: the selected row's tinted ground and
    the action-blue marker inset at its leading edge. */
 .wizard-conflict-row-selected {{ background: {ACTION_TINT_BG_ALT}; box-shadow: inset {SPACE_3} 0 0 {ACTION}; }}
-/* Resolve.dc.html:70's .det and :71, :74, :91's .det-h, .det-b and
+/* Resolve.dc.html:70's .det and :71, :74, :105's .det-h, .det-b and
    .det-f: the rail as a bordered column of three bands - a head naming
    the file, a body holding one control per answer, and a footer holding
    the keys and the rail's own actions. The rail takes its width from
@@ -584,22 +601,66 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    digit that picks it. */
 .wizard-answer-group {{ display: flex; flex-direction: column; gap: {SPACE_7}; }}
 .wizard-answer-group-head {{ display: flex; align-items: center; justify-content: space-between; gap: {SPACE_8}; }}
-/* Resolve.dc.html:77's .cand and :78's .cand.on: one control per
-   distinct answer, and the chosen one's own border and ground. */
-.wizard-answer {{ border: 1px solid {BORDER}; background: {ACTION_TINT_BG}; border-radius: {RADIUS_LG}; padding: {SPACE_8} {SPACE_10}; display: flex; gap: {SPACE_9}; align-items: center; }}
+/* Resolve.dc.html:81's .cand and :82's .cand.on: one control per
+   distinct answer, and the chosen one's own border and ground.
+   align-items is flex-start, as the artboard's .cand declares: the
+   answer beside the marker is a block of field rows a dozen lines
+   tall, and a centred marker floats at its middle - 103px below the
+   card's own top edge on the served page, level with no row it names.
+   Level with the first row it reads as the mark on the record it
+   heads. */
+.wizard-answer {{ border: 1px solid {BORDER}; background: {ACTION_TINT_BG}; border-radius: {RADIUS_LG}; padding: {SPACE_8} {SPACE_10}; display: flex; gap: {SPACE_9}; align-items: flex-start; }}
 .wizard-answer-chosen {{ border-color: {ACTION_TINT_BORDER_ALT}; background: {BORDER_SUBTLE_9}; }}
-/* Resolve.dc.html:79's .rad and :81's dot. The dot is its own element,
+/* Resolve.dc.html:83's .rad and :85's dot. The dot is its own element,
    rendered for the chosen answer alone, so what carries the chosen
    state is a class string at a call site rather than a pseudo-element
    no guard can read (DL-189). */
 .wizard-answer-marker {{ width: {ANSWER_MARKER_SIZE}; height: {ANSWER_MARKER_SIZE}; border-radius: 50%; border: {ANSWER_MARKER_BORDER} solid {NEUTRAL_INACTIVE}; flex: none; display: grid; place-items: center; }}
 .wizard-answer-chosen .wizard-answer-marker {{ border-color: {ACTION}; }}
 .wizard-answer-dot {{ width: {ANSWER_MARKER_DOT_SIZE}; height: {ANSWER_MARKER_DOT_SIZE}; border-radius: 50%; background: {ACTION}; }}
+/* Resolve.dc.html:90-93's .cmpf, .cmpf .k and .cmpf .v, plus :97's .r
+   and :101's .d the rail draws beside them. The block is the control
+   that picks the answer, so it carries the button's own reset: a
+   ui.button with children still paints nicegui's ground and centres
+   them. */
+.wizard-answer-fields {{ flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; text-align: left; background: none; box-shadow: none; padding: 0; text-transform: none; }}
+/* Quasar wraps a button's children in its own .q-btn__content, so the
+   column declared on the button above governs that wrapper and not the
+   rows inside it. The wrapper's own rule is a centred, wrapping row:
+   left as it is, each field row takes its content's width and is
+   centred on its own wrap line, so the three tracks start at a
+   different x on every row and the "held by" line shares the last
+   row's line instead of standing under the fields. The rows are the
+   artboard's aligned grid, so the wrapper is turned back into the
+   column the block declares (ref: DL-069, DL-071).
+
+   text-align is here for the same reason: the wrapper carries
+   Quasar's own text-center, which reads every field value from the
+   middle of its track - "A" and "One" sitting at the centre of a
+   166.8px track rather than at its start - so the value column does
+   not read down the rail. The artboard's .cmpf .v states no
+   text-align and inherits its block's left. */
+.wizard-answer-fields .q-btn__content {{ width: 100%; flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; text-align: left; }}
+.wizard-answer-field {{ display: grid; grid-template-columns: {ANSWER_FIELD_KEY_TRACK} 1fr {ANSWER_FIELD_RAW_TRACK}; gap: {SPACE_8}; align-items: center; padding: {SPACE_5} 0; border-bottom: 1px solid {BORDER_SUBTLE_4}; }}
+.wizard-answer-field:last-child {{ border-bottom: 0; }}
+.wizard-answer-field-key {{ display: flex; align-items: center; gap: {SPACE_5}; min-width: 0; font: 500 {TYPE_11}/1 {FONT_MONO}; letter-spacing: 0.05em; text-transform: uppercase; }}
+.wizard-answer-field-value {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.wizard-answer-field-raw {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }}
+/* The mark on a row the answers disagree on. A dot and nothing else:
+   no rule here states a colour conditioned on a value's magnitude, so
+   the screen never claims a larger filesize is the better one
+   (ref: DL-249). Its size is its own constant rather than the chosen
+   marker's: the two dots mean different things. */
+.wizard-answer-field-mark {{ width: {ANSWER_FIELD_MARK_SIZE}; height: {ANSWER_FIELD_MARK_SIZE}; border-radius: 50%; background: {ACTION}; flex: none; }}
+/* Resolve.dc.html:88's .cand .m: who holds this record, under the
+   fields rather than in front of them - informational, not the thing
+   being picked (DL-148). */
+.wizard-answer-holders {{ padding-top: {SPACE_5}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 /* Resolve.dc.html:68's .dec and :69's .decd: the decision column reads
    from its right edge in both states - a Choose control while the group
    is undecided, the winning collection's name beside its own Undo once
    it is decided. The header's fifth cell is right-aligned by the same
-   reading (Resolve.dc.html:141), so the heading sits over the column it
+   reading (Resolve.dc.html:155), so the heading sits over the column it
    names rather than over the column's empty left. The gap is
    CONTROL_GAP, not the 6px the artboard's own .dec draws: Specs' 8px
    between controls is the settled reading wherever the two disagree,
@@ -608,13 +669,13 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-conflict-decision {{ display: flex; gap: {CONTROL_GAP}; justify-content: flex-end; }}
 .wizard-conflict-decided {{ display: flex; align-items: center; gap: {CONTROL_GAP}; justify-content: flex-end; font-size: {TYPE_11_5}; font-weight: 600; white-space: nowrap; }}
 .wizard-conflict-header > *:last-child {{ text-align: right; }}
-/* Resolve.dc.html:92's .det-a and :93's .det-a .btn: the rail's two
+/* Resolve.dc.html:106's .det-a and :107's .det-a .btn: the rail's two
    actions split the footer's width between them, which is why this is
    its own rule rather than .wizard-control-group - that one packs its
    controls to the left at their own widths. */
 .wizard-detail-actions {{ display: flex; gap: {SPACE_8}; }}
 .wizard-detail-actions .wizard-control {{ flex: 1; justify-content: center; }}
-/* Resolve.dc.html:94's .keys and :95's .kb: three key hints, each a chip
+/* Resolve.dc.html:108's .keys and :109's .kb: three key hints, each a chip
    group beside the phrase it performs, rather than one sentence naming
    the keys in prose - the chips are what Specs' keyboard map draws. */
 /* The chips themselves are .wizard-kbd, the rule emitted above; these
@@ -622,8 +683,8 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    the same here as it does wherever else the page names one. */
 .wizard-key-row {{ display: flex; align-items: center; gap: {SPACE_13}; flex-wrap: wrap; padding: {SPACE_1} 0 {SPACE_8}; }}
 .wizard-key-hint {{ display: inline-flex; align-items: center; gap: {SPACE_6}; font-size: {TYPE_11_5}; color: {TEXT_FAINT}; }}
-/* Resolve.dc.html:245's .note in the rail's body and :266's .hint under
-   main. .wizard-hint reproduces Resolve.dc.html:100's .hint rule; the
+/* Resolve.dc.html:271's .note in the rail's body and :292's .hint under
+   main. .wizard-hint reproduces Resolve.dc.html:114's .hint rule; the
    artboard declares no rule for .note, and that note sets no colour, so
    the call site names the ink token it wears and one element cannot end
    up carrying two colour-setting classes, which tests/test_gui_theme.py

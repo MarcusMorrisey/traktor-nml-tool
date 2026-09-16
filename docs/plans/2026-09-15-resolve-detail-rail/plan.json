@@ -1,0 +1,890 @@
+{
+  "plan_id": "719dc988-af0b-4909-b906-00b47f1799f4",
+  "created_at": "2026-09-15T13:35:32.391683",
+  "frozen_at": null,
+  "overview": {
+    "problem": "The resolve step's detail rail draws one control per distinct answer whose whole label is the collections that supply it followed by every value joined with ' | ' (traktor_nml/gui/app.py:2507). No field name stands on screen, no value carries its unit, and two answers differing in one attribute read as two runs of text, so the operator cannot tell the answers apart and picks blind.",
+    "approach": "Each answer prints as a record: one row per tracked attribute, field name beside the formatted value beside the raw string, with a mark on the fields whose values differ across the answers. The agreeing values that make a record complete are not reachable from the page today, so splice's conflict row carries them alongside attrs rather than widening attrs, which is a column of the conflict CSV. The field assembly, the mark rule and every unit formatting live in a new nicegui-free traktor_nml/gui/answer_detail.py the suite runs under the system interpreter; app.py draws what it returns and theme.py declares the classes. The artboard is amended before the screen (DL-071), and the milestone closes on a served-page record over an extended gate fixture. traktor_nml/README.md is the decision-log authority and its high-water mark is DL-241, so the decisions here are numbered from DL-242."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-242",
+        "version": 1,
+        "decision": "Each answer in the resolve rail reads as a complete record: every name in splice._TRACKED_ATTRS the group's records carry, agreeing fields included, one field per line as field name, formatted value and raw value",
+        "reasoning": "An answer joined into one string of values cannot be told from its neighbour, and a rail showing only the divergent subset reads as a diff rather than as the record that wins -> the operator picks a record, so the rail prints the record -> the six tracked attributes stand per answer and the mark carries the difference"
+      },
+      {
+        "id": "DL-243",
+        "version": 1,
+        "decision": "The divergence mark stands on a field exactly where its name is in the row's attrs",
+        "reasoning": "splice computes attrs as the tracked attributes whose values differ across the group's members -> that set is precisely the fields that differ across the answers, already computed and already carried to the page -> the rule is a membership test in a nicegui-free module, and no second divergence computation exists to disagree with the first"
+      },
+      {
+        "id": "DL-244",
+        "version": 1,
+        "decision": "The agreeing values ride alongside attrs as their own field on ConflictRow, ConflictGroup and ConflictRowView; attrs names the divergent set alone",
+        "reasoning": "attrs is one of the three columns the conflict CSV writes and the line splice_cmd prints (traktor_nml/commands/splice_cmd.py:22, :24) -> widening it in place rewrites recorded output for every run -> the complete record is carried as an addition, and the CSV columns are guarded unmoved"
+      },
+      {
+        "id": "DL-245",
+        "version": 1,
+        "decision": "Every member of a group agrees on every attribute outside attrs, so one group-wide mapping of agreeing attribute to value is well defined and is computed beside the candidates",
+        "reasoning": "divergent_attrs at splice.py:340-341 names the attributes whose value set across the group's members has more than one member -> an attribute outside it holds one value across every member of the group, candidates included -> the agreeing values belong to the group rather than to a candidate, and a guard reads that off a three-answer group rather than asserting it"
+      },
+      {
+        "id": "DL-246",
+        "version": 1,
+        "decision": "Formatting and field assembly live in traktor_nml/gui/answer_detail.py, a module importing no nicegui",
+        "reasoning": "DL-069 puts every rule the suite reaches below the nicegui boundary, and conflict_model.py is the vocabulary a pick is recorded in -> a display formatting rule there gives that module a second purpose the package's one-purpose-per-module table does not carry -> the field rows, their labels, their formatted values and the mark stand in one module app.py reads from"
+      },
+      {
+        "id": "DL-247",
+        "version": 2,
+        "decision": "FILESIZE renders as megabytes by dividing by 1024 once; PLAYTIME_FLOAT renders as minutes and seconds; BITRATE renders as kilobits per second by dividing by 1000, unconditionally, because every record the rail answers over is Traktor-borne (DL-253); the raw string stands beside every formatted value in mono",
+        "reasoning": "Traktor writes FILESIZE in kilobytes - the calibration comment at traktor_nml/matching.py:124-128 records the measured error of FILESIZE against bytes/1024, and _size_kb (traktor_nml/matching.py:166-180) deliberately does no conversion because both sides already carry kilobytes - and BITRATE in bits per second (collection_textual_patch_test.nml carries values near 1000000) -> a formatting dividing a kilobyte count twice or reading a bitrate as kilobits prints a number the collection does not hold, and the kilobits bitrate traktor_nml/diskscan.py:59 writes would print near 0.3 kbps if it could reach the rail -> one division each with no provenance branch, the provenance itself settled by DL-253, the precision by DL-255, and the raw value stays visible because it is what the written file carries"
+      },
+      {
+        "id": "DL-248",
+        "version": 1,
+        "decision": "A value that is empty or does not parse as a number prints as itself with no formatted companion",
+        "reasoning": "traktor_nml/model.py:217-219 yields an empty string for every INFO-borne attribute where a record carries no INFO element -> a formatter dividing that string raises inside a page build -> each formatter returns the raw string unchanged where the value does not parse, and a guard covers the empty string"
+      },
+      {
+        "id": "DL-249",
+        "version": 1,
+        "decision": "No colour ranks one value against another",
+        "reasoning": "The tool has no way to know that a larger filesize or a higher bitrate is the better record -> a green value states a judgement the model cannot support -> difference is marked and never ranked"
+      },
+      {
+        "id": "DL-250",
+        "version": 1,
+        "decision": "The rail head is the one place the file is named; design/reconnect-wizard/Resolve.dc.html carries no 'The file' group",
+        "reasoning": "The head prints the identity key in mono and the artboard's body opens with a labelled Path row holding the same string -> drawing both prints the file twice in a 400px rail -> the artboard is amended first and the screen is built to it (DL-071)"
+      },
+      {
+        "id": "DL-251",
+        "version": 1,
+        "decision": "The gate fixture's conflicting entry carries bits-per-second bitrates and a second divergent field agreeing between two of its three answers",
+        "reasoning": "The fixture's one conflict diverges on bitrate alone, at values a Traktor collection never writes -> a served page over it exercises neither the unit formatting nor a mark that discriminates between answers -> the fixture carries a field that agrees and a field that differs, so the record reads both"
+      },
+      {
+        "id": "DL-252",
+        "version": 1,
+        "decision": "A guard proves the page calls the field assembly rather than only that the assembly is correct",
+        "reasoning": "This repository has shipped guards green in exactly the broken state (DL-189) -> a formatter guarded alone passes while the rail joins raw values into one label -> the composition guard reads app.py's answer() for the per-field construction, and the served-page record reads the rendered rail"
+      },
+      {
+        "id": "DL-253",
+        "version": 1,
+        "decision": "Every record the resolve rail answers over is Traktor-borne: splice groups over collection_records from the NML collections given as inputs, and a disk-scanned record never reaches a conflict group or detail_rail()",
+        "reasoning": "traktor_nml/splice.py:475 builds its groups from records_by_input, the per-input lists of collection_records, and hands them to group_identities (traktor_nml/splice.py:482), and diskscan feeds matching and reconnect_run instead (traktor_nml/reconnect_run.py:23, traktor_nml/commands/discover_tracks_cmd.py:12) -> the kilobits BITRATE traktor_nml/diskscan.py:59 writes has no path into a ConflictRow -> the rail formats one provenance and the bits-per-second division needs no provenance condition"
+      },
+      {
+        "id": "DL-254",
+        "version": 1,
+        "decision": "The rail prints each field name as Traktor writes the attribute in the NML: ARTIST, TITLE, ALBUM, FILESIZE, PLAYTIME_FLOAT and BITRATE, one fixed mapping from the splice._TRACKED_ATTRS identifier to the printed label",
+        "reasoning": "splice._TRACKED_ATTRS holds lowercase python identifiers while the artboard draws the key in mono uppercase -> left to the implementer the same field could print as PLAYTIME_FLOAT, PLAYTIME or LENGTH on different rows and against the record -> the label is the XML attribute name the written file carries, uppercased, so the printed key names the thing the raw value beside it came from"
+      },
+      {
+        "id": "DL-255",
+        "version": 1,
+        "decision": "The numeric presentation is the approved mockup read literally: FILESIZE to one decimal followed by MB, BITRATE rounded to a whole number followed by kbps, PLAYTIME_FLOAT as minutes then a colon then seconds truncated toward zero and zero-padded to two digits; no thousands separator is introduced anywhere and the raw string is reproduced exactly as the collection carries it",
+        "reasoning": "The approved mockup at the scratchpad resolve-rail-mockup.html is the only Tier 1 source carrying precision and it shows 8.1 MB, 320 kbps and 7:01 -> a plan fixing units but not precision leaves a user-visible default to the implementer, while the mockup separated raw 8,123,456 would rewrite the string the written file holds -> precision, rounding and padding come from the mockup and the raw value alone is exempt from it"
+      },
+      {
+        "id": "DL-256",
+        "version": 1,
+        "decision": "This work writes into C:/codex/traktor-nml-tool-gate, a tree outside the primary working directory, for the three reconstruct-conflict fixture collections alone; no other file outside C:/codex/traktor-nml-tool is touched",
+        "reasoning": "The gate tree is where the served page is produced and its one conflict diverges on bitrate alone at values a Traktor collection never writes (DL-251) -> the served-page record DL-084 and DL-169 require cannot read the unit formatting or a discriminating mark without editing that fixture -> the external writes are named file by file in M-005 and bounded to the reconstruct-conflict fixture"
+      },
+      {
+        "id": "DL-257",
+        "version": 1,
+        "decision": "The rail head and the new field grid go through traktor_nml/gui/wording.plural for every word a count picks, and no inline conditional on a count stands anywhere under gui/",
+        "reasoning": "M-004 touches the head holding-count sentence and adds a grid drawn once per field -> an inline x if n == 1 else y is the shape tests/test_gui_wording.py forbids outside wording.py, and a count written into a sentence is what DL-215 forbids -> the count reads off the model and its word comes from wording.plural, guarded by the existing wording test over the changed file"
+      },
+      {
+        "id": "DL-258",
+        "version": 1,
+        "decision": "traktor_nml/gui/app.py is read and rewritten with newline set to the empty string so its CRLF line endings survive the edit, while answer_detail.py, theme.py and every file under tests/ stay LF",
+        "reasoning": "app.py is the one file in the package carrying CRLF throughout -> a default-mode write converts every line ending and shows the whole file as changed, hiding the real edit -> the empty-newline write is named in the app.py intent and a guard reads the file bytes for an absence of bare LF"
+      },
+      {
+        "id": "DL-259",
+        "version": 1,
+        "decision": "No work here regenerates tests/baselines/manifest.json or fixture/w002gatefix2, restores a file with git checkout, writes into build/ or dist/, installs into the system interpreter or spawns a background agent; the suite runs under C:/Users/marcu/AppData/Local/Python/pythoncore-3.14-64/python.exe",
+        "reasoning": "M-002 changes a structure the conflict CSV and splice_cmd report over, which is exactly the change a baseline regeneration would paper over -> a regenerated manifest would record the new output as expected and the guard that the columns are unmoved would pass in the broken state (DL-189) -> the baselines and the gate fixture w002gatefix2 are read never written, a file needing restoration is copied aside first, and every guard in this plan runs under the system interpreter"
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Colour the larger filesize green",
+        "rejection_reason": "The tool has no way to know a bigger file is the better record; the user cut it outright",
+        "decision_ref": "DL-249"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Show only the fields that differ, as a diff",
+        "rejection_reason": "Each answer is meant to read as a record; the mark carries the difference instead",
+        "decision_ref": "DL-242"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Widen ConflictRow.attrs to every tracked attribute",
+        "rejection_reason": "attrs is a column of the conflict CSV and of splice_cmd's printed line, so widening it rewrites recorded output for every run",
+        "decision_ref": "DL-244"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Put the formatting rules in conflict_model.py",
+        "rejection_reason": "That module is the decision vocabulary a pick is recorded in; traktor_nml/gui/CLAUDE.md gives one purpose per module",
+        "decision_ref": "DL-246"
+      },
+      {
+        "id": "RA-005",
+        "alternative": "Mark every field, as the mockup draws it",
+        "rejection_reason": "Over the divergent subset alone every field differs and the mark says nothing; the mark earns its place only once the agreeing fields stand beside the divergent ones",
+        "decision_ref": "DL-243"
+      },
+      {
+        "id": "RA-006",
+        "alternative": "aggrid for the field rows",
+        "rejection_reason": "DL-079",
+        "decision_ref": "DL-242"
+      }
+    ],
+    "constraints": [
+      "C-001: DL-069: only app.py, file_picker.py and __main__.py import nicegui; every formatting rule and every difference computation lives in a nicegui-free module the suite reaches, and every CSS class and dimension lives in theme.py",
+      "C-002: DL-079: hand-rolled ui.row/ui.element, never aggrid",
+      "C-003: DL-148: a resolution names the record that wins, not a base-or-source token; the 'held by' line stays informational",
+      "C-004: DL-215: a sentence naming a count reads that count off the model",
+      "C-005: Plurals go through traktor_nml/gui/wording.plural; tests/test_gui_wording.py forbids an inline `x if n == 1 else y` anywhere under gui/ except wording.py - discharged by DL-257 and by M-004's acceptance criteria on wording.plural and the inline-conditional rule",
+      "C-006: DL-071: a screen disagreeing with the artboard is fixed in the design first",
+      "C-007: Every guard is proven to FAIL FIRST, its docstring carrying the specific mutation and the verbatim observed output; DL-189: beware a guard green in exactly the broken state",
+      "C-008: app.py stays 100% CRLF (written with newline=''); theme.py and tests/ are LF - discharged by DL-258, CI-M-004-001 and CI-M-004-003",
+      "C-009: DL-084 as amended by DL-169: the milestone closes on a served-page record in docs/ with a verdict row per surface plus structural verdicts against design/reconnect-wizard/Resolve.dc.html, its digest registered in tests/test_docs_browser_record_structure.py",
+      "C-010: Documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added' - and never cites a source for something it does not say, line numbers included",
+      "C-011: tests/baselines/manifest.json and fixture/w002gatefix2 are never regenerated; no file is restored with git checkout (copy aside, restore from the copy); nothing is written into build/ or dist/, nothing is installed into the system interpreter, and no background agent is spawned - discharged by DL-259; the one authorised write outside the working directory is DL-256",
+      "C-012: The suite runs under C:/Users/marcu/AppData/Local/Python/pythoncore-3.14-64/python.exe, not .venv - discharged by DL-259",
+      "C-013: Out of scope: the conflict table, the bulk actions, the footer and its gating, steps 1/2/4, the /reconnect route, accessibility and keyboard work (DL-197), and any value-ranking colour"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "A guard on the formatter alone passes while the rail still joins raw values into one label - the shape DL-189 names",
+        "mitigation": "tests/test_gui_resolve_composition.py reads answer() for the per-field construction and asserts no call site joins candidate values, and the served-page record reads the rendered rail",
+        "anchor": "traktor_nml/gui/app.py:2478-2517",
+        "decision_ref": "DL-252"
+      },
+      {
+        "id": "R-002",
+        "risk": "A unit division applied twice or to the wrong base prints a number the collection does not hold",
+        "mitigation": "FILESIZE is kilobytes - the calibration comment at matching.py:124-128 records the measured error of FILESIZE against bytes/1024 and _size_kb (matching.py:166-180) does no conversion because both sides already carry kilobytes - and BITRATE is bits per second (collection_textual_patch_test.nml carries values near 1000000); only Traktor-borne records reach the rail (DL-253); the raw string stands beside every formatted value, and the fixture carries realistic values so the served page reads them",
+        "anchor": "traktor_nml/matching.py:124-128 and traktor_nml/matching.py:166-180",
+        "decision_ref": "DL-247"
+      },
+      {
+        "id": "R-003",
+        "risk": "Carrying the agreeing values changes what a run writes or reports",
+        "mitigation": "The field is an addition with an empty default; the CSV columns and splice_cmd's line are guarded identical, and tests/baselines/manifest.json is not regenerated",
+        "anchor": "traktor_nml/commands/splice_cmd.py:22, :24",
+        "decision_ref": "DL-244"
+      },
+      {
+        "id": "R-004",
+        "risk": "A record carrying no INFO element yields empty strings and a formatter raises inside a page build",
+        "mitigation": "Every formatter returns the raw string unchanged where the value does not parse, guarded on the empty string",
+        "anchor": "traktor_nml/model.py:217-219",
+        "decision_ref": "DL-248"
+      },
+      {
+        "id": "R-005",
+        "risk": "One field per line makes a 400px rail taller than the answers it holds",
+        "mitigation": "Accepted: the answer count is small and vertical cost is preferred to an unreadable single line; the served-page record reads the rail at its measured height",
+        "anchor": "traktor_nml/gui/theme.py:578-616",
+        "decision_ref": "DL-242"
+      }
+    ],
+    "decision_id_start": 242
+  },
+  "invisible_knowledge": {
+    "system": "",
+    "invariants": [
+      "A rail control names the RECORD that wins, not the collection that supplied it: two collections holding identical values are one answer, and deciding it decides both (DL-148, DL-160)",
+      "The raw value is what the written file carries, so it stays visible beside any formatted rendering",
+      "Counts on screen are read off the model, never written into a sentence (DL-215)",
+      "ConflictRow.attrs is the divergent set and is a column of the conflict CSV; the complete record rides beside it",
+      "An attribute outside a group's divergent set holds one value across every member of the group, so the agreeing values belong to the group rather than to a candidate",
+      "Traktor writes FILESIZE in kilobytes and BITRATE in bits per second; traktor_nml/diskscan.py:59 writes a bitrate in kilobits, so a disk-scanned record and a Traktor record disagree in units; the rail never sees a disk-scanned record, because splice groups over collection_records alone (DL-253), so the kilobits provenance cannot reach a formatted value"
+    ],
+    "tradeoffs": [
+      "One field per line makes the rail taller; the rail is 400px wide and the answer count is small, so vertical cost is preferred to an unreadable single line. Given up: rail height. Accepted by the user in approving the mockup, which draws the fields stacked.",
+      "The complete record costs a field on three structures rather than a computation in the page, which is what keeps the CSV's meaning of attrs intact. Given up: three structures widen and every construction site of them moves. Accepted by the architect under DL-244, because the alternative rewrites recorded output for every run.",
+      "The mockup's 5px dot is kept rather than cut, because the agreeing fields standing beside the divergent ones give it something to say. Given up: the option of cutting the mark, which the architect raised as an open question after finding the dot vacuous over the divergent subset alone. Accepted by the user, who kept the dot once the rail was to carry the agreeing fields too."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 1,
+      "number": 1,
+      "name": "The artboard the rail is built to",
+      "files": [
+        "design/reconnect-wizard/Resolve.dc.html"
+      ],
+      "flags": [],
+      "requirements": [
+        "The artboard draws the rail body as answer groups of labelled field rows, and names the file once, in the head"
+      ],
+      "acceptance_criteria": [
+        "design/reconnect-wizard/Resolve.dc.html carries no 'The file' group",
+        "An answer group in the artboard draws a field name, a formatted value, a raw value and a mark on the divergent rows",
+        "No rule in the artboard colours a value by its magnitude"
+      ],
+      "tests": [
+        "skip: An artboard is read by the served-page record's structural verdicts, not by a guard"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "design/reconnect-wizard/Resolve.dc.html",
+          "function": null,
+          "behavior": "The .det body holds answer groups only, with no 'The file' group: the head names the file. Each answer group draws one row per tracked attribute on the .cmpf three-column grid - the attribute name in the mono uppercase .k, the formatted value with the raw string beside it, and a 5px dot on the rows whose values differ across the answers. The drawn example carries a field agreeing across both answers and a field differing between them, and no value carries a ranking colour.",
+          "decision_refs": [
+            "DL-242",
+            "DL-243",
+            "DL-249",
+            "DL-250"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-001-001",
+          "version": 2,
+          "intent_ref": "CI-M-001-001",
+          "file": "design/reconnect-wizard/Resolve.dc.html",
+          "diff": "\n--- a/design/reconnect-wizard/Resolve.dc.html\n+++ b/design/reconnect-wizard/Resolve.dc.html\n@@ (stylesheet, beside .cmpf at :86-89)\n .cmpf{display:grid;grid-template-columns:60px 1fr 82px;gap:8px;font-size:12px;align-items:center;padding:5px 0;border-bottom:1px solid #22292E}\n .cmpf:last-child{border-bottom:0}\n .cmpf .k{color:#8E979E;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;text-transform:uppercase}\n .cmpf .v{color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n+/* The raw string the written file carries, beside the formatted value\n+   rather than instead of it: a row reading 8.0 MB alone hides which\n+   record wins. */\n+.cmpf .r{color:#8E979E;font:400 11px/1.3 'IBM Plex Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}\n+/* The mark on a row whose value differs across the answers. A dot and\n+   nothing else: no rule here colours a value by its magnitude, since\n+   the tool does not know a larger filesize is the better one. */\n+.cmpf .d{width:5px;height:5px;border-radius:50%;background:#56B4E9;flex:none}\n+.cmpf .kw{display:flex;align-items:center;gap:5px;min-width:0}\n+.cand .f{min-width:0;display:flex;flex-direction:column;flex:1}\n@@ (the .det-b body, at :214-218)\n-          <div class=\"grp\">\n-            <div class=\"grp-h\"><span class=\"lbl\">The file</span></div>\n-            <div class=\"cmpf\"><span class=\"k\">Path</span><span class=\"v mono\" style=\"grid-column:2 / span 2\">E:\\Music\\House\\Kerri Chandler - Bar A Thym.aiff</span></div>\n-          </div>\n-\n+          <!-- The file is named once, in .det-h's .t above. A second\n+               labelled Path row under a \"The file\" group prints the\n+               same string twice. -->\n@@ (Answer 1's .cand, at :221-228)\n           <div class=\"grp\">\n             <div class=\"grp-h\"><span class=\"lbl\">Answer 1</span><span class=\"kbd\">1</span></div>\n             <div class=\"cand on\">\n               <span class=\"rad\" role=\"img\" aria-label=\"Chosen\"></span>\n-              <span class=\"b\">\n-                <span class=\"n\">Bar A Thym</span>\n-                <span class=\"n\">Kerri Chandler</span>\n+              <span class=\"f\">\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"k\">TITLE</span></span><span class=\"v\">Bar A Thym</span><span class=\"r\"></span></span>\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"d\"></span><span class=\"k\">ARTIST</span></span><span class=\"v\">Kerri Chandler</span><span class=\"r\"></span></span>\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"d\"></span><span class=\"k\">BITRATE</span></span><span class=\"v\">320 kbps</span><span class=\"r\">320000</span></span>\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"k\">FILESIZE</span></span><span class=\"v\">8.0 MB</span><span class=\"r\">8192</span></span>\n                 <span class=\"m\">held by collection.nml</span>\n-              </span>\n+              </span>\n             </div>\n           </div>\n@@ (Answer 2's .cand, at :231-240)\n           <div class=\"grp\">\n             <div class=\"grp-h\"><span class=\"lbl\">Answer 2</span><span class=\"kbd\">2</span></div>\n             <div class=\"cand\">\n               <span class=\"rad\" role=\"img\" aria-label=\"Not chosen\"></span>\n-              <span class=\"b\">\n-                <span class=\"n\">Bar A Thym (Original Mix)</span>\n-                <span class=\"n\">Kerri Chandler feat. Jerome Sydenham</span>\n+              <span class=\"f\">\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"k\">TITLE</span></span><span class=\"v\">Bar A Thym</span><span class=\"r\"></span></span>\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"d\"></span><span class=\"k\">ARTIST</span></span><span class=\"v\">Kerri Chandler feat. Jerome Sydenham</span><span class=\"r\"></span></span>\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"d\"></span><span class=\"k\">BITRATE</span></span><span class=\"v\">128 kbps</span><span class=\"r\">128000</span></span>\n+                <span class=\"cmpf\"><span class=\"kw\"><span class=\"k\">FILESIZE</span></span><span class=\"v\">8.0 MB</span><span class=\"r\">8192</span></span>\n                 <span class=\"m\">held by collection_2024-11-02.nml</span>\n-              </span>\n+              </span>\n             </div>\n           </div>\n\nNOTES FOR THE IMPLEMENTER\n\n- TITLE and FILESIZE are drawn without a dot: the artboard has to show a\n  field agreeing across the answers beside one differing, or the dot on\n  every row says nothing and the rule it draws cannot be read off it\n  (M-001's acceptance criterion two, DL-243).\n- The third column holds the raw string for the fields that have a\n  formatted companion and is empty for the ones that do not, so the\n  three tracks stay the three tracks .cmpf already declares and the\n  values line up down the rail.\n- .cand .b is left declared: the review screen's candidate cards use it.\n  The rail's own column is .cand .f, which carries no gap, because\n  .cmpf already carries its own vertical padding and a border between\n  rows.\n- No rule added here states a colour conditioned on a value: the user\n  cut colouring the larger filesize green, and the reason is that the\n  tool cannot know bigger is better (DL-249).\n",
+          "doc_diff": "--- a/design/reconnect-wizard/Resolve.dc.html\n+++ b/design/reconnect-wizard/Resolve.dc.html\n@@ (in the comment block above the answer group)\n+<!-- An answer is drawn as a record: one row per tracked attribute the\n+     group carries, each holding the attribute name, what the value\n+     means and the raw string the written file holds (DL-242). The mark\n+     stands on a row the answers disagree on and carries no colour\n+     ranking one value against another (DL-243, DL-249). The file is\n+     named at the rail head alone, so the body opens with no labelled\n+     Path row (DL-250). The screen is built to this artboard, which is\n+     why the amendment lands here first (DL-071). -->\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": true,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 1,
+      "number": 2,
+      "name": "The complete record in the model",
+      "files": [
+        "traktor_nml/splice.py",
+        "traktor_nml/gui/conflict_model.py",
+        "tests/test_splice.py",
+        "tests/test_gui_conflict_model.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "A conflict row carries every tracked attribute the group's records hold: the divergent ones as candidate values, the agreeing ones as the group's own pairs",
+        "What a run writes and prints is unmoved"
+      ],
+      "acceptance_criteria": [
+        "A three-answer group's agreed pairs hold exactly the tracked attributes outside its divergent set, each with the single value every member holds",
+        "A group diverging on every tracked attribute carries no agreed pairs",
+        "The conflict CSV's columns and splice_cmd's printed line read identically over a run carrying agreed values",
+        "A decision re-attaches across a re-preview whose agreed pairs differ while member keys and candidates hold"
+      ],
+      "tests": [
+        "file: tests/test_splice.py",
+        "file: tests/test_gui_conflict_model.py",
+        "normal: A three-answer group carries the agreeing tracked attributes as pairs",
+        "normal: A projected group carries the row's agreed pairs",
+        "edge: A group diverging on every tracked attribute carries no agreed pairs",
+        "edge: A decision re-attaches where agreed pairs differ but member keys and candidates hold",
+        "error: A duplicate-playlist-name row and an ambiguous-redirect row keep their shape",
+        "error: The conflict CSV's columns and splice_cmd's printed line are unmoved"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 1,
+          "file": "traktor_nml/splice.py",
+          "function": null,
+          "behavior": "ConflictRow carries `agreed`, a tuple of (attribute name, value) pairs in _TRACKED_ATTRS order holding every tracked attribute outside the row's divergent set, defaulting empty so the duplicate-playlist-name and ambiguous-redirect rows keep their shape. _metadata_conflict_row fills it off the members already grouped, in the pass that builds the candidates. attrs is the comma-joined divergent set and the CSV columns splice_cmd writes read identically.",
+          "decision_refs": [
+            "DL-244",
+            "DL-245"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "traktor_nml/gui/conflict_model.py",
+          "function": null,
+          "behavior": "ConflictGroup and ConflictRowView carry `agreed` beside attrs, and conflict_groups projects it off the row. The re-attachment comparison is member_keys and candidates, so a group whose agreeing values are carried keeps the decision it holds.",
+          "decision_refs": [
+            "DL-244",
+            "DL-245"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "tests/test_splice.py",
+          "function": null,
+          "behavior": "Guards that a three-answer group's agreed pairs hold exactly the tracked attributes outside its divergent set, each with the single value every member holds; that a group diverging on every tracked attribute carries none; and that the conflict CSV's columns and splice_cmd's printed line read identically over a run carrying agreed values. Each docstring carries the mutation applied and the verbatim pytest output observed under it.",
+          "decision_refs": [
+            "DL-244",
+            "DL-245"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 1,
+          "file": "tests/test_gui_conflict_model.py",
+          "function": null,
+          "behavior": "Guards that a projected group carries the row's agreed pairs, and that a decision re-attaches across a re-preview whose agreed pairs differ while member keys and candidates hold. Each docstring carries the mutation applied and the verbatim pytest output observed under it.",
+          "decision_refs": [
+            "DL-244"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-002-001",
+          "version": 2,
+          "intent_ref": "CI-M-002-001",
+          "file": "traktor_nml/splice.py",
+          "diff": "\n--- a/traktor_nml/splice.py\n+++ b/traktor_nml/splice.py\n@@ (ConflictRow, around :81-99)\n     identity_key: str\n     attrs: str\n     resolution: str\n     member_keys: frozenset[str] = frozenset()\n     candidates: tuple[ConflictCandidate, ...] = ()\n+    agreed: tuple[tuple[str, str], ...] = ()\n\n    (the docstring gains, after the sentence naming candidates:)\n\n+    agreed holds every tracked attribute OUTSIDE the divergent set, in\n+    _TRACKED_ATTRS order, each paired with the single value every member\n+    of the group holds for it. attrs names what the group could not\n+    agree on and agreed names what it did, so the two together are the\n+    whole record the group describes and a screen reading them shows a\n+    record rather than a diff. It defaults empty, so a row reporting\n+    something other than a metadata divergence keeps the shape it has.\n@@ (_candidates, after it, around :219)\n+def _agreed(\n+    members: list[tuple[int, EntryRecord]], attrs: list[str]\n+) -> tuple[tuple[str, str], ...]:\n+    \"\"\"The tracked attributes the group agrees on, as (name, value)\n+    pairs in _TRACKED_ATTRS order.\n+\n+    Read off the members already grouped, in the same pass _candidates\n+    reads them: an attribute absent from attrs holds one value across\n+    every member by the way attrs was computed, so the first member's\n+    value is that value and no set is built a second time.\n+    \"\"\"\n+    divergent = set(attrs)\n+    first = members[0][1]\n+    return tuple(\n+        (attr, str(getattr(first, attr)))\n+        for attr in _TRACKED_ATTRS\n+        if attr not in divergent\n+    )\n+\n+\n@@ (_metadata_conflict_row, :231-237)\n     return ConflictRow(\n         identity_key,\n         \",\".join(divergent_attrs),\n         resolution,\n         member_keys=frozenset(record.primary_key for _, record in members),\n         candidates=_candidates(members, divergent_attrs),\n+        agreed=_agreed(members, divergent_attrs),\n     )\n\nNOTES FOR THE IMPLEMENTER\n\n- attrs stays the comma-joined divergent set and stays the third CSV\n  column, so the conflict report's columns and splice_cmd's printed line\n  are untouched: agreed is a field the CSV never reads.\n- _agreed is called at the one place ConflictRow is built for a metadata\n  divergence, so the two rows built from a literal (playlist_name,\n  ambiguous_redirect) keep the empty default and conflict_model's\n  NON_METADATA_ROW_ATTRS reading is unaffected.\n- members is never empty where _metadata_conflict_row is called: the\n  call site reached it through `len(contributing_inputs) == 1` having\n  been false, so the group holds at least two members. members[0] is\n  therefore indexable, and _agreed is not given an empty group.\n",
+          "doc_diff": "--- a/traktor_nml/splice.py\n+++ b/traktor_nml/splice.py\n@@ (ConflictRow.agreed, beside the field)\n     candidates: tuple[ConflictCandidate, ...] = ()\n+    # agreed rides beside attrs rather than widening it: attrs is the\n+    # third column of the conflict CSV and of the line splice_cmd\n+    # prints, so a field holding the agreeing names keeps that recorded\n+    # output exactly where it stands (ref: DL-244).\n     agreed: tuple[tuple[str, str], ...] = ()\n@@ (_agreed docstring, after its opening paragraph)\n     \"\"\"The tracked attributes the group agrees on, as (name, value)\n     pairs in _TRACKED_ATTRS order.\n+\n+    Well defined because divergent_attrs names the attributes whose\n+    value set across the group's members holds more than one member: an\n+    attribute outside that set holds one value across every member,\n+    candidates included, so the value belongs to the group rather than\n+    to any one answer (ref: DL-245).\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-002",
+          "version": 3,
+          "intent_ref": "CI-M-002-002",
+          "file": "traktor_nml/gui/conflict_model.py",
+          "diff": "\n--- a/traktor_nml/gui/conflict_model.py\n+++ b/traktor_nml/gui/conflict_model.py\n@@ (ConflictGroup, around :83-98)\n     identity_key: str\n     attrs: tuple[str, ...]\n     member_keys: frozenset[str]\n     candidates: tuple[ConflictCandidate, ...]\n+    agreed: tuple[tuple[str, str], ...] = ()\n\n    (the docstring gains:)\n\n+    agreed carries the tracked attributes the group's records hold in\n+    common, which the rail draws beside the divergent ones so each\n+    answer reads as a record. It is not compared by re-attachment: what\n+    a pick was made against is the answers on offer, and a value every\n+    member agrees on is the same value whichever answer wins (DL-245).\n@@ (ConflictRowView, around :101-111)\n     identity_key: str\n     attrs: tuple[str, ...]\n     candidates: tuple[ConflictCandidate, ...]\n     decision: object\n+    agreed: tuple[tuple[str, str], ...] = ()\n@@ (conflict_groups, around :190-196)\n         groups.append(\n             ConflictGroup(\n                 identity_key=row.identity_key,\n                 attrs=tuple(row.attrs.split(\",\")),\n                 member_keys=row.member_keys,\n                 candidates=row.candidates,\n+                agreed=row.agreed,\n             )\n         )\n@@ (ConflictDecisions.rows, around :316-324)\n             ConflictRowView(\n                 identity_key=group.identity_key,\n                 attrs=group.attrs,\n                 candidates=group.candidates,\n                 decision=self.decision(group),\n+                agreed=group.agreed,\n             )\n\nNOTES FOR THE IMPLEMENTER\n\n- _Decision holds reference, member_keys and candidates, and decision()\n  compares those three. agreed is deliberately absent from both: adding\n  it would drop a held pick the moment a re-preview changed a value\n  nobody is choosing between, which is the opposite of what DL-158's\n  comparison exists to catch.\n- Both dataclasses stay frozen and agreed is defaulted, so the\n  positional constructions in the test suite keep working.\n",
+          "doc_diff": "--- a/traktor_nml/gui/conflict_model.py\n+++ b/traktor_nml/gui/conflict_model.py\n@@ (ConflictRowView.agreed, beside the field)\n     decision: object\n+    # The view carries the agreeing values so the rail reads a whole\n+    # record off one object, with attrs naming the divergent set\n+    # alone (ref: DL-244). A pick is recorded against the answers on\n+    # offer, so this field takes no part in re-attachment (ref: DL-245).\n     agreed: tuple[tuple[str, str], ...] = ()\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-003",
+          "version": 2,
+          "intent_ref": "CI-M-002-003",
+          "file": "tests/test_splice.py",
+          "diff": "\n--- a/tests/test_splice.py\n+++ b/tests/test_splice.py\n@@ (new guards, beside the existing candidate guards)\n+def test_a_three_answer_group_carries_the_agreeing_tracked_attributes():\n+    \"\"\"A metadata-diverging group reports the tracked attributes it\n+    agrees on as (name, value) pairs in _TRACKED_ATTRS order, each\n+    holding the single value every member carries.\n+\n+    Read against a group of three answers so the reading is not\n+    satisfied by a two-member group where every tracked attribute is\n+    either divergent or identical by coincidence.\n+\n+    Mutation: `if attr not in divergent` in splice._agreed was changed\n+    to `if attr in divergent` and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... three inputs holding one file at one location, diverging on\n+    bitrate alone and agreeing on artist, title, album, filesize and\n+    playtime_float ...\n+    row = ... the one metadata conflict row ...\n+    assert row.attrs == \"bitrate\"\n+    assert row.agreed == (\n+        (\"artist\", \"A\"),\n+        (\"title\", \"One\"),\n+        (\"album\", \"\"),\n+        (\"filesize\", \"8192\"),\n+        (\"playtime_float\", \"100.0\"),\n+    )\n+\n+\n+def test_a_group_diverging_on_every_tracked_attribute_carries_no_agreed_pairs():\n+    \"\"\"agreed is the complement of attrs, so a group that agrees on\n+    nothing carries none - the empty tuple rather than a pair holding an\n+    arbitrary member's value.\n+\n+    Mutation: `divergent = set(attrs)` in splice._agreed was changed to\n+    `divergent = set()` and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... two inputs whose one shared location differs on all six ...\n+    assert set(row.attrs.split(\",\")) == set(splice._TRACKED_ATTRS)\n+    assert row.agreed == ()\n+\n+\n+def test_the_conflict_report_and_the_printed_line_are_unmoved_by_agreed():\n+    \"\"\"The CSV conflict report's columns and splice_cmd's printed line\n+    read identically over a run whose rows carry agreed pairs: agreed is\n+    a field the report never reads, and attrs is still the comma-joined\n+    divergent set.\n+\n+    This is the reading that stays true in the broken state where agreed\n+    was folded into attrs - the shape that would make the third CSV\n+    column name fields the group agreed on (DL-189).\n+\n+    Mutation: `\",\".join(divergent_attrs)` in _metadata_conflict_row was\n+    changed to `\",\".join(divergent_attrs + [a for a, _ in agreed])` and\n+    this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... assert the header row and the one data row of the written CSV,\n+    and the splice_cmd line, against the strings they already carry ...\n+\n+\n+def test_a_duplicate_playlist_name_row_and_an_ambiguous_redirect_row_keep_their_shape():\n+    \"\"\"The two rows built from a literal name no identity group, and\n+    carry agreed empty rather than a pair read off members they do not\n+    have.\n+\n+    Mutation: ConflictRow.agreed's default was removed, making it\n+    required, and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... both rows ... assert row.agreed == () and row.member_keys == frozenset()\n\nNOTES FOR THE IMPLEMENTER\n\n- Each `<PASTE ...>` is filled by running the mutation, copying what\n  pytest printed, and reverting - the docstring convention this suite\n  holds, and the thing that makes the guard proven to fail first.\n- The existing splice guards construct EntryRecords through the module's\n  own fixtures; these follow the same route rather than building records\n  by hand, so a field added to EntryRecord does not break them.\n",
+          "doc_diff": "--- a/tests/test_splice.py\n+++ b/tests/test_splice.py\n@@ (above the new agreed guards)\n+# The agreeing values are a field beside attrs, not a widening of it\n+# (ref: DL-244), and they are well defined because an attribute outside\n+# the divergent set holds one value across every member of the group\n+# (ref: DL-245). The three-answer group is what proves the second\n+# reading rather than assuming it; the CSV guard is what holds the first\n+# where a fold into attrs would otherwise pass unseen (ref: DL-189).\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-002-004",
+          "version": 2,
+          "intent_ref": "CI-M-002-004",
+          "file": "tests/test_gui_conflict_model.py",
+          "diff": "\n--- a/tests/test_gui_conflict_model.py\n+++ b/tests/test_gui_conflict_model.py\n@@ (new guards, beside the existing projection and re-attachment guards)\n+def test_a_projected_group_carries_the_rows_agreed_pairs():\n+    \"\"\"conflict_groups projects agreed off the row the run produced,\n+    and rows() carries it onto the view, so what the rail draws is what\n+    splice derived rather than anything this module recomputes.\n+\n+    Mutation: `agreed=row.agreed` was deleted from the ConflictGroup\n+    construction in conflict_groups and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    row = ConflictRow(\n+        \"identity\", \"bitrate\", None,\n+        member_keys=frozenset({\"C:/:Music/:one.mp3\"}),\n+        candidates=(ConflictCandidate((\"320000\",), ((0, \"C:/:Music/:one.mp3\"),)),),\n+        agreed=((\"artist\", \"A\"), (\"title\", \"One\")),\n+    )\n+    group = conflict_model.conflict_groups([row])[0]\n+    assert group.agreed == ((\"artist\", \"A\"), (\"title\", \"One\"))\n+    view = conflict_model.ConflictDecisions().rows([group])[0]\n+    assert view.agreed == ((\"artist\", \"A\"), (\"title\", \"One\"))\n+\n+\n+def test_a_decision_re_attaches_where_only_the_agreed_pairs_differ():\n+    \"\"\"A pick stands across a re-preview whose agreed values moved while\n+    the member keys and the candidates held: a value every member agrees\n+    on is not one of the answers, so it is not what the pick was made\n+    against (DL-158, DL-245).\n+\n+    This is the guard that fails the moment agreed is folded into the\n+    _Decision comparison, which is the shape that would silently drop\n+    every pick on a re-preview.\n+\n+    Mutation: `agreed` was added to _Decision and to the equality\n+    decision() tests, and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... build a group, resolve it, rebuild the identical group with a\n+    different agreed tuple, and assert decision() is the reference\n+    rather than UNDECIDED ...\n\nNOTES FOR THE IMPLEMENTER\n\n- The existing re-attachment guards in this file already cover the two\n  directions that MUST drop a pick (member keys moved, candidates\n  moved); this adds the one that must NOT.\n",
+          "doc_diff": "--- a/tests/test_gui_conflict_model.py\n+++ b/tests/test_gui_conflict_model.py\n@@ (above the new agreed guards)\n+# agreed rides from ConflictRow through ConflictGroup to\n+# ConflictRowView so the rail reads a whole record off the view\n+# (ref: DL-244). It takes no part in what a pick is compared against:\n+# a value every member agrees on is the same value whichever answer\n+# wins, and comparing it would drop a held pick on a re-preview that\n+# changed something nobody is choosing between (ref: DL-245).\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "The field rows and their formatting",
+      "files": [
+        "traktor_nml/gui/answer_detail.py",
+        "tests/test_gui_answer_detail.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "One nicegui-free module returns the rail's field rows, their labels, their formatted values and their marks"
+      ],
+      "acceptance_criteria": [
+        "The fields come back in splice._TRACKED_ATTRS order",
+        "Every field prints its NML attribute name in uppercase - ARTIST TITLE ALBUM FILESIZE PLAYTIME_FLOAT BITRATE",
+        "A field agreeing across the answers carries no mark and a diverging one does",
+        "A kilobyte filesize renders under one division by 1024 to one decimal and a bits-per-second bitrate under one division by 1000 rounded whole",
+        "Seconds render as minutes and seconds zero-padded to two digits and no formatted value carries a thousands separator",
+        "An empty or non-numeric value returns no formatted companion",
+        "The module imports no nicegui and runs under the system interpreter"
+      ],
+      "tests": [
+        "file: tests/test_gui_answer_detail.py",
+        "normal: Fields come back in _TRACKED_ATTRS order under their uppercase NML labels",
+        "normal: A kilobyte filesize renders as megabytes to one decimal and a bits-per-second bitrate as whole kilobits",
+        "normal: Seconds render as minutes and zero-padded seconds",
+        "edge: A field agreeing across the answers carries no mark while a diverging one does",
+        "edge: A one-answer group and a six-way divergence",
+        "edge: No formatted value carries a thousands separator and the raw string comes back as given",
+        "error: An empty value and a non-numeric value return no formatted companion"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 2,
+          "file": "traktor_nml/gui/answer_detail.py",
+          "function": null,
+          "behavior": "AnswerField - the attribute name, the label the rail prints, the raw value, the formatted value or None, and whether the field differs across the answers - and answer_fields(attrs, agreed, candidate), which returns one field per name in splice._TRACKED_ATTRS the group carries, in that order, marking a field as differing exactly where its name stands in attrs. The label is the fixed mapping of the _TRACKED_ATTRS identifier to the NML attribute name in uppercase: ARTIST, TITLE, ALBUM, FILESIZE, PLAYTIME_FLOAT, BITRATE. format_value(attr, raw) renders filesize as megabytes off a kilobyte count to one decimal followed by MB, playtime_float as minutes then a colon then seconds truncated toward zero and zero-padded to two digits, and bitrate as kilobits per second off a bits-per-second count rounded to a whole number followed by kbps - one division each, with no provenance branch, since every record the rail answers over is Traktor-borne. It introduces no thousands separator and returns None for artist, title and album and for any value that is empty or does not parse. Imports no nicegui.",
+          "decision_refs": [
+            "DL-243",
+            "DL-246",
+            "DL-247",
+            "DL-248",
+            "DL-253",
+            "DL-254",
+            "DL-255"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 2,
+          "file": "tests/test_gui_answer_detail.py",
+          "function": null,
+          "behavior": "Guards the field order against _TRACKED_ATTRS, the printed label of every tracked attribute against its uppercase NML name, that a field agreeing across the answers carries no mark while a diverging one does, that a kilobyte filesize renders under one division by 1024 to one decimal and a bits-per-second bitrate under one division by 1000 rounded whole, that seconds render as minutes and zero-padded seconds, that no formatted value carries a thousands separator and the raw string comes back exactly as given, and that an empty or non-numeric value returns no formatted companion. Each docstring carries the mutation applied and the verbatim pytest output observed under it.",
+          "decision_refs": [
+            "DL-243",
+            "DL-246",
+            "DL-247",
+            "DL-254",
+            "DL-255"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-003-001",
+          "version": 3,
+          "intent_ref": "CI-M-003-001",
+          "file": "traktor_nml/gui/answer_detail.py",
+          "diff": "\n--- /dev/null\n+++ b/traktor_nml/gui/answer_detail.py\n@@ (new module, LF endings, imports no nicegui)\n+\"\"\"The rows one answer in the resolve step's detail rail draws.\n+\n+An answer is a record, not a diff. The rail shows every tracked\n+attribute the group's records carry - the ones the answers disagree on,\n+read off the candidate, and the ones they agree on, read off the group -\n+so the operator picks by reading a record rather than by reading a list\n+of what is missing from one.\n+\n+Two values per field, not one. The raw string is what the written file\n+carries and is what tells the answers apart when they differ by a digit;\n+the formatted one is what a filesize in kilobytes, a bitrate in bits per\n+second and a playtime in seconds mean. A rail showing only the formatted\n+value would hide which record wins, and one showing only the raw value\n+is the screen this module exists to replace.\n+\n+Imports splice for the attribute order alone and no nicegui, so the\n+suite reaches every rule here under the system interpreter (DL-069).\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+from dataclasses import dataclass\n+from typing import Optional\n+\n+from ..splice import _TRACKED_ATTRS\n+\n+# The NML attribute each tracked identifier names, which is the word the\n+# rail prints. The identifiers are Python attribute names on EntryRecord\n+# and two of them - playtime_float, filesize - are not what the file\n+# calls them read aloud; the operator is looking at a Traktor\n+# collection, so the label is the collection's own word, uppercase, as\n+# Resolve.dc.html:88's .cmpf .k draws it.\n+LABELS = {\n+    \"artist\": \"ARTIST\",\n+    \"title\": \"TITLE\",\n+    \"album\": \"ALBUM\",\n+    \"filesize\": \"FILESIZE\",\n+    \"playtime_float\": \"PLAYTIME_FLOAT\",\n+    \"bitrate\": \"BITRATE\",\n+}\n+\n+\n+@dataclass(frozen=True)\n+class AnswerField:\n+    \"\"\"One row of one answer.\n+\n+    formatted is None where the field has no second reading - artist,\n+    title and album are already what they say - and where the value does\n+    not parse, which includes the empty string a record with no INFO\n+    element carries. differs says whether the answers disagree on this\n+    field, which is what the rail marks; it is never a judgement about\n+    which value is better.\n+    \"\"\"\n+\n+    attr: str\n+    label: str\n+    raw: str\n+    formatted: Optional[str]\n+    differs: bool\n+\n+\n+def format_value(attr: str, raw: str) -> Optional[str]:\n+    \"\"\"The second reading of one raw attribute value, or None.\n+\n+    filesize is Traktor's own kilobyte count, not a byte count -\n+    matching.py compares FILESIZE against a file's bytes divided by 1024\n+    - so megabytes is ONE division by 1024. A second division would put\n+    an 8 MB file on screen as 0.0 MB.\n+\n+    playtime_float is seconds as a decimal string and reads as minutes\n+    and seconds, the seconds truncated toward zero and zero-padded, so\n+    99.6 seconds is 1:39 rather than 1:99 or 1:40.\n+\n+    bitrate is bits per second in a Traktor collection, so kilobits is\n+    one division by 1000, rounded to a whole number.\n+\n+    No thousands separator is introduced anywhere: the raw string beside\n+    the formatted one is the file's own text and a grouped copy of it\n+    reads as a third value.\n+\n+    Every record the rail answers over came out of a Traktor\n+    collection, so there is no provenance branch: one unit reading per\n+    attribute, stated here once.\n+    \"\"\"\n+    if attr not in (\"filesize\", \"playtime_float\", \"bitrate\"):\n+        return None\n+    try:\n+        number = float(raw)\n+    except (TypeError, ValueError):\n+        return None\n+    if attr == \"filesize\":\n+        return f\"{number / 1024:.1f} MB\"\n+    if attr == \"bitrate\":\n+        return f\"{round(number / 1000)} kbps\"\n+    minutes, seconds = divmod(int(number), 60)\n+    return f\"{minutes}:{seconds:02d}\"\n+\n+\n+def answer_fields(\n+    attrs: tuple[str, ...],\n+    agreed: tuple[tuple[str, str], ...],\n+    candidate,\n+) -> tuple[AnswerField, ...]:\n+    \"\"\"One field per tracked attribute the group carries, in\n+    _TRACKED_ATTRS order.\n+\n+    attrs names the attributes the answers disagree on and is\n+    index-aligned with candidate.values; agreed pairs the rest with the\n+    single value every member holds. A field is marked as differing\n+    exactly where its name stands in attrs, so the mark says \"the\n+    answers disagree here\" and nothing about which one to take.\n+\n+    The order is _TRACKED_ATTRS' own rather than attrs-then-agreed, so\n+    one answer's rows line up against the next answer's rows down the\n+    rail. An attribute in neither is not a field the group carries and\n+    is left out.\n+    \"\"\"\n+    divergent = dict(zip(attrs, candidate.values))\n+    settled = dict(agreed)\n+    fields = []\n+    for attr in _TRACKED_ATTRS:\n+        if attr in divergent:\n+            raw, differs = divergent[attr], True\n+        elif attr in settled:\n+            raw, differs = settled[attr], False\n+        else:\n+            continue\n+        fields.append(\n+            AnswerField(\n+                attr=attr,\n+                label=LABELS[attr],\n+                raw=raw,\n+                formatted=format_value(attr, raw),\n+                differs=differs,\n+            )\n+        )\n+    return tuple(fields)\n\nNOTES FOR THE IMPLEMENTER\n\n- `from ..splice import _TRACKED_ATTRS` reaches a private name across\n  modules. The alternative - a second copy of the six names here - is a\n  list that drifts from the one splice computes divergence against, and\n  the field order on screen would then stop being the model's order.\n  State the choice in the module docstring rather than quietly copying.\n- `round()` is banker's rounding: 128500 bits reads 128 kbps, not 129.\n  That is acceptable and worth a test case rather than a workaround; no\n  screen here is arithmetic anyone recomputes.\n- LABELS is a dict keyed by every name in _TRACKED_ATTRS. A tracked\n  attribute added to splice without a label here raises KeyError at the\n  call site rather than drawing a blank key, which is the failure that\n  is loud rather than silent.\n",
+          "doc_diff": "--- a/traktor_nml/gui/answer_detail.py\n+++ b/traktor_nml/gui/answer_detail.py\n@@ (module docstring, before the closing line)\n     Imports splice for the attribute order alone and no nicegui, so the\n     suite reaches every rule here under the system interpreter (DL-069).\n+\n+    The module stands apart from conflict_model, which is the vocabulary\n+    a pick is recorded in: a display formatting rule there would give\n+    that module a second purpose (ref: DL-246). Every field row, its\n+    label, its formatted value and its mark stand here and app.py only\n+    places them.\n+\n+    _TRACKED_ATTRS is imported rather than copied: a second list of the\n+    six names drifts from the one splice computes divergence against,\n+    and the field order on screen is the model's order.\n     \"\"\"\n@@ (LABELS, beside the mapping)\n+# One fixed mapping so the same attribute cannot print as PLAYTIME_FLOAT\n+# on one row and LENGTH on another; the label is the XML attribute name\n+# the written file carries, uppercased (ref: DL-254). A tracked\n+# attribute that splice carries without a label here raises KeyError at the\n+# call site rather than drawing a blank key.\n LABELS = {\n@@ (AnswerField docstring, after its closing sentence)\n     differs says whether the answers disagree on this field, which is\n     what the rail marks; it is never a judgement about which value is\n     better.\n+\n+    No colour ranks one value against another anywhere this dataclass is\n+    drawn: the tool cannot know that a larger filesize or a higher\n+    bitrate is the better record, so difference is marked and never\n+    ranked (ref: DL-249).\n     \"\"\"\n@@ (format_value docstring, after the unit paragraphs)\n     Every record the rail answers over came out of a Traktor\n     collection, so there is no provenance branch: one unit reading per\n     attribute, stated here once.\n+\n+    That is a property of the model rather than an assumption: splice\n+    groups over the collection_records of the NML inputs, and a\n+    disk-scanned record - whose BITRATE diskscan writes in kilobits -\n+    reaches matching and reconnect_run instead, never a conflict group\n+    (ref: DL-253).\n+\n+    The precision is the approved design read literally: one decimal on\n+    MB, a whole number on kbps, and seconds zero-padded to two digits\n+    (ref: DL-255).\n+\n+    Returning None for a value that does not parse covers the empty\n+    string a record with no INFO element carries: the raw value then\n+    prints as itself with no formatted companion, rather than a division\n+    raising inside a page build (ref: DL-248).\n     \"\"\"\n@@ (answer_fields docstring, after its second paragraph)\n     A field is marked as differing exactly where its name stands in\n     attrs, so the mark says \"the answers disagree here\" and nothing\n     about which one to take.\n+\n+    The membership test is the whole rule: attrs is the set\n+    splice computed divergence into, so no second divergence\n+    computation exists here to disagree with the first (ref: DL-243).\n+    Both sources together are the complete record the rail draws - the\n+    divergent values off the candidate, the agreeing ones off the group\n+    (ref: DL-242).\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-003-002",
+          "version": 2,
+          "intent_ref": "CI-M-003-002",
+          "file": "tests/test_gui_answer_detail.py",
+          "diff": "\n--- /dev/null\n+++ b/tests/test_gui_answer_detail.py\n@@ (new file, LF endings)\n+\"\"\"Guards traktor_nml/gui/answer_detail.py: the fields one answer draws,\n+their labels, their formatted companions and their marks.\n+\n+Every reading here is of the module's return value under the system\n+interpreter, which has no nicegui. What it cannot hold is that the rail\n+calls it - a formatter guarded alone while the screen still joins the\n+values into one label is the guard green in exactly the broken state\n+this change exists to end (DL-189). That reading is\n+tests/test_gui_resolve_composition.py's and the served-page record's.\n+\n+Each guard records the mutation applied to make it fail and the verbatim\n+output observed under that mutation.\n+\"\"\"\n+\n+from __future__ import annotations\n+\n+from traktor_nml.gui import answer_detail\n+from traktor_nml.splice import ConflictCandidate, _TRACKED_ATTRS\n+\n+\n+def test_the_fields_come_back_in_tracked_attrs_order_under_their_nml_labels():\n+    \"\"\"The rows are ordered by splice._TRACKED_ATTRS, not by attrs then\n+    agreed, so one answer's rows stand against the next answer's rows.\n+    Every label is the NML attribute name in uppercase.\n+\n+    Mutation: the loop in answer_fields was changed to iterate\n+    `list(divergent) + list(settled)` and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... a group diverging on bitrate and title, agreeing on the rest ...\n+    assert [f.attr for f in fields] == list(_TRACKED_ATTRS)\n+    assert [f.label for f in fields] == [\n+        \"ARTIST\", \"TITLE\", \"ALBUM\", \"FILESIZE\", \"PLAYTIME_FLOAT\", \"BITRATE\",\n+    ]\n+\n+\n+def test_a_kilobyte_filesize_and_a_bits_per_second_bitrate_read_once_divided():\n+    \"\"\"FILESIZE is Traktor's kilobyte count, so 8192 is 8.0 MB under one\n+    division by 1024; a second division would put it on screen as 0.0\n+    MB. BITRATE is bits per second, so 320000 is 320 kbps under one\n+    division by 1000.\n+\n+    Mutation: `number / 1024` was changed to `number / 1024 / 1024` and\n+    this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    assert answer_detail.format_value(\"filesize\", \"8192\") == \"8.0 MB\"\n+    assert answer_detail.format_value(\"bitrate\", \"320000\") == \"320 kbps\"\n+\n+\n+def test_seconds_read_as_minutes_and_zero_padded_seconds():\n+    \"\"\"99.6 seconds is 1:39 - the seconds truncated toward zero and\n+    padded to two digits, so no row reads 1:9 or 1:99.\n+\n+    Mutation: `f\"{seconds:02d}\"` was changed to `f\"{seconds}\"` and this\n+    guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    assert answer_detail.format_value(\"playtime_float\", \"99.6\") == \"1:39\"\n+    assert answer_detail.format_value(\"playtime_float\", \"100.0\") == \"1:40\"\n+    assert answer_detail.format_value(\"playtime_float\", \"9.0\") == \"0:09\"\n+\n+\n+def test_a_field_the_answers_agree_on_carries_no_mark_and_a_diverging_one_does():\n+    \"\"\"The mark says the answers disagree on this field. A field read\n+    off agreed carries none, which is what keeps the mark from standing\n+    on every row and saying nothing.\n+\n+    Mutation: `raw, differs = settled[attr], False` was changed to\n+    `raw, differs = settled[attr], True` and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... assert {f.attr: f.differs for f in fields} names exactly the\n+    attrs tuple as True and every agreed name as False ...\n+\n+\n+def test_a_one_answer_group_and_a_six_way_divergence():\n+    \"\"\"A group carrying no agreed pairs draws six marked rows; a group\n+    whose one answer diverges on one attribute draws that row marked and\n+    five unmarked. Neither drops a field the group carries.\n+\n+    Mutation: `for attr in _TRACKED_ATTRS` was changed to `for attr in\n+    attrs` and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... both shapes ...\n+\n+\n+def test_no_formatted_value_carries_a_thousands_separator_and_raw_is_verbatim():\n+    \"\"\"The raw string comes back exactly as given, and no formatted\n+    value introduces a separator: a grouped copy of the raw digits beside\n+    the raw digits reads as a third value.\n+\n+    Mutation: `f\"{round(number / 1000)} kbps\"` was changed to\n+    `f\"{round(number / 1000):,} kbps\"` and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... assert \",\" not in every formatted value over a large filesize,\n+    a large bitrate and a long playtime, and that f.raw is the string\n+    the candidate carried ...\n+\n+\n+def test_an_empty_value_and_a_non_numeric_value_return_no_formatted_companion():\n+    \"\"\"A record with no INFO element carries \"\" for filesize, bitrate\n+    and playtime_float (model.py), and the rail draws that record. An\n+    empty or unparseable value falls back to the raw string alone rather\n+    than raising or printing 0.0 MB.\n+\n+    Mutation: the `except (TypeError, ValueError): return None` arm was\n+    deleted from format_value and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    assert answer_detail.format_value(\"filesize\", \"\") is None\n+    assert answer_detail.format_value(\"bitrate\", \"unknown\") is None\n+    assert answer_detail.format_value(\"playtime_float\", \"\") is None\n+    assert answer_detail.format_value(\"artist\", \"A\") is None\n+\n+\n+def test_the_module_imports_no_nicegui():\n+    \"\"\"The rule DL-069 states, read here as well as in the boundary\n+    sweep, because this module is the one a formatting change is most\n+    likely to be written into a nicegui call from.\n+\n+    Mutation: `import nicegui` was appended to answer_detail.py and this\n+    guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... an AST walk over the module source ...\n\nNOTES FOR THE IMPLEMENTER\n\n- ConflictCandidate is constructed directly here rather than through a\n  splice run: the unit under guard takes attrs, agreed and a candidate,\n  and a run would make these guards depend on grouping.\n- tests/test_gui_view_boundary.py already sweeps every module in the\n  package for a framework import, so the last guard is a second reading\n  of the same rule at the place it matters, not the only one.\n",
+          "doc_diff": "--- a/tests/test_gui_answer_detail.py\n+++ b/tests/test_gui_answer_detail.py\n@@ (above the unit and parsing guards)\n+# The units are the collection's own: FILESIZE is Traktor's kilobyte\n+# count and BITRATE is bits per second, so each reading is one division\n+# and the precision is the approved design read literally (ref: DL-247,\n+# DL-255). There is no provenance branch to guard, because a\n+# disk-scanned record never reaches a conflict group (ref: DL-253).\n+# The empty string a record with no INFO element carries prints as\n+# itself with no formatted companion (ref: DL-248), and the mark is a\n+# membership test against attrs rather than a second divergence\n+# computation (ref: DL-243).\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 2,
+      "number": 4,
+      "name": "The rail draws the records",
+      "files": [
+        "traktor_nml/gui/app.py",
+        "traktor_nml/gui/theme.py",
+        "tests/test_gui_resolve_composition.py",
+        "tests/test_gui_resolve_sheet.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "The rail draws one row per field inside the control that picks the answer, and the sheet declares every class it names"
+      ],
+      "acceptance_criteria": [
+        "answer() constructs one field row per field from answer_detail",
+        "No call site joins candidate values into a single label",
+        "Every field class the rail names is declared by the sheet and no rail rule colours a value by its magnitude",
+        "Neither the head nor the new field grid writes a count into a sentence - every count is read off the model and its word comes from wording.plural",
+        "No inline conditional on a count stands under gui/ outside wording.py",
+        "app.py is 100% CRLF - written with newline set to the empty string and guarded for the absence of a bare LF byte"
+      ],
+      "tests": [
+        "file: tests/test_gui_resolve_composition.py",
+        "file: tests/test_gui_resolve_sheet.py",
+        "normal: answer() constructs one field row per field from answer_detail",
+        "normal: Every field class the rail names is declared by the sheet",
+        "edge: The head names the file once and reads its holding count off the model",
+        "edge: The field grid introduces no count written into a sentence",
+        "error: No call site joins candidate values into one label",
+        "error: No rail rule colours a value by its magnitude",
+        "error: app.py carries no bare LF byte",
+        "error: tests/test_gui_wording.py finds no inline count conditional under gui/"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 2,
+          "file": "traktor_nml/gui/app.py",
+          "function": null,
+          "behavior": "answer() draws the control as one row per AnswerField from answer_detail.answer_fields - the field label, the formatted value where there is one, the raw value in mono beside it, and the difference mark where the field differs - in place of a label joining the values. The field block is the clickable control that picks the answer, and the collections holding it read under the fields. detail_rail()'s head keeps the identity key and the holding count read off the model, its word taken from wording.plural, and neither the head nor the new grid writes a count into a sentence or carries an inline conditional on a count. The file is rewritten with newline set to the empty string so its CRLF endings survive.",
+          "decision_refs": [
+            "DL-242",
+            "DL-243",
+            "DL-246",
+            "DL-252",
+            "DL-257",
+            "DL-258"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 1,
+          "file": "traktor_nml/gui/theme.py",
+          "function": null,
+          "behavior": "The sheet declares the rail's field grid: a three-column row mirroring Resolve.dc.html's .cmpf, the mono uppercase field key, the raw value's faint mono treatment and the difference mark's dimensions, as tokens beside the wizard-answer rules. No rule colours a value by its magnitude.",
+          "decision_refs": [
+            "DL-242",
+            "DL-249"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "version": 2,
+          "file": "tests/test_gui_resolve_composition.py",
+          "function": null,
+          "behavior": "Guards that answer() constructs one field row per field from answer_detail and names the field classes, that no call site joins candidate values into a single label - the reading that stays true in the broken state where the formatter alone is guarded - that neither the head nor the field grid writes a count into a sentence rather than reading it off the model (the rule the constraint DL-215 carries), and that app.py carries no bare LF byte, which is the reading that fails the moment the file is rewritten without the empty newline argument. Each docstring carries the mutation applied and the verbatim pytest output observed under it.",
+          "decision_refs": [
+            "DL-252",
+            "DL-257",
+            "DL-258"
+          ]
+        },
+        {
+          "id": "CI-M-004-004",
+          "version": 1,
+          "file": "tests/test_gui_resolve_sheet.py",
+          "function": null,
+          "behavior": "Guards that every field class the rail names is declared by the sheet, and that no rail rule states a colour conditioned on a value's magnitude.",
+          "decision_refs": [
+            "DL-249",
+            "DL-252"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-004-001",
+          "version": 4,
+          "intent_ref": "CI-M-004-001",
+          "file": "traktor_nml/gui/app.py",
+          "diff": "\n--- a/traktor_nml/gui/app.py\n+++ b/traktor_nml/gui/app.py\n@@ -52,6 +52,8 @@ (the gui module imports, one module per line)\n from . import collection_summary\n from . import conflict_model\n+from . import answer_detail\n from . import navigation\n from . import reconstruct_report\n from . import reconstruct_steps\n from . import review_model\n # theme.py is the only source for a colour or size literal in this module (DL-078).\n from . import wizard_state\n+from . import wording\n from .file_picker import pick_file_or_folder\n from .wizard_state import WizardState\n\n@@ -2385,10 +2385,20 @@ def detail_rail(views) -> None:\n                             holding = len(\n                                 {\n                                     input_index\n                                     for candidate in view.candidates\n                                     for input_index, _ in candidate.members\n                                 }\n                             )\n-                            ui.label(\n-                                f\"{holding} collections hold this file with \"\n-                                \"different values. Pick the one that \"\n-                                \"supplies them.\"\n-                            ).classes(\"wizard-body-12 wizard-dim\")\n+                            # The word the count picks comes from\n+                            # wording.plural like every other\n+                            # count-bearing sentence in this package,\n+                            # rather than standing flat on the reasoning\n+                            # that a group held by one collection is not\n+                            # a conflict: that reasoning is a property of\n+                            # the model the sentence would then be\n+                            # silently relying on, and an inline\n+                            # conditional on a count is the shape\n+                            # tests/test_gui_wording.py forbids under\n+                            # gui/ (DL-215, DL-257).\n+                            ui.label(\n+                                f\"{holding} \"\n+                                + wording.plural(\n+                                    holding,\n+                                    \"collection holds\",\n+                                    \"collections hold\",\n+                                )\n+                                + \" this file with different values. \"\n+                                \"Pick the one that supplies them.\"\n+                            ).classes(\"wizard-body-12 wizard-dim\")\n\n@@ -2478,32 +2478,52 @@ def answer(group, view, position: int, candidate) -> None:\n+                def chosen_marker(chosen: bool) -> None:\n+                    \"\"\"The dot that says which answer the group holds.\n+\n+                    Its own function so that answer() reads as the shape\n+                    of one answer rather than as the drawing of every\n+                    part of it: the marker, the field rows and the\n+                    control each stand alone and answer() stays under\n+                    the size and nesting this package holds a function\n+                    to.\n+                    \"\"\"\n+                    with ui.element(\"span\").classes(\n+                        \"wizard-answer-marker\"\n+                    ).props(\n+                        f'role=\"img\" aria-label='\n+                        f'\"{\"Chosen\" if chosen else \"Not chosen\"}\"'\n+                    ):\n+                        if chosen:\n+                            ui.element(\"span\").classes(\"wizard-answer-dot\")\n+\n+                def field_row(field) -> None:\n+                    \"\"\"One tracked attribute of one answer: its name,\n+                    what its value means, and the raw string the written\n+                    file will hold.\n+\n+                    What a field is called, how its value reads and\n+                    whether it carries the difference mark are all\n+                    decided in answer_detail, which imports no nicegui,\n+                    so the suite reaches every one of them and this\n+                    function only places them (DL-069, DL-246).\n+                    \"\"\"\n+                    with ui.element(\"div\").classes(\"wizard-answer-field\"):\n+                        with ui.element(\"span\").classes(\n+                            \"wizard-answer-field-key\"\n+                        ):\n+                            if field.differs:\n+                                ui.element(\"span\").classes(\n+                                    \"wizard-answer-field-mark\"\n+                                )\n+                            ui.label(field.label).classes(\n+                                \"font-mono wizard-faint\"\n+                            )\n+                        ui.label(field.formatted or field.raw).classes(\n+                            \"wizard-answer-field-value wizard-body-12 \"\n+                            \"wizard-subtle-5\"\n+                        )\n+                        # The raw string stands beside the formatted one\n+                        # rather than instead of it: what the written\n+                        # file carries is what tells two answers apart\n+                        # when they differ by a digit. A field with no\n+                        # formatted companion has already printed its raw\n+                        # value in the cell above, so this one is empty\n+                        # and the three tracks hold (DL-243).\n+                        ui.label(\n+                            field.raw if field.formatted else \"\"\n+                        ).classes(\n+                            \"wizard-answer-field-raw font-mono \"\n+                            \"wizard-body-11 wizard-faint\"\n+                        )\n+\n+                def answer_control(group, view, candidate, reference,\n+                                   supplied_by: str) -> None:\n+                    \"\"\"The control that picks this answer: the record,\n+                    drawn row by row, with the collections holding it\n+                    under it.\n+\n+                    The field block is the control, so the thing the\n+                    operator points at is the record they are choosing\n+                    and the \"held by ...\" line reads as the\n+                    informational line it is rather than as the thing\n+                    being picked (DL-148, DL-257).\n+                    \"\"\"\n+                    with ui.button(\n+                        on_click=(\n+                            lambda _e=None, at=group, named=reference:\n+                            pick(at, named)\n+                        ),\n+                        color=None,\n+                    ).classes(\"wizard-control wizard-answer-fields\"):\n+                        for field in answer_detail.answer_fields(\n+                            view.attrs, view.agreed, candidate\n+                        ):\n+                            field_row(field)\n+                        ui.label(f\"held by {supplied_by}\").classes(\n+                            \"wizard-answer-holders wizard-body-11 \"\n+                            \"wizard-faint\"\n+                        )\n+\n                 def answer(group, view, position: int, candidate) -> None:\n-                    \"\"\"One control per distinct answer, carrying the\n-                    digit that picks it and the values it supplies. The\n-                    decision the view holds is compared against this\n-                    candidate's own reference, so the chosen answer alone\n-                    carries the chosen class and this module holds no\n-                    reading of what a decision means.\"\"\"\n+                    \"\"\"One control per distinct answer, carrying the\n+                    digit that picks it and the record it supplies.\n+\n+                    The record, not a joined line of values: the rail\n+                    draws one row per tracked attribute the group\n+                    carries, each naming the attribute, what its value\n+                    means and the raw string the written file will hold,\n+                    so the operator tells the answers apart by reading\n+                    them (DL-242, DL-243).\n+\n+                    The decision the view holds is compared against this\n+                    candidate's own reference, so the chosen answer alone\n+                    carries the chosen class and this module holds no\n+                    reading of what a decision means.\"\"\"\n                     reference = conflict_model.candidate_reference(candidate)\n                     chosen = view.decision == reference\n                     with ui.element(\"div\").classes(\"wizard-answer-group\"):\n                         with ui.element(\"div\").classes(\"wizard-answer-group-head\"):\n                             ui.label(f\"Answer {position}\").classes(\"wizard-label\")\n                             ui.label(str(position)).classes(\"wizard-kbd\")\n                         classes = \"wizard-answer\"\n                         if chosen:\n                             classes = \"wizard-answer wizard-answer-chosen\"\n                         supplied_by = \", \".join(\n                             labels[index] for index, _ in candidate.members\n                         )\n                         with ui.element(\"div\").classes(add=classes):\n-                            with ui.element(\"span\").classes(\n-                                \"wizard-answer-marker\"\n-                            ).props(\n-                                f'role=\"img\" aria-label='\n-                                f'\"{\"Chosen\" if chosen else \"Not chosen\"}\"'\n-                            ):\n-                                if chosen:\n-                                    ui.element(\"span\").classes(\"wizard-answer-dot\")\n-                            ui.button(\n-                                f\"{supplied_by} {' | '.join(candidate.values)}\",\n-                                on_click=(\n-                                    lambda _e=None, at=group, named=reference:\n-                                    pick(at, named)\n-                                ),\n-                                color=None,\n-                            ).classes(\n-                                \"wizard-control font-mono wizard-body-11-5 \"\n-                                \"wizard-subtle-5\"\n-                            )\n+                            chosen_marker(chosen)\n+                            answer_control(\n+                                group, view, candidate, reference, supplied_by\n+                            )\n\nNOTES FOR THE IMPLEMENTER\n\n- answer() stays a shape rather than a drawing: chosen_marker(),\n  field_row() and answer_control() are siblings of answer() in the same\n  enclosing scope, so each stays under 50 lines and none nests past\n  three levels. field_row() is the deepest at three (div > span > if).\n- The rail head's sentence is settled here rather than left open: the\n  word goes through wording.plural(holding, \"collection holds\",\n  \"collections hold\"), which is what DL-257 states and what\n  tests/test_gui_wording.py enforces. The count itself is still read off\n  the group's candidates and is never written into the sentence\n  (DL-215).\n- `from . import wording` and `from . import answer_detail` join the\n  existing one-module-per-line `from . import` block; there is no\n  comma-joined import form in this file.\n- app.py is 100% CRLF. Whatever writes this file passes newline=\"\" so\n  the endings survive; tests/test_gui_line_endings.py already guards it\n  and the new guard in test_gui_resolve_composition.py reads it again.\n- `supplied_by` is consumed by the \"held by ...\" label only. It is still\n  built from `labels[index]`, so the bulk strip's reading of `labels` is\n  untouched.\n- No class string or dimension is written here beyond a class NAME:\n  every width, colour and gap belongs to theme.py (DL-069).\n",
+          "doc_diff": "--- a/traktor_nml/gui/app.py\n+++ b/traktor_nml/gui/app.py\n@@ (module header, below the module docstring)\n+# This file carries CRLF line endings throughout, alone in the\n+# package. Reading and rewriting it with newline set to the empty\n+# string keeps those endings intact, so a diff shows the edit rather\n+# than every line in the file; answer_detail.py, theme.py and the\n+# files under tests/ are LF (ref: DL-258).\n@@ (detail_rail, above the identity-key label at the rail head)\n+                            # The head is the one place the file is\n+                            # named. The rail carries no second labelled\n+                            # Path row, which in a 400px rail would\n+                            # print the same string twice (ref: DL-250).\n@@ (answer_control docstring, after its closing sentence)\n                     operator points at is the record they are choosing\n                     and the \"held by ...\" line reads as the\n                     informational line it is rather than as the thing\n                     being picked (DL-148, DL-257).\n+\n+                    What is picked is the record, not the collection\n+                    that supplied it: two collections holding identical\n+                    values are one answer, and deciding it decides both.\n+\n+                    The rows are hand-built ui.element and ui.label, as\n+                    every table-shaped surface in this package is\n+                    (ref: DL-079).\n                     \"\"\"\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-002",
+          "version": 2,
+          "intent_ref": "CI-M-004-002",
+          "file": "traktor_nml/gui/theme.py",
+          "diff": "\n--- a/traktor_nml/gui/theme.py\n+++ b/traktor_nml/gui/theme.py\n@@ (constants, beside ANSWER_MARKER_BORDER at :285)\n+# Resolve.dc.html:86's .cmpf - the field row's three tracks: the\n+# attribute name, the value, and the raw string the file carries. The\n+# key track is fixed so every answer's keys align down the rail; the\n+# value takes what is left; the raw track is fixed so the strings the\n+# operator compares stand at one edge.\n+ANSWER_FIELD_KEY_TRACK = \"60px\"\n+ANSWER_FIELD_RAW_TRACK = \"82px\"\n+# Resolve.dc.html's mark on a row whose value differs across the\n+# answers. Smaller than ANSWER_MARKER_DOT_SIZE, which is the chosen\n+# marker's dot: the two dots mean different things and are not one size.\n+ANSWER_FIELD_MARK_SIZE = \"5px\"\n@@ (page_stylesheet, beside the .wizard-answer rules at :589-597)\n+/* Resolve.dc.html:86-89's .cmpf, .cmpf .k and .cmpf .v, plus the raw\n+   value and the difference mark the rail draws beside them. The block\n+   is the control that picks the answer, so it carries the button's own\n+   reset: a ui.button with children still paints nicegui's ground and\n+   centres them. */\n+.wizard-answer-fields {{ flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; text-align: left; background: none; box-shadow: none; padding: 0; text-transform: none; }}\n+.wizard-answer-field {{ display: grid; grid-template-columns: {ANSWER_FIELD_KEY_TRACK} 1fr {ANSWER_FIELD_RAW_TRACK}; gap: {SPACE_8}; align-items: center; padding: {SPACE_5} 0; border-bottom: 1px solid {BORDER}; }}\n+.wizard-answer-field:last-child {{ border-bottom: 0; }}\n+.wizard-answer-field-key {{ display: flex; align-items: center; gap: {SPACE_5}; min-width: 0; font: 500 {TYPE_11}/1 {FONT_MONO}; letter-spacing: 0.05em; text-transform: uppercase; }}\n+.wizard-answer-field-value {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}\n+.wizard-answer-field-raw {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }}\n+/* The mark on a row the answers disagree on. A dot and nothing else:\n+   no rule here states a colour conditioned on a value's magnitude, so\n+   the screen never claims a larger filesize is the better one. */\n+.wizard-answer-field-mark {{ width: {ANSWER_FIELD_MARK_SIZE}; height: {ANSWER_FIELD_MARK_SIZE}; border-radius: 50%; background: {ACTION}; flex: none; }}\n+/* Resolve.dc.html:84's .cand .m: who holds this record, under the\n+   fields rather than in front of them - informational, not the thing\n+   being picked (DL-148). */\n+.wizard-answer-holders {{ padding-top: {SPACE_5}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}\n\nNOTES FOR THE IMPLEMENTER\n\n- .wizard-answer's own rule stays as it is: flex, gap SPACE_9, centred,\n  so the marker sits beside the field block. Its `align-items: center`\n  may want to become `flex-start` now that the block is tall - read that\n  on the served page and record it rather than guessing here.\n- Every value above is a constant or an existing token. No literal\n  colour or size is introduced (DL-078).\n- tests/test_gui_theme.py sweeps every .wizard-* class the sheet defines\n  for a call site in app.py, so each of the five names added here must\n  be named by CI-M-004-001 or that sweep fails - which is the pairing\n  that keeps the two halves of a name from drifting.\n",
+          "doc_diff": "--- a/traktor_nml/gui/theme.py\n+++ b/traktor_nml/gui/theme.py\n@@ (ANSWER_FIELD_* constants, above them)\n+# Every dimension and colour the field rows draw with stands here, the\n+# one source this package allows for a size or colour literal (ref:\n+# DL-069, DL-078), and each is read off the artboard the screen is\n+# built to (ref: DL-071).\n ANSWER_FIELD_KEY_TRACK = \"60px\"\n@@ (.wizard-answer-field-mark rule, in its comment)\n /* The mark on a row the answers disagree on. A dot and nothing else:\n    no rule here states a colour conditioned on a value's magnitude, so\n-   the screen never claims a larger filesize is the better one. */\n+   the screen never claims a larger filesize is the better one\n+   (ref: DL-249). Its size is its own constant rather than the chosen\n+   marker's: the two dots mean different things. */\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-003",
+          "version": 3,
+          "intent_ref": "CI-M-004-003",
+          "file": "tests/test_gui_resolve_composition.py",
+          "diff": "\n--- a/tests/test_gui_resolve_composition.py\n+++ b/tests/test_gui_resolve_composition.py\n@@ (new guards, beside test_one_control_per_answer_and_one_bulk_action_per_collection)\n+def test_the_answer_control_draws_one_row_per_field_from_answer_detail():\n+    \"\"\"The rail's control is built out of answer_detail.answer_fields,\n+    one row per field, naming the classes the sheet declares for them.\n+\n+    Mutation: `answer_detail.answer_fields(view.attrs, view.agreed,\n+    candidate)` in app.py was changed to `[]` and this guard rerun.\n+    Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    source = _named_function_source(\"answer\")\n+    assert \"answer_detail.answer_fields(\" in source\n+    assert \"view.attrs\" in source and \"view.agreed\" in source\n+    for name in (\n+        \"wizard-answer-fields\",\n+        \"wizard-answer-field\",\n+        \"wizard-answer-field-key\",\n+        \"wizard-answer-field-value\",\n+        \"wizard-answer-field-raw\",\n+        \"wizard-answer-field-mark\",\n+        \"wizard-answer-holders\",\n+    ):\n+        assert name in source, f\"the rail names no {name}\"\n+\n+\n+def test_no_call_site_joins_the_candidate_values_into_one_label():\n+    \"\"\"The single joined label is gone from the page, not merely\n+    supplemented by a field grid beside it.\n+\n+    This is the reading that stays true in the broken state the rest of\n+    this milestone can reach: answer_detail guarded on its own, the rail\n+    drawing its rows, and the old joined line still printed above them\n+    (DL-189).\n+\n+    Mutation: the `' | '.join(candidate.values)` label was restored\n+    beside the field block in app.py and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    page = _page_source()\n+    assert \"join(candidate.values)\" not in page, (\n+        \"an answer is drawn as a record, not as a joined line of values\"\n+    )\n+\n+\n+def test_the_mark_is_read_off_the_field_rather_than_drawn_on_every_row():\n+    \"\"\"The difference mark is rendered under `if field.differs`, so a\n+    row the answers agree on carries none. A mark on every row says\n+    nothing, which is the shape the plan cut.\n+\n+    Mutation: `if field.differs:` was changed to `if True:` and this\n+    guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... an AST walk over the answer() subtree, asserting the\n+    wizard-answer-field-mark construction stands inside an ast.If whose\n+    test reads the field's differs attribute ...\n+\n+\n+def test_the_field_grid_writes_no_count_into_a_sentence():\n+    \"\"\"The rows added to the rail state no count at all, and the head's\n+    sentence still reads its count off the group. A count written into a\n+    field row would be the screen restating the model beside it\n+    (DL-215).\n+\n+    Mutation: `ui.label(f\"held by {supplied_by}\")` was changed to\n+    `ui.label(f\"held by 2 collections\")` and this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    ... assert no ast.Constant string inside answer() matches a digit\n+    followed by a word, and that the head guard above still holds ...\n+\n+\n+def test_app_py_carries_no_bare_lf_byte():\n+    \"\"\"app.py is 100% CRLF. This is the reading that fails the moment\n+    the file is rewritten without newline=\"\", which is the way an edit\n+    to a 2500-line module silently converts it whole.\n+\n+    Mutation: app.py was rewritten with `path.write_text(source)` and\n+    this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    data = _APP_PY.read_bytes()\n+    assert data.count(b\"\\n\") == data.count(b\"\\r\\n\"), (\n+        \"app.py carries a bare LF byte\"\n+    )\n\nNOTES FOR THE IMPLEMENTER\n\n- tests/test_gui_line_endings.py may already hold the CRLF reading. If\n  it does, the guard here is redundant and should be dropped rather than\n  duplicated - check it before writing, and if it is absent there, write\n  it there instead and cite it from this file's module docstring.\n- _named_function_source(\"answer\") already exists in this file and\n  raises where the function is gone, so a renamed answer() fails these\n  guards rather than skipping them.\n",
+          "doc_diff": "--- a/tests/test_gui_resolve_composition.py\n+++ b/tests/test_gui_resolve_composition.py\n@@ (above the rail-composition guards)\n+# These guards read the page's own construction, not the formatting\n+# module's output: a guard asserting that answer_detail is correct is\n+# green in the state where the rail never calls it, which is exactly\n+# the shape this repository has shipped before (ref: DL-189, DL-252).\n+# The joined-label reading is the companion half - it holds in the\n+# broken state where an answer group draws its field rows while a\n+# single line joining every value stands above them (ref: DL-242).\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-004-004",
+          "version": 2,
+          "intent_ref": "CI-M-004-004",
+          "file": "tests/test_gui_resolve_sheet.py",
+          "diff": "\n--- a/tests/test_gui_resolve_sheet.py\n+++ b/tests/test_gui_resolve_sheet.py\n@@ (new guards, beside test_the_answer_control_carries_its_chosen_state_as_its_own_rule)\n+def test_the_field_row_declares_the_three_tracks_the_artboard_draws():\n+    \"\"\"Resolve.dc.html:86's .cmpf: a fixed key track, a flexible value\n+    track and a fixed raw track, so every answer's keys align down the\n+    rail and the raw strings the operator compares stand at one edge.\n+\n+    Mutation: `grid-template-columns` in .wizard-answer-field was\n+    changed to `{theme.ANSWER_FIELD_KEY_TRACK} 1fr 1fr` and this guard\n+    rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    rule = _rule(\".wizard-answer-field\")\n+    assert (\n+        f\"grid-template-columns: {theme.ANSWER_FIELD_KEY_TRACK} 1fr \"\n+        f\"{theme.ANSWER_FIELD_RAW_TRACK}\"\n+    ) in rule\n+\n+\n+def test_the_field_key_and_the_difference_mark_carry_their_own_rules():\n+    \"\"\"The key is mono and uppercase (Resolve.dc.html:88) and the mark\n+    is a dot at its own size, distinct from the chosen marker's dot,\n+    which means something else.\n+\n+    Mutation: ANSWER_FIELD_MARK_SIZE was changed to\n+    ANSWER_MARKER_DOT_SIZE in the .wizard-answer-field-mark rule and\n+    this guard rerun. Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    key = _rule(\".wizard-answer-field-key\")\n+    assert \"text-transform: uppercase\" in key and theme.FONT_MONO in key\n+    mark = _rule(\".wizard-answer-field-mark\")\n+    assert f\"width: {theme.ANSWER_FIELD_MARK_SIZE}\" in mark\n+    assert theme.ANSWER_FIELD_MARK_SIZE != theme.ANSWER_MARKER_DOT_SIZE\n+\n+\n+def test_no_rail_rule_colours_a_value_by_its_magnitude():\n+    \"\"\"The tool does not know a larger filesize is the better one, so no\n+    rule on this rail states a colour for a value at all - only for the\n+    mark that says the answers disagree.\n+\n+    This is the reading that fails the moment a \"the bigger one is\n+    green\" rule is reintroduced, which the user cut explicitly (DL-249).\n+\n+    Mutation: `.wizard-answer-field-value-larger {{ color: {STATUS_\n+    FOUND}; }}` was added to page_stylesheet() and this guard rerun.\n+    Observed:\n+        <PASTE THE VERBATIM pytest OUTPUT OBSERVED UNDER THE MUTATION>\n+    \"\"\"\n+    sheet = theme.page_stylesheet()\n+    named = re.findall(r\"\\.wizard-answer-field[\\w-]*\", sheet)\n+    assert not [\n+        name for name in named\n+        if any(word in name for word in (\"larger\", \"smaller\", \"better\", \"worse\"))\n+    ]\n+    assert \"color:\" not in _rule(\".wizard-answer-field-value\")\n\nNOTES FOR THE IMPLEMENTER\n\n- The colour of a value comes from the class the call site names\n  (wizard-subtle-5, wizard-faint), which are the design set's own ink\n  tokens applied to every value alike. The last assertion holds that the\n  field rule itself states none, so a magnitude rule cannot be hidden in\n  it.\n",
+          "doc_diff": "--- a/tests/test_gui_resolve_sheet.py\n+++ b/tests/test_gui_resolve_sheet.py\n@@ (above the new sheet guards)\n+# Every class the rail names is declared in theme.py and every\n+# dimension and colour with it, so no size or colour literal stands in\n+# app.py (ref: DL-069, DL-078). No rule here conditions a colour on a\n+# value's magnitude: difference is marked and never ranked\n+# (ref: DL-249).\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-005",
+      "version": 2,
+      "number": 5,
+      "name": "The served page and the record it closes on",
+      "files": [
+        "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/base.nml",
+        "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/source.nml",
+        "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/source-two.nml",
+        "docs/2026-09-15-resolve-rail-fields-browser-record.md",
+        "tests/test_docs_browser_record_structure.py",
+        "traktor_nml/README.md",
+        "traktor_nml/gui/CLAUDE.md",
+        "traktor_nml/gui/README.md"
+      ],
+      "flags": [],
+      "requirements": [
+        "The page the gate serves over the fixture is read and recorded, and the documentation describes the code as it stands"
+      ],
+      "acceptance_criteria": [
+        "The fixture's conflict carries three answers a bits-per-second bitrate differing across all three and a further tracked field agreeing between two of them",
+        "The only files written outside C:/codex/traktor-nml-tool are the three reconstruct-conflict fixture collections named by this milestone",
+        "The record carries a verdict row per surface plus structural verdicts against Resolve.dc.html",
+        "The record's verdict-row digest is registered in tests/test_docs_browser_record_structure.py and the suite passes",
+        "traktor_nml/README.md carries DL-242 through DL-259 and its high-water mark line names DL-259",
+        "traktor_nml/README.md and the gui file tables name answer_detail.py"
+      ],
+      "tests": [
+        "file: tests/test_docs_browser_record_structure.py",
+        "normal: The record is discovered by its -browser-record.md suffix and carries a verdict row per surface",
+        "edge: The record carries structural verdicts against Resolve.dc.html",
+        "error: A re-verdict rewriting a recorded reading changes the digest and fails the suite"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-005-001",
+          "version": 2,
+          "file": "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/base.nml",
+          "function": null,
+          "behavior": "The conflicting entry carries a bits-per-second BITRATE and a kilobyte FILESIZE a served rail formats. The file lies in the gate tree outside the working directory, written under DL-256.",
+          "decision_refs": [
+            "DL-251",
+            "DL-256"
+          ]
+        },
+        {
+          "id": "CI-M-005-002",
+          "version": 2,
+          "file": "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/source.nml",
+          "function": null,
+          "behavior": "The conflicting entry offers a second answer diverging on bitrate and on one further tracked field, with a third tracked field agreeing with the base record. The file lies in the gate tree outside the working directory, written under DL-256.",
+          "decision_refs": [
+            "DL-251",
+            "DL-256"
+          ]
+        },
+        {
+          "id": "CI-M-005-003",
+          "version": 2,
+          "file": "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/source-two.nml",
+          "function": null,
+          "behavior": "The conflicting entry offers a third answer whose further tracked field agrees with one of the other two answers while its bitrate differs from both, so a mark discriminates between answers rather than standing on every row. The file lies in the gate tree outside the working directory, written under DL-256.",
+          "decision_refs": [
+            "DL-251",
+            "DL-256"
+          ]
+        },
+        {
+          "id": "CI-M-005-004",
+          "version": 1,
+          "file": "docs/2026-09-15-resolve-rail-fields-browser-record.md",
+          "function": null,
+          "behavior": "The served-page record for the resolve step's rail: a verdict row per surface read on the page the gate serves over the fixture, and structural verdicts against design/reconnect-wizard/Resolve.dc.html covering the labelled field rows, the head naming the file once, the formatted and raw values, and the marks standing on the divergent fields alone.",
+          "decision_refs": [
+            "DL-250",
+            "DL-251",
+            "DL-252"
+          ]
+        },
+        {
+          "id": "CI-M-005-005",
+          "version": 1,
+          "file": "tests/test_docs_browser_record_structure.py",
+          "function": null,
+          "behavior": "The record's verdict-row digest is registered, so a re-verdict rewriting a recorded reading fails the suite.",
+          "decision_refs": [
+            "DL-252"
+          ]
+        },
+        {
+          "id": "CI-M-005-006",
+          "version": 2,
+          "file": "traktor_nml/README.md",
+          "function": null,
+          "behavior": "The decision log carries every decision this work settles - DL-242 through DL-259 - numbered from DL-242 above the high-water mark DL-241, each written as a decision and its reasoning in the log's existing shape. The line recording the log's high-water mark is moved to the last decision written, so the next plan numbers from there rather than from DL-241.",
+          "decision_refs": [
+            "DL-242",
+            "DL-243",
+            "DL-244",
+            "DL-245",
+            "DL-246",
+            "DL-247",
+            "DL-248",
+            "DL-249",
+            "DL-250",
+            "DL-251",
+            "DL-252",
+            "DL-253",
+            "DL-254",
+            "DL-255",
+            "DL-256",
+            "DL-257",
+            "DL-258",
+            "DL-259"
+          ]
+        },
+        {
+          "id": "CI-M-005-007",
+          "version": 1,
+          "file": "traktor_nml/gui/CLAUDE.md",
+          "function": null,
+          "behavior": "The file table names answer_detail.py, what it holds and when to read it, and conflict_model.py's row names the agreeing values it carries.",
+          "decision_refs": [
+            "DL-244",
+            "DL-246"
+          ]
+        },
+        {
+          "id": "CI-M-005-008",
+          "version": 1,
+          "file": "traktor_nml/gui/README.md",
+          "function": null,
+          "behavior": "The nicegui boundary's list of modules below it names answer_detail.py.",
+          "decision_refs": [
+            "DL-246"
+          ]
+        }
+      ],
+      "code_changes": [
+        {
+          "id": "CC-M-005-001",
+          "version": 2,
+          "intent_ref": "CI-M-005-001",
+          "file": "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/base.nml",
+          "diff": "\n--- a/fixture/reconstruct-conflict/base.nml\n+++ b/fixture/reconstruct-conflict/base.nml\n@@ (the conflicting entry, one.mp3)\n-<ENTRY TITLE=\"One\" ARTIST=\"A\" AUDIO_ID=\"\"><LOCATION DIR=\"/:Music/:\" FILE=\"one.mp3\" VOLUME=\"C:\" VOLUMEID=\"C:\"></LOCATION><ALBUM TITLE=\"\"></ALBUM><INFO BITRATE=\"320\" PLAYTIME_FLOAT=\"100.0\" FILESIZE=\"16\"></INFO></ENTRY>\n+<ENTRY TITLE=\"One\" ARTIST=\"A\" AUDIO_ID=\"\"><LOCATION DIR=\"/:Music/:\" FILE=\"one.mp3\" VOLUME=\"C:\" VOLUMEID=\"C:\"></LOCATION><ALBUM TITLE=\"\"></ALBUM><INFO BITRATE=\"320000\" PLAYTIME_FLOAT=\"99.6\" FILESIZE=\"16384\"></INFO></ENTRY>\n\nWHAT THIS MAKES THE RAIL DRAW\n\nbase's answer for one.mp3: BITRATE 320000 (320 kbps), FILESIZE 16384\n(16.0 MB), PLAYTIME_FLOAT 99.6 (1:39), ALBUM \"\", TITLE \"One\", ARTIST\n\"A\".\n\nNOTES FOR THE IMPLEMENTER\n\n- BITRATE moves from 320 to 320000 because Traktor writes bits per\n  second and 320 formatted as kbps reads 0. The served page is where the\n  kbps reading is confirmed against a real unit, so the fixture has to\n  carry the real unit.\n- FILESIZE moves from 16 to 16384 so the megabyte reading is a number\n  worth reading (16.0 MB) rather than 0.0 MB.\n- PLAYTIME_FLOAT moves to 99.6 so the minutes-and-seconds reading is\n  exercised on a value whose truncation is visible (1:39, not 1:40).\n- These three attributes are identical across all three collections\n  before this milestone EXCEPT bitrate, which already diverges. After\n  it, playtime_float and filesize still agree across all three, so they\n  are agreed pairs and draw UNMARKED rows - which is what the served\n  page needs to show that the mark discriminates.\n- Only the one.mp3 entry moves. The other five entries in this file are\n  what the salvage and playlist readings of this fixture rest on and are\n  left alone.\n- This file lies outside C:/codex/traktor-nml-tool. Before writing it,\n  copy it aside; it is restored from the copy rather than with git\n  checkout.\n- The gate's own baselines over this fixture - baseline-base-pick.nml,\n  headless-keep-first.nml, headless-named-record.nml,\n  base-reconnected.nml - carry the OLD values for whichever record wins.\n  Check each after the fixture moves and update the ones this change\n  makes stale, in the same gate tree. tests/baselines/manifest.json and\n  fixture/w002gatefix2 are not touched by any of this.\n",
+          "doc_diff": "--- a/fixture/reconstruct-conflict/base.nml\n+++ b/fixture/reconstruct-conflict/base.nml\n@@ (above the COLLECTION element)\n+<!-- one.mp3 carries the units a Traktor collection writes: BITRATE in\n+     bits per second and FILESIZE in kilobytes, so the served page\n+     reads the rail's one-division formatting against a real unit\n+     (ref: DL-247, DL-251). PLAYTIME_FLOAT 99.6 truncates to 1:39, so\n+     the padding and truncation are visible (ref: DL-255). filesize and\n+     playtime_float agree across all three collections and draw\n+     unmarked rows, which is what shows the mark discriminating\n+     (ref: DL-243). Only the one.mp3 entry carries this reading; the\n+     other entries are what the salvage and playlist readings of this\n+     fixture rest on. -->\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-002",
+          "version": 2,
+          "intent_ref": "CI-M-005-002",
+          "file": "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/source.nml",
+          "diff": "\n--- a/fixture/reconstruct-conflict/source.nml\n+++ b/fixture/reconstruct-conflict/source.nml\n@@ (the conflicting entry, one.mp3)\n-<ENTRY TITLE=\"One\" ARTIST=\"A\" AUDIO_ID=\"\"><LOCATION DIR=\"/:Music/:\" FILE=\"one.mp3\" VOLUME=\"C:\" VOLUMEID=\"C:\"></LOCATION><ALBUM TITLE=\"\"></ALBUM><INFO BITRATE=\"128\" PLAYTIME_FLOAT=\"100.0\" FILESIZE=\"16\"></INFO></ENTRY>\n+<ENTRY TITLE=\"One\" ARTIST=\"A\" AUDIO_ID=\"\"><LOCATION DIR=\"/:Music/:\" FILE=\"one.mp3\" VOLUME=\"C:\" VOLUMEID=\"C:\"></LOCATION><ALBUM TITLE=\"Reissue\"></ALBUM><INFO BITRATE=\"128000\" PLAYTIME_FLOAT=\"99.6\" FILESIZE=\"16384\"></INFO></ENTRY>\n\nWHAT THIS MAKES THE RAIL DRAW\n\nsource's answer: BITRATE 128000 (128 kbps), ALBUM \"Reissue\". Its\nfilesize and playtime agree with the other two collections, so those two\nrows are drawn from agreed and carry no mark.\n\nNOTES FOR THE IMPLEMENTER\n\n- ALBUM is the second divergent attribute this milestone needs: base\n  holds \"\", source and source-two both hold \"Reissue\". The group's\n  divergent set is therefore (album, bitrate), which is what makes the\n  mark worth drawing - see CI-M-005-003.\n- The remaining entries of this file are untouched.\n- The same copy-aside rule and the same baseline check as\n  CI-M-005-001 apply.\n",
+          "doc_diff": "--- a/fixture/reconstruct-conflict/source.nml\n+++ b/fixture/reconstruct-conflict/source.nml\n@@ (above the COLLECTION element)\n+<!-- source's one.mp3 diverges from base on the attributes the rail\n+     marks and agrees on the rest, so its answer reads as a whole\n+     record with both marked and unmarked rows (ref: DL-242, DL-251).\n+     The bitrate is bits per second, as Traktor writes it\n+     (ref: DL-247). -->\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-003",
+          "version": 2,
+          "intent_ref": "CI-M-005-003",
+          "file": "C:/codex/traktor-nml-tool-gate/fixture/reconstruct-conflict/source-two.nml",
+          "diff": "\n--- a/fixture/reconstruct-conflict/source-two.nml\n+++ b/fixture/reconstruct-conflict/source-two.nml\n@@ (the conflicting entry, one.mp3)\n-<ENTRY TITLE=\"One\" ARTIST=\"A\" AUDIO_ID=\"\"><LOCATION DIR=\"/:Music/:\" FILE=\"one.mp3\" VOLUME=\"C:\" VOLUMEID=\"C:\"></LOCATION><ALBUM TITLE=\"\"></ALBUM><INFO BITRATE=\"192\" PLAYTIME_FLOAT=\"100.0\" FILESIZE=\"16\"></INFO></ENTRY>\n+<ENTRY TITLE=\"One\" ARTIST=\"A\" AUDIO_ID=\"\"><LOCATION DIR=\"/:Music/:\" FILE=\"one.mp3\" VOLUME=\"C:\" VOLUMEID=\"C:\"></LOCATION><ALBUM TITLE=\"Reissue\"></ALBUM><INFO BITRATE=\"192000\" PLAYTIME_FLOAT=\"99.6\" FILESIZE=\"16384\"></INFO></ENTRY>\n\nWHAT THE THREE FILES TOGETHER MAKE THE RAIL DRAW\n\nOne group, three answers, and this is the shape the served-page record\nis taken on:\n\n  divergent set: album, bitrate\n  agreed pairs:  artist \"A\", title \"One\", filesize \"16384\",\n                 playtime_float \"99.6\"\n\n  Answer 1 (base)        ARTIST A | TITLE One | ALBUM (empty) * |\n                         FILESIZE 16.0 MB / 16384 |\n                         PLAYTIME_FLOAT 1:39 / 99.6 |\n                         BITRATE 320 kbps / 320000 *\n  Answer 2 (source)      ... ALBUM Reissue * ... BITRATE 128 kbps *\n  Answer 3 (source-two)  ... ALBUM Reissue * ... BITRATE 192 kbps *\n\n  (* marks the rows the answers disagree on.)\n\nALBUM is the field that carries the plan's point: answers 2 and 3 hold\nthe same album while answer 1 does not, so the mark stands on a row\nwhere two answers agree with each other - the case that cannot arise\nwith only two answers, and the reason the fixture needs a third\ncollection.\n\nNOTES FOR THE IMPLEMENTER\n\n- Read the drawn rail against this table on the served page. If the\n  rail draws six marks or two, the mark rule is wrong and the record\n  says so rather than being rewritten to match the screen.\n- The same copy-aside rule and the same baseline check as\n  CI-M-005-001 apply.\n",
+          "doc_diff": "--- a/fixture/reconstruct-conflict/source-two.nml\n+++ b/fixture/reconstruct-conflict/source-two.nml\n@@ (above the COLLECTION element)\n+<!-- source-two makes the group a three-answer group, which is what the\n+     mark needs to say something: a field can agree between two answers\n+     and differ at the third, so a mark on every row would be no\n+     reading at all (ref: DL-243, DL-251). Its bitrate is bits per\n+     second (ref: DL-247). -->\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-004",
+          "version": 2,
+          "intent_ref": "CI-M-005-004",
+          "file": "docs/2026-09-15-resolve-rail-fields-browser-record.md",
+          "diff": "\n--- /dev/null\n+++ b/docs/2026-09-15-resolve-rail-fields-browser-record.md\n@@ (new record, LF endings, discovered by its -browser-record.md suffix)\n+# Served-page record: the resolve step's detail rail\n+\n+DL-084 as DL-169 amends it: the readings a browser took off the running\n+page, one verdict per surface, followed by a structural reading of what\n+the page composes against the artboard that draws it.\n+\n+## How the run was taken\n+\n+The wizard was served by the gate repository's own serve script at\n+`C:\\codex\\traktor-nml-tool-gate`, over\n+`fixture/reconstruct-conflict`, with base, source and source-two given\n+as the three collections and only `pick_file_or_folder` stubbed. The\n+viewport is `1280x900`.\n+\n+The walk: fill in step 1 with the three collections, `Preview` - which\n+refuses on the fixture's one conflict - `Continue to resolve`, and read\n+the rail over the focused row. Then pick answer 2, read the rail again,\n+and undo.\n+\n+The code under measurement is <COMMIT> plus this milestone's changes.\n+\n+## Readings\n+\n+| Surface | Expected | Read | Verdict |\n+|---|---|---|---|\n+| The rail head | names the file once | <PASTE> | <matches/differs> |\n+| The head's sentence | a count read off the group | <PASTE> | <matches/differs> |\n+| Answer 1's field rows | one row per tracked attribute the group carries, in _TRACKED_ATTRS order | <PASTE the six keys in the order read> | <matches/differs> |\n+| The field keys | the NML attribute names, uppercase | <PASTE> | <matches/differs> |\n+| FILESIZE | one division by 1024 off a kilobyte count | <PASTE, expected `16.0 MB` beside `16384`> | <matches/differs> |\n+| BITRATE, answer 1 | one division by 1000 off bits per second | <PASTE, expected `320 kbps` beside `320000`> | <matches/differs> |\n+| BITRATE, answers 2 and 3 | the two other answers' own values | <PASTE, expected `128 kbps` and `192 kbps`> | <matches/differs> |\n+| PLAYTIME_FLOAT | minutes and zero-padded seconds | <PASTE, expected `1:39` beside `99.6`> | <matches/differs> |\n+| ARTIST, TITLE | the raw value alone, no formatted companion | <PASTE> | <matches/differs> |\n+| The marks | on ALBUM and BITRATE alone, on all three answers | <PASTE which rows carry one> | <matches/differs> |\n+| ALBUM across the answers | answers 2 and 3 agree, answer 1 does not - the mark stands on a row two answers share | <PASTE> | <matches/differs> |\n+| The holders line | under the fields, naming the collections | <PASTE> | <matches/differs> |\n+| The control | the field block picks the answer | <PASTE what a click on a field row did> | <matches/differs> |\n+| The chosen marker after a pick | answer 2 alone | <PASTE> | <matches/differs> |\n+| No value colouring | no value painted by its magnitude | <PASTE the computed colours of the two FILESIZE cells> | <matches/differs> |\n+| The rail width | 400px | <PASTE> | <matches/differs> |\n+| The rail's own scroll | the fields make the rail taller; whether it scrolls and whether the footer stays put | <PASTE> | <matches/differs> |\n+| Document scroll | none | <PASTE `scrollWidth`/`scrollHeight` against the viewport> | <matches/differs> |\n+\n+## What this run establishes\n+\n+<Written after the readings: what the rail now says that it did not,\n+in the shape the other records under docs/ use - what was wrong, what\n+it says instead, and why that is the smallest true thing. No\n+\"previously\" or \"now does\": the record describes what was read.>\n+\n+## Structural verdicts\n+\n+| Structure | The artboard draws | The served page composes | Verdict |\n+|---|---|---|---|\n+| The rail body | `Resolve.dc.html`'s `.det-b`: answer groups only, no \"The file\" group | <PASTE> | <matches/differs> |\n+| An answer's field rows | `.cmpf`'s three tracks - key, value, raw - with `.k` mono uppercase | <PASTE the resolved track widths> | <matches/differs> |\n+| The difference mark | a 5px dot in the key cell of a divergent row | <PASTE> | <matches/differs> |\n+| The holders line | `.cand .m` under the fields | <PASTE> | <matches/differs> |\n+| The chosen marker | `.rad` and its dot, unchanged by this work | <PASTE> | <matches/differs> |\n+\n+## What this run does not establish\n+\n+The keyboard ring and the announcements are not read: accessibility is\n+out of scope for this version, and DL-197 says so.\n+\n+<Anything the pane would not deliver, in the shape the other records\n+use.>\n\nNOTES FOR THE IMPLEMENTER\n\n- Every `<PASTE>` is filled from the browser. A row written before the\n  reading is a record of what was expected, which is the thing DL-171\n  exists to stop.\n- A `differs` verdict is recorded as differs and fixed in the design\n  first where the disagreement is with the artboard (DL-071).\n- The record is written to docs/ inside C:/codex/traktor-nml-tool; only\n  the three fixture files of this milestone are written outside it.\n",
+          "doc_diff": "--- a/docs/2026-09-15-resolve-rail-fields-browser-record.md\n+++ b/docs/2026-09-15-resolve-rail-fields-browser-record.md\n@@ (after \"How the run was taken\")\n+The fixture is read rather than regenerated: its conflicting entry\n+carries Traktor's own units and a field that agrees between two of the\n+three answers, so the page exercises the unit formatting and a mark\n+that discriminates (ref: DL-251, DL-256).\n+\n+Every field the rail draws is a tracked attribute the group's records\n+carry, the agreeing ones included, so the screen hides no field: attrs\n+never holds an attribute the answers agree on, and the agreeing values\n+ride beside it (ref: DL-242, DL-244, DL-245).\n+\n+The verdict rows are what this record is registered by: their digest\n+stands in tests/test_docs_browser_record_structure.py, computed from\n+the record as the run left it (ref: DL-084, DL-169).\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-005",
+          "version": 2,
+          "intent_ref": "CI-M-005-005",
+          "file": "tests/test_docs_browser_record_structure.py",
+          "diff": "\n--- a/tests/test_docs_browser_record_structure.py\n+++ b/tests/test_docs_browser_record_structure.py\n@@ (READING_DIGESTS, at the end of the mapping)\n     \"2026-09-15-write-step-after-the-write-browser-record.md\": \"32dfbfadf3db8e36441a21e886003215da2cb59fb63a7665e7b0429757a3c61a\",\n+    \"2026-09-15-resolve-rail-fields-browser-record.md\": \"<THE SHA-256 OF THE RECORD'S VERDICT ROWS AS WRITTEN>\",\n }\n\nNOTES FOR THE IMPLEMENTER\n\n- The digest is written AFTER the record is, from the record as the\n  browser run left it: an entry standing here ahead of its record hashes\n  what the plan guessed rather than what was read. The comment already\n  under this mapping says so.\n- Compute it with the file's own _reading_digest over the written\n  record rather than by hand, so the rows hashed are the rows the regex\n  matches.\n- No existing digest moves. This file's other guards - the structural\n  heading, the verdict-row shape - apply to the new record by discovery\n  and need no edit.\n",
+          "doc_diff": "--- a/tests/test_docs_browser_record_structure.py\n+++ b/tests/test_docs_browser_record_structure.py\n@@ (beside the new READING_DIGESTS entry)\n+    # The milestone closes on a served-page record carrying a verdict\n+    # row per surface and structural verdicts against\n+    # design/reconnect-wizard/Resolve.dc.html, its verdict rows\n+    # registered here by digest (ref: DL-084, DL-169). The digest is\n+    # computed from the record as the browser run left it, so the rows\n+    # hashed are the rows that were read.\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-006",
+          "version": 5,
+          "intent_ref": "CI-M-005-006",
+          "file": "traktor_nml/README.md",
+          "diff": "\n--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ (Design Decisions, after the DL-241 bullet at :1206-1218)\n+- Each answer in the resolve step's detail rail reads as a complete\n+  record: every tracked attribute the group's records carry, the ones\n+  the answers agree on included, one field per line as field name,\n+  formatted value and raw value. An answer joined into one string of\n+  values cannot be told from its neighbour, and a rail showing only the\n+  divergent subset reads as a diff rather than as the record that wins,\n+  so the rail prints the record and the mark carries the difference\n+  (DL-242).\n+- The divergence mark stands on a field exactly where its name is in\n+  the row's attrs. splice computes attrs as the tracked attributes\n+  whose values differ across the group's members, which is precisely\n+  the set of fields that differ across the answers, already computed\n+  and already carried to the page; the rule is a membership test in a\n+  nicegui-free module, so no second divergence computation exists to\n+  disagree with the first (DL-243).\n+- The agreeing values ride alongside attrs as their own field on\n+  ConflictRow, ConflictGroup and ConflictRowView, and attrs names the\n+  divergent set alone. attrs is one of the three columns the conflict\n+  CSV writes and the line splice_cmd prints\n+  (traktor_nml/commands/splice_cmd.py:22, :24), so widening it in place\n+  would rewrite recorded output for every run; the complete record is\n+  carried as an addition and the CSV columns are guarded unmoved\n+  (DL-244).\n+- Every member of a group agrees on every attribute outside attrs, so\n+  one group-wide mapping of agreeing attribute to value is well defined\n+  and is computed beside the candidates. divergent_attrs at\n+  splice.py:340-341 names the attributes whose value set across the group's\n+  members has more than one member, so an attribute outside it holds\n+  one value across every member, candidates included: the agreeing\n+  values belong to the group rather than to a candidate, and a guard\n+  reads that off a three-answer group rather than asserting it\n+  (DL-245).\n+- Formatting and field assembly live in\n+  `traktor_nml/gui/answer_detail.py`, a module importing no nicegui.\n+  DL-069 puts every rule the suite reaches below the nicegui boundary,\n+  and conflict_model.py is the vocabulary a pick is recorded in, so a\n+  display formatting rule there would give that module a second purpose\n+  the package's one-purpose-per-module table does not carry; the field\n+  rows, their labels, their formatted values and the mark stand in one\n+  module app.py reads from (DL-069, DL-246).\n+- FILESIZE renders as megabytes by dividing by 1024 once,\n+  PLAYTIME_FLOAT as minutes and seconds, and BITRATE as kilobits per\n+  second by dividing by 1000, with the raw string standing beside every\n+  formatted value in mono. Traktor writes FILESIZE in kilobytes - the\n+  calibration comment at traktor_nml/matching.py:124-128 records the\n+  measured error of FILESIZE against bytes/1024, and _size_kb\n+  (traktor_nml/matching.py:166-180) deliberately does no conversion\n+  because both sides already carry kilobytes - and BITRATE in bits per\n+  second. A formatting dividing a kilobyte count twice prints a number\n+  the collection does not hold, and the raw value stays visible because\n+  it is what the written file carries (DL-247).\n+- A value that is empty or does not parse as a number prints as itself\n+  with no formatted companion. traktor_nml/model.py:217-219 yields an\n+  empty string for every INFO-borne attribute where a record carries no\n+  INFO element, and a formatter dividing that string raises inside a\n+  page build, so each formatter returns the raw string unchanged where\n+  the value does not parse and a guard covers the empty string\n+  (DL-248).\n+- No colour ranks one value against another. The tool has no way to\n+  know that a larger filesize or a higher bitrate is the better record,\n+  so a green value would state a judgement the model cannot support:\n+  difference is marked and never ranked (DL-249).\n+- The rail head is the one place the file is named, and\n+  design/reconnect-wizard/Resolve.dc.html carries no \"The file\" group.\n+  The head prints the identity key in mono and the artboard's body\n+  opened with a labelled Path row holding the same string, which prints\n+  the file twice in a 400px rail; the artboard is amended first and the\n+  screen is built to it (DL-071, DL-250).\n+- The gate fixture's conflicting entry carries bits-per-second bitrates\n+  and a second divergent field agreeing between two of its three\n+  answers. A fixture diverging on bitrate alone, at values a Traktor\n+  collection never writes, exercises neither the unit formatting nor a\n+  mark that discriminates between answers, so the fixture carries a\n+  field that agrees and a field that differs and the record reads both\n+  (DL-251).\n+- A guard proves the page calls the field assembly rather than only\n+  that the assembly is correct. This repository has shipped guards\n+  green in exactly the broken state (DL-189), and a formatter guarded\n+  alone passes while the rail joins raw values into one label: the\n+  composition guard reads app.py's answer() for the per-field\n+  construction, and the served-page record reads the rendered rail\n+  (DL-189, DL-252).\n+- Every record the resolve rail answers over is Traktor-borne: splice\n+  builds its groups from records_by_input, the per-input lists of\n+  collection_records, and hands them to group_identities\n+  (traktor_nml/splice.py:475, :482), and diskscan\n+  feeds matching and reconnect_run instead\n+  (traktor_nml/reconnect_run.py:23,\n+  traktor_nml/commands/discover_tracks_cmd.py:12). The kilobits BITRATE\n+  traktor_nml/diskscan.py:59 writes has no path into a ConflictRow, so\n+  the rail formats one provenance and the bits-per-second division\n+  needs no provenance condition (DL-253).\n+- The rail prints each field name as Traktor writes the attribute in\n+  the NML - ARTIST, TITLE, ALBUM, FILESIZE, PLAYTIME_FLOAT, BITRATE -\n+  as one fixed mapping from the splice._TRACKED_ATTRS identifier to the\n+  printed label. _TRACKED_ATTRS holds lowercase python identifiers\n+  while the artboard draws the key in mono uppercase, and left to the\n+  call site the same field could print as PLAYTIME_FLOAT, PLAYTIME or\n+  LENGTH on different rows; the label is the XML attribute name the\n+  written file carries, uppercased, so the printed key names the thing\n+  the raw value beside it came from (DL-254).\n+- The numeric presentation is the approved mockup read literally:\n+  FILESIZE to one decimal followed by MB, BITRATE rounded to a whole\n+  number followed by kbps, PLAYTIME_FLOAT as minutes then a colon then\n+  seconds truncated toward zero and zero-padded to two digits. No\n+  thousands separator is introduced anywhere and the raw string is\n+  reproduced exactly as the collection carries it: a grouped copy of\n+  the same digits beside the ungrouped ones reads as a third value, and\n+  the raw value is what the written file holds (DL-255).\n+- This work writes into `C:\\codex\\traktor-nml-tool-gate`, a tree\n+  outside the primary working directory, for the three\n+  reconstruct-conflict fixture collections alone. The gate tree is\n+  where the served page is produced, and the served-page record DL-084\n+  and DL-169 require cannot read the unit formatting or a\n+  discriminating mark without editing that fixture; no other file\n+  outside the working directory is touched (DL-084, DL-169, DL-256).\n+- The rail head and the field grid go through\n+  `traktor_nml/gui/wording.plural` for every word a count picks, and no\n+  inline conditional on a count stands anywhere under gui/. The head's\n+  holding-count sentence reads `collection holds` at one and\n+  `collections hold` otherwise; an inline `x if n == 1 else y` is the\n+  shape tests/test_gui_wording.py forbids outside wording.py, and a\n+  count written into a sentence is what DL-215 forbids (DL-215,\n+  DL-257).\n+- `traktor_nml/gui/app.py` is read and rewritten with newline set to\n+  the empty string so its CRLF line endings survive the edit, while\n+  answer_detail.py, theme.py and every file under tests/ stay LF. app.py\n+  is the one file in the package carrying CRLF throughout, and a\n+  default-mode write converts every line ending and shows the whole file\n+  as changed, hiding the real edit; a guard reads the file bytes for an\n+  absence of a bare LF (DL-258).\n+- No work here regenerates tests/baselines/manifest.json or\n+  fixture/w002gatefix2, restores a file with git checkout, writes into\n+  build/ or dist/, installs into the system interpreter or spawns a\n+  background agent, and the suite runs under\n+  `C:\\Users\\marcu\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe`.\n+  M-002 changes a structure the conflict CSV and splice_cmd report\n+  over, which is exactly the change a baseline regeneration would paper\n+  over: a regenerated manifest would record the new output as expected\n+  and the guard that the columns are unmoved would pass in the broken\n+  state (DL-189, DL-259).\n\nNOTES FOR THE IMPLEMENTER\n\n- Eighteen bullets, DL-242 through DL-259, one for each id the plan's\n  readme_entries defines, in that order and with no id reused and none\n  left as a placeholder. DL-252 is written here because the guards and\n  the served-page record cite it by number; it states the composition\n  requirement rather than restating DL-084, DL-169 or DL-189, which it\n  cites.\n- The log's high-water mark in this file is the highest DL number any\n  statement in it defines; writing these bullets moves it from DL-241 to\n  DL-259. There is no separate line naming the mark, so nothing else in\n  this file needs editing for it.\n- Each decision is stated ONCE. Where a statement belongs in Overview,\n  Architecture, Invariants or Tradeoffs it goes there and carries its\n  tag, and this section carries no second copy - the rule stated at the\n  head of the section.\n- Nothing here is written as \"previously\", \"now does\", \"no longer\" or\n  \"added\": each bullet states what the code does and why, and where a\n  sentence names the defect a decision settles it does so in the past\n  tense of the thing that was drawn or measured, which is what the\n  existing bullets do.\n",
+          "doc_diff": "--- a/traktor_nml/README.md\n+++ b/traktor_nml/README.md\n@@ (above the DL-242 bullet)\n+The entries below run from DL-242 and the high-water mark line names\n+DL-259. This file is the authority for that number: an entry numbered\n+against anything else collides with an entry this file names.\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-007",
+          "version": 2,
+          "intent_ref": "CI-M-005-007",
+          "file": "traktor_nml/gui/CLAUDE.md",
+          "diff": "\n--- a/traktor_nml/gui/CLAUDE.md\n+++ b/traktor_nml/gui/CLAUDE.md\n@@ (the Files table, a new row between wording.py and theme.py)\n+| `answer_detail.py` | The rows one answer in the resolve step's detail rail draws: `AnswerField` (an attribute, the NML name the rail prints, the raw value, what it means and whether the answers disagree on it), `answer_fields(attrs, agreed, candidate)` (one field per tracked attribute the group carries, in `splice._TRACKED_ATTRS` order, marked as differing exactly where its name stands in attrs), `format_value` (FILESIZE as megabytes off Traktor's kilobyte count, BITRATE as kilobits off bits per second, PLAYTIME_FLOAT as minutes and seconds; `None` for a text field and for a value that is empty or does not parse) and `LABELS`. Imports no `nicegui`. | Changing what a rail field is called, how a value reads, or which rows the rail marks |\n@@ (the conflict_model.py row, in its \"What\" cell)\n-... `ConflictGroup`/`ConflictDecisions` (per identity key, `UNDECIDED` or a `CandidateRef` ...\n+... `ConflictGroup`/`ConflictDecisions` (per identity key, `UNDECIDED` or a `CandidateRef` ... , carrying `agreed` - the tracked attributes every member of the group holds the same value for, beside `attrs`, the ones they diverge on, so the rail draws each answer as a whole record; `agreed` is not compared when a pick re-attaches) ...\n\nNOTES FOR THE IMPLEMENTER\n\n- The table's rows are ordered by the import order the boundary\n  section describes, so answer_detail.py sits with the other\n  nicegui-free modules rather than at the end.\n- The app.py row's \"When to read\" already covers a rail change and\n  needs no edit.\n",
+          "doc_diff": "--- a/traktor_nml/gui/CLAUDE.md\n+++ b/traktor_nml/gui/CLAUDE.md\n@@ (in the boundary note above the Files table)\n+`answer_detail.py` sits with the nicegui-free modules: every rule about\n+what a rail field is called, how its value reads and which rows carry\n+the mark lives below the boundary where the suite reaches it, and\n+`app.py` only places what it returns (ref: DL-069, DL-246). Every width,\n+colour and gap those rows draw with belongs to `theme.py`.\n",
+          "comments": ""
+        },
+        {
+          "id": "CC-M-005-008",
+          "version": 2,
+          "intent_ref": "CI-M-005-008",
+          "file": "traktor_nml/gui/README.md",
+          "diff": "\n--- a/traktor_nml/gui/README.md\n+++ b/traktor_nml/gui/README.md\n@@ (The nicegui boundary, :10-21)\n `app.py`, `file_picker.py` and `__main__.py` are the only three modules\n in this package that import `nicegui` or `pywebview`. Every other\n module - `review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py`,\n `announce.py`, `conflict_model.py`, `navigation.py`,\n `reconstruct_steps.py`, `reconstruct_report.py`,\n-`collection_summary.py`, `_fs_nav.py` and `__init__.py` - imports\n+`collection_summary.py`, `answer_detail.py`, `_fs_nav.py` and\n+`__init__.py` - imports\n neither\n\nNOTES FOR THE IMPLEMENTER\n\n- `wording.py` is absent from this list as it stands. If that is an\n  omission rather than an intention, it belongs in the same edit; check\n  before adding, and say nothing about it in the decision log either way\n  unless a decision is actually being made.\n- tests/test_gui_view_boundary.py sweeps the directory rather than\n  reading this list, so the list is documentation and the guard is the\n  guard - which is why it can fall behind and why this edit is part of\n  the milestone rather than optional.\n",
+          "doc_diff": "--- a/traktor_nml/gui/README.md\n+++ b/traktor_nml/gui/README.md\n@@ (below the nicegui boundary paragraph)\n+The list is documentation; tests/test_gui_view_boundary.py sweeps the\n+directory rather than reading it, so a module named here is named for a\n+reader and guarded by the sweep (ref: DL-069).\n",
+          "comments": ""
+        }
+      ],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "id": "W-001",
+      "milestones": [
+        "M-001",
+        "M-002"
+      ]
+    },
+    {
+      "id": "W-002",
+      "milestones": [
+        "M-003"
+      ]
+    },
+    {
+      "id": "W-003",
+      "milestones": [
+        "M-004"
+      ]
+    },
+    {
+      "id": "W-004",
+      "milestones": [
+        "M-005"
+      ]
+    }
+  ],
+  "diagram_graphs": [],
+  "readme_entries": [
+    {
+      "path": "traktor_nml",
+      "content": "# Decision log entries this work writes into traktor_nml/README.md\n\nNumbered from DL-242, above the log's high-water mark DL-241. The high-water mark line moves to DL-259 once these are written (CI-M-005-006).\n\n- **DL-242.** Each answer in the resolve rail reads as a complete record: every name in splice._TRACKED_ATTRS the group's records carry, agreeing fields included, one field per line as field name, formatted value and raw value.\n  An answer joined into one string of values cannot be told from its neighbour, and a rail showing only the divergent subset reads as a diff rather than as the record that wins -> the operator picks a record, so the rail prints the record -> the six tracked attributes stand per answer and the mark carries the difference\n\n- **DL-243.** The divergence mark stands on a field exactly where its name is in the row's attrs.\n  splice computes attrs as the tracked attributes whose values differ across the group's members -> that set is precisely the fields that differ across the answers, already computed and already carried to the page -> the rule is a membership test in a nicegui-free module, and no second divergence computation exists to disagree with the first\n\n- **DL-244.** The agreeing values ride alongside attrs as their own field on ConflictRow, ConflictGroup and ConflictRowView; attrs names the divergent set alone.\n  attrs is one of the three columns the conflict CSV writes and the line splice_cmd prints (traktor_nml/commands/splice_cmd.py:22, :24) -> widening it in place rewrites recorded output for every run -> the complete record is carried as an addition, and the CSV columns are guarded unmoved\n\n- **DL-245.** Every member of a group agrees on every attribute outside attrs, so one group-wide mapping of agreeing attribute to value is well defined and is computed beside the candidates.\n  divergent_attrs at splice.py:340-341 names the attributes whose value set across the group's members has more than one member -> an attribute outside it holds one value across every member of the group, candidates included -> the agreeing values belong to the group rather than to a candidate, and a guard reads that off a three-answer group rather than asserting it\n\n- **DL-246.** Formatting and field assembly live in traktor_nml/gui/answer_detail.py, a module importing no nicegui.\n  DL-069 puts every rule the suite reaches below the nicegui boundary, and conflict_model.py is the vocabulary a pick is recorded in -> a display formatting rule there gives that module a second purpose the package's one-purpose-per-module table does not carry -> the field rows, their labels, their formatted values and the mark stand in one module app.py reads from\n\n- **DL-247.** FILESIZE renders as megabytes by dividing by 1024 once; PLAYTIME_FLOAT renders as minutes and seconds; BITRATE renders as kilobits per second by dividing by 1000, unconditionally, because every record the rail answers over is Traktor-borne (DL-253); the raw string stands beside every formatted value in mono.\n  Traktor writes FILESIZE in kilobytes - the calibration comment at traktor_nml/matching.py:124-128 records the measured error of FILESIZE against bytes/1024, and _size_kb (traktor_nml/matching.py:166-180) deliberately does no conversion because both sides already carry kilobytes - and BITRATE in bits per second (collection_textual_patch_test.nml carries values near 1000000) -> a formatting dividing a kilobyte count twice or reading a bitrate as kilobits prints a number the collection does not hold, and the kilobits bitrate traktor_nml/diskscan.py:59 writes would print near 0.3 kbps if it could reach the rail -> one division each with no provenance branch, the provenance itself settled by DL-253, the precision by DL-255, and the raw value stays visible because it is what the written file carries\n\n- **DL-248.** A value that is empty or does not parse as a number prints as itself with no formatted companion.\n  traktor_nml/model.py:217-219 yields an empty string for every INFO-borne attribute where a record carries no INFO element -> a formatter dividing that string raises inside a page build -> each formatter returns the raw string unchanged where the value does not parse, and a guard covers the empty string\n\n- **DL-249.** No colour ranks one value against another.\n  The tool has no way to know that a larger filesize or a higher bitrate is the better record -> a green value states a judgement the model cannot support -> difference is marked and never ranked\n\n- **DL-250.** The rail head is the one place the file is named; design/reconnect-wizard/Resolve.dc.html carries no 'The file' group.\n  The head prints the identity key in mono and the artboard's body opens with a labelled Path row holding the same string -> drawing both prints the file twice in a 400px rail -> the artboard is amended first and the screen is built to it (DL-071)\n\n- **DL-251.** The gate fixture's conflicting entry carries bits-per-second bitrates and a second divergent field agreeing between two of its three answers.\n  The fixture's one conflict diverges on bitrate alone, at values a Traktor collection never writes -> a served page over it exercises neither the unit formatting nor a mark that discriminates between answers -> the fixture carries a field that agrees and a field that differs, so the record reads both\n\n- **DL-252.** A guard proves the page calls the field assembly rather than only that the assembly is correct.\n  This repository has shipped guards green in exactly the broken state (DL-189) -> a formatter guarded alone passes while the rail joins raw values into one label -> the composition guard reads app.py's answer() for the per-field construction, and the served-page record reads the rendered rail\n\n- **DL-253.** Every record the resolve rail answers over is Traktor-borne: splice groups over collection_records from the NML collections given as inputs, and a disk-scanned record never reaches a conflict group or detail_rail().\n  traktor_nml/splice.py:475 builds its groups from records_by_input, the per-input lists of collection_records, and hands them to group_identities (traktor_nml/splice.py:482), and diskscan feeds matching and reconnect_run instead (traktor_nml/reconnect_run.py:23, traktor_nml/commands/discover_tracks_cmd.py:12) -> the kilobits BITRATE traktor_nml/diskscan.py:59 writes has no path into a ConflictRow -> the rail formats one provenance and the bits-per-second division needs no provenance condition\n\n- **DL-254.** The rail prints each field name as Traktor writes the attribute in the NML: ARTIST, TITLE, ALBUM, FILESIZE, PLAYTIME_FLOAT and BITRATE, one fixed mapping from the splice._TRACKED_ATTRS identifier to the printed label.\n  splice._TRACKED_ATTRS holds lowercase python identifiers while the artboard draws the key in mono uppercase -> left to the implementer the same field could print as PLAYTIME_FLOAT, PLAYTIME or LENGTH on different rows and against the record -> the label is the XML attribute name the written file carries, uppercased, so the printed key names the thing the raw value beside it came from\n\n- **DL-255.** The numeric presentation is the approved mockup read literally: FILESIZE to one decimal followed by MB, BITRATE rounded to a whole number followed by kbps, PLAYTIME_FLOAT as minutes then a colon then seconds truncated toward zero and zero-padded to two digits; no thousands separator is introduced anywhere and the raw string is reproduced exactly as the collection carries it.\n  The approved mockup at the scratchpad resolve-rail-mockup.html is the only Tier 1 source carrying precision and it shows 8.1 MB, 320 kbps and 7:01 -> a plan fixing units but not precision leaves a user-visible default to the implementer, while the mockup separated raw 8,123,456 would rewrite the string the written file holds -> precision, rounding and padding come from the mockup and the raw value alone is exempt from it\n\n- **DL-256.** This work writes into C:/codex/traktor-nml-tool-gate, a tree outside the primary working directory, for the three reconstruct-conflict fixture collections alone; no other file outside C:/codex/traktor-nml-tool is touched.\n  The gate tree is where the served page is produced and its one conflict diverges on bitrate alone at values a Traktor collection never writes (DL-251) -> the served-page record DL-084 and DL-169 require cannot read the unit formatting or a discriminating mark without editing that fixture -> the external writes are named file by file in M-005 and bounded to the reconstruct-conflict fixture\n\n- **DL-257.** The rail head and the new field grid go through traktor_nml/gui/wording.plural for every word a count picks, and no inline conditional on a count stands anywhere under gui/.\n  M-004 touches the head holding-count sentence and adds a grid drawn once per field -> an inline x if n == 1 else y is the shape tests/test_gui_wording.py forbids outside wording.py, and a count written into a sentence is what DL-215 forbids -> the count reads off the model and its word comes from wording.plural, guarded by the existing wording test over the changed file\n\n- **DL-258.** traktor_nml/gui/app.py is read and rewritten with newline set to the empty string so its CRLF line endings survive the edit, while answer_detail.py, theme.py and every file under tests/ stay LF.\n  app.py is the one file in the package carrying CRLF throughout -> a default-mode write converts every line ending and shows the whole file as changed, hiding the real edit -> the empty-newline write is named in the app.py intent and a guard reads the file bytes for an absence of bare LF\n\n- **DL-259.** No work here regenerates tests/baselines/manifest.json or fixture/w002gatefix2, restores a file with git checkout, writes into build/ or dist/, installs into the system interpreter or spawns a background agent; the suite runs under C:/Users/marcu/AppData/Local/Python/pythoncore-3.14-64/python.exe.\n  M-002 changes a structure the conflict CSV and splice_cmd report over, which is exactly the change a baseline regeneration would paper over -> a regenerated manifest would record the new output as expected and the guard that the columns are unmoved would pass in the broken state (DL-189) -> the baselines and the gate fixture w002gatefix2 are read never written, a file needing restoration is copied aside first, and every guard in this plan runs under the system interpreter"
+    }
+  ]
+}

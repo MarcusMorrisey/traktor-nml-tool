@@ -78,6 +78,13 @@ READING_DIGESTS = {
     "2026-09-07-reconstruct-stale-run-browser-record.md": "ebc2f041052776259c4c6749145de24cb199b50f8db4e25047ff3db519f40cbd",
     "2026-09-15-reconstruct-salvage-browser-record.md": "ab3a0251c15db195d121abffdc1e905e374b4e03f37140dc314761a528077640",
     "2026-09-15-write-step-after-the-write-browser-record.md": "32dfbfadf3db8e36441a21e886003215da2cb59fb63a7665e7b0429757a3c61a",
+    # The resolve step's rail closes on a served-page record carrying a
+    # verdict row per surface and structural verdicts against
+    # design/reconnect-wizard/Resolve.dc.html, its verdict rows
+    # registered here by digest (ref: DL-084, DL-169). The digest is
+    # computed from the record as the browser run left it, so the rows
+    # hashed are the rows that were read.
+    "2026-09-15-resolve-rail-fields-browser-record.md": "33066ad27dee9e65b6726bd5c048ffcced89e31fe37f4689d5df3e0ca25c2483",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written
@@ -149,6 +156,14 @@ def test_a_records_verdict_rows_hash_to_its_recorded_digest(record: Path):
         forbids
         assert '5a1ca7434f3a...f00df6dc69b7a' ==
         '24f5629d3285...60e829e19b696'
+
+    Mutation: in docs/2026-09-15-resolve-rail-fields-browser-record.md
+    the rail width row's reading was changed from 400 to 360 and this
+    guard rerun. Observed:
+        E       assert 'b5ddea77ebdb...7f6321a8b9917' == '33066ad27dee...f3e0ca25c2483'
+        E
+        E         - 33066ad27dee9e65b6726bd5c048ffcced89e31fe37f4689d5df3e0ca25c2483
+        E         + b5ddea77ebdbad8533d711c98ad68b8feb92e62c91c8b1aefe67f6321a8b9917
     """
     expected = READING_DIGESTS.get(record.name)
     if expected is None:

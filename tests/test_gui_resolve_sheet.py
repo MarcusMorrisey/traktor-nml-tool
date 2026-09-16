@@ -147,7 +147,7 @@ def test_the_header_row_sits_on_the_same_tracks_as_the_body_rows():
 
 def test_the_detail_rail_carries_its_three_bands():
     """Resolve.dc.html:70 draws .det as a bordered column and :71, :74 and
-    :87 draw its head, its body and its footer. The sheet emits one rule
+    :105 draw its head, its body and its footer. The sheet emits one rule
     per band, each carrying the inset and the edge rule that separates it
     from the band beside it, and the rail itself carries no width: it
     takes the second track of .wizard-resolve-split, so the 400px is
@@ -178,7 +178,7 @@ def test_the_detail_rail_carries_its_three_bands():
 
 
 def test_the_answer_control_carries_its_chosen_state_as_its_own_rule():
-    """Resolve.dc.html:77's .cand and :78's .cand.on: one control per
+    """Resolve.dc.html:81's .cand and :82's .cand.on: one control per
     answer, and the chosen one's own border and ground. The chosen rule is
     declared after the base rule, so the chosen border wins at equal
     specificity, and the dot the chosen marker carries is its own rule
@@ -201,8 +201,134 @@ def test_the_answer_control_carries_its_chosen_state_as_its_own_rule():
     assert f"width: {theme.ANSWER_MARKER_SIZE}" in _rule(".wizard-answer-marker")
 
 
+# Every class the rail names is declared in theme.py and every
+# dimension and colour with it, so no size or colour literal stands in
+# app.py (ref: DL-069, DL-078). No rule here conditions a colour on a
+# value's magnitude: difference is marked and never ranked
+# (ref: DL-249).
+
+
+def test_the_field_row_declares_the_three_tracks_the_artboard_draws():
+    """Resolve.dc.html:90's .cmpf: a fixed key track, a flexible value
+    track and a fixed raw track, so every answer's keys align down the
+    rail and the raw strings the operator compares stand at one edge.
+
+    Mutation: `grid-template-columns` in .wizard-answer-field was
+    changed to `{ANSWER_FIELD_KEY_TRACK} 1fr 1fr` in theme.py and this
+    guard rerun. Observed:
+        E       AssertionError: assert 'grid-template-columns: 60px 1fr 82px' in ' display: grid; grid-template-columns: 60px 1fr 1fr; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid #22292E; '
+    """
+    rule = _rule(".wizard-answer-field")
+    assert (
+        f"grid-template-columns: {theme.ANSWER_FIELD_KEY_TRACK} 1fr "
+        f"{theme.ANSWER_FIELD_RAW_TRACK}"
+    ) in rule
+
+
+def test_the_field_key_and_the_difference_mark_carry_their_own_rules():
+    """The key is mono and uppercase (Resolve.dc.html:92) and the mark
+    is a dot at its own size (Resolve.dc.html:101), distinct from the
+    chosen marker's dot, which means something else.
+
+    Mutation: ANSWER_FIELD_MARK_SIZE was changed to
+    ANSWER_MARKER_DOT_SIZE in the .wizard-answer-field-mark rule in
+    theme.py and this guard rerun. Observed:
+        E       AssertionError: assert 'width: 5px' in ' width: 8px; height: 8px; border-radius: 50%; background: #56B4E9; flex: none; '
+    """
+    key = _rule(".wizard-answer-field-key")
+    assert "text-transform: uppercase" in key and theme.FONT_MONO in key
+    mark = _rule(".wizard-answer-field-mark")
+    assert f"width: {theme.ANSWER_FIELD_MARK_SIZE}" in mark
+    assert theme.ANSWER_FIELD_MARK_SIZE != theme.ANSWER_MARKER_DOT_SIZE
+
+
+def test_no_rail_rule_colours_a_value_by_its_magnitude():
+    """The tool does not know a larger filesize is the better one, so no
+    rule on this rail states a colour for a value at all - only for the
+    mark that says the answers disagree.
+
+    This is the reading that fails the moment a "the bigger one is
+    green" rule is reintroduced, which the user cut explicitly (DL-249).
+
+    Mutation: `.wizard-answer-field-value-larger {{ color:
+    {STATUS_FOUND}; }}` was added to page_stylesheet() and this guard
+    rerun. Observed:
+        E       AssertionError: assert not ['.wizard-answer-field-value-larger']
+    """
+    sheet = theme.page_stylesheet()
+    named = re.findall(r"\.wizard-answer-field[\w-]*", sheet)
+    assert not [
+        name for name in named
+        if any(word in name for word in ("larger", "smaller", "better", "worse"))
+    ]
+    assert "color:" not in _rule(".wizard-answer-field-value")
+
+
+def test_the_answer_card_aligns_its_marker_with_the_record_it_heads():
+    """Resolve.dc.html:81's .cand aligns its items to the start. The
+    answer beside the marker is a block of one row per tracked
+    attribute, so a centred marker sits at the middle of the record
+    rather than beside any row of it - read on the served page at 103px
+    below the card's own top edge, against the 8.8px the start gives.
+
+    The artboard carries the same declaration, so this is the screen
+    built to the design rather than against it (DL-071).
+
+    Mutation: `align-items: flex-start` in .wizard-answer was changed
+    back to `align-items: center` in theme.py and this guard rerun.
+    Observed:
+        E       AssertionError: the answer card centres its marker against a block of field rows
+        E       assert 'align-items: flex-start' in ' border: 1px solid #2A2E32; background: #12181C; border-radius: 6px; padding: 8px 10px; display: flex; gap: 9px; align-items: center; '
+    """
+    assert "align-items: flex-start" in _rule(".wizard-answer"), (
+        "the answer card centres its marker against a block of field rows"
+    )
+
+
+def test_the_field_block_turns_quasars_button_wrapper_back_into_a_column():
+    """A framework shortfall, in the shape DL-223 records: Quasar wraps
+    a button's children in its own `.q-btn__content`, so the column
+    declared on `.wizard-answer-fields` governs that wrapper and not the
+    field rows inside it. The wrapper's own rule is a centred, wrapping
+    row, under which each row took its content's width and was centred
+    on its own wrap line - six rows read at 165.9px to 209.1px starting
+    at six different x positions inside a 400px rail - and the holders
+    line shared the last row's wrap line instead of standing under the
+    fields. The wrapper's text-center reads the same way sideways: a
+    value sat at the centre of its track rather than at its start.
+
+    The rows are the artboard's aligned three-track grid, so the
+    wrapper carries the column the block declares. Reading
+    `.wizard-answer-fields`' own rule alone is true in exactly that
+    broken state, which is why this guard reads the wrapper's.
+
+    Mutation: the `.wizard-answer-fields .q-btn__content` rule was
+    deleted from page_stylesheet() in theme.py and this guard rerun.
+    Observed:
+        E       AssertionError: the stylesheet emits no .wizard-answer-fields .q-btn__content rule
+        E       assert []
+
+    Mutation: `text-align: left` alone was dropped from that rule in
+    theme.py and this guard rerun. Observed:
+        E           AssertionError: the button wrapper the field rows lay out in declares no text-align: left
+        E           assert 'text-align: left' in ' width: 100%; flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; '
+    """
+    wrapper = _rule(".wizard-answer-fields .q-btn__content")
+    for declaration in (
+        "flex-direction: column",
+        "flex-wrap: nowrap",
+        "align-items: stretch",
+        "width: 100%",
+        "text-align: left",
+    ):
+        assert declaration in wrapper, (
+            f"the button wrapper the field rows lay out in declares no "
+            f"{declaration}"
+        )
+
+
 def test_the_step_rail_carries_the_artboards_span_declaration():
-    """Resolve.dc.html:104's .steprail carries `grid-column: 1 / -1`, and
+    """Resolve.dc.html:118's .steprail carries `grid-column: 1 / -1`, and
     the sheet carries the same declaration for fidelity with the
     artboard's rule.
 

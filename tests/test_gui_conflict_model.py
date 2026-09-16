@@ -15,6 +15,7 @@ pass by coinciding with the picker's own answer.
 
 from __future__ import annotations
 
+import dataclasses
 import inspect
 
 import pytest
@@ -802,6 +803,72 @@ def test_a_non_metadata_row_names_no_conflict_group() -> None:
     )
 
     assert conflict_groups([colliding]) == []
+
+
+# agreed rides from ConflictRow through ConflictGroup to
+# ConflictRowView so the rail reads a whole record off the view
+# (ref: DL-244). It takes no part in what a pick is compared against:
+# a value every member agrees on is the same value whichever answer
+# wins, and comparing it would drop a held pick on a re-preview that
+# changed something nobody is choosing between (ref: DL-245).
+
+
+def test_a_projected_group_carries_the_rows_agreed_pairs() -> None:
+    """conflict_groups projects agreed off the row the run produced,
+    and rows() carries it onto the view, so what the rail draws is what
+    splice derived rather than anything this module recomputes.
+
+    Mutation: `agreed=row.agreed` was deleted from the ConflictGroup
+    construction in conflict_groups and this guard rerun. Observed:
+        AssertionError: assert () == (('artist', '...itle', 'One'))
+          Right contains 2 more items, first extra item: ('artist', 'A')
+    """
+    row = ConflictRow(
+        "C:/:Base/:track.mp3",
+        "bitrate",
+        "unresolved",
+        member_keys=frozenset({"C:/:Base/:track.mp3"}),
+        candidates=(ConflictCandidate(("320",), ((0, "C:/:Base/:track.mp3"),)),),
+        agreed=(("artist", "A"), ("title", "One")),
+    )
+
+    group = conflict_groups([row])[0]
+    assert group.agreed == (("artist", "A"), ("title", "One"))
+
+    view = ConflictDecisions().rows([group])[0]
+    assert view.agreed == (("artist", "A"), ("title", "One"))
+
+
+def test_a_decision_re_attaches_where_only_the_agreed_pairs_differ() -> None:
+    """A pick stands across a re-preview whose agreed values moved while
+    the member keys and the candidates held: a value every member agrees
+    on is not one of the answers, so it is not what the pick was made
+    against (DL-158, DL-245).
+
+    This is the guard that fails the moment agreed is folded into the
+    _Decision comparison, which is the shape that would silently drop
+    every pick on a re-preview.
+
+    Mutation: `agreed` was added to _Decision, set from group.agreed in
+    resolve(), and compared in decision() alongside member_keys and
+    candidates; this guard rerun. Observed:
+        AssertionError: assert 'undecided' == (1, 'C:/:One/:track.mp3')
+         +  where 'undecided' = decision(ConflictGroup(
+            identity_key='C:/:Base/:track.mp3', attrs=('bitrate',), ...,
+            agreed=(('album', 'Later'),)))
+    """
+    first = _groups(_one_track_inputs())[0]
+    decisions = ConflictDecisions()
+    reference = _reference_at(first, 1)
+    decisions.resolve(first, reference)
+
+    moved = dataclasses.replace(first, agreed=(("album", "Later"),))
+
+    assert moved.member_keys == first.member_keys
+    assert moved.candidates == first.candidates
+    assert moved.agreed != first.agreed
+    assert decisions.decision(moved) == reference
+    assert decisions.outstanding([moved]) == 0
 
 
 def test_a_collection_already_listed_is_refused(tmp_path) -> None:

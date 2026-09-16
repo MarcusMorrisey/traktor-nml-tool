@@ -87,12 +87,19 @@ class ConflictGroup:
     and one candidate per distinct answer over attrs, each naming the
     records that supply it. Neither alone sees every change a re-preview
     can make to a group (DL-158).
+
+    agreed carries the tracked attributes the group's records hold in
+    common, which the rail draws beside the divergent ones so each
+    answer reads as a record. It is not compared by re-attachment: what
+    a pick was made against is the answers on offer, and a value every
+    member agrees on is the same value whichever answer wins (DL-245).
     """
 
     identity_key: str
     attrs: tuple[str, ...]
     member_keys: frozenset[str]
     candidates: tuple[ConflictCandidate, ...]
+    agreed: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -104,6 +111,11 @@ class ConflictRowView:
     attrs: tuple[str, ...]
     candidates: tuple[ConflictCandidate, ...]
     decision: object
+    # The view carries the agreeing values so the rail reads a whole
+    # record off one object, with attrs naming the divergent set
+    # alone (ref: DL-244). A pick is recorded against the answers on
+    # offer, so this field takes no part in re-attachment (ref: DL-245).
+    agreed: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -194,6 +206,7 @@ def conflict_groups(conflict_rows: Iterable[ConflictRow]) -> list[ConflictGroup]
                 attrs=tuple(row.attrs.split(",")),
                 member_keys=row.member_keys,
                 candidates=row.candidates,
+                agreed=row.agreed,
             )
         )
     return groups
@@ -320,6 +333,7 @@ class ConflictDecisions:
                 attrs=group.attrs,
                 candidates=group.candidates,
                 decision=self.decision(group),
+                agreed=group.agreed,
             )
             for group in groups
         ]

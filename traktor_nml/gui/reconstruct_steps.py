@@ -76,12 +76,12 @@ MARKER_CURRENT_CLASS = "wizard-step-number-current"
 
 # The aria-current value the current entry reads, and the value the rest
 # read: None, which is the absence of the attribute rather than an empty
-# string. "step" rather than "page", which is what Resolve.dc.html:124
+# string. "step" rather than "page", which is what Resolve.dc.html:138
 # carries on the entry it draws as current.
 ARIA_CURRENT_STEP = "step"
 
 # What a done entry renders in its marker in place of its number: the
-# check mark Resolve.dc.html:122-123 draws on the two steps behind the
+# check mark Resolve.dc.html:136-137 draws on the two steps behind the
 # current one. Written as an escape rather than as the glyph, so this
 # module stays ASCII on disk and a tool reading it under a codepage
 # that has no U+2713 reads it at all.
@@ -125,8 +125,8 @@ def _record(number: int, label: str, current: int) -> RailRecord:
     the table does not carry leaves the rows after it UPCOMING rather
     than reading every row done. The marker is the check mark for a done
     row and the row's own number otherwise, which is what
-    Resolve.dc.html:122-123 draws on the two steps behind the current
-    one and :124 on the current one.
+    Resolve.dc.html:136-137 draws on the two steps behind the current
+    one and :138 on the current one.
     """
     if number == current:
         state = CURRENT

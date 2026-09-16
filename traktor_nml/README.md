@@ -82,6 +82,10 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
+This file is the authority for the log's high-water mark, which is `DL-259`:
+an entry numbered against anything else collides with an entry this file
+names, so the next plan numbers from there.
+
 - `matching.py`'s cascade accepts injected key providers; `fingerprint.py`
   supplies one behind an availability guard, so the core matching path
   never becomes import-guard-laden for a native chromaprint dependency
@@ -939,7 +943,7 @@ other number is stated in this file.
   header, so DL-071 asks nothing of Specs here (DL-198).
 - The rail is a `nav` of this module's own spans rendered from
   `reconstruct_steps.rail_records`, placed as the page region's first
-  row, rather than a `QStepper` header: `Resolve.dc.html:104` draws
+  row, rather than a `QStepper` header: `Resolve.dc.html:118` draws
   `.steprail` inside `main` at `grid-column: 1 / -1`, and a QStepper
   draws its own numbered strip above its panels and none of the rail's
   states (DL-199).
@@ -1216,6 +1220,147 @@ other number is stated in this file.
   reassuring them. The dialog is filled where the panel is drawn and the
   footer control redraws before opening it, so what it states is what
   stands at that path now (DL-241).
+- Each answer in the resolve step's detail rail reads as a complete
+  record: every tracked attribute the group's records carry, the ones
+  the answers agree on included, one field per line as field name,
+  formatted value and raw value. An answer joined into one string of
+  values cannot be told from its neighbour, and a rail showing only the
+  divergent subset reads as a diff rather than as the record that wins,
+  so the rail prints the record and the mark carries the difference
+  (DL-242).
+- The divergence mark stands on a field exactly where its name is in
+  the row's attrs. splice computes attrs as the tracked attributes
+  whose values differ across the group's members, which is precisely
+  the set of fields that differ across the answers, already computed
+  and already carried to the page; the rule is a membership test in a
+  nicegui-free module, so no second divergence computation exists to
+  disagree with the first (DL-243).
+- The agreeing values ride alongside attrs as their own field on
+  ConflictRow, ConflictGroup and ConflictRowView, and attrs names the
+  divergent set alone. attrs is one of the three columns the conflict
+  CSV writes and the line splice_cmd prints
+  (traktor_nml/commands/splice_cmd.py:22, :24), so widening it in place
+  would rewrite recorded output for every run; the complete record is
+  carried as an addition and the CSV columns are guarded unmoved
+  (DL-244).
+- Every member of a group agrees on every attribute outside attrs, so
+  one group-wide mapping of agreeing attribute to value is well defined
+  and is computed beside the candidates. divergent_attrs at
+  splice.py:340-341 names the attributes whose value set across the group's
+  members has more than one member, so an attribute outside it holds
+  one value across every member, candidates included: the agreeing
+  values belong to the group rather than to a candidate, and a guard
+  reads that off a three-answer group rather than asserting it
+  (DL-245).
+- Formatting and field assembly live in
+  `traktor_nml/gui/answer_detail.py`, a module importing no nicegui.
+  DL-069 puts every rule the suite reaches below the nicegui boundary,
+  and conflict_model.py is the vocabulary a pick is recorded in, so a
+  display formatting rule there would give that module a second purpose
+  the package's one-purpose-per-module table does not carry; the field
+  rows, their labels, their formatted values and the mark stand in one
+  module app.py reads from (DL-069, DL-246).
+- FILESIZE renders as megabytes by dividing by 1024 once,
+  PLAYTIME_FLOAT as minutes and seconds, and BITRATE as kilobits per
+  second by dividing by 1000, with the raw string standing beside every
+  formatted value in mono. Traktor writes FILESIZE in kilobytes - the
+  calibration comment at traktor_nml/matching.py:124-128 records the
+  measured error of FILESIZE against bytes/1024, and _size_kb
+  (traktor_nml/matching.py:166-180) deliberately does no conversion
+  because both sides already carry kilobytes - and BITRATE in bits per
+  second. A formatting dividing a kilobyte count twice prints a number
+  the collection does not hold, and the raw value stays visible because
+  it is what the written file carries (DL-247).
+- A value that is empty or does not parse as a number prints as itself
+  with no formatted companion. traktor_nml/model.py:217-219 yields an
+  empty string for every INFO-borne attribute where a record carries no
+  INFO element, and a formatter dividing that string raises inside a
+  page build, so each formatter returns the raw string unchanged where
+  the value does not parse and a guard covers the empty string
+  (DL-248).
+- No colour ranks one value against another. The tool has no way to
+  know that a larger filesize or a higher bitrate is the better record,
+  so a green value would state a judgement the model cannot support:
+  difference is marked and never ranked (DL-249).
+- The rail head is the one place the file is named, and
+  design/reconnect-wizard/Resolve.dc.html carries no "The file" group.
+  The head prints the identity key in mono and the artboard's body
+  opened with a labelled Path row holding the same string, which prints
+  the file twice in a 400px rail; the artboard is amended first and the
+  screen is built to it (DL-071, DL-250).
+- The gate fixture's conflicting entry carries bits-per-second bitrates
+  and a second divergent field agreeing between two of its three
+  answers. A fixture diverging on bitrate alone, at values a Traktor
+  collection never writes, exercises neither the unit formatting nor a
+  mark that discriminates between answers, so the fixture carries a
+  field that agrees and a field that differs and the record reads both
+  (DL-251).
+- A guard proves the page calls the field assembly rather than only
+  that the assembly is correct. This repository has shipped guards
+  green in exactly the broken state (DL-189), and a formatter guarded
+  alone passes while the rail joins raw values into one label: the
+  composition guard reads app.py's answer() for the per-field
+  construction, and the served-page record reads the rendered rail
+  (DL-189, DL-252).
+- Every record the resolve rail answers over is Traktor-borne: splice
+  builds its groups from records_by_input, the per-input lists of
+  collection_records, and hands them to group_identities
+  (traktor_nml/splice.py:475, :482), and diskscan feeds matching and
+  reconnect_run instead
+  (traktor_nml/reconnect_run.py:23,
+  traktor_nml/commands/discover_tracks_cmd.py:12). The kilobits BITRATE
+  traktor_nml/diskscan.py:59 writes has no path into a ConflictRow, so
+  the rail formats one provenance and the bits-per-second division
+  needs no provenance condition (DL-253).
+- The rail prints each field name as Traktor writes the attribute in
+  the NML - ARTIST, TITLE, ALBUM, FILESIZE, PLAYTIME_FLOAT, BITRATE -
+  as one fixed mapping from the splice._TRACKED_ATTRS identifier to the
+  printed label. _TRACKED_ATTRS holds lowercase python identifiers
+  while the artboard draws the key in mono uppercase, and left to the
+  call site the same field could print as PLAYTIME_FLOAT, PLAYTIME or
+  LENGTH on different rows; the label is the XML attribute name the
+  written file carries, uppercased, so the printed key names the thing
+  the raw value beside it came from (DL-254).
+- The numeric presentation is the approved mockup read literally:
+  FILESIZE to one decimal followed by MB, BITRATE rounded to a whole
+  number followed by kbps, PLAYTIME_FLOAT as minutes then a colon then
+  seconds truncated toward zero and zero-padded to two digits. No
+  thousands separator is introduced anywhere and the raw string is
+  reproduced exactly as the collection carries it: a grouped copy of
+  the same digits beside the ungrouped ones reads as a third value, and
+  the raw value is what the written file holds (DL-255).
+- This work writes into `C:\codex\traktor-nml-tool-gate`, a tree
+  outside the primary working directory, for the three
+  reconstruct-conflict fixture collections alone. The gate tree is
+  where the served page is produced, and the served-page record DL-084
+  and DL-169 require cannot read the unit formatting or a
+  discriminating mark without editing that fixture; no other file
+  outside the working directory is touched (DL-084, DL-169, DL-256).
+- The rail head and the field grid go through
+  `traktor_nml/gui/wording.plural` for every word a count picks, and no
+  inline conditional on a count stands anywhere under gui/. The head's
+  holding-count sentence reads `collection holds` at one and
+  `collections hold` otherwise; an inline `x if n == 1 else y` is the
+  shape tests/test_gui_wording.py forbids outside wording.py, and a
+  count written into a sentence is what DL-215 forbids (DL-215,
+  DL-257).
+- `traktor_nml/gui/app.py` is read and rewritten with newline set to
+  the empty string so its CRLF line endings survive the edit, while
+  answer_detail.py, theme.py and every file under tests/ stay LF. app.py
+  is the one file in the package carrying CRLF throughout, and a
+  default-mode write converts every line ending and shows the whole file
+  as changed, hiding the real edit; a guard reads the file bytes for an
+  absence of a bare LF (DL-258).
+- No work here regenerates tests/baselines/manifest.json or
+  fixture/w002gatefix2, restores a file with git checkout, writes into
+  build/ or dist/, installs into the system interpreter or spawns a
+  background agent, and the suite runs under
+  `C:\Users\marcu\AppData\Local\Python\pythoncore-3.14-64\python.exe`.
+  M-002 changes a structure the conflict CSV and splice_cmd report
+  over, which is exactly the change a baseline regeneration would paper
+  over: a regenerated manifest would record the new output as expected
+  and the guard that the columns are unmoved would pass in the broken
+  state (DL-189, DL-259).
 - A playlist is identified by the folder path it sits at, which is what
   Traktor's own SORTING_INFO PATH names it by, and the reconstruction
   pairs base to source on that path. A bare NAME does not identify a
@@ -2455,8 +2600,8 @@ draws it; the reconstruct table geometry, on `.wizard-conflict-grid`
 resolving to the five tracks `Resolve.dc.html:55`'s `.gr` draws, with
 `.wizard-conflict-header` standing over the same tracks as every body
 row; and the reconstruct detail rail, on `.wizard-detail-rail` resolving
-to 400px and carrying the head, body and footer `Resolve.dc.html:68`,
-`:69`, `:72` and `:87` draw. The four-step rail and the four step
+to 400px and carrying the head, body and footer `Resolve.dc.html:70`,
+`:71`, `:74` and `:105` draw. The four-step rail and the four step
 regions those structures sit under are read in
 `docs/2026-09-09-reconstruct-resolve-browser-record.md`, the record the
 milestone that built them closed on (DL-200, DL-201).

@@ -92,6 +92,14 @@ class ConflictRow:
     attribute present as one answer rather than two (DL-149, DL-150). A
     row reporting something other than a metadata divergence names no
     identity group, and keeps the empty defaults.
+
+    agreed holds every tracked attribute OUTSIDE the divergent set, in
+    _TRACKED_ATTRS order, each paired with the single value every member
+    of the group holds for it. attrs names what the group could not
+    agree on and agreed names what it did, so the two together are the
+    whole record the group describes and a screen reading them shows a
+    record rather than a diff. It defaults empty, so a row reporting
+    something other than a metadata divergence keeps the shape it has.
     """
 
     identity_key: str
@@ -99,6 +107,11 @@ class ConflictRow:
     resolution: str
     member_keys: frozenset[str] = frozenset()
     candidates: tuple[ConflictCandidate, ...] = ()
+    # agreed rides beside attrs rather than widening it: attrs is the
+    # third column of the conflict CSV and of the line splice_cmd
+    # prints, so a field holding the agreeing names keeps that recorded
+    # output exactly where it stands (ref: DL-244).
+    agreed: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass
@@ -219,6 +232,32 @@ def _candidates(
     )
 
 
+def _agreed(
+    members: list[tuple[int, EntryRecord]], attrs: list[str]
+) -> tuple[tuple[str, str], ...]:
+    """The tracked attributes the group agrees on, as (name, value)
+    pairs in _TRACKED_ATTRS order.
+
+    Read off the members already grouped, in the same pass _candidates
+    reads them: an attribute absent from attrs holds one value across
+    every member by the way attrs was computed, so the first member's
+    value is that value and no set is built a second time.
+
+    Well defined because divergent_attrs names the attributes whose
+    value set across the group's members holds more than one member: an
+    attribute outside that set holds one value across every member,
+    candidates included, so the value belongs to the group rather than
+    to any one answer (ref: DL-245).
+    """
+    divergent = set(attrs)
+    first = members[0][1]
+    return tuple(
+        (attr, str(getattr(first, attr)))
+        for attr in _TRACKED_ATTRS
+        if attr not in divergent
+    )
+
+
 def _metadata_conflict_row(
     identity_key: str,
     divergent_attrs: list[str],
@@ -234,6 +273,7 @@ def _metadata_conflict_row(
         resolution,
         member_keys=frozenset(record.primary_key for _, record in members),
         candidates=_candidates(members, divergent_attrs),
+        agreed=_agreed(members, divergent_attrs),
     )
 
 

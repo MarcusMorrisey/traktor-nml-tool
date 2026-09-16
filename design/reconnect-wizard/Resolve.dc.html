@@ -74,7 +74,11 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:
 .det-b{padding:12px 14px;display:flex;flex-direction:column;gap:13px;flex:1;min-height:0}
 .grp{display:flex;flex-direction:column;gap:7px}
 .grp-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.cand{border:1px solid #2A2E32;background:#12181C;border-radius:6px;padding:8px 10px;display:flex;gap:9px;align-items:center}
+/* align-items is flex-start because the answer beside the marker is a
+   block of field rows a dozen lines tall: a centred marker floats at
+   the middle of the record, level with no row it names, while at the
+   start it is the mark on the record it heads. */
+.cand{border:1px solid #2A2E32;background:#12181C;border-radius:6px;padding:8px 10px;display:flex;gap:9px;align-items:flex-start}
 .cand.on{border-color:#2F5A72;background:#12222B}
 .rad{width:15px;height:15px;border-radius:50%;border:1.5px solid #5A6167;flex:none;display:grid;place-items:center}
 .cand.on .rad{border-color:#56B4E9}
@@ -87,6 +91,16 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:
 .cmpf:last-child{border-bottom:0}
 .cmpf .k{color:#8E979E;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;text-transform:uppercase}
 .cmpf .v{color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The raw string the written file carries, beside the formatted value
+   rather than instead of it: a row reading 8.0 MB alone hides which
+   record wins. */
+.cmpf .r{color:#8E979E;font:400 11px/1.3 'IBM Plex Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+/* The mark on a row whose value differs across the answers. A dot and
+   nothing else: no rule here colours a value by its magnitude, since
+   the tool does not know a larger filesize is the better one. */
+.cmpf .d{width:5px;height:5px;border-radius:50%;background:#56B4E9;flex:none}
+.cmpf .kw{display:flex;align-items:center;gap:5px;min-width:0}
+.cand .f{min-width:0;display:flex;flex-direction:column;flex:1}
 .vd{display:flex;align-items:center;gap:5px;font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.04em;justify-content:flex-end}
 .det-f{padding:11px 14px;border-top:1px solid #253038;display:flex;flex-direction:column;gap:9px}
 .det-a{display:flex;gap:8px}
@@ -213,18 +227,28 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:
         </div>
         <div class="det-b">
 
-          <div class="grp">
-            <div class="grp-h"><span class="lbl">The file</span></div>
-            <div class="cmpf"><span class="k">Path</span><span class="v mono" style="grid-column:2 / span 2">E:\Music\House\Kerri Chandler - Bar A Thym.aiff</span></div>
-          </div>
+          <!-- The file is named once, in .det-h's .t above. A second
+               labelled Path row under a "The file" group prints the
+               same string twice. -->
+
+          <!-- An answer is drawn as a record: one row per tracked attribute the
+               group carries, each holding the attribute name, what the value
+               means and the raw string the written file holds (DL-242). The mark
+               stands on a row the answers disagree on and carries no colour
+               ranking one value against another (DL-243, DL-249). The file is
+               named at the rail head alone, so the body opens with no labelled
+               Path row (DL-250). The screen is built to this artboard, which is
+               why the amendment lands here first (DL-071). -->
 
           <div class="grp">
             <div class="grp-h"><span class="lbl">Answer 1</span><span class="kbd">1</span></div>
             <div class="cand on">
               <span class="rad" role="img" aria-label="Chosen"></span>
-              <span class="b">
-                <span class="n">Bar A Thym</span>
-                <span class="n">Kerri Chandler</span>
+              <span class="f">
+                <span class="cmpf"><span class="kw"><span class="k">TITLE</span></span><span class="v">Bar A Thym</span><span class="r"></span></span>
+                <span class="cmpf"><span class="kw"><span class="d"></span><span class="k">ARTIST</span></span><span class="v">Kerri Chandler</span><span class="r"></span></span>
+                <span class="cmpf"><span class="kw"><span class="d"></span><span class="k">BITRATE</span></span><span class="v">320 kbps</span><span class="r">320000</span></span>
+                <span class="cmpf"><span class="kw"><span class="k">FILESIZE</span></span><span class="v">8.0 MB</span><span class="r">8192</span></span>
                 <span class="m">held by collection.nml</span>
               </span>
             </div>
@@ -234,9 +258,11 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:
             <div class="grp-h"><span class="lbl">Answer 2</span><span class="kbd">2</span></div>
             <div class="cand">
               <span class="rad" role="img" aria-label="Not chosen"></span>
-              <span class="b">
-                <span class="n">Bar A Thym (Original Mix)</span>
-                <span class="n">Kerri Chandler feat. Jerome Sydenham</span>
+              <span class="f">
+                <span class="cmpf"><span class="kw"><span class="k">TITLE</span></span><span class="v">Bar A Thym</span><span class="r"></span></span>
+                <span class="cmpf"><span class="kw"><span class="d"></span><span class="k">ARTIST</span></span><span class="v">Kerri Chandler feat. Jerome Sydenham</span><span class="r"></span></span>
+                <span class="cmpf"><span class="kw"><span class="d"></span><span class="k">BITRATE</span></span><span class="v">128 kbps</span><span class="r">128000</span></span>
+                <span class="cmpf"><span class="kw"><span class="k">FILESIZE</span></span><span class="v">8.0 MB</span><span class="r">8192</span></span>
                 <span class="m">held by collection_2024-11-02.nml</span>
               </span>
             </div>

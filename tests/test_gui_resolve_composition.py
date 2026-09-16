@@ -19,6 +19,20 @@ Each guard records the mutation applied to make it fail and the verbatim
 output observed under that mutation. Where pytest printed an assertion
 repr longer than the margin, the line is cut with an ellipsis rather than
 rewrapped, so what stands is what pytest printed.
+
+Two readings this file deliberately does not carry.
+
+app.py's CRLF endings are guarded whole in
+tests/test_gui_line_endings.py::test_app_py_is_wholly_crlf, which counts
+the bytes; a second copy of that count here would drift from it rather
+than reinforce it.
+
+That the rail actually calls answer_detail is guarded by driving the
+page in
+tests/test_gui_conflict_page_controls.py::test_the_answer_control_is_built_out_of_answer_detail.
+A source reading holds that the call is written; only a drive holds that
+it runs, and a guard over answer_detail alone is green in the state
+where the page never reaches it (ref: DL-189, DL-252).
 """
 
 from __future__ import annotations
@@ -178,6 +192,151 @@ def test_one_control_per_answer_and_one_bulk_action_per_collection():
     assert "conflict_model.candidate_reference(candidate)" in page
 
 
+# These guards read the page's own construction, not the formatting
+# module's output: a guard asserting that answer_detail is correct is
+# green in the state where the rail never calls it, which is exactly
+# the shape this repository has shipped before (ref: DL-189, DL-252).
+# The joined-label reading is the companion half - it holds in the
+# broken state where an answer group draws its field rows while a
+# single line joining every value stands above them (ref: DL-242).
+
+
+def test_the_answer_control_draws_one_row_per_field_from_answer_detail():
+    """The rail's control is built out of answer_detail.answer_fields,
+    one row per field, naming the classes the sheet declares for them.
+
+    Mutation: `answer_detail.answer_fields(view.attrs, view.agreed,
+    candidate)` in app.py was changed to `[]` and this guard rerun.
+    Observed:
+        E       AssertionError: the rail builds its rows from something other than answer_detail.answer_fields
+        E       assert 'answer_detail.answer_fields(' in 'def answer_control(group, view, candidate, reference,\n                                   supplied_by: str) -> None:\...        "wizard-answer-holders wizard-body-11 "\n                            "wizard-faint"\n                        )'
+    """
+    control = _named_function_source("answer_control")
+    assert "answer_detail.answer_fields(" in control, (
+        "the rail builds its rows from something other than "
+        "answer_detail.answer_fields"
+    )
+    assert "view.attrs" in control and "view.agreed" in control, (
+        "the rail asks answer_detail for the divergent values alone; a "
+        "field the answers agree on is part of the record too"
+    )
+    row = _named_function_source("field_row")
+    for name in (
+        "wizard-answer-field",
+        "wizard-answer-field-key",
+        "wizard-answer-field-value",
+        "wizard-answer-field-raw",
+        "wizard-answer-field-mark",
+    ):
+        assert name in row, f"the rail names no {name}"
+    for name in ("wizard-answer-fields", "wizard-answer-holders"):
+        assert name in control, f"the rail names no {name}"
+
+
+def test_no_call_site_joins_the_candidate_values_into_one_label():
+    """The single joined label is gone from the page, not merely
+    supplemented by a field grid beside it.
+
+    This is the reading that stays true in the broken state the rest of
+    this milestone can reach: answer_detail guarded on its own, the rail
+    drawing its rows, and the old joined line still printed above them
+    (DL-189).
+
+    Mutation: the `' | '.join(candidate.values)` label was restored
+    beside the field block in app.py and this guard rerun. Observed:
+        E       AssertionError: an answer is drawn as a record, not as a joined line of values
+        E       assert 'join(candidate.values)' not in 'def _build_...teps.SET_UP)'
+        E
+        E         'join(candidate.values)' is contained here:
+        E           y} {' | '.join(candidate.values)}"
+        E                                       )
+        E                                       answer_control(
+        E                                           group, view, candidate, reference, supplied_by
+        E                                       )...
+        E
+        E         ...Full output truncated (644 lines hidden), use '-vv' to show
+    """
+    page = _page_source()
+    assert "join(candidate.values)" not in page, (
+        "an answer is drawn as a record, not as a joined line of values"
+    )
+
+
+def test_the_mark_is_read_off_the_field_rather_than_drawn_on_every_row():
+    """The difference mark is rendered under `if field.differs`, so a
+    row the answers agree on carries none. A mark on every row says
+    nothing, which is the shape the plan cut.
+
+    Read as an AST rather than as a substring: `if field.differs:`
+    standing anywhere in the function is satisfied by a branch that
+    guards something else, and what is at issue is which construction
+    the branch holds.
+
+    Mutation: `if field.differs:` was changed to `if True:` and this
+    guard rerun. Observed:
+        E       AssertionError: the difference mark is drawn on every row, not on the rows that differ
+        E       assert not True
+    """
+    tree = ast.parse(textwrap.dedent(_named_function_source("field_row")))
+    unguarded = True
+    for branch in ast.walk(tree):
+        if not isinstance(branch, ast.If):
+            continue
+        test = branch.test
+        reads_differs = (
+            isinstance(test, ast.Attribute) and test.attr == "differs"
+        )
+        if not reads_differs:
+            continue
+        if "wizard-answer-field-mark" in ast.dump(branch):
+            unguarded = False
+    assert not unguarded, (
+        "the difference mark is drawn on every row, not on the rows that "
+        "differ"
+    )
+
+
+def test_the_field_grid_writes_no_count_into_a_sentence():
+    """The rows the rail adds state no count at all. A count written
+    into a field row would be the screen restating the model beside it,
+    and the rail's one count is the head's, read off the group
+    (DL-215).
+
+    Mutation: `ui.label(f"held by {supplied_by}")` was changed to
+    `ui.label("held by 2 collections")` and this guard rerun. Observed:
+        E       AssertionError: the field grid writes a count into a sentence: ['held by 2 collections']
+        E       assert ['held by 2 collections'] == []
+        E
+        E         Left contains one more item: 'held by 2 collections'
+        E         Use -v to get more diff
+    """
+    written = []
+    for name in ("answer", "answer_control", "field_row"):
+        tree = ast.parse(textwrap.dedent(_named_function_source(name)))
+        for node in ast.walk(tree):
+            # The label's own argument, not every string in the
+            # function: a class string is a name the sheet answers and
+            # carries digits of its own - wizard-body-11 is a rule, not
+            # a sentence about the model.
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "label"
+                and node.args
+            ):
+                continue
+            written += [
+                piece.value
+                for piece in ast.walk(node.args[0])
+                if isinstance(piece, ast.Constant)
+                and isinstance(piece.value, str)
+                and re.search(r"\b\d+\s+[A-Za-z]", piece.value)
+            ]
+    assert written == [], (
+        f"the field grid writes a count into a sentence: {written}"
+    )
+
+
 def test_every_step_registers_a_footer_group_and_a_note():
     """Each of the four steps registers its own action group and its own
     sentence, and show_step decides which the band shows, so the control
@@ -279,6 +438,11 @@ def test_the_rails_head_counts_the_collections_rather_than_naming_a_number():
     beside it says the same, so such a search is satisfied by prose that
     is not the sentence at issue.
 
+    The count's word comes from wording.plural, so the sentence carries
+    a call rather than a spelled plural; what this reads is still the
+    label's own argument, which must be an f-string over the count
+    rather than a constant (DL-215, DL-257).
+
     Mutation: the f-string was replaced with the constant `"Two
     collections hold this file with different values. Pick the one that
     supplies them."` and this guard rerun. Observed:
@@ -296,7 +460,7 @@ def test_the_rails_head_counts_the_collections_rather_than_naming_a_number():
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "label"
         and node.args
-        and "collections hold this file" in ast.dump(node.args[0])
+        and "this file with different" in ast.dump(node.args[0])
     ]
     assert len(labels) == 1, (
         f"the rail's head label was not found once, found {len(labels)}"

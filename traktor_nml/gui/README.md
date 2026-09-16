@@ -12,13 +12,17 @@ in this package that import `nicegui` or `pywebview`. Every other
 module - `review_model.py`, `wizard_state.py`, `theme.py`, `keymap.py`,
 `announce.py`, `conflict_model.py`, `navigation.py`,
 `reconstruct_steps.py`, `reconstruct_report.py`,
-`collection_summary.py`, `_fs_nav.py` and `__init__.py` - imports
-neither
+`collection_summary.py`, `answer_detail.py`, `wording.py`, `_fs_nav.py`
+and `__init__.py` - imports neither
 and is reachable from the test suite's
 system interpreter, which has no `nicegui` installed. Every rule worth
 testing sits below that boundary, in the nicegui-free modules, so the
 suite can reach it (DL-069; guarded by an AST walk in
 `tests/test_gui_view_boundary.py`).
+
+The list is documentation; `tests/test_gui_view_boundary.py` sweeps the
+directory rather than reading it, so a module named here is named for a
+reader and guarded by the sweep (ref: DL-069).
 
 ## Why the wizard drives the cores directly
 
@@ -206,7 +210,7 @@ Both routes are walked in four steps and neither drives the other's
 mechanism. `/reconnect` runs a `ui.stepper` with a `footer_groups`
 mapping keyed by step title. `/` composes four plain regions inside the
 chrome's middle, one visible at a time, under a `nav` of spans rendered
-from `reconstruct_steps.rail_records`: `Resolve.dc.html:104` draws
+from `reconstruct_steps.rail_records`: `Resolve.dc.html:118` draws
 `.steprail` inside `main` at `grid-column: 1 / -1`, and a QStepper draws
 its own numbered strip above its panels and none of the rail's states
 (DL-199).

@@ -786,14 +786,93 @@ def test_the_row_offers_one_control_per_candidate_naming_the_collections_supplyi
     finally:
         _close_page()
 
-    candidate_controls = [
-        label for label in driven.button_labels()
-        if "BaseTitletrack.mp3" in str(label) or "Agreed" in str(label)
+    holders = [
+        str(text) for text in driven.label_texts()
+        if str(text).startswith("held by ")
     ]
-    assert candidate_controls == ["base BaseTitletrack.mp3", "alpha.nml, bravo.nml Agreed"], (
+    assert holders == ["held by base", "held by alpha.nml, bravo.nml"], (
         "the row must offer one control per answer, and the two agreeing "
         "sources must share one control naming both"
     )
+
+
+def test_the_answer_control_is_built_out_of_answer_detail(
+    tmp_path: Path,
+) -> None:
+    """The rail's answer control is the record, row by row, and the rows
+    come off traktor_nml/gui/answer_detail.py on the page the operator
+    is handed.
+
+    This is the reading a source guard cannot carry. A guard over
+    answer_detail alone - that FILESIZE reads "0.0 MB" and
+    PLAYTIME_FLOAT reads "0:01" - is green in the state where the rail
+    never calls the module at all, which is the shape this repository
+    has shipped before (DL-189, DL-252). Driving the page holds the
+    call: every string read back below exists only because the page ran
+    answer_detail.answer_fields over the candidate and drew what came
+    back.
+
+    The fixture's records carry BITRATE="320", PLAYTIME_FLOAT="1.0" and
+    FILESIZE="16", which the answers agree on, and titles they disagree
+    on, so both halves of a field row are read: the divergent value off
+    the candidate and the agreeing one off the group (DL-242).
+
+    Observed to fail against a real mutation: replacing
+    `answer_detail.answer_fields(view.attrs, view.agreed, candidate)` in
+    app.py's answer_control with `[]` and running this test raised, the
+    rendered list cut at the answer rows it printed rather than
+    rewrapped:
+        E           AssertionError: the answer control drew no row for ARTIST; the page rendered ['traktor-nml-tool', '', 'The collection to repair', [...] 'C:/:Music/:track.mp3', '2 collections hold this file with different values. Pick the one that supplies them.', 'Answer 1', '1', 'held by base', 'Answer 2', '2', 'held by alpha.nml', [...]]
+        E           assert 'ARTIST' in ['traktor-nml-tool', '', 'The collection to repair', 'Read only', 'Collections to take playlists from', 'Read, never modified. Several are folded in the order added - the first to name a playlist wins it.', ...]
+    The answer groups the mutated page drew are in that list with their
+    field rows gone and nothing else changed, which is the broken state
+    the guard exists for.
+    app.py was restored from a copy taken beforehand, never via
+    `git checkout`, and re-running confirmed it passes.
+    """
+    base = _collection(
+        tmp_path / "base.nml", {"track.mp3": "BaseTitletrack.mp3"}, "BaseList", "uuid-base"
+    )
+    alpha = _collection(
+        tmp_path / "alpha.nml", {"track.mp3": "Agreed"}, "AlphaList", "uuid-alpha"
+    )
+    driven = _open_page(base, [alpha])
+    try:
+        driven.press_async("Preview")
+    finally:
+        _close_page()
+
+    rendered = [str(text) for text in driven.label_texts()]
+    # The field keys answer_detail.LABELS names, drawn as rows rather
+    # than joined into one line.
+    for key in ("ARTIST", "TITLE", "FILESIZE", "PLAYTIME_FLOAT", "BITRATE"):
+        assert key in rendered, (
+            f"the answer control drew no row for {key}; the page rendered "
+            f"{rendered}"
+        )
+    # The second reading of a value, which only answer_detail.format_value
+    # produces: the raw file carries "16", "1.0" and "320" and nothing on
+    # the page turns those into these without it.
+    for formatted in ("0.0 MB", "0:01", "0 kbps"):
+        assert formatted in rendered, (
+            f"the answer control drew no formatted value {formatted!r}; the "
+            f"page rendered {rendered}"
+        )
+    # The raw string stands beside the formatted one rather than instead
+    # of it: what the written file carries is what tells two answers
+    # apart when they differ by a digit.
+    for raw in ("16", "1.0", "320"):
+        assert raw in rendered, (
+            f"the answer control drew no raw value {raw!r} beside its "
+            f"formatted reading; the page rendered {rendered}"
+        )
+    # The values the answers disagree on are read off each candidate, so
+    # both titles stand, one per answer.
+    assert "BaseTitletrack.mp3" in rendered and "Agreed" in rendered
+    # No answer is drawn as a joined line of values.
+    assert not [
+        text for text in rendered if " | " in text
+    ], "an answer is drawn as a record, not as a joined line of values"
 
 
 def test_the_bulk_strip_names_base_and_every_source_in_the_order_added(

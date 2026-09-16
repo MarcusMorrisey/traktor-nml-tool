@@ -1,0 +1,665 @@
+{
+  "plan_id": "00914e72-2d6e-412d-bbc4-974e447af4fc",
+  "created_at": "2026-09-15T13:48:57.872018",
+  "frozen_at": null,
+  "overview": {
+    "problem": "traktor-nml-tool's NiceGUI wizard app has no route through which an operator can build an NML playlist from a base collection and a supplied Artist/Title tracklist matched via the existing matching cascade; that operation exists only as the build-playlist CLI subcommand.",
+    "approach": "Add a third route, /build-playlist, to the wizard shell, following navigation.py's existing tab table (DL-129..DL-147) rather than a new mechanism. A nicegui-free traktor_nml/gui/buildplaylist_view.py module holds the screen's form validation and report formatting, matching the nicegui-boundary convention review_model.py/wizard_state.py already set for the reconnect wizard. The page itself drives buildplaylist.assemble_output, rewrite.py's path-collision and atomic-write helpers, and split.py's isolation pass directly, in the same order build_playlist_cmd.py already calls them, so the CLI's own behavior and output bytes are untouched and no matching or assembly logic is reimplemented in gui/. The first pass ships a read-only unresolved-lines report rather than an interactive per-line review workflow, which Specs.dc.html's own scope-fence note defers to a later entry point; a design/build-playlist/Specs.dc.html artboard is drafted first as that note's own design of record for the screen."
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-260",
+        "version": 1,
+        "decision": "The build-playlist screen is a standalone route at /build-playlist with its own single-page form, not a step folded into the reconnect wizard's stepper or the reconstruct page's step rail.",
+        "reasoning": "design/reconnect-wizard/Specs.dc.html's scope-fence note states build-playlist 'has its own review model, and is not in Phase 1' and 'is its own entry point, not a branch of this one' -> the design of record already rules out grafting it onto either existing flow -> the new screen answers a third route, following navigation.py's existing table mechanism rather than a new one."
+      },
+      {
+        "id": "DL-261",
+        "version": 1,
+        "decision": "A nicegui-free traktor_nml/gui/buildplaylist_view.py module holds the build-playlist screen's form validation, invocation-argument shaping, and unresolved-row/report formatting; app.py imports it rather than holding that logic itself.",
+        "reasoning": "traktor_nml/gui/CLAUDE.md's nicegui-boundary convention (DL-069) keeps everything reducible to data/arithmetic in a module the system pytest interpreter (no nicegui installed) can import directly -> review_model.py and wizard_state.py are the established shape for this on the reconnect wizard -> the build-playlist screen's own form/report logic takes the same shape rather than living untested inside app.py's wiring."
+      },
+      {
+        "id": "DL-262",
+        "version": 1,
+        "decision": "The GUI drives traktor_nml/buildplaylist.py's assemble_output, traktor_nml/rewrite.py's path_collides/read_and_parse_source/write_bytes_atomically, and traktor_nml/split.py's build_output directly, mirroring build_playlist_cmd.py's own sequencing (collision refusal, decode, assemble, optional isolation pass, atomic write) without calling the CLI handler or building an argparse Namespace.",
+        "reasoning": "The MUST constraint forbids reimplementing matching, resolution or NML node synthesis in gui/, and a MUST NOT constraint forbids changing build_playlist_cmd.py's CLI behavior or output bytes -> app.py already drives reconnect_run/splice cores directly rather than shelling out to their CLI handlers, the established precedent for a second thin surface over one core -> the build-playlist screen takes the same shape, reusing the core modules' functions in the same order build_playlist_cmd.py calls them."
+      },
+      {
+        "id": "DL-263",
+        "version": 2,
+        "decision": "navigation.SECTIONS gains a third row, (\"/build-playlist\", \"Build playlist\"), appended after the existing reconstruct and reconnect rows, with no change to header_tabs' selection rule.",
+        "reasoning": "docs/plans/2026-09-03-header-tabs (DL-129..DL-147) already settled the tab mechanism after enumerating pitfalls with route-membership checks and label-based selection (a route prefix wrongly matching more than one tab, a renamed label silently breaking selection) -> the MUST constraint requires following that settled mechanism exactly, i.e. equality comparison against exactly one route, never membership -> a third row is therefore the minimal, precedent-following change (one tuple appended to SECTIONS) rather than a new selection mechanism or a third comparison rule."
+      },
+      {
+        "id": "DL-264",
+        "version": 1,
+        "decision": "The first shipped build-playlist screen shows unresolved tracklist lines as a read-only report (line, raw text, kind) beside an Allow unmatched toggle mirroring --allow-unmatched, rather than an interactive per-line accept/reject/pick review workflow.",
+        "reasoning": "The OUT-OF-SCOPE note flags a full review/conflict-resolution UI as a possible follow-on milestone, not assumed in scope -> buildplaylist.assemble_output already returns unresolved_rows whether or not the run aborts (DL-027, DL-034) -> a read-only report over that same data satisfies a first pass without inventing a decision-state model this plan does not schedule."
+      },
+      {
+        "id": "DL-265",
+        "version": 1,
+        "decision": "A design/build-playlist/Specs.dc.html artboard is drafted before the GUI requirements for the screen's inputs and report layout are finalized, and is the milestone this plan opens with.",
+        "reasoning": "Specs.dc.html's own scope-fence note states build-playlist 'has its own review model' and 'is its own entry point' -> DL-071's precedent treats an artboard as the design of record governing what the operator sees and presses, with a Specs-vs-code disagreement recorded rather than silently resolved -> the SHOULD constraint asks this to be an explicit early milestone decision, so the artboard is drafted first rather than requirements being written unmoored from one."
+      },
+      {
+        "id": "DL-266",
+        "version": 1,
+        "decision": "The base collection and the tracklist file are both chosen through gui/file_picker.py's existing pick_file_or_folder, matching the CLI's base/tracklist positional file arguments, rather than a paste-in-text tracklist entry.",
+        "reasoning": "The reconnect wizard's own Set up step already gathers its file inputs through pick_file_or_folder rather than an upload or paste control -> a second, different input pattern on a third route would read as an unexplained inconsistency an operator carries between screens -> the existing picker is reused for both files."
+      },
+      {
+        "id": "DL-267",
+        "version": 1,
+        "decision": "The GUI form omits --dry-run and the --unresolved-report CSV export; a dry run is achieved by simply not clicking Write, and the on-screen read-only unresolved-lines report (DL-264) replaces the CSV export for a first pass rather than also offering a file download.",
+        "reasoning": "DL-264 already commits to a read-only on-screen report over BuildPlaylistResult.unresolved_rows, the same data the CLI writes to CSV -> a Write-triggers-the-only-action form has no separate no-op state to name --dry-run, since simply not pressing Write is already a dry run -> a file-download control for the same rows the screen already renders is deferred with the rest of the review UI (OUT-OF-SCOPE), not silently dropped."
+      },
+      {
+        "id": "DL-268",
+        "version": 1,
+        "decision": "run_summary's sentence tracks build_playlist_cmd.py's own CLI wording for the same underlying condition (unresolved tracks, no entries resolved, target-folder errors, entries written) rather than inventing separate GUI phrasing.",
+        "reasoning": "The MUST NOT constraint forbids changing the CLI's own stdout contract, and this plan is GUI-only -> an operator who uses both surfaces should read the same words for the same condition rather than needing to learn two vocabularies for one tool -> run_summary is written as a thin rephrasing of build_playlist_cmd.py's existing print statements, not a new message set."
+      },
+      {
+        "id": "DL-269",
+        "version": 1,
+        "decision": "A failed base/tracklist read or parse, or a write failure, surfaces through run_summary as a refusal sentence naming the failure, the same way form_errors already surfaces a missing-field refusal, rather than an uncaught exception or a silent no-op; there is no GUI equivalent of the CLI's non-zero exit code.",
+        "reasoning": "The CLI answers I/O failures with an exception and a non-zero exit code, but a GUI page has no exit code to return -> DL-261/DL-264 already route business-logic outcomes (unresolved_tracks, no_entries_resolved, target-folder errors) through run_summary's refusal sentence -> an I/O failure is the same kind of run-ending condition and is folded into the same refusal-sentence path rather than left to an unhandled exception."
+      },
+      {
+        "id": "DL-270",
+        "version": 1,
+        "decision": "The report table does not surface MatchConfidence.LOOSE explicitly; every resolved row in this first pass is, by construction, a LOOSE match, so a confidence column would carry one constant value on every row.",
+        "reasoning": "assemble_output resolves tracklist lines via resolve_tracklist at a fixed MatchConfidence.LOOSE because a text-only Artist/Title line has no path/size/time to match on more strictly -> a column whose value never varies gives the operator no decision-relevant signal -> DL-264 already scopes the report to unresolved rows (unparseable/unmatched/ambiguous), and a constant-valued confidence column on matched rows is left out rather than added for its own sake."
+      },
+      {
+        "id": "DL-271",
+        "version": 1,
+        "decision": "This plan schedules no keyboard-navigation, focus-ring, tab-order or screen-reader/announcement milestone for the build-playlist screen beyond whatever the existing header-tab shell and theme.py already provide.",
+        "reasoning": "The reconnect wizard's own keyboard/accessibility work already shipped in the now-frozen plan-tool repo, but that does not obligate every new screen to redo it immediately -> the user has stated this class of work is out of scope for new work until explicitly asked for -> this plan follows that standing preference rather than silently omitting the topic or scheduling it unasked."
+      },
+      {
+        "id": "DL-272",
+        "version": 1,
+        "decision": "The build-playlist form's output path is not a separate literal path chooser; it is derived by combining the playlist name field with the optional target-folder field (relative to the base collection's own directory when target-folder is empty), the same way rewrite.path_collides and the write step consume it.",
+        "reasoning": "build_playlist_cmd.py's own 'output' is a required positional distinct from --name and --target-folder, but M-001's enumerated controls (base chooser, tracklist chooser, name, target folder, two switches, Write, report) name no separate output-path input -> asking the operator to type or browse to a full output path duplicates information already captured by name+target-folder and invites a mismatch between the two -> the GUI derives the output path from name+target-folder before calling path_collides, so the same two fields already in the form fully determine the write destination the CLI checks and writes."
+      }
+    ],
+    "rejected_alternatives": [
+      {
+        "id": "RA-001",
+        "alternative": "Grafting a build-playlist step onto the reconnect wizard's existing Main/Review/Confirm flow",
+        "rejection_reason": "Rejected by the design of record itself (Specs.dc.html's scope-fence note: 'not a branch of this one'); it has its own review model and inputs (a base collection + an external tracklist, not a second NML to reconcile against)",
+        "decision_ref": "DL-260"
+      },
+      {
+        "id": "RA-002",
+        "alternative": "Duplicating buildplaylist.py's/tracklist.py's resolution and assembly logic inside gui/",
+        "rejection_reason": "Rejected per the package's established layering (every write command pairs a core module with a thin surface: splice.py/splice_cmd.py, split.py/split_cmd.py, buildplaylist.py/build_playlist_cmd.py); the GUI should be a third thin surface over the same core, per how app.py already drives reconnect's core rather than reimplementing it",
+        "decision_ref": "DL-262"
+      },
+      {
+        "id": "RA-003",
+        "alternative": "Inventing a new navigation/tab mechanism for the third route",
+        "rejection_reason": "Rejected in favor of extending navigation.py's existing tab table (DL-129..DL-147), since the header-tabs plan already settled the mechanism (anchor+aria-current, equality-only comparison) after enumerating pitfalls",
+        "decision_ref": "DL-263"
+      },
+      {
+        "id": "RA-004",
+        "alternative": "Scheduling keyboard/focus-ring/accessibility work for this new screen now",
+        "rejection_reason": "Explicitly out of scope per standing user preference; the reconnect wizard's own such work is done (already shipped, per the frozen plan-tool repo) but this new screen does not inherit an obligation to redo that work immediately",
+        "decision_ref": "DL-271"
+      }
+    ],
+    "constraints": [
+      "MUST: reuse traktor_nml/buildplaylist.py's assemble_output and traktor_nml/tracklist.py's parse_tracklist/resolve_tracklist as the core the GUI drives - do not reimplement matching, resolution or NML node synthesis in gui/ (precedent: app.py drives run_reconnection/write_reconnect_result today rather than reimplementing reconnect logic)",
+      "MUST NOT: change traktor_nml/commands/build_playlist_cmd.py's CLI behavior, stdout/stderr/exit-code contract, or written output bytes - this is GUI-only work",
+      "MUST: any new nicegui-free logic (e.g. a view-model layer analogous to review_model.py/wizard_state.py) imports no nicegui/pywebview, so the system pytest interpreter (no nicegui installed) can guard it directly - established package convention (see gui/CLAUDE.md's nicegui boundary, DL-069)",
+      "MUST: the new route follows the existing header-tab mechanism from docs/plans/2026-09-03-header-tabs (DL-129..DL-147) exactly - an anchor per route in navigation.py's tab table, aria-current=\"page\" plus wizard-tab-selected on the active tab, equality comparison against exactly one route, never membership - rather than inventing a new nav pattern",
+      "MUST NOT: schedule a keyboard-contract or announcements/accessibility milestone for this new screen (standing user preference; out of scope until the user explicitly asks)",
+      "MUST: new decision log entries are appended starting at DL-260. traktor_nml/README.md is the authority for the high-water mark and states it as DL-259, the tail of the implemented docs/plans/2026-09-15-resolve-detail-rail block. An unimplemented block yields to an implemented one and shifts whole, per docs/2026-08-26-renderer-split-plan.md:92 and docs/plans/2026-09-03-header-tabs/README.md:24 - re-read the live mark immediately before minting new DL numbers, since this file is a point-in-time snapshot and more same-day work may land after it was written",
+      "MUST: new plan lives under C:\\codex\\traktor-nml-tool\\docs\\plans\\<date>-<topic>\\, following the established scheme (plan.json + context.json [+ plan.md, qr-*.json]) - never under the sibling traktor-nml-tool-plan repo",
+      "SHOULD: if design/reconnect-wizard/Specs.dc.html or a new artboard is the design of record for this screen (DL-071's precedent: Specs governs what the operator sees and presses), determine in an early milestone whether a wireframe must be drafted before UI requirements are written, rather than inventing UI details unmoored from a design source"
+    ],
+    "risks": [
+      {
+        "id": "R-001",
+        "risk": "README.md's DL high-water mark can move again before this plan mints DL-260 onward: same-day work lands on this package without a docs/plans/ directory of its own, and an implemented block taking DL-260 upward would collide with this one.",
+        "mitigation": "Re-verify the live traktor_nml/README.md high-water mark immediately before writing DL-260, per the MUST constraint; if it has moved, shift M-004's DL range accordingly rather than colliding with newly landed entries.",
+        "anchor": null,
+        "decision_ref": "DL-260"
+      },
+      {
+        "id": "R-002",
+        "risk": "The GUI's write path (assemble_output/build_output/write_bytes_atomically driven directly from app.py) can diverge from build_playlist_cmd.py's own written output bytes as either side changes, silently breaking the MUST NOT CLI-byte-identity constraint.",
+        "mitigation": "tests/test_build_playlist_byte_identity.py::test_gui_write_path_matches_cli_output_bytes (CI-M-003-004) runs both the CLI handler and the GUI's _build_build_playlist_page against the same fixture inputs and diffs the written bytes, so a future change to either path that breaks byte-identity fails this guard.",
+        "anchor": null,
+        "decision_ref": "DL-262"
+      },
+      {
+        "id": "R-003",
+        "risk": "A future gui/ module could accidentally import nicegui/pywebview, regressing the nicegui-free boundary the system pytest interpreter relies on to test view-model logic without nicegui installed.",
+        "mitigation": "tests/test_gui_view_boundary.py::test_only_app_file_picker_and_main_import_the_framework already AST-walks every module under traktor_nml/gui/ and asserts only app.py, file_picker.py and __main__.py import the framework, so it automatically catches a regression in the new buildplaylist_view.py without needing a per-module extension (CI-M-003-002).",
+        "anchor": null,
+        "decision_ref": "DL-261"
+      }
+    ],
+    "decision_id_start": 242
+  },
+  "invisible_knowledge": {
+    "system": "traktor-nml-tool is a CLI+GUI package for repairing/rebuilding Traktor NML collection and playlist files. The GUI is a NiceGUI app with a header-tab shell: '/' serves the 'reconstruct' page, '/reconnect' serves the reconnect wizard, and this plan adds '/build-playlist' as a third route, all sharing one header (navigation.py + theme.py) built by docs/plans/2026-09-03-header-tabs. Every write command in the package pairs a thin commands/ CLI surface with a core module holding the real logic (splice.py/splice_cmd.py, split.py/split_cmd.py, buildplaylist.py/build_playlist_cmd.py); the GUI is a second thin surface over the same core modules the CLI already drives, never a third place logic can drift. Within gui/, everything reducible to data/arithmetic (status derivation, decision state, filter predicates, token tables, tab selection, and now build-playlist's form validation/report formatting) lives in a nicegui-free module the system pytest interpreter can import directly, while app.py itself holds only wiring and is tested instead through a served-page browser-record gate.",
+    "invariants": [
+      "Thin-surface layering: every write command pairs a commands/ CLI surface with a core module (splice.py/splice_cmd.py, split.py/split_cmd.py, buildplaylist.py/build_playlist_cmd.py); the GUI is a second thin surface over the same core modules, never reimplementing matching, resolution or NML node synthesis in gui/.",
+      "Nicegui-boundary rule (DL-069): only traktor_nml/gui/app.py, file_picker.py and __main__.py import nicegui/pywebview; every other gui/ module, including buildplaylist_view.py, stays importable on the system pytest interpreter with no nicegui installed, guarded automatically by tests/test_gui_view_boundary.py's AST walk.",
+      "A playlist built from external tracklist text has no source span in the base NML (DL-028), so buildplaylist.assemble_output's fragment always takes the ElementTree-serialization path rather than transplantation - relevant if the GUI ever previews the fragment before writing."
+    ],
+    "tradeoffs": [
+      "Read-only unresolved-lines report vs. an interactive per-line review/conflict-resolution workflow: the first shipped screen takes the read-only report (DL-264), trading immediate resolve-in-place convenience for a smaller, precedent-following first pass; a full review UI is flagged as a possible follow-on milestone, not assumed in scope.",
+      "DL-028's constraint that an externally-sourced playlist has no source span and always takes the ElementTree-serialization path (rather than the byte-span transplantation path other operations can use) is a fixed property of buildplaylist.assemble_output, not a choice this plan makes, but it bounds what the GUI can ever preview about the fragment before writing."
+    ]
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 3,
+      "number": 1,
+      "name": "Build-playlist artboard and route table entry",
+      "files": [
+        "design/build-playlist/Specs.dc.html",
+        "traktor_nml/gui/navigation.py",
+        "traktor_nml/gui/CLAUDE.md",
+        "tests/test_gui_navigation.py",
+        "tests/test_gui_header_tabs.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "Specs.dc.html names every control the build-playlist form and its report carry: base-collection chooser, tracklist chooser, name field, target-folder field, Allow unmatched switch, Full collection switch, Write control, unresolved-lines report",
+        "navigation.SECTIONS carries exactly three rows in a fixed order, with /build-playlist last",
+        "header_tabs selects exactly the record whose route equals the active route, unchanged for the two existing routes",
+        "The write step's output path is derived from the name field plus the optional target-folder field (DL-272), not a separate output-path chooser; M-001's controls fully determine the path M-003 collision-checks and writes"
+      ],
+      "acceptance_criteria": [
+        "design/build-playlist/Specs.dc.html exists and documents the screen's inputs, toggles and report layout, with a scope note that interactive per-line review is a later entry point",
+        "header_tabs(\"/build-playlist\") returns three HeaderTab records with only the build-playlist one selected and carrying ARIA_CURRENT_SELECTED",
+        "header_tabs(\"/\") and header_tabs(\"/reconnect\") each still select exactly their own record"
+      ],
+      "tests": [
+        "tests/test_gui_navigation.py::test_header_tabs_selects_build_playlist_route (unit, doc-derived from navigation.py's existing selection-rule tests)",
+        "tests/test_gui_navigation.py::test_existing_routes_still_select_exactly_one_record (unit, regression over the two prior routes)",
+        "tests/test_gui_header_tabs.py (regression: update test_header_renders_two_links_in_table_order, test_app_py_registers_exactly_the_two_routes, test_app_py_names_no_route_outside_its_two_registrations and test_app_py_names_neither_tab_label for a third route/tab so the suite does not land red)"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "design/build-playlist/Specs.dc.html",
+          "function": null,
+          "behavior": "Documents the build-playlist screen as the design of record: a single form naming the base collection and tracklist file pickers, the playlist name field, the optional target-folder field, the Allow unmatched and Full collection toggles, the write control, and a read-only unresolved-lines report (line number, raw text, kind) shown after a run. Repeats theme.py's measured tokens the way Main.dc.html and the reconnect artboards already do, and carries a scope note that an interactive per-line review workflow is a later entry point, not part of this screen. Notes that the output path itself is derived from the name field plus the optional target-folder field (DL-272) rather than a separate output-path chooser.",
+          "decision_refs": [
+            "DL-260",
+            "DL-264",
+            "DL-265",
+            "DL-272"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 3,
+          "file": "traktor_nml/gui/navigation.py",
+          "function": "SECTIONS",
+          "behavior": "SECTIONS carries a third row, (\"/build-playlist\", \"Build playlist\"), appended after the reconnect row, read by header_tabs the same way the existing two rows are: the record whose route equals the active route carries TAB_SELECTED_CLASS and ARIA_CURRENT_SELECTED, and the other two carry neither. The module docstring and the SECTIONS inline comment, both of which currently hard-code two routes by name and position (reconstruct leftmost, reconnect second), are updated to describe three rows so the prose no longer contradicts the code.",
+          "decision_refs": [
+            "DL-263"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 2,
+          "file": "tests/test_gui_navigation.py",
+          "function": "test_header_tabs_selects_build_playlist_route",
+          "behavior": "Asserts header_tabs(\"/build-playlist\") returns three records with the build-playlist record selected and the reconstruct and reconnect records unselected, and that header_tabs(\"/\") and header_tabs(\"/reconnect\") still select exactly their own record now that a third row exists.",
+          "decision_refs": [
+            "DL-263"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 1,
+          "file": "traktor_nml/gui/CLAUDE.md",
+          "function": null,
+          "behavior": "Adds a row for the new traktor_nml/gui/buildplaylist_view.py module to the package's per-file table, and updates navigation.py's existing row/description (currently 'either route or either label', describing two rows) to state that SECTIONS now carries three rows, so the file stays the home of the nicegui-boundary convention DL-261 leans on.",
+          "decision_refs": [
+            "DL-261",
+            "DL-263"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": "traktor_nml/gui/navigation.py: the framework-free tab table + selection-rule module shared by all three wizard routes ('/', '/reconnect', '/build-playlist'); SECTIONS is read by header_tabs, which selects the one record whose route equals the active route by equality comparison, never membership.",
+        "docstrings": [
+          {
+            "function": "header_tabs",
+            "docstring": "Return one HeaderTab record per SECTIONS row; the record whose route equals `active_route` carries TAB_SELECTED_CLASS and ARIA_CURRENT_SELECTED, the other rows carry neither."
+          }
+        ],
+        "function_blocks": [
+          {
+            "function": "SECTIONS",
+            "comment": "Third row, (\"/build-playlist\", \"Build playlist\"), appended after the reconnect row per DL-263, extending docs/plans/2026-09-03-header-tabs' tab table rather than inventing a new nav mechanism.",
+            "decision_ref": "DL-263",
+            "source": null
+          }
+        ],
+        "inline_comments": [
+          {
+            "location": "SECTIONS:module-docstring",
+            "comment": "Update the module docstring and SECTIONS' inline comment (both currently hard-code two routes by name and position) to describe three rows so the prose no longer contradicts the code.",
+            "decision_ref": "DL-263",
+            "source": null
+          }
+        ]
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 3,
+      "number": 2,
+      "name": "Nicegui-free build-playlist view model",
+      "files": [
+        "traktor_nml/gui/buildplaylist_view.py",
+        "tests/test_gui_buildplaylist_view.py",
+        "tests/CLAUDE.md"
+      ],
+      "flags": [],
+      "requirements": [
+        "form_errors reports every reason a Continue-equivalent control refuses to start a run: no base path, no tracklist path, no name; an otherwise-filled FormInputs reports none",
+        "unresolved_report_rows shapes BuildPlaylistResult.unresolved_rows into report-table tuples covering all three UnresolvedRow.kind values",
+        "run_summary shapes a result's stats and errors into the sentence the write step shows, for both an aborted run and a written one"
+      ],
+      "acceptance_criteria": [
+        "form_errors returns a non-empty, stable-ordered list for each single missing field and an empty list for a fully filled form",
+        "unresolved_report_rows returns one tuple per unresolved_rows entry, in the same order, for unparseable, unmatched and ambiguous kinds",
+        "run_summary distinguishes an aborted result (unresolved_tracks, no_entries_resolved, a target-folder error) from a written one (entries_written, final playlist_name) in its returned text"
+      ],
+      "tests": [
+        "tests/test_gui_buildplaylist_view.py::test_form_errors_reports_each_missing_field (unit, doc-derived from build_playlist_cmd.py's own required-argument set)",
+        "tests/test_gui_buildplaylist_view.py::test_unresolved_report_rows_covers_all_kinds (unit, doc-derived from UnresolvedRow.kind)",
+        "tests/test_gui_buildplaylist_view.py::test_run_summary_aborted_and_written (unit, doc-derived from BuildPlaylistResult.errors)"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 2,
+          "file": "traktor_nml/gui/buildplaylist_view.py",
+          "function": "form_errors",
+          "behavior": "Imports no nicegui. Holds FormInputs (base path, tracklist path, playlist name, optional target folder, allow_unmatched, full_collection) and a form_errors(inputs) function returning the empty-base-path, empty-tracklist-path and empty-name refusals a Continue control checks before a run starts, matching the file-chosen/name-required checks the Set up step's own go_to_scan already makes for the reconnect wizard. Holds unresolved_report_rows(result) shaping buildplaylist.BuildPlaylistResult.unresolved_rows into the (line_number, raw_text, kind) tuples the report table renders, and run_summary(result) shaping result.stats and result.errors into the sentence the write step's hero line and refusal label show, covering both an aborted run (unresolved_tracks, no_entries_resolved, the target-folder errors) and a written one.",
+          "decision_refs": [
+            "DL-261",
+            "DL-262",
+            "DL-264"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 2,
+          "file": "tests/test_gui_buildplaylist_view.py",
+          "function": "test_form_errors_reports_each_missing_field",
+          "behavior": "Runs on the system pytest interpreter with no nicegui installed, importing traktor_nml.gui.buildplaylist_view directly. Covers form_errors for a missing base path, a missing tracklist path, a missing name, and a fully filled form (empty list); unresolved_report_rows against a BuildPlaylistResult carrying unparseable, unmatched and ambiguous rows; and run_summary against an aborted result (each documented error string) and a written result (entries_written, playlist_name).",
+          "decision_refs": [
+            "DL-261"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "tests/CLAUDE.md",
+          "function": null,
+          "behavior": "Adds a row for tests/test_gui_buildplaylist_view.py to the per-test-file table, naming what it guards (buildplaylist_view.py's form_errors/unresolved_report_rows/run_summary) and when to change it, following the one-row-per-guard convention every other test_gui_*.py file already has a row for.",
+          "decision_refs": [
+            "DL-261"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": "traktor_nml/gui/buildplaylist_view.py: nicegui-free view-model for the build-playlist screen, analogous to review_model.py/wizard_state.py for the reconnect wizard. Imports no nicegui/pywebview so the system pytest interpreter can exercise it directly (DL-069, DL-261).",
+        "docstrings": [
+          {
+            "function": "form_errors",
+            "docstring": "Return the ordered list of refusal strings for a FormInputs missing a base path, tracklist path or name; an empty list means the form is ready for Write."
+          },
+          {
+            "function": "unresolved_report_rows",
+            "docstring": "Shape BuildPlaylistResult.unresolved_rows into (line_number, raw_text, kind) tuples for the report table, preserving input order."
+          },
+          {
+            "function": "run_summary",
+            "docstring": "Shape a BuildPlaylistResult's stats and errors into the single sentence the write step shows, covering both an aborted run and a written one."
+          }
+        ],
+        "function_blocks": [
+          {
+            "function": "form_errors",
+            "comment": "Mirrors the file-chosen/name-required checks the reconnect wizard's Set up step already makes in go_to_scan, so the same refusal vocabulary appears on both screens.",
+            "decision_ref": "DL-261",
+            "source": null
+          }
+        ],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 3,
+      "number": 3,
+      "name": "Build-playlist page wiring on the wizard shell",
+      "files": [
+        "traktor_nml/gui/app.py",
+        "tests/test_gui_view_boundary.py",
+        "tests/test_build_playlist_byte_identity.py"
+      ],
+      "flags": [],
+      "requirements": [
+        "The /build-playlist page is registered from build_wizard() alongside the other two routes, built on _page_chrome(\"/build-playlist\")",
+        "The Write control stays disabled while buildplaylist_view.form_errors reports any refusal, and runs assemble_output/build_output/write_bytes_atomically under nicegui.run.io_bound in build_playlist_cmd.py's own order",
+        "Collision refusal uses rewrite.path_collides against the same base/tracklist/output triple the CLI checks, before any read",
+        "The result renders through buildplaylist_view.run_summary and unresolved_report_rows with no accept/reject control over a reported row"
+      ],
+      "acceptance_criteria": [
+        "Visiting /build-playlist renders the header with three tabs and the build-playlist tab selected",
+        "Clicking Write with an incomplete form performs no read or write and states the missing field(s)",
+        "A completed run against a fixture base collection and tracklist writes the same output bytes assemble_output/build_output already produce for the same inputs at the CLI, verified byte-for-byte by tests/test_build_playlist_byte_identity.py, and shows the report table for any unresolved lines",
+        "traktor_nml.gui.buildplaylist_view imports cleanly on the interpreter with no nicegui installed"
+      ],
+      "tests": [
+        "tests/test_gui_view_boundary.py::test_only_app_file_picker_and_main_import_the_framework (unit, nicegui-free interpreter, AST walk automatically covers the new buildplaylist_view.py)",
+        "tests/test_gui_view_boundary.py::test_build_playlist_page_calls_assemble_output (unit, AST/attribute check mirroring the existing _calls_amended_result/test_write_control_provider_calls_amended_result assertion)",
+        "tests/test_build_playlist_byte_identity.py::test_gui_write_path_matches_cli_output_bytes (unit, diffs GUI-written bytes against CLI-written bytes for identical fixture inputs)",
+        "docs/2026-09-15-build-playlist-browser-record.md (served-page browser record, user-specified per gui/CLAUDE.md's own convention for app.py wiring, not a pytest test)"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 2,
+          "file": "traktor_nml/gui/app.py",
+          "function": "_build_build_playlist_page",
+          "behavior": "Registers a fourth page at \"/build-playlist\" through a new _build_build_playlist_page function called from build_wizard() alongside _build_reconstruct_page, built on the shared _page_chrome(\"/build-playlist\") shell. The page's card holds two pick_file_or_folder-backed choosers (base collection file, tracklist file, both directories_only=False), a playlist-name input, an optional target-folder input, the Allow unmatched and Full collection switches, and a footer-band Write control that is disabled until buildplaylist_view.form_errors reports none. Write runs under nicegui.run.io_bound: it calls rewrite.read_and_parse_source and the tracklist file's own utf-8-sig decode, then buildplaylist.assemble_output, then, when not full_collection, split.build_output over a fresh SpanIndex the same way build_playlist_cmd.py isolates its own output, then rewrite.write_bytes_atomically guarded by rewrite.path_collides against the same base/tracklist/output triple the CLI checks. The result renders through buildplaylist_view.run_summary and unresolved_report_rows into a hero line, a refusal label and a read-only report table, with no accept/reject controls over an unresolved row.",
+          "decision_refs": [
+            "DL-260",
+            "DL-261",
+            "DL-262",
+            "DL-264",
+            "DL-266"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 2,
+          "file": "tests/test_gui_view_boundary.py",
+          "function": "test_only_app_file_picker_and_main_import_the_framework",
+          "behavior": "No code change to this test is required: its existing AST walk over traktor_nml/gui/ already asserts that only app.py, file_picker.py and __main__.py import nicegui/pywebview, so the new nicegui-free traktor_nml/gui/buildplaylist_view.py module is automatically covered the moment it exists. This intent's only work is confirming the walk still passes once buildplaylist_view.py is added, replacing the prior, unimplementable intent to extend tests/test_gui_import_isolation.py's module list (that file guards the opposite import direction and has no such list).",
+          "decision_refs": [
+            "DL-261"
+          ]
+        },
+        {
+          "id": "CI-M-003-003",
+          "version": 2,
+          "file": "tests/test_gui_view_boundary.py",
+          "function": "test_build_playlist_page_calls_assemble_output",
+          "behavior": "Adds an assertion mirroring test_gui_view_boundary.py:204's existing _calls_amended_result pattern (test_write_control_provider_calls_amended_result), but for app.py's new _build_build_playlist_page: an AST/attribute check that the page's write path calls buildplaylist.assemble_output, replacing the prior, misnamed intent that targeted tests/test_gui_module_imports.py (which holds only test_every_gui_module_actually_imports and its negative control, with no such assertion to mirror).",
+          "decision_refs": [
+            "DL-262"
+          ]
+        },
+        {
+          "id": "CI-M-003-004",
+          "version": 1,
+          "file": "tests/test_build_playlist_byte_identity.py",
+          "function": "test_gui_write_path_matches_cli_output_bytes",
+          "behavior": "Runs assemble_output/build_output/write_bytes_atomically once through the CLI's own build_playlist_cmd.py handler and once through the GUI's _build_build_playlist_page write path, against the same fixture base collection and tracklist file, then diffs the two written files byte-for-byte to guard the MUST NOT CLI-byte-identity constraint that M-003's acceptance criteria claims but no test previously checked.",
+          "decision_refs": [
+            "DL-262"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": "traktor_nml/gui/app.py: adds _build_build_playlist_page, the fourth page builder, called from build_wizard() alongside _build_reconstruct_page and the reconnect wizard's page builders. Holds wiring only; form/report logic lives in buildplaylist_view.py per the nicegui-boundary convention (DL-069, DL-261).",
+        "docstrings": [
+          {
+            "function": "_build_build_playlist_page",
+            "docstring": "Build the /build-playlist page: two file choosers, name/target-folder inputs, the two toggles, and a Write control gated on buildplaylist_view.form_errors; Write drives assemble_output/build_output/write_bytes_atomically under nicegui.run.io_bound in build_playlist_cmd.py's own order and renders the result through run_summary/unresolved_report_rows."
+          }
+        ],
+        "function_blocks": [
+          {
+            "function": "_build_build_playlist_page",
+            "comment": "Sequencing (collision refusal, decode, assemble, optional isolation pass, atomic write) mirrors build_playlist_cmd.py's own handler exactly, per the MUST NOT constraint that this plan not change the CLI's output bytes.",
+            "decision_ref": "DL-262",
+            "source": null
+          }
+        ],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 3,
+      "number": 4,
+      "name": "Decision log and plan record",
+      "files": [
+        "traktor_nml/README.md",
+        "docs/plans/2026-09-15-build-playlist-gui/README.md",
+        "docs/plans/README.md"
+      ],
+      "flags": [
+        "documentation-only"
+      ],
+      "requirements": [
+        "traktor_nml/README.md's decision log carries DL-260..DL-272 in order after DL-259, each restating this plan's decision and reasoning",
+        "docs/plans/2026-09-15-build-playlist-gui/README.md and docs/plans/README.md's table both describe what this plan covers and its DL range, in the same shape every other entry already takes"
+      ],
+      "acceptance_criteria": [
+        "grep for DL-260 through DL-272 in traktor_nml/README.md each resolves to this plan's own entries, immediately after DL-259",
+        "docs/plans/README.md's table gains exactly one new row for 2026-09-15-build-playlist-gui/"
+      ],
+      "tests": [
+        "Documentation-only milestone: no pytest coverage; reviewed by grepping traktor_nml/README.md for the DL-260..DL-272 range and confirming no existing DL-NNN collided (skip_reason: documentation-only, no executable behavior)"
+      ],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 1,
+          "file": "traktor_nml/README.md",
+          "function": null,
+          "behavior": "The decision log carries DL-260 through DL-266 in order, appended after DL-259, each stating what this plan decided and the reasoning chain recorded in this plan's own decision log.",
+          "decision_refs": [
+            "DL-260",
+            "DL-261",
+            "DL-262",
+            "DL-263",
+            "DL-264",
+            "DL-265",
+            "DL-266",
+            "DL-267",
+            "DL-268",
+            "DL-269",
+            "DL-270",
+            "DL-271",
+            "DL-272"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 1,
+          "file": "docs/plans/2026-09-15-build-playlist-gui/README.md",
+          "function": null,
+          "behavior": "States what this plan covers: a build-playlist route in the GUI wizard driving buildplaylist.py/tracklist.py's existing core, the artboard that is its design of record, and the DL-260..DL-266 range, following the same one-paragraph shape docs/plans/README.md's own table entries already use for every other directory.",
+          "decision_refs": [
+            "DL-260"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "version": 1,
+          "file": "docs/plans/README.md",
+          "function": null,
+          "behavior": "The directory table carries a new row for 2026-09-15-build-playlist-gui/, naming what it covers and the DL-260..DL-266 range, in the same form every other row already takes.",
+          "decision_refs": [
+            "DL-260"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": true,
+      "delegated_to": null
+    }
+  ],
+  "waves": [
+    {
+      "id": "W-001",
+      "milestones": [
+        "M-001"
+      ]
+    },
+    {
+      "id": "W-002",
+      "milestones": [
+        "M-002"
+      ]
+    },
+    {
+      "id": "W-003",
+      "milestones": [
+        "M-003"
+      ]
+    },
+    {
+      "id": "W-004",
+      "milestones": [
+        "M-004"
+      ]
+    }
+  ],
+  "diagram_graphs": [
+    {
+      "id": "DIAG-001",
+      "type": "architecture",
+      "scope": "overview",
+      "title": "Build-playlist route",
+      "nodes": [
+        {
+          "id": "page",
+          "label": "app.py /build-playlist page",
+          "type": "service"
+        },
+        {
+          "id": "view",
+          "label": "gui/buildplaylist_view.py (nicegui-free)",
+          "type": "service"
+        },
+        {
+          "id": "core",
+          "label": "buildplaylist.assemble_output + tracklist.py",
+          "type": "service"
+        },
+        {
+          "id": "shared",
+          "label": "rewrite.py + split.py (shared with build_playlist_cmd.py)",
+          "type": "service"
+        },
+        {
+          "id": "nav",
+          "label": "navigation.py SECTIONS",
+          "type": "service"
+        },
+        {
+          "id": "artboard",
+          "label": "design/build-playlist/Specs.dc.html (design of record)",
+          "type": "artifact"
+        }
+      ],
+      "edges": [
+        {
+          "source": "page",
+          "target": "view",
+          "label": "form_errors / run_summary / unresolved_report_rows",
+          "protocol": null
+        },
+        {
+          "source": "page",
+          "target": "core",
+          "label": "assemble_output under run.io_bound",
+          "protocol": null
+        },
+        {
+          "source": "page",
+          "target": "shared",
+          "label": "path_collides, build_output, write_bytes_atomically",
+          "protocol": null
+        },
+        {
+          "source": "page",
+          "target": "nav",
+          "label": "reads header_tabs(\"/build-playlist\")",
+          "protocol": null
+        },
+        {
+          "source": "view",
+          "target": "core",
+          "label": "unresolved_report_rows/run_summary shape BuildPlaylistResult from assemble_output",
+          "protocol": null
+        },
+        {
+          "source": "core",
+          "target": "shared",
+          "label": "assemble_output's fragment is written via rewrite.py/split.py, same as the CLI",
+          "protocol": null
+        },
+        {
+          "source": "nav",
+          "target": "page",
+          "label": "header_tabs(\"/build-playlist\") selects this page's tab",
+          "protocol": null
+        },
+        {
+          "source": "artboard",
+          "target": "page",
+          "label": "DL-265: design of record governs the page's inputs and report layout",
+          "protocol": null
+        }
+      ],
+      "ascii_render": null
+    }
+  ],
+  "readme_entries": [
+    {
+      "path": "traktor_nml/README.md",
+      "content": "Decision log gains DL-260 through DL-272 in order, appended after DL-259, each restating this plan's decision and reasoning chain exactly as recorded in this plan's planning_context.decisions."
+    },
+    {
+      "path": "docs/plans/2026-09-15-build-playlist-gui/README.md",
+      "content": "New plan directory README stating what this plan covers: a /build-playlist route in the GUI wizard that drives buildplaylist.py's/tracklist.py's existing core rather than duplicating it, the design/build-playlist/Specs.dc.html artboard that is its design of record, and the DL-260..DL-272 decision range."
+    },
+    {
+      "path": "docs/plans/README.md",
+      "content": "The directory table gains one new row for 2026-09-15-build-playlist-gui/, naming what it covers and its DL-260..DL-272 range, in the same one-line shape every other row already takes."
+    }
+  ]
+}

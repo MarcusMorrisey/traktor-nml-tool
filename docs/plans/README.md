@@ -22,6 +22,8 @@ milestone is shaped the way it is once its diffs are committed.
 | `2026-09-05-plex-and-composition-gate` | The typeface `theme.py` names, loaded rather than only named, and a served-page gate that reads composition and not only atoms (DL-163..DL-182) |
 | `2026-09-05-wizard-shell-chrome` | The header and footer bands, the middle that owns the viewport, and the card triplet the artboards draw, closing the app-shell, card-structure and footer-band entries under "Composition not built" (DL-183..DL-197) |
 | `2026-09-07-reconstruct-resolve-step` | The reconstruct page's four-step scaffold and its resolve step built to the artboards (DL-198..DL-215). All three milestones committed and closed on `docs/2026-09-07-reconstruct-resolve-browser-record.md`; carries a `README.md` recording the three defects that run found and the keyboard ring it could not walk |
+| `2026-09-15-build-playlist-gui` | A `/build-playlist` route driving the CLI's existing `buildplaylist.py`/`tracklist.py` core so an operator can build an NML playlist from a base collection and a supplied tracklist through the GUI (DL-260..DL-272). Design phase only, QR-passed; no milestone implemented yet |
+| `2026-09-15-resolve-detail-rail` | The resolve step's detail rail drawing each answer as a complete record - one row per tracked attribute as field name, formatted value and raw string, marked where the answers diverge - the agreeing values `splice` carries beside `attrs`, and the nicegui-free `traktor_nml/gui/answer_detail.py` that holds the labels, the unit formatting and the mark rule (DL-242..DL-259). Five milestones in four waves |
 
 The reconnect wizard's own plan is not here: it lives in the sibling
 `traktor-nml-tool-plan` repository (see [DEVELOPING.md](../../DEVELOPING.md#the-layout)),
@@ -30,11 +32,12 @@ snapshot, and is large enough to warrant that. **That repository is frozen at
 the tag `plan-final-w004` and takes no new plans**; this directory is the
 scheme going forward.
 
-The difference is why only one of them needs machinery. A plan here carries no
-`code_changes` - the newest, `2026-08-29-playlist-reconstruction`, has none and
-no waves - so there is nothing to replay and no byte-identity to protect. The
-wizard plan does carry them, and its `verify_frozen.py` checks that its
-snapshot and its baseline commits still hold.
+The difference is why only one of them needs machinery. A plan here carries
+`code_changes` as an intent an implementer reads, not as a diff anything
+replays: `2026-09-15-resolve-detail-rail` carries them and four waves, and
+nothing here checks a byte-identity against them. The wizard plan's are
+replayable, and its `verify_frozen.py` checks that its snapshot and its
+baseline commits still hold.
 
 ## What is in each directory
 

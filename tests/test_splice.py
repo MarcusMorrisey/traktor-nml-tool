@@ -10,6 +10,7 @@ import pytest
 from traktor_nml.confidence import MatchConfidence
 from traktor_nml.model import collection_records
 from traktor_nml.splice import (
+    _TRACKED_ATTRS,
     _apply_replacements,
     _resolve_conflicts,
     assemble_output,
@@ -404,6 +405,187 @@ def test_records_agreeing_on_every_divergent_attribute_are_one_candidate() -> No
         ("320",): ((0, key),),
         ("128",): ((1, key), (2, key)),
     }
+
+
+# The agreeing values are a field beside attrs, not a widening of it
+# (ref: DL-244), and they are well defined because an attribute outside
+# the divergent set holds one value across every member of the group
+# (ref: DL-245). The three-answer group is what proves the second
+# reading rather than assuming it; the CSV guard is what holds the first
+# where a fold into attrs would otherwise pass unseen (ref: DL-189).
+
+
+def _deep_entry(artist, title, album, size, time, bitrate) -> str:
+    """An ENTRY three folders deep carrying every tracked attribute as a
+    caller-set value, so two of these can disagree on all six and still
+    group: the path_suffix_3 tier strict admits reads the location alone
+    and needs three folder levels to fire."""
+    return (
+        f'<ENTRY TITLE="{title}" ARTIST="{artist}" AUDIO_ID="">'
+        f'<LOCATION DIR="/:Music/:Sets/:Deep/:" FILE="one.mp3" VOLUME="C:" VOLUMEID="C:"></LOCATION>'
+        f'<ALBUM TITLE="{album}"></ALBUM>'
+        f'<INFO BITRATE="{bitrate}" PLAYTIME_FLOAT="{time}" FILESIZE="{size}"></INFO>'
+        "</ENTRY>"
+    )
+
+
+def test_a_three_answer_group_carries_the_agreeing_tracked_attributes() -> None:
+    """A metadata-diverging group reports the tracked attributes it
+    agrees on as (name, value) pairs in _TRACKED_ATTRS order, each
+    holding the single value every member carries.
+
+    Read against a group of three answers so the reading is not
+    satisfied by a two-member group where every tracked attribute is
+    either divergent or identical by coincidence.
+
+    Mutation: `if attr not in divergent` in splice._agreed was changed
+    to `if attr in divergent` and this guard rerun. Observed:
+        AssertionError: assert (('bitrate', '320'),) ==
+        (('artist', '...at', '100.0'))
+          At index 0 diff: ('bitrate', '320') != ('artist', 'A')
+          Right contains 4 more items, first extra item: ('title', 'One')
+    """
+    base_text = _nml(_entry("A", "One", "one.mp3", size="8192", time="100.0"), 1, "")
+    first = base_text.replace('BITRATE="320"', 'BITRATE="128"')
+    second = base_text.replace('BITRATE="320"', 'BITRATE="064"')
+    result = assemble_output(
+        base_text, parse_xml_bytes(base_text.encode("utf-8")),
+        [_parsed(first), _parsed(second)], MatchConfidence.STRICT,
+    )
+
+    row = result.conflict_rows[0]
+    assert len(row.candidates) == 3
+    assert row.attrs == "bitrate"
+    assert row.agreed == (
+        ("artist", "A"),
+        ("title", "One"),
+        ("album", ""),
+        ("filesize", "8192"),
+        ("playtime_float", "100.0"),
+    )
+
+
+def test_a_group_diverging_on_every_tracked_attribute_carries_no_agreed_pairs() -> None:
+    """agreed is the complement of attrs, so a group that agrees on
+    nothing carries none - the empty tuple rather than a pair holding an
+    arbitrary member's value.
+
+    Mutation: `divergent = set(attrs)` in splice._agreed was changed to
+    `divergent = set()` and this guard rerun. Observed:
+        AssertionError: assert (('artist', '...rate', '320')) == ()
+          Left contains 6 more items, first extra item: ('artist', 'A')
+    """
+    base_text = _nml(_deep_entry("A", "One", "Alb", "16", "100.0", "320"), 1, "")
+    source_text = _nml(_deep_entry("B", "Two", "Bee", "32", "200.0", "128"), 1, "")
+    result = assemble_output(
+        base_text, parse_xml_bytes(base_text.encode("utf-8")),
+        [_parsed(source_text)], MatchConfidence.STRICT,
+    )
+
+    row = result.conflict_rows[0]
+    assert set(row.attrs.split(",")) == set(_TRACKED_ATTRS)
+    assert row.agreed == ()
+
+
+def test_the_conflict_report_and_the_printed_line_are_unmoved_by_agreed(tmp_path: Path) -> None:
+    """The CSV conflict report's columns and splice_cmd's printed line
+    read identically over a run whose rows carry agreed pairs: agreed is
+    a field the report never reads, and attrs is still the comma-joined
+    divergent set.
+
+    This is the reading that stays true in the broken state where agreed
+    was folded into attrs - the shape that would make the third CSV
+    column name fields the group agreed on (DL-189).
+
+    Mutation: `",".join(divergent_attrs)` in _metadata_conflict_row was
+    changed to `",".join(divergent_attrs + [a for a, _ in _agreed(members, divergent_attrs)])`
+    and this guard rerun. Observed:
+        assert ['identity_ke...",keep-first'] ==
+        ['identity_ke...e,keep-first']
+          At index 1 diff:
+          'C:/:Music/:one.mp3,"bitrate,artist,title,album,filesize,playtime_float",keep-first'
+          != 'C:/:Music/:one.mp3,bitrate,keep-first'
+    """
+    base_text = _nml(_entry("A", "One", "one.mp3", size="8192", time="100.0"), 1, "")
+    source_text = base_text.replace('BITRATE="320"', 'BITRATE="128"')
+    base_path = tmp_path / "base.nml"
+    base_path.write_text(base_text, encoding="utf-8", newline="")
+    other_path = tmp_path / "other.nml"
+    other_path.write_text(source_text, encoding="utf-8", newline="")
+    csv_path = tmp_path / "conflicts.csv"
+
+    # The same inputs through the library call, so the guard reads for
+    # itself that the run whose report it pins carries agreeing values.
+    carried = assemble_output(
+        base_text, parse_xml_bytes(base_text.encode("utf-8")),
+        [_parsed(source_text)], MatchConfidence.STRICT, on_conflict="keep-first",
+    ).conflict_rows[0]
+    assert carried.agreed != ()
+
+    result = run_tool(
+        ["splice", str(base_path), str(tmp_path / "out.nml"), "--input", str(other_path),
+         "--on-conflict", "keep-first", "--conflict-report", str(csv_path)],
+        cwd=tmp_path,
+    )
+
+    assert result.exit_code == 0
+    assert csv_path.read_text(encoding="utf-8", newline="").splitlines() == [
+        "identity_key,attrs,resolution",
+        "C:" + "/:Music/:" + "one.mp3,bitrate,keep-first",
+    ]
+    assert (
+        "conflict_key=C:" + "/:Music/:" + "one.mp3 attrs=bitrate resolution=keep-first"
+    ) in result.stdout.splitlines()
+
+
+def test_a_duplicate_playlist_name_row_and_an_ambiguous_redirect_row_keep_their_shape() -> None:
+    """The two rows built from a literal name no identity group, and
+    carry agreed empty rather than a pair read off members they do not
+    have.
+
+    Mutation: ConflictRow.agreed's default was changed from `()` to
+    `(("artist", ""),)` and this guard rerun. Observed:
+        AssertionError: assert (('artist', ''),) == ()
+          Left contains one more item: ('artist', '')
+    """
+    track_key = "C:" + "/:Music/:" + "track.mp3"
+    entries = _entry("A", "Song", "track.mp3", time="100.0")
+    duplicate_base = _nml(
+        entries, 1,
+        _playlist("MySet", [], "uuid-base") + _playlist("MySet", [track_key], "uuid-base2"),
+    )
+    duplicate_source = _nml(
+        entries.replace('BITRATE="320"', 'BITRATE="128"'), 1,
+        _playlist("MySet", [track_key], "uuid-prev"),
+    )
+    duplicate_result = _resolved(duplicate_base, duplicate_source, 1, reconstruct=True)
+    name_row = next(
+        row for row in duplicate_result.conflict_rows if row.attrs == "playlist_name"
+    )
+
+    a1 = _entry("A", "Song", "a1.mp3", time="100.0")
+    a2 = _entry("A", "Song", "a2.mp3", time="100.0")
+    a3 = _entry("A", "Song", "a3.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"')
+    other = _entry("B", "Other", "other.mp3")
+    redirect_base = _nml(
+        a1 + a2 + other, 3, _playlist("MySet", ["C:" + "/:Music/:" + "a1.mp3"], "uuid-base")
+    )
+    redirect_source = _nml(
+        a3 + other, 2,
+        _playlist(
+            "MySet",
+            ["C:" + "/:Music/:" + "other.mp3", "C:" + "/:Music/:" + "a3.mp3"],
+            "uuid-prev",
+        ),
+    )
+    redirect_result = _resolved(redirect_base, redirect_source, 1, reconstruct=True)
+    redirect_row = next(
+        row for row in redirect_result.conflict_rows if row.attrs == "ambiguous_redirect"
+    )
+
+    for row in (name_row, redirect_row):
+        assert row.agreed == ()
+        assert row.member_keys == frozenset()
 
 
 def test_a_pick_naming_the_second_source_beats_the_keep_first_answer() -> None:
