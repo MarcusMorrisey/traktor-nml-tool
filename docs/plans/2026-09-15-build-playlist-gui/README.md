@@ -4,7 +4,7 @@ A third route, `/build-playlist`, added to the NiceGUI wizard shell so an operat
 
 ## Status
 
-**Design only.** This directory holds the plan's design phase (context, decisions, milestones, code intents) with QR passed (`qr-plan-design.json`, 41/41 items PASS after one fix iteration). It carries no `code_changes` — nothing here has been implemented yet. Milestones 1-3 are unimplemented work; Milestone 4 (the decision-log and index entries this README partially anticipates) has not been executed either — `traktor_nml/README.md`'s decision log does not yet carry DL-260 onward.
+**Implemented.** Milestones 1 through 3 are committed: the artboard, the third nav tab, `buildplaylist_view.py`, and `app.py`'s `/build-playlist` page wiring, each with its guards - `pytest tests/ -q` reads 716 passed, 4 skipped under the system interpreter. Milestone 4 (this README, `docs/plans/README.md`'s row, and `traktor_nml/README.md`'s decision log) is closed by this update: the decision log now carries DL-260 through DL-272.
 
 | File | What |
 | --- | --- |
@@ -36,4 +36,4 @@ A third route, `/build-playlist`, added to the NiceGUI wizard shell so an operat
 3. **Build-playlist page wiring on the wizard shell** - `app.py`'s `_build_build_playlist_page`, plus a byte-identity guard (`tests/test_build_playlist_byte_identity.py`) proving the GUI's written output matches the CLI's for the same inputs.
 4. **Decision log and plan record** - `traktor_nml/README.md` gains DL-260..DL-272; this README and `docs/plans/README.md`'s table are updated. Documentation-only.
 
-This plan's own decisions are not yet in `traktor_nml/README.md` - that landing, along with Milestones 1-3's actual code, is future work.
+Read-only per DL-264: a future milestone may add an interactive per-line accept/reject/pick workflow over the unresolved-lines report, flagged in `context.json` as a possible follow-on rather than committed here.

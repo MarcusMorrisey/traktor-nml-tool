@@ -211,19 +211,20 @@ def _marked(recorder: _RecordingUi) -> tuple:
 # --------------------------------------------------------------------
 
 
-def test_header_renders_two_links_in_table_order():
+def test_header_renders_three_links_in_table_order():
     """The strip holds one anchor per SECTIONS row, in the order the
-    table declares, and no third anchor.
+    table declares, and no fourth anchor.
 
     Mutation: navigation.header_tabs was replaced for the call by one
     returning only the '/reconnect' record. Observed:
-        AssertionError: assert ['/reconnect'] == ['/', '/reconnect']
+        AssertionError: assert ['/reconnect'] == ['/', '/reconnect',
+        '/build-playlist']
         At index 0 diff: '/reconnect' != '/'
-        Right contains one more item: '/reconnect'
+        Right contains 2 more items
     """
     recorder = _render_header("/")
-    assert _targets(recorder) == ["/", "/reconnect"]
-    assert len(recorder.links) == 2
+    assert _targets(recorder) == ["/", "/reconnect", "/build-playlist"]
+    assert len(recorder.links) == 3
 
 
 def test_root_marks_the_root_tab_and_only_it():
@@ -393,32 +394,37 @@ def _builder(tree: ast.Module, name: str) -> ast.FunctionDef:
     raise AssertionError(name + " not found in app.py")
 
 
-def test_app_py_registers_exactly_the_two_routes():
-    """The set of ui.page arguments in app.py is {'/', '/reconnect'}:
-    two pages, and nothing registered at '/reconstruct', which
-    therefore answers the framework's own 404 (DL-141).
+def test_app_py_registers_exactly_the_three_routes():
+    """The set of ui.page arguments in app.py is {'/', '/reconnect',
+    '/build-playlist'}: three pages, and nothing registered at
+    '/reconstruct', which therefore answers the framework's own 404
+    (DL-141).
 
-    Mutation: a third registration, @ui.page("/reconstruct") over a
+    Mutation: a fourth registration, @ui.page("/reconstruct") over a
     stub function, was added to a copy of app.py's source and the same
     walk run over it. Observed:
-        AssertionError: assert {'/', '/recon.../reconstruct'} == {'/',
-        '/reconnect'}
+        AssertionError: assert {'/', '/reconnect', '/build-playlist',
+        '/reconstruct'} == {'/', '/reconnect', '/build-playlist'}
         Extra items in the left set: '/reconstruct'
     """
-    assert set(_page_routes(_app_tree())) == {"/", "/reconnect"}
+    assert set(_page_routes(_app_tree())) == {"/", "/reconnect", "/build-playlist"}
 
 
 def test_each_builder_registers_its_own_route():
-    """_build_reconstruct_page registers '/' and build_wizard registers
-    '/reconnect', each exactly once.
+    """_build_reconstruct_page registers '/', build_wizard registers
+    '/reconnect', and _build_build_playlist_page registers
+    '/build-playlist', each exactly once.
 
-    Mutation: the two ui.page arguments were swapped in a copy of
-    app.py's source and the same walk run over it. Observed:
+    Mutation: the '/' and '/reconnect' ui.page arguments were swapped in
+    a copy of app.py's source and the same walk run over it. Observed:
         AssertionError: assert ['/reconnect'] == ['/']
     """
     tree = _app_tree()
     assert _page_routes(_builder(tree, "_build_reconstruct_page")) == ["/"]
     assert _page_routes(_builder(tree, "build_wizard")) == ["/reconnect"]
+    assert _page_routes(_builder(tree, "_build_build_playlist_page")) == [
+        "/build-playlist"
+    ]
 
 
 def test_app_py_names_no_route_outside_its_two_registrations():

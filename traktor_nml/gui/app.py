@@ -46,6 +46,7 @@ from typing import Callable, NamedTuple, Optional
 
 from nicegui import app as nicegui_app, run, ui
 
+from .. import buildplaylist
 from .. import reconnect_run
 from ..diskscan import ScanCancelled
 from ..reconnect_render import (
@@ -54,9 +55,13 @@ from ..reconnect_render import (
 )
 from ..reconnect_run import ReconnectResult
 from ..confidence import MatchConfidence
-from ..rewrite import read_and_parse_source, write_bytes_atomically
+from ..rewrite import path_collides, read_and_parse_source, write_bytes_atomically
+from ..spans import SpanIndex
 from ..splice import assemble_output
+from ..split import build_output as split_build_output
+from ..xmlio import parse_xml_bytes
 from . import answer_detail
+from . import buildplaylist_view
 from . import collection_summary
 from . import conflict_model
 from . import navigation
@@ -66,6 +71,7 @@ from . import review_model
 # theme.py is the only source for a colour or size literal in this module (DL-078).
 from . import wizard_state
 from . import wording
+from .buildplaylist_view import FormInputs
 from .file_picker import pick_file_or_folder
 from .wizard_state import WizardState
 from . import theme
@@ -301,12 +307,13 @@ def _build_header(active_route: str) -> None:
 
 
 def build_wizard() -> None:
-    """Registers both of the app's pages: the reconstruct page at '/',
-    through _build_reconstruct_page below, and the reconnect wizard at
-    '/reconnect'. Called from __main__.py; kept separate from ui.run()
-    so a test importing this module (which itself imports nicegui) is
-    never exercised by the nicegui-free suite - only __main__.py calls
-    both this and ui.run."""
+    """Registers all three of the app's pages: the reconstruct page at
+    '/', through _build_reconstruct_page below, the reconnect wizard at
+    '/reconnect', and the build-playlist screen at '/build-playlist',
+    through _build_build_playlist_page. Called from __main__.py; kept
+    separate from ui.run() so a test importing this module (which
+    itself imports nicegui) is never exercised by the nicegui-free
+    suite - only __main__.py calls both this and ui.run."""
 
     def build_live_regions():
         """One polite live region and one assertive live region, each
@@ -320,6 +327,7 @@ def build_wizard() -> None:
         return polite, assertive
 
     _build_reconstruct_page()
+    _build_build_playlist_page()
 
     @ui.page("/reconnect")
     def index() -> None:
@@ -1634,6 +1642,224 @@ _RECONSTRUCT_ACTION_APPLIERS = {
 }
 
 
+def _derive_build_playlist_output_path(base_path: Path, name: str, target_folder: str) -> Path:
+    """The build-playlist write destination: the playlist name as the
+    file's stem, in the base collection's own directory, or in a
+    subdirectory named by target_folder when one is given. No separate
+    output-path control exists on the form (DL-272): this is the only
+    place a build-playlist output path is computed, and both
+    path_collides and the atomic write below consume its return value."""
+    directory = base_path.parent
+    if target_folder:
+        directory = directory / target_folder
+    return directory / f"{name}.nml"
+
+
+def _run_build_playlist(inputs: FormInputs) -> buildplaylist.BuildPlaylistResult:
+    """The build-playlist write path's whole sequence: collision
+    refusal, decode, assemble, the optional isolation pass, atomic
+    write - the same order build_playlist_cmd.py's own handler calls
+    them in, so neither this screen's behaviour nor its written bytes
+    diverge from the CLI's (DL-262). Called under run.io_bound, never
+    on the event loop directly."""
+    base_path = Path(inputs.base_path)
+    tracklist_path = Path(inputs.tracklist_path)
+    output_path = _derive_build_playlist_output_path(
+        base_path, inputs.name, inputs.target_folder
+    )
+
+    if path_collides(output_path, base_path, tracklist_path):
+        return buildplaylist.BuildPlaylistResult(
+            output=None, stats={}, unresolved_rows=[],
+            errors=["output_must_differ_from_input"],
+        )
+
+    base_result = read_and_parse_source(base_path)
+    if base_result.error is not None:
+        return buildplaylist.BuildPlaylistResult(
+            output=None, stats={}, unresolved_rows=[], errors=[base_result.error],
+        )
+    base_bytes, base_root = base_result.source_bytes, base_result.root
+
+    try:
+        tracklist_bytes = tracklist_path.read_bytes()
+    except OSError:
+        return buildplaylist.BuildPlaylistResult(
+            output=None, stats={}, unresolved_rows=[],
+            errors=[f"input_not_found={tracklist_path.as_posix()}"],
+        )
+    try:
+        # utf-8-sig transparently strips a leading UTF-8 BOM, matching
+        # build_playlist_cmd.py's own decode rather than letting it
+        # silently corrupt the first parsed line's artist name.
+        tracklist_text = tracklist_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return buildplaylist.BuildPlaylistResult(
+            output=None, stats={}, unresolved_rows=[],
+            errors=[f"tracklist_decode_error={tracklist_path.as_posix()}"],
+        )
+
+    result = buildplaylist.assemble_output(
+        base_bytes.decode("utf-8"), base_root, tracklist_text, inputs.name,
+        target_folder=inputs.target_folder or None,
+        allow_unmatched=inputs.allow_unmatched,
+    )
+    if result.output is None:
+        return result
+
+    output = result.output
+    if not inputs.full_collection:
+        # The normal hand-off is an importable, self-contained playlist,
+        # not a copy of the whole source collection - build_playlist_cmd.py's
+        # own --full-collection default (DL-262).
+        isolated_root = parse_xml_bytes(output.encode("utf-8"))
+        isolated = split_build_output(
+            output, isolated_root, [str(result.stats["playlist_name"])], "fail",
+            SpanIndex(output, isolated_root),
+        )
+        if isolated.output is None:
+            return buildplaylist.BuildPlaylistResult(
+                output=None, stats=result.stats, unresolved_rows=result.unresolved_rows,
+                errors=isolated.errors,
+            )
+        output = isolated.output
+
+    try:
+        write_bytes_atomically(output_path, output.encode("utf-8"))
+    except OSError as exc:
+        return buildplaylist.BuildPlaylistResult(
+            output=None, stats=result.stats, unresolved_rows=result.unresolved_rows,
+            errors=[f"output_write_error={exc}"],
+        )
+    return result
+
+
+def _build_build_playlist_page() -> None:
+    """Registers the build-playlist screen at '/build-playlist'.
+
+    Its own route rather than a step in either existing flow:
+    design/build-playlist/Specs.dc.html's own scope-fence note names
+    this as a separate job with its own review model, not a branch of
+    the reconnect wizard (DL-260). The screen drives
+    buildplaylist.assemble_output directly through
+    _run_build_playlist above, never through build_playlist_cmd.py's
+    own handler or an argparse Namespace (DL-262).
+    """
+
+    @ui.page("/build-playlist")
+    def build_playlist_page() -> None:
+        """The build-playlist screen: choose a base collection and a
+        track list, name the playlist, and write it. Composes against
+        the same shell as the other two routes - the same bands, the
+        same middle, the same card structure."""
+        chrome = _page_chrome("/build-playlist")
+
+        base_holder: dict = {"path": None}
+        tracklist_holder: dict = {"path": None}
+
+        with chrome.middle:
+            with ui.column().classes("gap-4 wizard-content-width"):
+                with ui.element("section").classes("wizard-card wizard-content-width"):
+                    with ui.element("div").classes("wizard-card-head"):
+                        ui.label("Build a playlist from a track list").classes(
+                            "wizard-card-title"
+                        )
+                    with ui.element("div").classes("wizard-card-body"):
+                        ui.label(
+                            'Match a plain-text "Artist - Title" list against a '
+                            "collection and write the matches as a new NML playlist."
+                        )
+
+                        base_display = ui.label("No collection selected").classes(
+                            "font-mono wizard-body-15 wizard-subtle-1"
+                        )
+
+                        async def choose_base() -> None:
+                            path = await pick_file_or_folder(directories_only=False)
+                            if path is not None:
+                                base_holder["path"] = path
+                                base_display.set_text(str(path))
+                                _refresh_write_button()
+
+                        ui.button(
+                            "Choose collection file...", on_click=choose_base, color=None
+                        ).classes("wizard-control wizard-label")
+
+                        tracklist_display = ui.label("No track list selected").classes(
+                            "font-mono wizard-body-15 wizard-subtle-1"
+                        )
+
+                        async def choose_tracklist() -> None:
+                            path = await pick_file_or_folder(directories_only=False)
+                            if path is not None:
+                                tracklist_holder["path"] = path
+                                tracklist_display.set_text(str(path))
+                                _refresh_write_button()
+
+                        ui.button(
+                            "Choose track list...", on_click=choose_tracklist, color=None
+                        ).classes("wizard-control wizard-label")
+
+                        name_input = ui.input(
+                            "Playlist name", on_change=lambda _e: _refresh_write_button()
+                        ).classes("w-full")
+                        target_folder_input = ui.input("Target folder (optional)").classes(
+                            "w-full"
+                        )
+                        allow_unmatched_switch = ui.switch("Allow unmatched lines")
+                        full_collection_switch = ui.switch("Full collection")
+
+                with ui.element("section").classes(
+                    "wizard-card wizard-content-width"
+                ) as report_section:
+                    with ui.element("div").classes("wizard-card-head"):
+                        ui.label("Unresolved lines").classes("wizard-card-title")
+                    with ui.element("div").classes("wizard-card-body"):
+                        report_table = ui.column().classes("gap-1")
+                report_section.set_visibility(False)
+
+        def _current_inputs() -> FormInputs:
+            return FormInputs(
+                base_path=str(base_holder["path"] or ""),
+                tracklist_path=str(tracklist_holder["path"] or ""),
+                name=name_input.value or "",
+                target_folder=target_folder_input.value or "",
+                allow_unmatched=bool(allow_unmatched_switch.value),
+                full_collection=bool(full_collection_switch.value),
+            )
+
+        def _refresh_write_button() -> None:
+            errors = buildplaylist_view.form_errors(_current_inputs())
+            write_button.set_enabled(not errors)
+            chrome.footer_note.set_text(" ".join(errors))
+
+        async def write_playlist() -> None:
+            inputs = _current_inputs()
+            errors = buildplaylist_view.form_errors(inputs)
+            if errors:
+                chrome.footer_note.set_text(" ".join(errors))
+                return
+            result = await run.io_bound(_run_build_playlist, inputs)
+            chrome.footer_note.set_text(buildplaylist_view.run_summary(result))
+
+            report_table.clear()
+            rows = buildplaylist_view.unresolved_report_rows(result)
+            report_section.set_visibility(bool(rows))
+            with report_table:
+                for line_number, raw_text, kind in rows:
+                    with ui.row().classes("gap-3"):
+                        ui.label(str(line_number)).classes("font-mono wizard-subtle-3")
+                        ui.label(raw_text).classes("font-mono")
+                        ui.label(kind).classes("wizard-subtle-1")
+
+        with chrome.footer_actions:
+            write_button = ui.button(
+                "Write playlist", on_click=write_playlist, color=None
+            ).classes("wizard-control wizard-control-primary")
+
+        _refresh_write_button()
+
+
 # Write.dc.html:164-166's three assurances: what the confirmation states
 # before the write is made. Each is a fact about this run that the code
 # above enforces - a new file at the chosen path, every input left as it
@@ -2545,9 +2771,11 @@ def _build_reconstruct_page() -> None:
                                 ui.element("span").classes(
                                     "wizard-answer-field-mark"
                                 )
-                            ui.label(field.label).classes(
-                                "font-mono wizard-faint"
-                            )
+                            # No font class here: the key span states
+                            # the artboard's mono itself, and a Quasar
+                            # class on the label would set a family over
+                            # it (DL-069).
+                            ui.label(field.label).classes("wizard-faint")
                         ui.label(field.formatted or field.raw).classes(
                             "wizard-answer-field-value wizard-body-12 "
                             "wizard-subtle-5"
@@ -2562,8 +2790,7 @@ def _build_reconstruct_page() -> None:
                         ui.label(
                             field.raw if field.formatted else ""
                         ).classes(
-                            "wizard-answer-field-raw font-mono "
-                            "wizard-body-11 wizard-faint"
+                            "wizard-answer-field-raw wizard-faint"
                         )
 
                 def answer_control(group, view, candidate, reference,

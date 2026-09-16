@@ -82,7 +82,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-259`:
+This file is the authority for the log's high-water mark, which is `DL-272`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2312,6 +2312,64 @@ names, so the next plan numbers from there.
   its own for the same reason: padding there would inset the brand from
   the column while leaving the span itself correct, which is the half of
   the alignment a width alone does not settle (DL-162).
+- The build-playlist screen is a standalone route at `/build-playlist`
+  with its own single-page form, not a step folded into the reconnect
+  wizard's stepper or the reconstruct page's step rail: it is a
+  separate job with its own inputs and its own review model, not a
+  branch of either existing flow (DL-260).
+- A nicegui-free `traktor_nml/gui/buildplaylist_view.py` module holds
+  the build-playlist screen's form validation, invocation-argument
+  shaping, and unresolved-row/report formatting; `app.py` imports it
+  rather than holding that logic itself (DL-261).
+- The build-playlist screen drives `traktor_nml/buildplaylist.py`'s
+  `assemble_output`, `traktor_nml/rewrite.py`'s
+  `path_collides`/`read_and_parse_source`/`write_bytes_atomically`, and
+  `traktor_nml/split.py`'s `build_output` directly, mirroring
+  `build_playlist_cmd.py`'s own sequencing - collision refusal, decode,
+  assemble, optional isolation pass, atomic write - without calling the
+  CLI handler or building an `argparse.Namespace` (DL-262).
+- `navigation.SECTIONS` carries a third row, `("/build-playlist",
+  "Build playlist")`, appended after the reconstruct and reconnect
+  rows, with no change to `header_tabs`' selection rule (DL-263).
+- The first shipped build-playlist screen shows unresolved tracklist
+  lines as a read-only report - line, raw text, kind - beside an Allow
+  unmatched toggle mirroring `--allow-unmatched`, rather than an
+  interactive per-line accept/reject/pick review workflow (DL-264).
+- `design/build-playlist/Specs.dc.html` is the build-playlist screen's
+  design of record, drafted before its GUI requirements were finalized,
+  on the same precedent as the reconnect wizard's own artboard (DL-071,
+  DL-265).
+- The base collection and the tracklist file are both chosen through
+  `gui/file_picker.py`'s existing `pick_file_or_folder`, matching the
+  CLI's `base`/`tracklist` positional file arguments, rather than a
+  paste-in-text tracklist entry (DL-266).
+- The build-playlist GUI form omits `--dry-run` and the
+  `--unresolved-report` CSV export: a dry run is achieved by simply not
+  clicking Write, and the on-screen read-only unresolved-lines report
+  (DL-264) replaces the CSV export for a first pass rather than also
+  offering a file download (DL-267).
+- `buildplaylist_view.run_summary`'s sentence tracks
+  `build_playlist_cmd.py`'s own CLI wording for the same underlying
+  condition - unresolved tracks, no entries resolved, a target-folder
+  error, entries written - rather than inventing separate GUI phrasing
+  (DL-268).
+- A failed base/tracklist read or parse, or a write failure, surfaces
+  through `run_summary` as a refusal sentence naming the failure, the
+  same way `form_errors` already surfaces a missing-field refusal,
+  rather than an uncaught exception or a silent no-op; there is no GUI
+  equivalent of the CLI's non-zero exit code (DL-269).
+- The build-playlist report table does not surface
+  `MatchConfidence.LOOSE` explicitly: every resolved row in this first
+  pass is, by construction, a LOOSE match, so a confidence column would
+  carry one constant value on every row (DL-270).
+- The build-playlist screen schedules no keyboard-navigation, focus-ring,
+  tab-order or screen-reader/announcement work beyond whatever the
+  existing header-tab shell and `theme.py` already provide (DL-271).
+- The build-playlist form's output path is not a separate literal path
+  chooser: it is derived by combining the playlist name field with the
+  optional target-folder field, relative to the base collection's own
+  directory, the same way `rewrite.path_collides` and the write step
+  consume it (DL-272).
 
 ## Invariants
 

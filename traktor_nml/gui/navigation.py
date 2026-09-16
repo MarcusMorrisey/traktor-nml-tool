@@ -1,11 +1,12 @@
 """The header's section table and the tab records it renders, with no
 framework import.
 
-SECTIONS is the one place either route or either label is written: the
-reconstruct page answers '/' and stands leftmost, the reconnect wizard
-answers '/reconnect' and stands second. header_tabs(active_route)
-derives one record per row in that same order, carrying the row's route
-and label plus the three things a tab renders with - whether it is the
+SECTIONS is the one place a route or a label is written: the reconstruct
+page answers '/' and stands leftmost, the reconnect wizard answers
+'/reconnect' and stands second, and the build-playlist screen answers
+'/build-playlist' and stands third. header_tabs(active_route) derives
+one record per row in that same order, carrying the row's route and
+label plus the three things a tab renders with - whether it is the
 selected row, the class string it carries, and its aria-current value.
 
 Two axes are kept apart here: the table is what the header holds, the
@@ -29,6 +30,7 @@ from typing import Optional
 SECTIONS: tuple[tuple[str, str], ...] = (
     ("/", "Reconstruct playlists"),
     ("/reconnect", "Reconnect wizard"),
+    ("/build-playlist", "Build playlist"),
 )
 
 # The class every tab carries, and the second class the selected one

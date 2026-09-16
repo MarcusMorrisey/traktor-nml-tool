@@ -106,12 +106,12 @@ def test_marking_the_other_row_is_caught() -> None:
 
     Made to fail by mutating _tab in navigation.py to build every record
     with selected=False, ignoring the flag its caller passes:
-    AssertionError: assert [] == ['/reconnect'], Right contains one more
-    item: '/reconnect'.
+    AssertionError: assert [] == ['/reconnect', '/build-playlist'],
+    Right contains 2 more items.
     """
     selected = _selected_routes(_tabs_under(lambda route, active: route != active, "/"))
     assert selected != ["/"]
-    assert selected == ["/reconnect"]
+    assert selected == ["/reconnect", "/build-playlist"]
 
 
 def test_marking_both_rows_is_caught() -> None:
@@ -132,7 +132,7 @@ def test_marking_both_rows_is_caught() -> None:
     """
     selected = _selected_routes(_tabs_under(lambda route, active: True, "/"))
     assert selected != ["/"]
-    assert selected == ["/", "/reconnect"]
+    assert selected == ["/", "/reconnect", "/build-playlist"]
 
 
 def test_marking_no_row_is_caught() -> None:
@@ -154,20 +154,24 @@ def test_marking_no_row_is_caught() -> None:
 
 def test_routes_read_in_table_order_for_either_active_route() -> None:
     """The records arrive in the order SECTIONS declares - '/' first,
-    '/reconnect' second - whichever route is active.
+    '/reconnect' second, '/build-playlist' third - whichever route is
+    active.
 
-    Made to fail by reversing the two rows of SECTIONS in
-    navigation.py: AssertionError: assert ['/reconnect', '/'] == ['/',
-    '/reconnect'], At index 0 diff: '/reconnect' != '/'.
+    Made to fail by reordering the rows of SECTIONS in
+    navigation.py: AssertionError: assert ['/reconnect', '/', ...] ==
+    ['/', '/reconnect', '/build-playlist'], At index 0 diff:
+    '/reconnect' != '/'.
     """
-    assert [tab.route for tab in header_tabs("/")] == ["/", "/reconnect"]
-    assert [tab.route for tab in header_tabs("/reconnect")] == ["/", "/reconnect"]
+    expected = ["/", "/reconnect", "/build-playlist"]
+    assert [tab.route for tab in header_tabs("/")] == expected
+    assert [tab.route for tab in header_tabs("/reconnect")] == expected
+    assert [tab.route for tab in header_tabs("/build-playlist")] == expected
 
 
 def test_selected_and_unselected_records_carry_their_markers() -> None:
     """The selected record's class string holds both wizard-tab and
-    wizard-tab-selected at aria-current 'page'; the unselected record
-    holds wizard-tab alone at aria-current None.
+    wizard-tab-selected at aria-current 'page'; the unselected records
+    hold wizard-tab alone at aria-current None.
 
     Made to fail two ways, each mutation applied to
     navigation.py and run:
@@ -182,7 +186,7 @@ def test_selected_and_unselected_records_carry_their_markers() -> None:
       selected=False, classes='wizard-tab', aria_current='page')
       .aria_current
     """
-    root, reconnect = header_tabs("/")
+    root, reconnect, build_playlist = header_tabs("/")
 
     assert root.selected is True
     assert root.classes.split() == [TAB_CLASS, TAB_SELECTED_CLASS]
@@ -194,6 +198,34 @@ def test_selected_and_unselected_records_carry_their_markers() -> None:
     assert reconnect.aria_current is None
     assert reconnect.label == "Reconnect wizard"
 
+    assert build_playlist.selected is False
+    assert build_playlist.classes.split() == [TAB_CLASS]
+    assert build_playlist.aria_current is None
+    assert build_playlist.label == "Build playlist"
+
+
+def test_header_tabs_selects_build_playlist_route() -> None:
+    """header_tabs('/build-playlist') marks exactly one record and it is
+    the '/build-playlist' row; the two prior routes still select exactly
+    their own record now that a third row exists.
+
+    Made to fail by the same three mutations
+    test_root_selects_exactly_the_root_route documents, applied to
+    header_tabs and run against '/build-playlist':
+
+    - `route != active_route`: AssertionError: assert ['/', '/reconnect']
+      == ['/build-playlist']
+    - the constant True: AssertionError: assert ['/', '/reconnect',
+      '/build-playlist'] == ['/build-playlist'], Left contains 2 more
+      items
+    - the constant False: AssertionError: assert [] ==
+      ['/build-playlist'], Right contains one more item:
+      '/build-playlist'
+    """
+    assert _selected_routes(header_tabs("/build-playlist")) == ["/build-playlist"]
+    assert _selected_routes(header_tabs("/")) == ["/"]
+    assert _selected_routes(header_tabs("/reconnect")) == ["/reconnect"]
+
 
 def test_route_matching_no_row_selects_nothing() -> None:
     """An active route the table does not hold leaves every record
@@ -203,17 +235,17 @@ def test_route_matching_no_row_selects_nothing() -> None:
     navigation.py and run:
 
     - the comparison in header_tabs changed to `route != active_route`,
-      which marks both rows when the active route matches neither:
-      AssertionError: assert ['/', '/reconnect'] == []
+      which marks every row when the active route matches none:
+      AssertionError: assert ['/', '/reconnect', '/build-playlist'] == []
     - the aria_current field set to ARIA_CURRENT_SELECTED
-      unconditionally: AssertionError: assert ['page', 'page'] == [None,
-      None], At index 0 diff: 'page' != None
+      unconditionally: AssertionError: assert ['page', 'page', 'page']
+      == [None, None, None], At index 0 diff: 'page' != None
     """
     tabs = header_tabs("/nowhere")
 
     assert _selected_routes(tabs) == []
-    assert [tab.aria_current for tab in tabs] == [None, None]
-    assert [tab.classes for tab in tabs] == [TAB_CLASS, TAB_CLASS]
+    assert [tab.aria_current for tab in tabs] == [None, None, None]
+    assert [tab.classes for tab in tabs] == [TAB_CLASS, TAB_CLASS, TAB_CLASS]
 
 
 def _imported_roots(source: str) -> set[str]:

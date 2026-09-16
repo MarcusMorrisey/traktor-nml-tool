@@ -265,3 +265,57 @@ def test_provider_returning_unamended_result_is_caught() -> None:
     mutated_calls = _find_write_reconnect_result_calls(mutated_tree)
     mutated_provider_def = _provider_function_def(mutated_tree, mutated_calls[0])
     assert not _calls_amended_result(mutated_provider_def)
+
+
+def _calls_qualified(func_def: ast.FunctionDef, module_name: str, attr_name: str) -> bool:
+    """Whether func_def's body calls module_name.attr_name - an
+    Attribute call whose value is the bare Name module_name, so
+    `assemble_output(...)` alone (splice.py's own, imported unqualified
+    into app.py) does not satisfy a check for `buildplaylist.
+    assemble_output(...)`."""
+    for node in ast.walk(func_def):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == attr_name
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == module_name
+        ):
+            return True
+    return False
+
+
+def test_build_playlist_page_calls_assemble_output() -> None:
+    """_run_build_playlist, the function the build-playlist screen's
+    write control drives under run.io_bound, calls
+    buildplaylist.assemble_output - the module-qualified call, not
+    app.py's own unqualified assemble_output name, which splice.py's
+    reconstruct assembly already owns (DL-262).
+
+    Mutation: a copy of app.py's _run_build_playlist body had its
+    `buildplaylist.assemble_output(...)` call rewritten to the bare,
+    unqualified `assemble_output(...)` - splice.py's own function,
+    imported unqualified into app.py - and the same walk run over it.
+    Observed:
+        AssertionError: assert False
+    """
+    source = APP_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    candidates = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_run_build_playlist"
+    ]
+    assert candidates, "_run_build_playlist not found in app.py"
+    assert _calls_qualified(candidates[0], "buildplaylist", "assemble_output")
+
+    mutated = ast.parse(
+        source.replace(
+            "buildplaylist.assemble_output(",
+            "assemble_output(",
+        )
+    )
+    mutated_candidates = [
+        node for node in ast.walk(mutated)
+        if isinstance(node, ast.FunctionDef) and node.name == "_run_build_playlist"
+    ]
+    assert not _calls_qualified(mutated_candidates[0], "buildplaylist", "assemble_output")
