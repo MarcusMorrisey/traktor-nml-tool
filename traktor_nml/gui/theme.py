@@ -851,4 +851,13 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    a button under its label. */
 .buildplaylist-folder-row {{ display: flex; gap: {SPACE_14}; align-items: flex-start; flex-wrap: nowrap; width: 100%; }}
 .buildplaylist-folder-col {{ flex: 1; min-width: 0; gap: {SPACE_6}; }}
+/* Main.dc.html:46's .row on the reconnect setup cards: a path and the
+   control that chooses it on one line. The card body is a flex column,
+   whose default align-items stretches a direct child across its width,
+   so a chooser standing in it alone is drawn as wide as the card; in
+   this row it is sized to its label, as the artboard's .btn is (DL-299). */
+.wizard-path-row {{ display: flex; align-items: center; gap: {SPACE_10}; flex-wrap: nowrap; min-width: 0; width: 100%; }}
+.wizard-path-row > .font-mono, .wizard-path-row > .q-field {{ flex: 1; min-width: 0; }}
+.wizard-path-row > .font-mono {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.wizard-path-row > .q-btn {{ flex: none; }}
 """

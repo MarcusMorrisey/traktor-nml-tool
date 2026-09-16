@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-298`:
+This file is the authority for the log's high-water mark, which is `DL-299`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2562,6 +2562,20 @@ names, so the next plan numbers from there.
   `docs/2026-09-16-resolve-key-track-browser-record.md`. A guard computes
   the needed width from `LABELS` and the metrics `theme.py` states, so a
   longer label fails the suite rather than the page (DL-298).
+- A chooser button is sized to its label and stands in a flex row beside
+  the path it chooses, as every artboard's `.row` draws it. On
+  `/reconnect`, `Choose collection file...` and `Choose output folder...`
+  stood as direct children of `.wizard-card-body`, a flex column whose
+  default alignment stretched each to the card's `908px` around a label
+  under `150px`. Each is composed in a `wizard-path-row` with its path, the
+  path taking the room and the button `flex: none`, following
+  `Main.dc.html:92`'s `.row` (DL-071); the path stays a mono label rather
+  than the artboard's bordered `.field`. `/` and `/build-playlist` already
+  sat their choosers in rows and are unchanged. A guard reads app.py and
+  fails when a `Choose` or `Download CSV template` button is built inside
+  anything but a class the stylesheet declares as a flex row, and the
+  widths are read in `docs/2026-09-16-chooser-width-browser-record.md`
+  (DL-299).
 
 ## Invariants
 

@@ -405,23 +405,27 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 ui.label("Your Traktor collection").classes("wizard-card-title")
             with ui.element("div").classes("wizard-card-body"):
                 ui.label("My playlists are broken: the collection they point at moved.")
-                old_input_display = ui.label("No collection selected").classes("font-mono wizard-body-15 wizard-subtle-1")
-                old_input_holder: dict[str, Optional[Path]] = {"path": None}
+                # Main.dc.html:92's .row: the chosen path and the control that
+                # chooses it on one line, the control sized to its label rather
+                # than stretched across the card body's column (DL-299).
+                with ui.element("div").classes("wizard-path-row"):
+                    old_input_display = ui.label("No collection selected").classes("font-mono wizard-body-15 wizard-subtle-1")
+                    old_input_holder: dict[str, Optional[Path]] = {"path": None}
 
-                async def choose_old_input() -> None:
-                    path = await pick_file_or_folder(directories_only=False)
-                    if path is not None:
-                        old_input_holder["path"] = path
-                        old_input_display.set_text(str(path))
+                    async def choose_old_input() -> None:
+                        path = await pick_file_or_folder(directories_only=False)
+                        if path is not None:
+                            old_input_holder["path"] = path
+                            old_input_display.set_text(str(path))
 
-                # ui.button's own color parameter defaults to "primary" (NiceGUI's
-                # button.py), which Quasar renders as its own bg-primary/text-white
-                # utility classes - both carry !important in the bundled
-                # quasar.important.css, so no class this module adds could ever
-                # have outranked them; color=None is the only place that works
-                # (DL-086 rung one). Main.dc.html:97's "Choose file..." is a plain
-                # .btn, not .btn-pri, so this control is deliberately not primary.
-                ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-control-fill")
+                    # ui.button's own color parameter defaults to "primary" (NiceGUI's
+                    # button.py), which Quasar renders as its own bg-primary/text-white
+                    # utility classes - both carry !important in the bundled
+                    # quasar.important.css, so no class this module adds could ever
+                    # have outranked them; color=None is the only place that works
+                    # (DL-086 rung one). Main.dc.html:97's "Choose file..." is a plain
+                    # .btn, not .btn-pri, so this control is deliberately not primary.
+                    ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-control-fill")
 
                 # Main.dc.html:105's .card-t (13px/600) for the section this
                 # control belongs to. The button label below names a concept
@@ -505,34 +509,37 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                     fingerprint_switch.disable()
                     ui.label(control.reason or "").classes("wizard-body-11-5 wizard-dim")
 
-                output_input = ui.input("Output collection path").classes("w-full")
+                # The same .row for the output path: the typed path takes the
+                # room and the control beside it takes its own width (DL-299).
+                with ui.element("div").classes("wizard-path-row"):
+                    output_input = ui.input("Output collection path").classes("w-full")
 
-                async def choose_output() -> None:
-                    """Fills output_input from a chosen directory, keeping the
-                    typed path authoritative - the input stays editable and
-                    go_to_scan keeps reading it, so this control is a
-                    convenience over typing rather than a second source of
-                    truth.
+                    async def choose_output() -> None:
+                        """Fills output_input from a chosen directory, keeping the
+                        typed path authoritative - the input stays editable and
+                        go_to_scan keeps reading it, so this control is a
+                        convenience over typing rather than a second source of
+                        truth.
 
-                    Picks a directory rather than a file because the output is a
-                    path being named, not an existing file to open: the
-                    LocalFilePicker fallback can only select entries that
-                    already exist, so a file pick could not name a new one. The
-                    filename is appended here and stays editable.
-                    """
-                    directory = await pick_file_or_folder(directories_only=True)
-                    if directory is None:
-                        return
-                    typed = Path(output_input.value) if output_input.value else None
-                    name = (
-                        typed.name if typed is not None and typed.name
-                        else wizard_state.default_output_name(old_input_holder["path"])
-                    )
-                    output_input.value = str(directory / name)
+                        Picks a directory rather than a file because the output is a
+                        path being named, not an existing file to open: the
+                        LocalFilePicker fallback can only select entries that
+                        already exist, so a file pick could not name a new one. The
+                        filename is appended here and stays editable.
+                        """
+                        directory = await pick_file_or_folder(directories_only=True)
+                        if directory is None:
+                            return
+                        typed = Path(output_input.value) if output_input.value else None
+                        name = (
+                            typed.name if typed is not None and typed.name
+                            else wizard_state.default_output_name(old_input_holder["path"])
+                        )
+                        output_input.value = str(directory / name)
 
-                # Matches "Choose collection file..." above: a plain .btn with
-                # color=None (DL-086 rung one), not primary.
-                ui.button("Choose output folder...", on_click=choose_output, color=None).classes("wizard-control wizard-control-fill")
+                    # Matches "Choose collection file..." above: a plain .btn with
+                    # color=None (DL-086 rung one), not primary.
+                    ui.button("Choose output folder...", on_click=choose_output, color=None).classes("wizard-control wizard-control-fill")
 
                 def go_to_scan() -> None:
                     if old_input_holder["path"] is None or not scan_roots_holder:

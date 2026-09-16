@@ -106,6 +106,14 @@ READING_DIGESTS = {
     # verdicts against the amended .cmpf (ref: DL-084, DL-169, DL-298). The
     # digest is computed from the record as the browser run left it.
     "2026-09-16-resolve-key-track-browser-record.md": "eb2215068db5bb50cbe3dd644ac21e472817b133fcea2e178f13b1fc2428cfbf",
+    # The chooser buttons' widths close on a served-page record reading
+    # every Choose and Download CSV template button on /, /reconnect and
+    # /build-playlist against its label and its container, before and after
+    # the /reconnect choosers were composed in their row, with structural
+    # verdicts against each route's artboard .row (ref: DL-084, DL-169,
+    # DL-299). The digest is computed from the record as the browser run
+    # left it.
+    "2026-09-16-chooser-width-browser-record.md": "cfd0ec905103370579809cc81b01b5bbef6614d44a4d58f3b70df9ddfaa73507",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written
