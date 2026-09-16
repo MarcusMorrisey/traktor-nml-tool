@@ -75,6 +75,51 @@ def _placeholder_location(path: Path) -> LocationParts:
 
 
 
+_EMPTY_TAGS = {"artist": "", "title": "", "album": "", "playtime_float": "", "bitrate": ""}
+
+
+def _record_for_file(resolved: Path, file_stat, tags: Optional[dict]) -> EntryRecord:
+    """The disk-side EntryRecord for one file, shared by index_scan_roots
+    and index_files so a scanned file and an explicitly listed one carry
+    identical fields. tags None gives empty tag fields: the file is still
+    a candidate for the path and size tiers."""
+    tags = tags if tags is not None else _EMPTY_TAGS
+    return EntryRecord(
+        entry=None,
+        artist=tags.get("artist", ""),
+        title=tags.get("title", ""),
+        audio_id="",
+        # KILOBYTES, matching the unit Traktor writes into
+        # FILESIZE, so EntryRecord.filesize means one thing
+        # regardless of which side produced the record. The
+        # alternative - storing bytes and converting at
+        # comparison time - has to infer provenance from
+        # another field, and infers it silently: a candidate
+        # built without that field is out by 1024x with no
+        # error, only wrong answers.
+        filesize=str(round(file_stat.st_size / 1024)),
+        playtime_float=tags.get("playtime_float", ""),
+        bitrate=tags.get("bitrate", ""),
+        album=tags.get("album", ""),
+        file_name=resolved.name,
+        location=_placeholder_location(resolved),
+        source_path=resolved,
+    )
+
+
+class DiskReadError(OSError):
+    """A file named explicitly to index_files could not be stat()ed.
+
+    Raised rather than counted: index_scan_roots may skip an unreadable
+    file because the caller asked for whatever a walk finds, but a caller
+    of index_files named every file it wants, and a list one short is
+    indistinguishable from a complete one."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(f"cannot read {path.as_posix()}")
+        self.path = path
+
+
 def _tag_free_summary() -> str:
     """Which tiers survive with no readable tags, per confidence level.
 
@@ -248,33 +293,45 @@ def index_scan_roots(
 
             if tags is None:
                 stats["unreadable"] += 1
-                tags = {"artist": "", "title": "", "album": "", "playtime_float": "", "bitrate": ""}
 
-            records.append(
-                EntryRecord(
-                    entry=None,
-                    artist=tags.get("artist", ""),
-                    title=tags.get("title", ""),
-                    audio_id="",
-                    # KILOBYTES, matching the unit Traktor writes into
-                    # FILESIZE, so EntryRecord.filesize means one thing
-                    # regardless of which side produced the record. The
-                    # alternative - storing bytes and converting at
-                    # comparison time - has to infer provenance from
-                    # another field, and infers it silently: a candidate
-                    # built without that field is out by 1024x with no
-                    # error, only wrong answers.
-                    filesize=str(round(file_stat.st_size / 1024)),
-                    playtime_float=tags.get("playtime_float", ""),
-                    bitrate=tags.get("bitrate", ""),
-                    album=tags.get("album", ""),
-                    file_name=resolved.name,
-                    location=_placeholder_location(resolved),
-                    source_path=resolved,
-                )
-            )
+            # Only the record construction is shared with index_files; this
+            # walk keeps its own skip, dedupe, stats and cache rules, which
+            # the reconnect and discover baselines pin.
+            records.append(_record_for_file(resolved, file_stat, tags))
             _report_progress(on_progress, done, total, resolved, callback_every)
     finally:
         cache.flush()
 
+    return records
+
+
+def index_files(paths: Iterable[Path], cache: Optional[TagCache] = None) -> list[EntryRecord]:
+    """One EntryRecord per path, in the order given, duplicates kept.
+
+    No directory walk and no deduplication: the caller's list is the
+    playlist, so its order and repetitions are the playlist's (DL-037). A
+    path whose stat() fails raises DiskReadError naming it. A file whose
+    tags cannot be read still yields a record, with empty tag fields. With
+    cache None tags are read directly and no cache file is read or written.
+    """
+    records: list[EntryRecord] = []
+    for path in paths:
+        resolved = Path(path).resolve()
+        try:
+            file_stat = resolved.stat()
+        except OSError:
+            raise DiskReadError(resolved) from None
+        # A caller-supplied cache follows index_scan_roots' refresh rule;
+        # without one, tags are read directly and no cache file is left
+        # behind.
+        if cache is None:
+            tags = _read_tags(resolved)
+        elif cache.should_refresh(resolved, file_stat.st_size, file_stat.st_mtime, False):
+            tags = _read_tags(resolved)
+            cache.put(resolved, file_stat.st_size, file_stat.st_mtime, tags)
+        else:
+            tags = cache.get(resolved, file_stat.st_size, file_stat.st_mtime)
+        records.append(_record_for_file(resolved, file_stat, tags))
+    if cache is not None:
+        cache.flush()
     return records

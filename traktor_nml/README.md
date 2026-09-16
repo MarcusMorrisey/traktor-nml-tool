@@ -48,8 +48,21 @@ import site each.
 with no source span to transplant, so it always takes the serialization
 path this split already sanctions for genuinely new content (DL-028), and
 it resolves track identity at a fixed `MatchConfidence.LOOSE` with no
-level selector, since a track list carrying only artist and title leaves
-every stricter tier unreachable (DL-032).
+level selector (DL-032, DL-276).
+
+Every `build-playlist` input meets the core at one seam: an ordered list
+of `tracklist.Candidate` values, each carrying its position and text for
+the report and either the `EntryRecord` the cascade reads as its old side
+or `None` for an entry that could not be parsed (DL-274).
+`traktor_nml/playlistinput.py` reads a path into that list and names the
+format and codec it read (DL-281); `buildplaylist.assemble_output` and
+`tracklist.resolve_candidates` never see the input's syntax.
+
+`build-playlist BASE INPUT OUTPUT --name NAME` reads INPUT as a plain-text
+`Artist - Title` list, a `.csv` with `Artist` and `Title` columns (and
+optional `Album`, `Duration`, `File name`), an `.m3u`/`.m3u8` playlist, or
+a folder whose own audio files form the playlist in name order;
+`--input-format` overrides detection from the suffix (DL-294).
 
 `traktor_nml.gui` is a fourth package alongside `traktor_nml`,
 `traktor_nml.commands` and `traktor_nml.gui`'s own three framework
@@ -82,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-273`:
+This file is the authority for the log's high-water mark, which is `DL-297`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2339,10 +2352,10 @@ names, so the next plan numbers from there.
   design of record, drafted before its GUI requirements were finalized,
   on the same precedent as the reconnect wizard's own artboard (DL-071,
   DL-265).
-- The base collection and the tracklist file are both chosen through
-  `gui/file_picker.py`'s existing `pick_file_or_folder`, matching the
-  CLI's `base`/`tracklist` positional file arguments, rather than a
-  paste-in-text tracklist entry (DL-266).
+- The base collection and the input are both chosen through
+  `gui/file_picker.py`'s `pick_file_or_folder`, matching the CLI's
+  `base`/`tracklist` positional arguments, rather than a paste-in-text
+  tracklist entry (DL-266).
 - The build-playlist GUI form omits `--dry-run` and the
   `--unresolved-report` CSV export: a dry run is achieved by simply not
   clicking Write, and the on-screen read-only unresolved-lines report
@@ -2365,11 +2378,10 @@ names, so the next plan numbers from there.
 - The build-playlist screen schedules no keyboard-navigation, focus-ring,
   tab-order or screen-reader/announcement work beyond whatever the
   existing header-tab shell and `theme.py` already provide (DL-271).
-- The build-playlist form's output path is not a separate literal path
-  chooser: it is derived by combining the playlist name field with the
-  optional target-folder field, relative to the base collection's own
-  directory, the same way `rewrite.path_collides` and the write step
-  consume it (DL-272).
+- The build-playlist form's output path is derived rather than typed:
+  the playlist name is the file's stem, and `rewrite.path_collides` and
+  the write step both consume the one derived path (DL-272). Its directory
+  is the output-folder chooser's, per DL-297.
 - Every button in the GUI is drawn on the action blue, `theme.ACTION`,
   with `theme.GROUND` as its ink, 8.2:1: the primary action through
   `wizard-control-primary` and every other button through
@@ -2387,6 +2399,153 @@ names, so the next plan numbers from there.
   and the primary's `TYPE_13` stands against Quasar's 14px. The call
   sites are guarded in `tests/test_gui_button_fill.py`, and the page is
   read in `docs/2026-09-16-button-fill-browser-record.md` (DL-273).
+- Every build-playlist input hands resolution one ordered list of
+  `Candidate(line_number, raw_text, artist, title, record)` values; a
+  `record` of `None` is an unparseable entry. Refusal (DL-027, DL-036),
+  the report rows, synthesis and the splice depend only on a per-entry
+  outcome and those four fields, so folding unparseable entries into the
+  same list leaves them one input shape (DL-274).
+- Candidates sit on `match_records`' old side and the collection on its
+  new side. Refutation's cross-source test compares `from_disk` on both
+  sides symmetrically and every tolerance reads the larger of the two,
+  and ambiguity is counted per old record, one candidate per call, so the
+  direction gives the same verdicts either way (DL-278).
+- The plain-text path is held byte-identical by a golden corpus under
+  `tests/baselines/build_playlist_text/`, recorded from the code before
+  the Candidate seam existed and replayed by
+  `tests/test_build_playlist_text_parity.py`: argv, stdout, stderr, exit
+  code, output bytes and the unresolved report per case, with `uuid4`
+  fixed. `tests/baselines/manifest.json` holds no build-playlist case and
+  is not regenerated for it (DL-279).
+- The build-playlist stats keys and their order - `lines_read`,
+  `lines_resolved`, `unresolved_unparseable`, `unresolved_unmatched`,
+  `unresolved_ambiguous`, `playlist_name`, `entries_written` - are fixed.
+  `lines_read` counts candidates. The input's format and codec travel in
+  `InputRead`, not in the stats, because a stats key would change a text
+  run's stdout (DL-280).
+- `traktor_nml/playlistinput.py` is the nicegui-free input module:
+  `detect_format`, and `read_input` returning `InputRead(format, encoding,
+  candidates)` or raising `InputReadError(code)`. The CLI handler and the
+  GUI's `_run_build_playlist` read an input through `read_input` and
+  nothing else (DL-281).
+- Resolution runs at a fixed `MatchConfidence.LOOSE`. A candidate carrying
+  more than artist and title reaches the stricter tiers at LOOSE because
+  the cascade tries tiers strongest first; `FILENAME` would add
+  `bare_name`, which collides on stem component files (DL-276).
+- Each input format fills every `EntryRecord` field its source carries: a
+  folder file or an M3U path present on this machine is indexed from disk
+  (size in KB, tags, duration, file name, folder parts, `source_path`); an
+  M3U path absent here keeps its file name, folder parts and `#EXTINF`
+  artist, title and duration; a CSV row keeps artist, title, album,
+  duration and file name. `record_keys` emits the size, file and path
+  tiers only for non-empty fields, so a record cut down to artist and
+  title reaches only `artist_title`, the tier text lists go ambiguous on
+  (DL-275).
+- A folder or M3U candidate resolves through `match_records` alone, with
+  no exact-location pre-pass. `match_records` marks a tier with several
+  survivors ambiguous and keeps descending, so a collection holding one
+  track at two locations resolves uniquely at `path_suffix_3`; a pre-pass
+  would need collection `VOLUME` naming and resolve nothing more (DL-277).
+- Any input file whose suffix is not `.csv`, `.m3u` or `.m3u8` reads as
+  plain text, decoded `utf-8-sig` strictly, refusing with
+  `tracklist_decode_error` (DL-282).
+- Decoding: plain text and `.m3u8` are `utf-8-sig` strict; `.m3u` and
+  `.csv` try `utf-8-sig` and fall back to `cp1252`. The codec used is
+  `InputRead.encoding`, printed by the CLI and shown by the screen, because
+  a `cp1252` fallback misreads another single-byte codepage without an
+  error (DL-283).
+- `playlistinput.CSV_COLUMNS` - `Artist`, `Title` (required), `Album`,
+  `Duration`, `File name` - is the one CSV header definition.
+  `csv_template_bytes()` is that header alone, UTF-8 with a BOM and CRLF,
+  with no example row, since a forgotten example row is an unmatched entry
+  that refuses the run. Headers match case-insensitively after strip,
+  unknown columns are ignored, and a file without `Artist` and `Title`
+  refuses with `csv_header_missing` (DL-284).
+- The CSV delimiter is read off the header line: comma when it yields both
+  `Artist` and `Title`, else semicolon when that does, the separator Excel
+  writes where the decimal mark is a comma, else `csv_header_missing`.
+  `csv.Sniffer` guesses from data rows and misreads titles holding commas
+  (DL-285).
+- A CSV row with an empty `Artist` or `Title` is unparseable and a row with
+  every cell empty is skipped. `Duration` reads seconds, `m:ss` or
+  `h:mm:ss`; an unreadable duration is left empty rather than refusing the
+  row. `line_number` is the physical line the row starts on, the
+  spreadsheet's row number, and `raw_text` the row as read (DL-286).
+- In an M3U, `#EXTINF:<seconds>,<Artist - Title>` attaches to the next path
+  line and other `#` lines are ignored; seconds of zero or less give no
+  duration, and display text without ` - ` leaves artist and title empty.
+  A relative path resolves against the playlist's folder and a URL line is
+  unparseable. A path that is a file here is indexed from disk and takes
+  artist, title and duration from the file; `#EXTINF` fills only a
+  path-string record, because its integer seconds sit up to 1.0s from a
+  collection's `PLAYTIME_FLOAT`, the same-source tolerance's edge (DL-287).
+- A path-string record decodes its path with `PureWindowsPath` when it
+  holds a drive letter or a backslash and `PurePosixPath` otherwise, drops
+  the anchor, and encodes the folder parts with `model.encode_traktor_dir`
+  into a location with an empty volume, so a playlist written on a Mac
+  matches a Windows collection by its trailing folders (DL-288).
+- A folder input reads only that directory's own files with an audio
+  extension, ordered by the casefolded name split into digit and
+  non-digit runs with digit runs compared as integers, ties broken by the
+  plain name. A plain string sort puts `10 - ...` before `2 - ...`.
+  `line_number` is the 1-based position and `raw_text` the file name
+  (DL-289).
+- `diskscan.index_files(paths, cache=None)` indexes an explicit list: one
+  record per path in order, duplicates kept, no walk, built by the same
+  `_record_for_file` `index_scan_roots` uses. A failed `stat()` raises
+  `DiskReadError` naming the path instead of shortening the list;
+  unreadable tags give empty tag fields. With no cache, no cache file is
+  read or written, so build-playlist writes no side file (DL-290).
+- `index_scan_roots` shares only the per-file `EntryRecord` construction
+  with `index_files`; its records, stats, diagnostics and cache behaviour
+  are its own (DL-291).
+- An input that yields no candidates runs to `no_entries_resolved`. An
+  input that cannot be read refuses before assembly with one code:
+  `input_not_found=<path>`, `tracklist_decode_error=<path>`,
+  `csv_header_missing`, `input_read_error=<path>` for a folder or M3U file
+  that cannot be indexed, or `input_format_mismatch=<format>` when
+  `--input-format` contradicts whether the path is a directory (DL-292).
+- A folder or M3U file the collection does not hold is reported as
+  unmatched; build-playlist never adds an `ENTRY` (DL-293).
+- The CLI keeps its positional `tracklist` argument for every format,
+  directories included, and `--input-format {auto,text,csv,m3u,folder}`
+  overrides suffix detection. A run over any input other than plain text
+  prints `input_format=` and `input_encoding=` ahead of the stats keys; a
+  text run prints neither, so its stdout stays the corpus's. No subcommand
+  writes the CSV template; `build-playlist --help` lists the columns from
+  `CSV_COLUMNS` (DL-294).
+- The `/build-playlist` screen offers `Choose file...` (text, CSV, M3U) and
+  `Choose folder...` for its input, shows the detected format and, after a
+  run, the codec, and shows the CSV columns beside a `Download CSV
+  template` control. Native mode writes the template through a pywebview
+  SAVE dialog (`file_picker.pick_save_path`), because pywebview blocks
+  browser downloads by default; served over HTTP it goes through
+  `ui.download`. The artboard is drawn first (DL-071, DL-295).
+- `buildplaylist_view.run_summary` and `form_errors` use format-neutral
+  words - `entry`/`entries` through `wording.plural`, `Choose an input.` -
+  and a run on CSV, M3U or folder input appends the format, and for CSV
+  and M3U the codec, it read; counts are read off the result (DL-215,
+  DL-296).
+- The build-playlist screen's output folder and playlist folder are two
+  controls that never share a value. The output folder is a disk
+  directory chosen through `pick_file_or_folder(directories_only=True)`;
+  the file is `<output folder>/<playlist name>.nml`, or sits in the base
+  collection's directory when none is chosen - the CLI's positional output
+  path. The playlist folder is a chooser over the base collection's
+  `FOLDER` nodes from `playlists.playlist_folder_choices` plus `Collection
+  root`; its `NAME` is `assemble_output`'s `target_folder`, the CLI's
+  `--target-folder`, and `None` for the root. A `FOLDER` whose `NAME`
+  another `FOLDER` holds is listed disabled with its path, because
+  `target_folder` is resolved by `NAME` alone and would refuse as
+  `target_folder_ambiguous`. One field cannot serve both: joined onto a
+  disk path a `FOLDER` name names a directory that need not exist. The
+  playlist-folder chooser is enabled only while Full collection is on:
+  otherwise the isolation pass (`split.build_output`) keeps only the new
+  playlist directly under the root, so a folder choice would change
+  nothing in the file; the disabled chooser carries a note saying so and
+  no `target_folder` is passed. The output folder applies either way. This
+  supersedes DL-272's statement that the form has no separate output-path
+  control (DL-297).
 
 ## Invariants
 

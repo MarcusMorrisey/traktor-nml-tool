@@ -275,3 +275,46 @@ resolved column widths and the detail rail's resolved width belong to
 that record for the same reason: a guard reading
 `grid-template-columns: 1fr 400px` out of the emitted sheet is true
 whether or not the browser laid the split out on those tracks.
+
+## The build-playlist screen's inputs and its two folders
+
+The screen reads its input through `playlistinput.read_input`, the same
+call the CLI makes, so a refusal the screen shows is the code the CLI
+prints (DL-281). `Choose file...` takes a text list, a CSV or an M3U;
+`Choose folder...` takes a folder. The format tag shows what
+`detect_format` names before any run, and the footer names the format and
+codec after one, because a `cp1252` fallback misreads another codepage
+without an error (DL-283, DL-296).
+
+`Download CSV template` delivers `playlistinput.csv_template_bytes()`.
+Served over HTTP that is `ui.download`. In the native window pywebview
+blocks browser downloads by default, so `app._deliver_csv_template` asks
+for a path through `file_picker.pick_save_path` and writes the bytes
+itself (DL-295).
+
+Two controls hold two different places, and no value passes between them
+(DL-297):
+
+| Control | Names | CLI counterpart | Empty means |
+|---|---|---|---|
+| Output folder | a directory on disk; the file is `<folder>/<playlist name>.nml` | the positional `output` path | the base collection's own directory |
+| Playlist folder | a `FOLDER` in the base collection's playlist tree, by its `NAME` | `--target-folder` | the collection root |
+
+The playlist-folder chooser is refilled from
+`playlists.playlist_folder_choices` each time a base collection is chosen.
+`buildplaylist.assemble_output` finds `target_folder` by `NAME` alone and
+refuses a `NAME` two folders share, so such a folder is listed with its
+path and disabled rather than offered. NiceGUI sends the browser each
+option's label and its index, never its key, so the disable predicate
+matches the label's `buildplaylist_view.SHARED_NAME_SUFFIX`; the option's
+key starts with a NUL character, which no `NAME` equals, and
+`_selected_playlist_folder` reads such a key as the root, so it cannot
+reach `target_folder` even if the disable were lost.
+
+The playlist-folder chooser is enabled only while Full collection is on.
+With it off, the isolation pass (`split.build_output` over the one new
+playlist) keeps only that playlist directly under the root, so no folder
+the chooser names survives into the file; the chooser is disabled at
+`Collection root`, a note under it says why, and
+`buildplaylist_view.effective_playlist_folder` passes no `target_folder`.
+The output folder applies either way.

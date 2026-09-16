@@ -814,4 +814,24 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-next-step {{ display: flex; gap: {SPACE_11}; font-size: {TYPE_12_5}; color: {TEXT_MUTED}; line-height: 1.5; }}
 .wizard-next-step-marker {{ flex: none; width: {NEXT_STEP_MARKER_SIZE}; height: {NEXT_STEP_MARKER_SIZE}; border-radius: 50%; border: 1px solid {BORDER_STRONG}; color: {TEXT_FAINT}; font: 600 {TYPE_11}/1 {FONT_MONO}; display: grid; place-items: center; margin-top: {SPACE_1}; }}
 .wizard-next-step-title {{ display: block; color: {TEXT}; font-weight: 600; font-size: {TYPE_13}; margin-bottom: {SPACE_1}; }}
+/* design/build-playlist/Specs.dc.html's input .row: the chosen path, the
+   detected format tag and the two choosers on one line, the path taking
+   the room and truncating rather than pushing the buttons off the card. */
+.buildplaylist-input-row {{ display: flex; align-items: center; gap: {SPACE_10}; flex-wrap: nowrap; min-width: 0; width: 100%; }}
+.buildplaylist-input-row > .font-mono {{ flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+/* Specs.dc.html's .fmt: the format read_input will read the input as,
+   tinted with the action hue because it describes what the run does. */
+.buildplaylist-format-tag {{ flex: none; font: 600 {TYPE_11}/1 {FONT_MONO}; letter-spacing: .06em; text-transform: uppercase; color: {ACTION_TINT_TEXT}; background: {BORDER_SUBTLE_9}; border: 1px solid {ACTION_TINT_BORDER_ALT}; border-radius: {RADIUS_SM}; padding: {SPACE_3} {SPACE_6}; white-space: nowrap; }}
+/* Specs.dc.html's .note strong: the CSV note's lead reads at full ink,
+   and the note's two phrases run on as one sentence. */
+.buildplaylist-note-text {{ min-width: 0; }}
+.buildplaylist-note-text > div {{ display: inline; }}
+.buildplaylist-note-lead {{ color: {TEXT}; font-weight: 600; margin-right: {SPACE_4}; }}
+/* Specs.dc.html's template button sits at the note's right edge. */
+.buildplaylist-template-control {{ margin-left: auto; flex: none; }}
+/* Specs.dc.html's folder .row: Output folder and Playlist folder side by
+   side at equal width, tops aligned because only the output side carries
+   a button under its label. */
+.buildplaylist-folder-row {{ display: flex; gap: {SPACE_14}; align-items: flex-start; flex-wrap: nowrap; width: 100%; }}
+.buildplaylist-folder-col {{ flex: 1; min-width: 0; gap: {SPACE_6}; }}
 """

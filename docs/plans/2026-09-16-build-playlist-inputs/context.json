@@ -1,0 +1,75 @@
+{
+  "task_spec": [
+    "SUBJECT: let build-playlist take three new kinds of input - a CSV (with a downloadable header-only template), an M3U/M3U8 playlist file, and a folder whose audio files become the playlist in name order - by giving every input format one common seam: an ordered list of candidate EntryRecords that the existing resolution, refusal, synthesis and splice path consume unchanged.",
+    "scope: traktor_nml/tracklist.py and traktor_nml/buildplaylist.py (the seam and the parsers), a nicegui-free input-format module under traktor_nml/, traktor_nml/diskscan.py (indexing an explicit ordered list of files), traktor_nml/commands/build_playlist_cmd.py (CLI parity), traktor_nml/gui/app.py's /build-playlist page and traktor_nml/gui/file_picker.py (a save dialog), traktor_nml/gui/theme.py, design/build-playlist/Specs.dc.html, tests/, docs/",
+    "out-of-scope: adding new ENTRY elements to the collection for files it does not hold (user decided: report them as unmatched, build-playlist stays a playlist tool)",
+    "out-of-scope: recursive folder walks and tag-track-number ordering (user decided: this folder only, name order)",
+    "out-of-scope: the /reconnect and / (reconstruct) routes; accessibility and keyboard work (DL-197)"
+  ],
+  "constraints": [
+    "MUST: traktor_nml/README.md is the decision-log authority; its high-water mark is DL-273, so new entries start at DL-274",
+    "MUST: DL-069 nicegui boundary - only app.py, file_picker.py, __main__.py import nicegui; every parser, the template's bytes and every decision rule live in nicegui-free modules the suite reaches; every CSS rule, class and dimension lives in theme.py",
+    "MUST: DL-071 - a screen disagreeing with the artboard is fixed in the design first; design/build-playlist/Specs.dc.html is the only build-playlist artboard",
+    "MUST: DL-084 as amended by DL-169 - a milestone changing a screen closes on a served-page record in docs/ with a verdict row per surface and structural verdicts, its verdict-row digest registered in tests/test_docs_browser_record_structure.py",
+    "MUST: the existing plain-text track-list path produces byte-identical output after the seam refactor, proven against a recorded baseline",
+    "MUST: DL-027 - an unresolved entry refuses the run unless allow_unmatched; DL-036 - zero resolved refuses; the unresolved report keeps its columns (line_number, raw_text, artist, title, kind)",
+    "MUST: every guard proven to FAIL FIRST with its specific mutation and VERBATIM observed output in its docstring; DL-189 - beware a guard green in exactly the broken state",
+    "MUST: app.py is 100% CRLF and must stay so (write with newline=''); theme.py and tests/ are LF; docs/CLAUDE.md and tests/CLAUDE.md are CRLF",
+    "MUST: plurals through traktor_nml/gui/wording.plural (tests/test_gui_wording.py forbids an inline `x if n == 1 else y` under gui/); DL-215 - a sentence naming a count reads it off the model",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'; never cite a source for something it does not say, line numbers included",
+    "MUST-NOT: regenerate tests/baselines/manifest.json or fixture/w002gatefix2; restore a file with git checkout (copy aside and restore from the copy); write into build/ or dist/; install anything into the system interpreter; spawn background agents",
+    "MUST: run the suite with C:\\Users\\marcu\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe, not .venv (.venv has nicegui for running the app)",
+    "MUST-NOT: edit matching.py or confidence.py - tracklist.py's module docstring states they are imported and called, never edited or wrapped"
+  ],
+  "entry_points": [
+    "traktor_nml/tracklist.py:parse_tracklist - text -> (ParsedLine, UnparseableLine); the text format's parser",
+    "traktor_nml/tracklist.py:tracklist_record - builds the EntryRecord a line matches as, blanking every field but artist/title, which confines matching to the artist_title tier; this is the seam",
+    "traktor_nml/tracklist.py:resolve_tracklist - builds the collection index once at MatchConfidence.LOOSE, match_records per candidate",
+    "traktor_nml/buildplaylist.py:assemble_output - takes tracklist_text: str today; must take candidates instead",
+    "traktor_nml/buildplaylist.py:_resolve_lines and UnresolvedRow - the report rows",
+    "traktor_nml/matching.py:_CASCADE - tiers audio_id, artist_title_size_time, artist_title_file, file_size_time, artist_title_album_time, path_suffix_3/2, artist_title, path_suffix_1, bare_name_in_folder, filename, bare_name",
+    "traktor_nml/diskscan.py:_enumerate_candidates - always rglob-recursive over scan roots, sorted by plain path order; index_scan_roots builds full EntryRecords (tags via mutagen, filesize KB, playtime, bitrate)",
+    "traktor_nml/commands/build_playlist_cmd.py:_handle_build_playlist - --tracklist, --unresolved-report, path_collides checks",
+    "traktor_nml/gui/app.py:_run_build_playlist (~1658) and _build_build_playlist_page (~1737) - reads tracklist bytes, decodes utf-8-sig, drives buildplaylist core",
+    "traktor_nml/gui/file_picker.py:pick_file_or_folder - native pywebview create_file_dialog, LocalFilePicker fallback when not native; no save dialog exists yet",
+    "design/build-playlist/Specs.dc.html - the build-playlist artboard"
+  ],
+  "rejected_alternatives": [
+    "adding collection ENTRYs for files not in the collection - user chose report-as-unmatched",
+    "recursive folder walk, or ordering by tag track number - user chose this folder only, sorted by name",
+    "CSV with Artist and Title only - user chose Artist and Title required plus optional Album, Duration, File name, so rows can match on stronger tiers",
+    "an example row in the CSV template - left in by accident it becomes an unmatched row that refuses the run; header-only, guidance on screen",
+    "ui.download in the native window - pywebview blocks browser downloads by default; native mode uses a save dialog",
+    "a plain string sort for folder order - misorders unpadded track numbers ('10 - ...' before '2 - ...'); numeric-aware sort matches Explorer and Finder"
+  ],
+  "current_understanding": [
+    "Every input today reduces to artist + title. tracklist_record blanks filesize, playtime_float, album, file_name and location, so only the LOOSE artist_title tier can fire - the reason text lists produce ambiguous rows.",
+    "A file on disk or an M3U entry carries path, size, duration and tags, which feed stronger tiers the cascade already has (path_suffix_3 at strict, artist_title_size_time, file_size_time, artist_title_file). Reconnect already builds disk-side EntryRecords through diskscan and matching.py already converts disk bytes to Traktor's KB.",
+    "EntryRecord.primary_key is location.primary_key = volume + dir_value + file_name (model.py:29-30). An exact-location match for a disk file needs the collection's VOLUME naming, which volumes.py handles.",
+    "The GUI's /build-playlist route (commit c8348bf) drives buildplaylist.py's core directly, not the CLI handler.",
+    "The user's collections span machines: MacBook-authored collections under D:\\Sync. An M3U made on the Mac names /Users/... paths that do not exist on this PC."
+  ],
+  "assumptions": [
+    "M3U entries whose file does not exist on this machine must still be matchable from the path string (path suffix tiers) plus #EXTINF artist/title/duration, without reading the file (H - follows from the user's cross-machine setup; verify tier behaviour with an empty filesize)",
+    "match_records with a disk-or-file candidate as the OLD side and the collection as NEW counts ambiguity the same way reconnect's opposite direction does (M - must be verified before relying on it)",
+    "a folder that holds the same track twice, or a collection holding one file in two locations, may make an entry ambiguous even when its exact path is in the collection; an exact-location pre-pass would fix it but depends on volume naming (M - verify and decide)",
+    "Excel CSVs in non-US locales use ';' separators; whether to sniff or refuse is undecided (M - planning decision)",
+    ".m3u8 is UTF-8; .m3u is UTF-8 with cp1252 fallback; CSV is UTF-8-sig with cp1252 fallback, and the run says which encoding it used (H - convention)",
+    "the unresolved report's line_number means the entry's position for CSV/M3U/folder, raw_text the row, M3U line or file path (H)"
+  ],
+  "invisible_knowledge": [
+    "The value of file-based input is not a new syntax but stronger evidence: path, size and duration let a candidate match on tiers a text line can never reach. A plan that parses M3U down to artist/title throws that away.",
+    "The template's header and the CSV parser's accepted columns must come from one definition, or a downloaded template can stop being uploadable.",
+    "Build-playlist references existing collection entries only; it never adds ENTRY elements.",
+    "A partial candidate list is indistinguishable from a complete one by inspection (diskscan.ScanCancelled's docstring) - a folder or M3U read that stops early must fail loudly, not return fewer candidates.",
+    "Byte-for-byte parity of the text path is the proof the seam refactor changed nothing; without it, a refactor that shifts line numbering or ordering would pass unit tests."
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - decision-log authority, high-water mark DL-273; DL-025, DL-027, DL-028, DL-031, DL-033, DL-034, DL-036, DL-037, DL-069, DL-071, DL-084, DL-169, DL-189, DL-197, DL-215",
+    "design/build-playlist/Specs.dc.html - the build-playlist artboard",
+    "docs/plans/2026-09-15-build-playlist-gui/ - the plan the /build-playlist route was built from (DL-260..DL-272)",
+    "traktor_nml/tracklist.py and traktor_nml/diskscan.py module docstrings - the matching-cascade and scan contracts",
+    "docs/2026-09-15-write-step-after-the-write-browser-record.md - the shape of a served-page record",
+    "tests/test_gui_wording.py - the plural rule and the fail-first docstring convention"
+  ]
+}

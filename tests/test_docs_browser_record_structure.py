@@ -92,6 +92,14 @@ READING_DIGESTS = {
     # (ref: DL-084, DL-169, DL-273). The digest is computed from the
     # record as the browser run left it.
     "2026-09-16-button-fill-browser-record.md": "8e93e5956dd0c07d1ef322d044fa9d2284f7b6becb711fb968e1cabb86babcd7",
+    # The build-playlist screen's widened inputs, CSV template and two
+    # folders close on a served-page record reading each input format, the
+    # downloaded template's bytes, both folder choosers with Full collection
+    # off and on, and the written file's location and placement, with
+    # structural verdicts against design/build-playlist/Specs.dc.html
+    # (ref: DL-084, DL-169, DL-295, DL-297). The digest is computed from the
+    # record as the browser run left it.
+    "2026-09-16-build-playlist-inputs-browser-record.md": "db998d509708aa74ecdb1284046aaba938098eaaf7a97dceb0afc70cb92934ef",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

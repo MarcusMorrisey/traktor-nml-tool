@@ -61,6 +61,14 @@ table.rep tr:last-child td{border-bottom:0}
 .kind.unmatched{color:#E07A4C;background:#2B1D14;border:1px solid #5A3A24}
 .kind.ambiguous{color:#F5D96B;background:#1F1D14;border:1px solid #5A4E2A}
 .kind.unparseable{color:#97A0A7;background:#1B1D20;border:1px solid #3C4248}
+.fmt{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#8FCFF2;background:#12222B;border:1px solid #2F5A72;border-radius:4px;padding:3px 6px;white-space:nowrap;flex:none}
+.chooser{position:relative;flex:1;min-width:0}
+.chooser .field{justify-content:space-between}
+.menu{position:absolute;left:0;right:0;top:40px;z-index:2;background:#17191C;border:1px solid #3C4248;border-radius:6px;padding:4px;display:flex;flex-direction:column;gap:1px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.menu span{font:400 12.5px/1 'IBM Plex Mono',monospace;padding:8px 9px;border-radius:4px;color:#E8EBED}
+.menu span.on{background:#22262A}
+.menu span.off{color:#5A6167}
+.field.off{background:#15171A;border-color:#2A2E32;cursor:not-allowed}
   </style>
 </helmet>
 <div class="app">
@@ -84,7 +92,7 @@ table.rep tr:last-child td{border-bottom:0}
       <section class="card">
         <div class="card-h"><h2 class="card-t">Build a playlist from a track list</h2><span class="lbl">Reads your collection, writes a new file</span></div>
         <div class="card-b">
-          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">Match a plain-text "Artist - Title" list against a collection and write the matches as a new NML playlist. This is a separate job from repairing a broken playlist: nothing here reads or changes an existing playlist's own entries.</p>
+          <p class="dim" style="margin:0;font-size:12.5px;line-height:1.55">Match a track list, CSV, M3U playlist or folder of audio files against a collection and write the matches as a new NML playlist. Nothing here reads or changes an existing playlist's own entries.</p>
 
           <div class="lblrow">
             <span class="lbl">Base collection</span>
@@ -98,25 +106,49 @@ table.rep tr:last-child td{border-bottom:0}
           </div>
 
           <div class="lblrow">
-            <span class="lbl">Track list</span>
+            <span class="lbl">Input</span>
             <div class="row">
               <span class="field">
                 <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 1.8h5.2L13 6.1v8.1H3.5z"/><path d="M8.6 1.9v4.3h4.3"/></svg>
-                <span class="mono">C:\Users\marcus\Desktop\warehouse-set.txt</span>
+                <span class="mono">C:\Users\marcus\Desktop\warehouse-set.csv</span>
               </span>
+              <span class="fmt">CSV</span>
               <button class="btn sm">Choose file…</button>
+              <button class="btn sm">Choose folder…</button>
             </div>
-            <p class="faint" style="margin:0;font-size:11.5px">One "Artist - Title" per line. 1,238 lines read.</p>
+            <p class="faint" style="margin:0;font-size:11.5px">A text file with one "Artist - Title" per line, a CSV, an M3U or M3U8 playlist, or a folder whose audio files are read in name order.</p>
           </div>
 
-          <div class="row" style="gap:14px">
-            <div class="lblrow" style="flex:1">
-              <span class="lbl">Playlist name</span>
-              <span class="field"><span class="mono">Warehouse set — Aug 2026</span></span>
+          <div class="note">
+            <span><strong>CSV columns.</strong> Artist and Title are required. Album, Duration and File name are optional and help a row match more strictly.</span>
+            <button class="btn sm" style="margin-left:auto;flex:none">Download CSV template</button>
+          </div>
+
+          <div class="lblrow">
+            <span class="lbl">Playlist name</span>
+            <span class="field"><span class="mono">Warehouse set — Aug 2026</span></span>
+          </div>
+
+          <div class="row" style="gap:14px;align-items:flex-start">
+            <div class="lblrow" style="flex:1;min-width:0">
+              <span class="lbl">Output folder</span>
+              <div class="row">
+                <span class="field empty"><span class="mono">D:\Traktor (the base collection's folder)</span></span>
+                <button class="btn sm">Choose folder…</button>
+              </div>
             </div>
-            <div class="lblrow" style="flex:1">
-              <span class="lbl">Target folder <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></span>
-              <span class="field empty"><span class="mono">Root of the collection</span></span>
+            <div class="lblrow" style="flex:1;min-width:0">
+              <span class="lbl">Playlist folder</span>
+              <div class="chooser">
+                <span class="field"><span class="mono">Sets\2026</span><span class="faint" aria-hidden="true">&#9662;</span></span>
+                <div class="menu" role="listbox" aria-label="Playlist folder">
+                  <span>Collection root</span>
+                  <span>Sets</span>
+                  <span class="on">Sets\2026</span>
+                  <span class="off" aria-disabled="true">Archive\Warmup (name also used elsewhere)</span>
+                  <span class="off" aria-disabled="true">Sets\Warmup (name also used elsewhere)</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -124,12 +156,12 @@ table.rep tr:last-child td{border-bottom:0}
             <span class="sw on" role="img" aria-label="On"><i></i></span>
             <span class="opt-b">
               <span class="opt-t">Allow unmatched lines</span>
-              <span class="opt-d">Write the playlist even if some lines could not be matched. Off, a run with any unmatched or ambiguous line aborts and writes nothing.</span>
+              <span class="opt-d">Write the playlist even if some entries could not be matched. Off, a run with any unmatched or ambiguous entry aborts and writes nothing.</span>
             </span>
           </div>
 
           <div class="opt">
-            <span class="sw" role="img" aria-label="Off"><i></i></span>
+            <span class="sw on" role="img" aria-label="On"><i></i></span>
             <span class="opt-b">
               <span class="opt-t">Full collection</span>
               <span class="opt-d">Keep the whole source collection and playlist tree in the output. Off, the file written holds only this one playlist and the entries it matched — the normal, importable hand-off.</span>
@@ -140,18 +172,17 @@ table.rep tr:last-child td{border-bottom:0}
       </section>
 
       <section class="card" style="flex:1;min-height:0;display:flex;flex-direction:column">
-        <div class="card-h"><h2 class="card-t">Unresolved lines</h2><span class="lbl">4 of 1,238</span></div>
+        <div class="card-h"><h2 class="card-t">Unresolved entries</h2><span class="lbl">3 of 1,238</span></div>
         <div class="card-b" style="overflow:auto">
           <table class="rep">
-            <thead><tr><th style="width:64px">Line</th><th>Text</th><th style="width:120px">Reason</th></tr></thead>
+            <thead><tr><th style="width:64px">#</th><th>Entry</th><th style="width:120px">Kind</th></tr></thead>
             <tbody>
               <tr><td class="mono dim">214</td><td class="mono">Boards of Canadaa - Dayvan Cowboy</td><td><span class="kind unmatched">Unmatched</span></td></tr>
               <tr><td class="mono dim">507</td><td class="mono">Recondite - Levo</td><td><span class="kind ambiguous">Ambiguous</span></td></tr>
-              <tr><td class="mono dim">812</td><td class="mono">(blank line)</td><td><span class="kind unparseable">Unparseable</span></td></tr>
-              <tr><td class="mono dim">1190</td><td class="mono">Not an artist title line at all</td><td><span class="kind unparseable">Unparseable</span></td></tr>
+              <tr><td class="mono dim">1190</td><td class="mono">,Levo,Recondite</td><td><span class="kind unparseable">Unparseable</span></td></tr>
             </tbody>
           </table>
-          <p class="faint" style="margin:8px 0 0;font-size:11.5px">This report is read-only in this first version. Fixing a line means editing the track list file and choosing it again — there is no accept, reject or pick control here yet.</p>
+          <p class="faint" style="margin:8px 0 0;font-size:11.5px">This report is read-only. Fixing an entry means editing the input and choosing it again.</p>
         </div>
       </section>
 
@@ -163,7 +194,7 @@ table.rep tr:last-child td{border-bottom:0}
         <div class="card-b">
           <p class="dim" style="margin:0 0 3px;font-size:12.5px;line-height:1.55">Reconnect and reconstruct repair playlists that already exist. This screen does the opposite job: it starts from a track list that names no playlist at all, and builds one.</p>
           <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px">
-            <li style="display:flex;gap:9px;font-size:12px;color:#A5ADB4;line-height:1.5"><span style="width:5px;height:5px;border-radius:50%;background:#5A6167;flex:none;margin-top:6px"></span><span>Each line is matched against the base collection the same way a disk scan matches a file — by artist and title only, since a text line carries no path, size or time to match on more strictly.</span></li>
+            <li style="display:flex;gap:9px;font-size:12px;color:#A5ADB4;line-height:1.5"><span style="width:5px;height:5px;border-radius:50%;background:#5A6167;flex:none;margin-top:6px"></span><span>Each entry is matched against the base collection the same way a disk scan matches a file. A text line carries only artist and title; a folder, an M3U path or a CSV file name also carries a path, size or time, which lets it match more strictly. A file the collection does not hold is reported, never added.</span></li>
             <li style="display:flex;gap:9px;font-size:12px;color:#A5ADB4;line-height:1.5"><span style="width:5px;height:5px;border-radius:50%;background:#5A6167;flex:none;margin-top:6px"></span><span>The base collection is read, never modified. A brand-new file is written at the path you choose next.</span></li>
             <li style="display:flex;gap:9px;font-size:12px;color:#A5ADB4;line-height:1.5"><span style="width:5px;height:5px;border-radius:50%;background:#5A6167;flex:none;margin-top:6px"></span><span>A future version may let you resolve an unmatched or ambiguous line here directly. This one shows you the list so you can fix the source file instead.</span></li>
           </ul>
@@ -172,7 +203,13 @@ table.rep tr:last-child td{border-bottom:0}
 
       <div class="note info">
         <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
-        <span><strong>The output path is not typed directly.</strong> It is the playlist name plus the target folder (or the collection's own folder, when target folder is left empty) — the same two fields already on this form.</span>
+        <span><strong>Two different folders.</strong> The output folder is where the new .nml file is written on disk, named after the playlist. The playlist folder is where the playlist sits inside the collection's own playlist tree. A folder whose name another folder also uses cannot be chosen.</span>
+      </div>
+
+      <div class="lblrow" aria-label="Playlist folder with Full collection off">
+        <span class="lbl">Playlist folder</span>
+        <span class="field empty off" aria-disabled="true"><span class="mono">Collection root</span><span class="faint" aria-hidden="true">&#9662;</span></span>
+        <p class="faint" style="margin:0;font-size:11.5px">Playlist folder applies only with Full collection on. Off, the file holds this one playlist at its root.</p>
       </div>
       <section class="card">
         <div class="card-h"><h2 class="card-t">Buttons</h2></div>
@@ -187,7 +224,7 @@ table.rep tr:last-child td{border-bottom:0}
   <footer class="ft">
     <p class="ft-note">
       <svg class="ico" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8E979E" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
-      Nothing is written until you press Write. The base collection is never modified.
+      Not written: 3 entries did not resolve and Allow unmatched is off. Read as CSV, cp1252.
     </p>
     <span class="ft-act">
       <button class="btn btn-pri">Write playlist</button>

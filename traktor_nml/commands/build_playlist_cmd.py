@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from ..buildplaylist import UnresolvedRow, assemble_output
+from ..playlistinput import CSV_COLUMNS, InputFormat, InputReadError, read_input
 from ..rewrite import path_collides, read_and_parse_source, write_bytes_atomically, write_row_report
 from ..spans import SpanIndex
 from ..split import build_output
@@ -59,32 +60,34 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
         return 2
     base_bytes, base_root = base_result.source_bytes, base_result.root
 
+    # Base first, then the input: the order the refusals are checked in,
+    # which the text corpus replays (DL-279). read_input is the reader the
+    # GUI's _run_build_playlist calls as well, so both surfaces refuse an
+    # unreadable input with the same code (DL-262, DL-281).
+    # "auto" leaves detection to the suffix; any other value names the format.
+    fmt = None if args.input_format == "auto" else InputFormat(args.input_format)
     try:
-        tracklist_bytes = args.tracklist.read_bytes()
-    except OSError:
-        # OSError, not just FileNotFoundError: a directory or a
-        # permission-denied path must report the same clean diagnostic
-        # rather than an unhandled traceback.
-        print(f"input_not_found={args.tracklist.as_posix()}", file=sys.stderr)
-        return 2
-
-    try:
-        # utf-8-sig transparently strips a leading UTF-8 BOM rather than
-        # letting it silently corrupt the first parsed line's artist name.
-        tracklist_text = tracklist_bytes.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        print(f"tracklist_decode_error={args.tracklist.as_posix()}", file=sys.stderr)
+        input_read = read_input(args.tracklist, fmt)
+    except InputReadError as exc:
+        print(exc.code, file=sys.stderr)
         return 2
 
     result = assemble_output(
         base_bytes.decode("utf-8"),
         base_root,
-        tracklist_text,
+        input_read.candidates,
         args.name,
         target_folder=args.target_folder,
         allow_unmatched=args.allow_unmatched,
     )
 
+    # Printed ahead of the stats and only for non-text input (DL-294): a
+    # text run's stdout stays byte-identical to the corpus (DL-279, DL-280),
+    # and a cp1252 fallback is named where the operator reads the counts
+    # (DL-283).
+    if input_read.format is not InputFormat.TEXT:
+        print(f"input_format={input_read.format.value}")
+        print(f"input_encoding={input_read.encoding}")
     for key, value in result.stats.items():
         print(f"{key}={value}")
     if _write_unresolved_report(result.unresolved_rows, args.unresolved_report) is not None:
@@ -130,17 +133,30 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
 
 def register(subparsers, handlers: dict) -> None:
     """Register the build-playlist subparser. No --match-confidence option
-    is exposed: resolution always runs at a fixed MatchConfidence.LOOSE,
-    since a text-only track list leaves every stricter tier unreachable
-    (DL-032)."""
+    is exposed: resolution always runs at a fixed MatchConfidence.LOOSE for
+    every input format, which already admits every stricter tier a
+    file-derived candidate can reach (DL-032, DL-276)."""
+    csv_columns = ", ".join(
+        f"{column.header}{'' if column.required else ' (optional)'}" for column in CSV_COLUMNS
+    )
     parser = subparsers.add_parser(
         "build-playlist",
-        help="Build an NML playlist from an external track list matched against a base collection",
+        help="Build an NML playlist from a track list, CSV, M3U/M3U8 playlist or folder matched against a base collection",
     )
     parser.add_argument("base", type=Path)
-    parser.add_argument("tracklist", type=Path)
+    parser.add_argument(
+        "tracklist",
+        type=Path,
+        help="A plain-text 'Artist - Title' list, a .csv, an M3U or M3U8 playlist, or a folder whose own audio files are read in name order.",
+    )
     parser.add_argument("output", type=Path)
     parser.add_argument("--name", required=True)
+    parser.add_argument(
+        "--input-format",
+        choices=["auto", "text", "csv", "m3u", "folder"],
+        default="auto",
+        help=f"Read the input as this format instead of detecting it from the suffix. CSV columns: {csv_columns}.",
+    )
     parser.add_argument("--target-folder", default=None)
     parser.add_argument(
         "--full-collection",

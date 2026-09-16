@@ -165,3 +165,23 @@ def test_interrupted_commit_leaves_destination_and_no_temp_file(tmp_path: Path, 
     assert out_path.read_bytes() == seeded_bytes
     leftover = [p for p in tmp_path.iterdir() if p.name.startswith(f".{out_path.name}.")]
     assert leftover == []
+
+
+def test_build_playlist_help_lists_csv_columns_from_their_definition(tmp_path):
+    """--help names every CSV_COLUMNS header and the --input-format
+    choices, read from the definition rather than restated (DL-294).
+
+    Mutation: the --input-format argument's choices drop 'folder', so
+        --help prints {auto,text,csv,m3u} in place of
+        {auto,text,csv,m3u,folder}.
+    Observed:
+        E       AssertionError: assert '{auto,text,csv,m3u,folder}' in 'usage: python.exe -m pytest build-playlist [-h] --name NAME [--input-format {auto,text,csv,m3u}] [--target-folder TAR...ORT --dry-run Skip the write to the NML output file. Any report or CSV side file this command writes is still written.'
+    """
+    from traktor_nml.playlistinput import CSV_COLUMNS
+
+    result = run_tool(["build-playlist", "--help"], cwd=tmp_path)
+    assert result.exit_code == 0
+    flat = " ".join(result.stdout.split())
+    for column in CSV_COLUMNS:
+        assert column.header in flat
+    assert "{auto,text,csv,m3u,folder}" in flat

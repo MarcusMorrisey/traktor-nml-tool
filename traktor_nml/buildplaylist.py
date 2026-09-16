@@ -1,8 +1,9 @@
 """build-playlist core: resolution, playlist synthesis, insertion.
 
-A build-playlist run resolves each track-list line against a base
-collection through the shared matching cascade in tracklist.py at
-MatchConfidence.LOOSE, synthesizes a NODE TYPE=PLAYLIST fragment from the
+A build-playlist run takes the ordered Candidate list
+playlistinput.read_input produced (DL-274, DL-281), resolves each
+candidate against a base collection through tracklist.resolve_candidates
+at MatchConfidence.LOOSE, synthesizes a NODE TYPE=PLAYLIST fragment from the
 resolved primary keys in input order (playlists.synthesize_playlist_node),
 and inserts it into the base's root FOLDER SUBNODES, or a named existing
 folder's SUBNODES, through the same byte-span assembly spans.py's other
@@ -21,12 +22,12 @@ from typing import Optional
 from .model import collection_records
 from .playlists import available_playlist_name, find_playlist_nodes, synthesize_playlist_node
 from .spans import OutputBuilder, SpanIndex, find_element_span
-from .tracklist import parse_tracklist, resolve_tracklist
+from .tracklist import Candidate, resolve_candidates
 
 
 @dataclass
 class UnresolvedRow:
-    """One tracklist line that did not become a written ENTRY, and why."""
+    """One input entry that did not become a written ENTRY, and why."""
     line_number: int
     raw_text: str
     artist: str
@@ -110,36 +111,40 @@ def _find_target_subnodes(base_root, base_source: str, target_folder: Optional[s
     return subnodes_span, count, None
 
 
-def _resolve_lines(parsed_lines, unparseable_lines, records):
-    """Resolve every parsed line against records and split the results into
-    matched primary keys, unresolved rows (sorted back into overall
-    document line-number order, since unparseable rows are collected before
-    per-line resolutions), and the run's stats dict."""
-    resolutions = resolve_tracklist(parsed_lines, records)
+def _resolve_lines(candidates: list[Candidate], records):
+    """Resolve every candidate against records and split the results into
+    matched primary keys, unresolved rows sorted by line_number, and the
+    run's stats dict. The stats keys and their order are fixed (DL-280):
+    the CLI prints them as they stand, and the text corpus replays that
+    output byte for byte (DL-279)."""
+    resolutions = resolve_candidates(candidates, records)
 
-    unresolved_rows: list[UnresolvedRow] = [
-        UnresolvedRow(line_number=u.line_number, raw_text=u.raw_text, artist="", title="", kind="unparseable")
-        for u in unparseable_lines
-    ]
+    unresolved_rows: list[UnresolvedRow] = []
     matched_keys: list[str] = []
     for resolution in resolutions:
         if resolution.outcome == "matched":
             matched_keys.append(resolution.matched_record.primary_key)
         else:
+            candidate = resolution.candidate
             unresolved_rows.append(
                 UnresolvedRow(
-                    line_number=resolution.line.line_number, raw_text=resolution.line.raw_text,
-                    artist=resolution.line.artist, title=resolution.line.title, kind=resolution.outcome,
+                    line_number=candidate.line_number, raw_text=candidate.raw_text,
+                    artist=candidate.artist, title=candidate.title, kind=resolution.outcome,
                 )
             )
+    # Stable sort: candidates already arrive in line order, so this
+    # reorders nothing and ties keep their input order.
     unresolved_rows.sort(key=lambda row: row.line_number)
 
+    def _count(outcome: str) -> int:
+        return sum(1 for r in resolutions if r.outcome == outcome)
+
     stats: dict[str, object] = {
-        "lines_read": len(parsed_lines) + len(unparseable_lines),
+        "lines_read": len(candidates),
         "lines_resolved": len(matched_keys),
-        "unresolved_unparseable": len(unparseable_lines),
-        "unresolved_unmatched": sum(1 for r in resolutions if r.outcome == "unmatched"),
-        "unresolved_ambiguous": sum(1 for r in resolutions if r.outcome == "ambiguous"),
+        "unresolved_unparseable": _count("unparseable"),
+        "unresolved_unmatched": _count("unmatched"),
+        "unresolved_ambiguous": _count("ambiguous"),
         "playlist_name": None,
         "entries_written": 0,
     }
@@ -149,28 +154,30 @@ def _resolve_lines(parsed_lines, unparseable_lines, records):
 def assemble_output(
     base_source: str,
     base_root,
-    tracklist_text: str,
+    candidates: list[Candidate],
     playlist_name: str,
     target_folder: Optional[str] = None,
     allow_unmatched: bool = False,
 ) -> BuildPlaylistResult:
-    """Resolve every tracklist line against the base collection, synthesize
+    """Resolve every candidate against the base collection, synthesize
     a playlist from the resolved primary keys in input order, and splice
     it into the receiving SUBNODES. Returns output None with
-    unresolved_tracks when any line is unresolved and allow_unmatched is
+    unresolved_tracks when any candidate is unresolved and allow_unmatched is
     false (DL-027); output None with no_entries_resolved, before any span
-    lookup, when zero lines resolve at all (DL-036); output None with
+    lookup, when zero candidates resolve, including an input that yielded
+    no candidates at all (DL-036); output None with
     no_root_subnodes/root_subnodes_span_not_found/target_folder_not_found/
     target_folder_no_subnodes/target_folder_ambiguous=name:count=N when the
     receiving container cannot be resolved (DL-030, DL-038). Duplicate
-    tracklist lines naming the same track resolve and serialize
+    candidates naming the same track resolve and serialize
     independently (DL-037). Every synthesized key is validated against the
     base collection's own primary keys before returning, mirroring
     splice.py's validate-before-write convention. The whole output is built
     and validated in memory before the caller opens any file handle."""
-    parsed_lines, unparseable_lines = parse_tracklist(tracklist_text)
     records = collection_records(base_root)
-    matched_keys, unresolved_rows, stats = _resolve_lines(parsed_lines, unparseable_lines, records)
+    # candidates arrive already read and ordered by playlistinput.read_input
+    # (DL-281); resolution, refusal and the report see one shape (DL-274).
+    matched_keys, unresolved_rows, stats = _resolve_lines(candidates, records)
 
     if unresolved_rows and not allow_unmatched:
         return BuildPlaylistResult(output=None, stats=stats, unresolved_rows=unresolved_rows, errors=["unresolved_tracks"])
@@ -183,7 +190,7 @@ def assemble_output(
         return BuildPlaylistResult(output=None, stats=stats, unresolved_rows=unresolved_rows, errors=[error])
 
     # Every matched_keys entry comes from resolution.matched_record, which
-    # resolve_tracklist draws only from this same records list, so this can
+    # resolve_candidates draws only from this same records list, so this can
     # never actually fail - checked anyway to match splice.py's own
     # validate-before-write convention for playlist PRIMARYKEY references.
     valid_keys = {r.primary_key for r in records}

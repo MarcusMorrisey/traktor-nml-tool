@@ -77,6 +77,29 @@ async def pick_folder(window, *, start_dir: Optional[Path] = None) -> Optional[P
     return Path(result[0])
 
 
+async def pick_save_path(window, *, save_filename: str, start_dir: Optional[Path] = None) -> Optional[Path]:
+    """A destination file path chosen through pywebview's native SAVE
+    dialog, or None when the operator cancels.
+
+    Native mode only: pywebview blocks browser downloads by default, so
+    ui.download cannot deliver a file inside the native window (DL-295).
+    pywebview has returned the SAVE result as a plain string in some
+    versions and as a one-element sequence in others; both are accepted
+    so a pywebview upgrade cannot silently turn a chosen path into a
+    cancel."""
+    result = await window.create_file_dialog(
+        webview.FileDialog.SAVE,
+        directory=str(start_dir) if start_dir is not None else "",
+        save_filename=save_filename,
+    )
+    if not result:
+        return None
+    if isinstance(result, str):
+        return Path(result)
+    first = result[0]
+    return Path(first) if first else None
+
+
 class LocalFilePicker(ui.dialog):
     """A minimal server-filesystem browser, offered when no native
     window is available to host pywebview's dialog - the local_file_picker

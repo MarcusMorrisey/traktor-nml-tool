@@ -47,6 +47,8 @@ from typing import Callable, NamedTuple, Optional
 from nicegui import app as nicegui_app, run, ui
 
 from .. import buildplaylist
+from .. import playlistinput
+from ..playlists import playlist_folder_choices
 from .. import reconnect_run
 from ..diskscan import ScanCancelled
 from ..reconnect_render import (
@@ -72,7 +74,7 @@ from . import review_model
 from . import wizard_state
 from . import wording
 from .buildplaylist_view import FormInputs
-from .file_picker import pick_file_or_folder
+from .file_picker import native_window, pick_file_or_folder, pick_save_path
 from .wizard_state import WizardState
 from . import theme
 from . import keymap
@@ -1642,70 +1644,93 @@ _RECONSTRUCT_ACTION_APPLIERS = {
 }
 
 
-def _derive_build_playlist_output_path(base_path: Path, name: str, target_folder: str) -> Path:
-    """The build-playlist write destination: the playlist name as the
-    file's stem, in the base collection's own directory, or in a
-    subdirectory named by target_folder when one is given. No separate
-    output-path control exists on the form (DL-272): this is the only
-    place a build-playlist output path is computed, and both
-    path_collides and the atomic write below consume its return value."""
-    directory = base_path.parent
-    if target_folder:
-        directory = directory / target_folder
+CSV_TEMPLATE_FILENAME = "playlist-template.csv"
+
+
+async def _deliver_csv_template() -> None:
+    """Hand the operator csv_template_bytes(). Served over HTTP the
+    browser saves it through ui.download. In the native window pywebview
+    blocks browser downloads by default, so a SAVE dialog asks for the
+    path and the bytes are written atomically here (DL-295). Module-level
+    so a test can stub native_window, pick_save_path and ui.download."""
+    data = playlistinput.csv_template_bytes()
+    window = native_window()
+    if window is None:
+        ui.download(data, CSV_TEMPLATE_FILENAME)
+        return
+    path = await pick_save_path(window, save_filename=CSV_TEMPLATE_FILENAME)
+    if path is None:
+        return
+    try:
+        await run.io_bound(write_bytes_atomically, path, data)
+    except OSError as exc:
+        ui.notify(f"output_write_error={exc}", type="negative")
+        return
+    ui.notify(f"Written to {path}")
+
+
+def _derive_build_playlist_output_path(base_path: Path, output_dir: str, name: str) -> Path:
+    """The build-playlist write destination: <output folder>/<name>.nml,
+    or the base collection's own directory when no output folder is
+    chosen - the GUI counterpart of the CLI's positional output path.
+    It takes no playlist folder: that names a place in the collection's
+    playlist tree, not on disk, and a FOLDER NAME joined onto a disk path
+    would place the file in a directory that need not exist (DL-297). This is
+    the only place a build-playlist output path is computed; path_collides
+    and the atomic write both consume its return value."""
+    directory = Path(output_dir) if output_dir else base_path.parent
     return directory / f"{name}.nml"
 
 
-def _run_build_playlist(inputs: FormInputs) -> buildplaylist.BuildPlaylistResult:
+def _run_build_playlist(
+    inputs: FormInputs,
+) -> tuple[buildplaylist.BuildPlaylistResult, Optional[playlistinput.InputRead]]:
     """The build-playlist write path's whole sequence: collision
-    refusal, decode, assemble, the optional isolation pass, atomic
+    refusal, input read, assemble, the optional isolation pass, atomic
     write - the same order build_playlist_cmd.py's own handler calls
     them in, so neither this screen's behaviour nor its written bytes
     diverge from the CLI's (DL-262). Called under run.io_bound, never
-    on the event loop directly."""
+    on the event loop directly. Returns the InputRead beside the result,
+    None when the run refused before reading, so the summary can name the
+    format and codec (DL-296)."""
     base_path = Path(inputs.base_path)
-    tracklist_path = Path(inputs.tracklist_path)
+    input_path = Path(inputs.input_path)
     output_path = _derive_build_playlist_output_path(
-        base_path, inputs.name, inputs.target_folder
+        base_path, inputs.output_dir, inputs.name
     )
 
-    if path_collides(output_path, base_path, tracklist_path):
+    if path_collides(output_path, base_path, input_path):
         return buildplaylist.BuildPlaylistResult(
             output=None, stats={}, unresolved_rows=[],
             errors=["output_must_differ_from_input"],
-        )
+        ), None
 
     base_result = read_and_parse_source(base_path)
     if base_result.error is not None:
         return buildplaylist.BuildPlaylistResult(
             output=None, stats={}, unresolved_rows=[], errors=[base_result.error],
-        )
+        ), None
     base_bytes, base_root = base_result.source_bytes, base_result.root
 
+    # playlistinput.read_input is the one reader both surfaces call, so a
+    # refusal code here is the string the CLI prints (DL-281).
     try:
-        tracklist_bytes = tracklist_path.read_bytes()
-    except OSError:
+        input_read = playlistinput.read_input(input_path)
+    except playlistinput.InputReadError as exc:
         return buildplaylist.BuildPlaylistResult(
             output=None, stats={}, unresolved_rows=[],
-            errors=[f"input_not_found={tracklist_path.as_posix()}"],
-        )
-    try:
-        # utf-8-sig transparently strips a leading UTF-8 BOM, matching
-        # build_playlist_cmd.py's own decode rather than letting it
-        # silently corrupt the first parsed line's artist name.
-        tracklist_text = tracklist_bytes.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        return buildplaylist.BuildPlaylistResult(
-            output=None, stats={}, unresolved_rows=[],
-            errors=[f"tracklist_decode_error={tracklist_path.as_posix()}"],
-        )
+            errors=[exc.code],
+        ), None
 
     result = buildplaylist.assemble_output(
-        base_bytes.decode("utf-8"), base_root, tracklist_text, inputs.name,
-        target_folder=inputs.target_folder or None,
+        base_bytes.decode("utf-8"), base_root, input_read.candidates, inputs.name,
+        # The playlist folder is the CLI's --target-folder: a FOLDER NAME in
+        # the collection, None for the root. It never touches output_path.
+        target_folder=inputs.playlist_folder or None,
         allow_unmatched=inputs.allow_unmatched,
     )
     if result.output is None:
-        return result
+        return result, input_read
 
     output = result.output
     if not inputs.full_collection:
@@ -1721,7 +1746,7 @@ def _run_build_playlist(inputs: FormInputs) -> buildplaylist.BuildPlaylistResult
             return buildplaylist.BuildPlaylistResult(
                 output=None, stats=result.stats, unresolved_rows=result.unresolved_rows,
                 errors=isolated.errors,
-            )
+            ), input_read
         output = isolated.output
 
     try:
@@ -1730,8 +1755,8 @@ def _run_build_playlist(inputs: FormInputs) -> buildplaylist.BuildPlaylistResult
         return buildplaylist.BuildPlaylistResult(
             output=None, stats=result.stats, unresolved_rows=result.unresolved_rows,
             errors=[f"output_write_error={exc}"],
-        )
-    return result
+        ), input_read
+    return result, input_read
 
 
 def _build_build_playlist_page() -> None:
@@ -1755,7 +1780,8 @@ def _build_build_playlist_page() -> None:
         chrome = _page_chrome("/build-playlist")
 
         base_holder: dict = {"path": None}
-        tracklist_holder: dict = {"path": None}
+        input_holder: dict = {"path": None}
+        output_dir_holder: dict = {"path": None}
 
         with chrome.middle:
             with ui.column().classes("gap-4 wizard-content-width"):
@@ -1766,66 +1792,185 @@ def _build_build_playlist_page() -> None:
                         )
                     with ui.element("div").classes("wizard-card-body"):
                         ui.label(
-                            'Match a plain-text "Artist - Title" list against a '
-                            "collection and write the matches as a new NML playlist."
+                            "Match a track list, CSV, M3U playlist or folder of audio "
+                            "files against a collection and write the matches as a new "
+                            "NML playlist. Nothing here reads or changes an existing "
+                            "playlist's own entries."
                         )
 
-                        base_display = ui.label("No collection selected").classes(
-                            "font-mono wizard-body-15 wizard-subtle-1"
-                        )
+                        ui.label("Base collection").classes("wizard-label")
+                        with ui.row().classes("buildplaylist-input-row"):
+                            base_display = ui.label("No collection selected").classes(
+                                "font-mono wizard-body-15 wizard-subtle-1"
+                            )
 
-                        async def choose_base() -> None:
-                            path = await pick_file_or_folder(directories_only=False)
-                            if path is not None:
-                                base_holder["path"] = path
-                                base_display.set_text(str(path))
+                            async def choose_base() -> None:
+                                path = await pick_file_or_folder(directories_only=False)
+                                if path is not None:
+                                    base_holder["path"] = path
+                                    base_display.set_text(str(path))
+                                    _refill_playlist_folders(path)
+                                    _show_output_dir()
+                                    _refresh_write_button()
+
+                            ui.button(
+                                "Choose file...", on_click=choose_base, color=None
+                            ).classes("wizard-control wizard-control-fill")
+
+                        ui.label("Input").classes("wizard-label")
+                        with ui.row().classes("buildplaylist-input-row"):
+                            input_display = ui.label("No input selected").classes(
+                                "font-mono wizard-body-15 wizard-subtle-1"
+                            )
+                            format_tag = ui.label("").classes("buildplaylist-format-tag")
+                            format_tag.set_visibility(False)
+
+                            async def choose_input(directories_only: bool) -> None:
+                                path = await pick_file_or_folder(directories_only=directories_only)
+                                if path is None:
+                                    return
+                                input_holder["path"] = path
+                                input_display.set_text(str(path))
+                                # The tag shows what read_input will read the
+                                # path as, before any run (DL-295).
+                                format_tag.set_text(
+                                    buildplaylist_view.format_label(playlistinput.detect_format(path))
+                                )
+                                format_tag.set_visibility(True)
                                 _refresh_write_button()
 
-                        ui.button(
-                            "Choose collection file...", on_click=choose_base, color=None
-                        ).classes("wizard-control wizard-control-fill")
+                            ui.button(
+                                "Choose file...", on_click=lambda: choose_input(False), color=None
+                            ).classes("wizard-control wizard-control-fill")
+                            ui.button(
+                                "Choose folder...", on_click=lambda: choose_input(True), color=None
+                            ).classes("wizard-control wizard-control-fill")
+                        ui.label(
+                            'A text file with one "Artist - Title" per line, a CSV, an M3U '
+                            "or M3U8 playlist, or a folder whose audio files are read in "
+                            "name order."
+                        ).classes("wizard-subtle-1")
 
-                        tracklist_display = ui.label("No track list selected").classes(
-                            "font-mono wizard-body-15 wizard-subtle-1"
-                        )
+                        with ui.element("div").classes("wizard-callout"):
+                            with ui.element("span").classes("buildplaylist-note-text"):
+                                ui.label("CSV columns.").classes("buildplaylist-note-lead")
+                                ui.label(buildplaylist_view.csv_columns_note())
 
-                        async def choose_tracklist() -> None:
-                            path = await pick_file_or_folder(directories_only=False)
-                            if path is not None:
-                                tracklist_holder["path"] = path
-                                tracklist_display.set_text(str(path))
-                                _refresh_write_button()
-
-                        ui.button(
-                            "Choose track list...", on_click=choose_tracklist, color=None
-                        ).classes("wizard-control wizard-control-fill")
+                            # One control in both modes; _deliver_csv_template
+                            # chooses ui.download or the SAVE dialog (DL-295).
+                            ui.button(
+                                "Download CSV template", on_click=_deliver_csv_template, color=None
+                            ).classes("wizard-control wizard-control-fill buildplaylist-template-control")
 
                         name_input = ui.input(
                             "Playlist name", on_change=lambda _e: _refresh_write_button()
                         ).classes("w-full")
-                        target_folder_input = ui.input("Target folder (optional)").classes(
-                            "w-full"
-                        )
+
+                        with ui.row().classes("buildplaylist-folder-row"):
+                            with ui.column().classes("buildplaylist-folder-col"):
+                                ui.label("Output folder").classes("wizard-label")
+                                with ui.row().classes("buildplaylist-input-row"):
+                                    output_dir_display = ui.label("").classes(
+                                        "font-mono wizard-body-15 wizard-subtle-1"
+                                    )
+
+                                    async def choose_output_dir() -> None:
+                                        path = await pick_file_or_folder(directories_only=True)
+                                        if path is not None:
+                                            output_dir_holder["path"] = path
+                                            _show_output_dir()
+
+                                    ui.button(
+                                        "Choose folder...", on_click=choose_output_dir, color=None
+                                    ).classes("wizard-control wizard-control-fill")
+                            with ui.column().classes("buildplaylist-folder-col"):
+                                playlist_folder_select = ui.select(
+                                    {"": buildplaylist_view.COLLECTION_ROOT_LABEL},
+                                    value="",
+                                    label="Playlist folder",
+                                ).classes("w-full")
+                                # NiceGUI hands the browser each option's label
+                                # and index, never its key, so Quasar's
+                                # option-disable predicate greys out the
+                                # shared-name folders by their label (DL-297).
+                                playlist_folder_select.props(
+                                    ":option-disable=\"opt => String(opt.label).endsWith('"
+                                    + buildplaylist_view.SHARED_NAME_SUFFIX
+                                    + "')\""
+                                )
+                                playlist_folder_note = ui.label(
+                                    buildplaylist_view.PLAYLIST_FOLDER_NEEDS_FULL_COLLECTION
+                                ).classes("wizard-subtle-1")
+
                         allow_unmatched_switch = ui.switch("Allow unmatched lines")
-                        full_collection_switch = ui.switch("Full collection")
+                        full_collection_switch = ui.switch(
+                            "Full collection", on_change=lambda _e: _sync_playlist_folder()
+                        )
 
                 with ui.element("section").classes(
                     "wizard-card wizard-content-width"
                 ) as report_section:
                     with ui.element("div").classes("wizard-card-head"):
-                        ui.label("Unresolved lines").classes("wizard-card-title")
+                        ui.label("Unresolved entries").classes("wizard-card-title")
                     with ui.element("div").classes("wizard-card-body"):
                         report_table = ui.column().classes("gap-1")
                 report_section.set_visibility(False)
 
+        def _show_output_dir() -> None:
+            # The placeholder names the folder the file goes to when none is
+            # chosen, so the default is visible rather than implied.
+            if output_dir_holder["path"] is not None:
+                output_dir_display.set_text(str(output_dir_holder["path"]))
+            elif base_holder["path"] is not None:
+                output_dir_display.set_text(f"{base_holder['path'].parent} (the base collection's folder)")
+            else:
+                output_dir_display.set_text("The base collection's folder")
+
+        def _sync_playlist_folder() -> None:
+            # Full collection off: split.build_output keeps only the new
+            # playlist under the root, so the chooser is disabled, reset to
+            # Collection root, and the note says why (DL-297). The output
+            # folder chooser applies either way and is left alone.
+            full = bool(full_collection_switch.value)
+            playlist_folder_select.set_enabled(full)
+            playlist_folder_note.set_visibility(not full)
+            if not full:
+                playlist_folder_select.set_value("")
+
+        def _refill_playlist_folders(base_path: Path) -> None:
+            """Replace the chooser's options with the chosen base's FOLDERs.
+            A base that fails to parse leaves only Collection root; the
+            run itself reports the parse error."""
+            parsed = read_and_parse_source(base_path)
+            choices = [] if parsed.error is not None else playlist_folder_choices(parsed.root)
+            options = buildplaylist_view.playlist_folder_options(choices)
+            # A disabled option still needs its own key, and its NAME is not
+            # unique; a NUL-prefixed label is a key no FOLDER NAME can equal.
+            playlist_folder_select.set_options(
+                {(o.value if o.enabled else "\0" + o.label): o.label for o in options},
+                value="",
+            )
+
         def _current_inputs() -> FormInputs:
             return FormInputs(
                 base_path=str(base_holder["path"] or ""),
-                tracklist_path=str(tracklist_holder["path"] or ""),
+                input_path=str(input_holder["path"] or ""),
                 name=name_input.value or "",
-                target_folder=target_folder_input.value or "",
+                output_dir=str(output_dir_holder["path"] or ""),
+                playlist_folder=_selected_playlist_folder(),
                 allow_unmatched=bool(allow_unmatched_switch.value),
                 full_collection=bool(full_collection_switch.value),
+            )
+
+        def _selected_playlist_folder() -> str:
+            """The playlist folder the run passes as target_folder: the
+            chooser's NAME, "" for Collection root or a disabled key, and
+            "" whenever Full collection is off (DL-297)."""
+            value = playlist_folder_select.value or ""
+            # A disabled option's key starts with NUL and is never a NAME.
+            selected = "" if value.startswith("\0") else value
+            return buildplaylist_view.effective_playlist_folder(
+                bool(full_collection_switch.value), selected
             )
 
         def _refresh_write_button() -> None:
@@ -1839,8 +1984,16 @@ def _build_build_playlist_page() -> None:
             if errors:
                 chrome.footer_note.set_text(" ".join(errors))
                 return
-            result = await run.io_bound(_run_build_playlist, inputs)
-            chrome.footer_note.set_text(buildplaylist_view.run_summary(result))
+            result, input_read = await run.io_bound(_run_build_playlist, inputs)
+            # The summary names the format and codec the run read, from the
+            # InputRead the run returned (DL-296).
+            chrome.footer_note.set_text(
+                buildplaylist_view.run_summary(
+                    result,
+                    input_read.format if input_read is not None else None,
+                    input_read.encoding if input_read is not None else "",
+                )
+            )
 
             report_table.clear()
             rows = buildplaylist_view.unresolved_report_rows(result)
@@ -1858,6 +2011,8 @@ def _build_build_playlist_page() -> None:
             ).classes("wizard-control wizard-control-primary")
 
         _refresh_write_button()
+        _show_output_dir()
+        _sync_playlist_folder()
 
 
 # Write.dc.html:164-166's three assurances: what the confirmation states

@@ -106,6 +106,58 @@ def playlist_path_pairs(root: ET.Element) -> list[tuple[str, ET.Element]]:
     return pairs
 
 
+@dataclass(frozen=True)
+class PlaylistFolderChoice:
+    """One FOLDER a new playlist can be placed under. path is the
+    backslash-joined chain of FOLDER names below the root, the encoding
+    playlist_path_pairs uses; name is the FOLDER's own NAME, the value
+    assemble_output's target_folder takes. unique is False when another
+    FOLDER under the root holds the same NAME."""
+
+    path: str
+    name: str
+    unique: bool
+
+
+def playlist_folder_choices(root: ET.Element) -> list[PlaylistFolderChoice]:
+    """Every FOLDER node below the PLAYLISTS root, in tree order.
+
+    buildplaylist._find_target_subnodes resolves target_folder by NAME
+    alone over the root's descendants and refuses a NAME two FOLDERs
+    share as target_folder_ambiguous, so such a folder cannot be the
+    target of a run; unique=False lets a chooser show it without offering
+    it (DL-297). The root itself is excluded: choosing it is the absence
+    of a target folder. Playlists are not listed. An NML without a
+    PLAYLISTS root or its SUBNODES gives an empty list.
+    """
+    playlists_root = root.find(".//PLAYLISTS/NODE")
+    if playlists_root is None or playlists_root.find("SUBNODES") is None:
+        return []
+
+    found: list[tuple[str, str]] = []
+
+    def walk(node: ET.Element, prefix: list[str]) -> None:
+        if node.attrib.get("TYPE") != "FOLDER":
+            return
+        name = node.attrib.get("NAME", "")
+        found.append(("\\".join(prefix + [name]), name))
+        subnodes = node.find("SUBNODES")
+        if subnodes is not None:
+            for child in subnodes:
+                walk(child, prefix + [name])
+
+    for child in playlists_root.find("SUBNODES"):
+        walk(child, [])
+
+    # The same scope _find_target_subnodes searches: every FOLDER under the
+    # root. The root's own NAME is counted too, because a target_folder equal
+    # to it selects the root rather than the descendant that shares it.
+    name_counts: dict[str, int] = {playlists_root.attrib.get("NAME", ""): 1}
+    for _path, name in found:
+        name_counts[name] = name_counts.get(name, 0) + 1
+    return [PlaylistFolderChoice(path, name, name_counts[name] == 1) for path, name in found]
+
+
 def playlist_paths(root: ET.Element) -> dict[str, ET.Element]:
     """The same paths as a mapping, for a caller that looks one up."""
     return dict(playlist_path_pairs(root))

@@ -369,7 +369,19 @@ def test_missing_tracklist_reports_input_not_found(tmp_path: Path) -> None:
     assert "input_not_found" in result.stderr
 
 
-def test_tracklist_path_pointing_at_a_directory_reports_input_not_found(tmp_path: Path) -> None:
+def test_tracklist_path_pointing_at_a_directory_reads_as_a_folder(tmp_path: Path) -> None:
+    r"""A directory given as the tracklist is a folder input whatever its
+    name, so one holding no audio files runs to no_entries_resolved
+    rather than refusing as a missing file (DL-292, DL-294).
+
+    Mutation: read_input returns read_text(path) for every path, so the
+        directory refuses with input_not_found.
+    Observed:
+        E       AssertionError: assert 'no_entries_resolved' in ['input_not_found=C:/Users/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1372/test_tracklist_path_pointing_a0/tracks.txt']
+        E        +  where ['input_not_found=C:/Users/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1372/test_tracklist_path_pointing_a0/tracks.txt'] = <built-in method splitlines of str object at 0x00000132440596E0>()
+        E        +    where <built-in method splitlines of str object at 0x00000132440596E0> = 'input_not_found=C:/Users/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1372/test_tracklist_path_pointing_a0/tracks.txt\n'.splitlines
+        E        +      where 'input_not_found=C:/Users/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1372/test_tracklist_path_pointing_a0/tracks.txt\n' = RunResult(exit_code=2, stdout='', stderr='input_not_found=C:/Users/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1372/test_tracklist_path_pointing_a0/tracks.txt\n').stderr
+    """
     base = tmp_path / "base.nml"
     base.write_text(_nml(_entry("A", "One", "one.mp3"), 1, ""), encoding="utf-8", newline="")
     tracklist_dir = tmp_path / "tracks.txt"
@@ -378,7 +390,8 @@ def test_tracklist_path_pointing_at_a_directory_reports_input_not_found(tmp_path
 
     result = run_tool(["build-playlist", str(base), str(tracklist_dir), str(out), "--name", "MyList"], cwd=tmp_path)
     assert result.exit_code == 2
-    assert "input_not_found" in result.stderr
+    assert "no_entries_resolved" in result.stderr.splitlines()
+    assert "input_not_found" not in result.stderr
 
 
 def test_unresolved_report_path_with_missing_parent_dir_reports_write_error(tmp_path: Path) -> None:
@@ -685,3 +698,62 @@ def test_utf8_bom_prefixed_tracklist_parses_first_line_cleanly(tmp_path: Path) -
     assert "entries_written=1" in result.stdout
     text = out.read_text(encoding="utf-8")
     assert _key("one.mp3") in text
+
+
+def test_each_input_format_end_to_end_with_refusal_codes(tmp_path: Path) -> None:
+    r"""text, csv, m3u and folder inputs each build through the CLI, and
+    each read refusal prints its one code with exit 2 (DL-292).
+
+    Mutation: _handle_build_playlist returns exit code 1 in place of 2
+        when read_input raises InputReadError, so the refusal cases fail
+        their exit_code == 2 assertion.
+    Observed:
+        E           AssertionError: assert 1 == 2
+        E            +  where 1 = RunResult(exit_code=1, stdout='', stderr='input_not_found=missing.m3u\n').exit_code
+    """
+    base = tmp_path / "base.nml"
+    base.write_text(_nml(_entry("A", "One", "one.mp3"), 1, ""), encoding="utf-8", newline="")
+    (tmp_path / "t.txt").write_text("A - One\n", encoding="utf-8")
+    (tmp_path / "l.csv").write_text("Artist,Title\nA,One\n", encoding="utf-8")
+    (tmp_path / "p.m3u8").write_text("#EXTINF:1,A - One\n/elsewhere/one.mp3\n", encoding="utf-8")
+    for source in ("t.txt", "l.csv", "p.m3u8"):
+        result = run_tool(["build-playlist", "base.nml", source, f"{source}.nml", "--name", "L"], cwd=tmp_path)
+        assert result.exit_code == 0, (source, result.stderr)
+
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    cases = [
+        (["empty"], "no_entries_resolved"),
+        (["missing.m3u"], "input_not_found=missing.m3u"),
+        (["t.txt", "--input-format", "folder"], "input_format_mismatch=folder"),
+    ]
+    (tmp_path / "noheader.csv").write_text("Name,Album\nx,y\n", encoding="utf-8")
+    cases.append((["noheader.csv"], "csv_header_missing"))
+    for extra, code in cases:
+        argv = ["build-playlist", "base.nml", extra[0], "out.nml", "--name", "L", *extra[1:]]
+        result = run_tool(argv, cwd=tmp_path)
+        assert result.exit_code == 2
+        assert code in result.stderr.splitlines()
+
+
+def test_input_format_text_reads_a_csv_as_text(tmp_path: Path) -> None:
+    r"""--input-format text on a .csv parses it line by line and prints no
+    input_format line (DL-280, DL-294).
+
+    Mutation: _handle_build_playlist calls read_input(path) without the
+        --input-format value, so list.csv reads as CSV, its 'A - One'
+        header has no Title column, and the run refuses
+        csv_header_missing with exit code 2.
+    Observed:
+        E       AssertionError: csv_header_missing
+        E         
+        E       assert 2 == 0
+        E        +  where 2 = RunResult(exit_code=2, stdout='', stderr='csv_header_missing\n').exit_code
+    """
+    (tmp_path / "base.nml").write_text(_nml(_entry("A", "One", "one.mp3"), 1, ""), encoding="utf-8", newline="")
+    (tmp_path / "list.csv").write_text("A - One\n", encoding="utf-8")
+    result = run_tool(
+        ["build-playlist", "base.nml", "list.csv", "out.nml", "--name", "L", "--input-format", "text"], cwd=tmp_path
+    )
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.splitlines()[0] == "lines_read=1"

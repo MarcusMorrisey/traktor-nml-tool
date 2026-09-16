@@ -1,11 +1,16 @@
-"""External track-list parsing and per-line collection resolution.
+"""External track-list parsing and per-candidate collection resolution.
 
-A plain-text track list holds one 'Artist - Title' line per line. Each
-parsed line becomes a candidate EntryRecord (entry=None), the same shape
-diskscan.py already uses for disk-scanned candidates, and is resolved
-against a base collection through the shared matching cascade in
-matching.py at MatchConfidence.LOOSE - the only tier reachable for
-text-only input is artist_title, since every field the stricter tiers
+build-playlist hands resolution one ordered list of Candidate values
+(DL-274). A Candidate carries the entry's position and text for the
+report, and either the EntryRecord the matching cascade reads as its old
+side or None for an entry that could not be parsed. resolve_candidates
+resolves that list against a base collection through matching.py at
+MatchConfidence.LOOSE (DL-276), candidates on the old side and the
+collection on the new (DL-278).
+
+A plain-text track list holds one 'Artist - Title' line per line; each
+parsed line becomes a record carrying artist and title only, so the only
+tier it reaches is artist_title, since every field the stricter tiers
 require (filesize, playtime_float, file_name, album) is empty for a
 parsed line. matching.py and confidence.py are imported and called here,
 never edited or wrapped in a subclass.
@@ -102,42 +107,117 @@ def tracklist_record(line: ParsedLine) -> EntryRecord:
 
 
 @dataclass(frozen=True)
+class Candidate:
+    """One input entry in input order. record None marks an entry that
+    could not be parsed; the report still needs its line_number and
+    raw_text, which is why unparseable entries travel in the same list
+    rather than beside it (DL-274). artist and title are what the report
+    shows."""
+
+    line_number: int
+    raw_text: str
+    artist: str
+    title: str
+    record: Optional[EntryRecord]
+
+
+def text_candidates(text: str) -> list[Candidate]:
+    """parse_tracklist's parsed and unparseable lines as one Candidate
+    list in line order. line_number is the physical 1-based line, the
+    same number parse_tracklist assigns, so the text path's report is
+    unchanged by the seam (DL-279)."""
+    parsed, unparseable = parse_tracklist(text)
+    candidates = [
+        Candidate(line.line_number, line.raw_text, line.artist, line.title, tracklist_record(line))
+        for line in parsed
+    ]
+    candidates.extend(
+        Candidate(line.line_number, line.raw_text, "", "", None) for line in unparseable
+    )
+    # One list in physical line order, the order the report rows of the
+    # recorded text corpus hold (DL-279).
+    candidates.sort(key=lambda candidate: candidate.line_number)
+    return candidates
+
+
+@dataclass(frozen=True)
 class TracklistResolution:
     line: ParsedLine
     outcome: str  # "matched", "unmatched", "ambiguous"
     matched_record: Optional[EntryRecord] = None
 
 
-def resolve_tracklist(
-    lines: list[ParsedLine], collection: list[EntryRecord]
-) -> list[TracklistResolution]:
-    """Resolve every parsed line against collection, in input order.
+@dataclass(frozen=True)
+class CandidateResolution:
+    """One Candidate's outcome. matched_record is the collection record
+    it resolved to, set only when outcome is 'matched'. 'unparseable' is
+    the outcome of a record-None Candidate, which never reaches
+    match_records (DL-274)."""
+
+    candidate: Candidate
+    outcome: str  # "matched", "unmatched", "ambiguous", "unparseable"
+    matched_record: Optional[EntryRecord] = None
+
+
+def resolve_candidates(
+    candidates: list[Candidate], collection: list[EntryRecord]
+) -> list[CandidateResolution]:
+    """Resolve every candidate against collection, in input order.
 
     The candidate index is built once with build_new_indexes over
     collection at MatchConfidence.LOOSE, then match_records is called once
-    per line with old_records holding that single line and the shared
-    index passed as indexes; the returned stats dict distinguishes matched,
-    unmatched and ambiguous for that one line. match_records' returned
-    mapping is keyed by old_record.primary_key - on a matched outcome the
-    matched record is read back via record.primary_key (not a hardcoded ""),
-    so the lookup stays correct even if LocationParts.primary_key's
-    concatenation formula ever changes.
+    per candidate with old_records holding that single record and the
+    shared index passed as indexes; the returned stats dict distinguishes
+    matched, unmatched and ambiguous for that one record. A candidate
+    whose record is None is 'unparseable' and never reaches match_records.
+    match_records' returned mapping is keyed by old_record.primary_key -
+    on a matched outcome the matched record is read back via
+    record.primary_key (not a hardcoded ""), so the lookup stays correct
+    even if LocationParts.primary_key's concatenation formula ever changes.
     """
-    # index built once over the full collection; reused by every per-line
-    # match_records call below so the O(collection) cost stays at one (DL-025)
+    # index built once over the full collection; reused by every
+    # per-candidate match_records call below so the O(collection) cost
+    # stays at one (DL-025)
+    # LOOSE with the candidate as the old side and the collection as the
+    # new: the cascade tries tiers strongest first, so a candidate carrying
+    # more than artist and title reaches the stricter tiers at this level
+    # (DL-276), and refutation's verdicts are symmetric in which side is
+    # disk (DL-278).
     indexes = build_new_indexes(collection, MatchConfidence.LOOSE)
-    resolutions: list[TracklistResolution] = []
-    for line in lines:
-        record = tracklist_record(line)
+    resolutions: list[CandidateResolution] = []
+    for candidate in candidates:
+        record = candidate.record
+        if record is None:
+            resolutions.append(CandidateResolution(candidate=candidate, outcome="unparseable"))
+            continue
+        # One record per call: ambiguity is counted per old record (DL-278).
         mapping, stats, _samples = match_records(
             [record], collection, MatchConfidence.LOOSE, indexes=indexes
         )
         if stats["matched"] == 1:
             resolutions.append(
-                TracklistResolution(line=line, outcome="matched", matched_record=mapping.get(record.primary_key))
+                CandidateResolution(
+                    candidate=candidate, outcome="matched", matched_record=mapping.get(record.primary_key)
+                )
             )
         elif stats["ambiguous"] == 1:
-            resolutions.append(TracklistResolution(line=line, outcome="ambiguous"))
+            resolutions.append(CandidateResolution(candidate=candidate, outcome="ambiguous"))
         else:
-            resolutions.append(TracklistResolution(line=line, outcome="unmatched"))
+            resolutions.append(CandidateResolution(candidate=candidate, outcome="unmatched"))
     return resolutions
+
+
+def resolve_tracklist(
+    lines: list[ParsedLine], collection: list[EntryRecord]
+) -> list[TracklistResolution]:
+    """Resolve parsed lines through resolve_candidates, one
+    TracklistResolution per line in input order. Kept for callers that
+    hold ParsedLine values rather than Candidates."""
+    candidates = [
+        Candidate(line.line_number, line.raw_text, line.artist, line.title, tracklist_record(line))
+        for line in lines
+    ]
+    return [
+        TracklistResolution(line=line, outcome=resolution.outcome, matched_record=resolution.matched_record)
+        for line, resolution in zip(lines, resolve_candidates(candidates, collection))
+    ]

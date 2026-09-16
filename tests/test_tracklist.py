@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from traktor_nml.model import EntryRecord, LocationParts
-from traktor_nml.tracklist import parse_tracklist, resolve_tracklist
+from traktor_nml.tracklist import (
+    Candidate,
+    parse_tracklist,
+    resolve_candidates,
+    resolve_tracklist,
+    text_candidates,
+)
 
 
 def _collection_record(artist: str, title: str, filename: str = "track.mp3") -> EntryRecord:
@@ -137,3 +145,54 @@ def test_matched_resolution_carries_the_collection_records_primary_key() -> None
     collection = [_collection_record("Artist", "Title", "track.mp3")]
     resolutions = resolve_tracklist(parsed, collection)
     assert resolutions[0].matched_record.primary_key == collection[0].primary_key
+
+
+def test_text_candidates_order() -> None:
+    """Parsed and unparseable lines come back as one list in physical
+    line order, each numbered as parse_tracklist numbers it, with a None
+    record exactly on the unparseable lines.
+
+    Mutation: text_candidates drops its
+        candidates.sort(key=line_number), so the unparseable lines
+        follow every parsed line and line_number reads [1, 4, 2, 5].
+    Observed:
+        E   assert [1, 4, 2, 5] == [1, 2, 4, 5]
+        E     
+        E     At index 1 diff: 4 != 2
+        E     Use -v to get more diff
+    """
+    text = "A - One\nno delimiter\n# comment\nB - Two\nalso bad\n"
+    candidates = text_candidates(text)
+    assert [c.line_number for c in candidates] == [1, 2, 4, 5]
+    assert [c.record is None for c in candidates] == [False, True, False, True]
+    assert candidates[1].raw_text == "no delimiter"
+    assert (candidates[2].artist, candidates[2].title) == ("B", "Two")
+
+
+def test_resolve_candidates_unparseable() -> None:
+    """A record-None Candidate resolves as 'unparseable' without
+    match_records ever being called for it, and a parsed candidate
+    beside it still resolves.
+
+    Mutation: resolve_candidates calls match_records([record], ...)
+        before its `record is None` check, so the patched match_records
+        raises for the unparseable candidate.
+    Observed:
+        E   AssertionError: match_records called for an unparseable candidate
+    """
+    unparseable = Candidate(3, "no delimiter", "", "", None)
+
+    def _refuse(*_args, **_kwargs):
+        raise AssertionError("match_records called for an unparseable candidate")
+
+    with patch("traktor_nml.tracklist.match_records", _refuse):
+        resolutions = resolve_candidates([unparseable], [_collection_record("A", "One")])
+    assert [(r.candidate, r.outcome, r.matched_record) for r in resolutions] == [
+        (unparseable, "unparseable", None)
+    ]
+
+    parsed = text_candidates("A - One\n")[0]
+    collection = [_collection_record("A", "One")]
+    mixed = resolve_candidates([parsed, unparseable], collection)
+    assert [r.outcome for r in mixed] == ["matched", "unparseable"]
+    assert mixed[0].matched_record.primary_key == collection[0].primary_key

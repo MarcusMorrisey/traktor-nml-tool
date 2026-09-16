@@ -129,3 +129,67 @@ def test_cache_flush_retries_a_transient_windows_file_lock(tmp_path: Path, monke
 
     assert calls == 2
     assert (tmp_path / "cache.json").exists()
+
+
+def test_index_files_keeps_order_and_duplicates(tmp_path):
+    """index_files returns one record per path in the order given, a
+    repeated path twice, sizes in KB, source_path set, and a file with no
+    readable tags as a record with empty tag fields.
+
+    Mutation: index_files skips a resolved path it has already indexed,
+        the way _enumerate_candidates deduplicates, so [b, a, b] yields
+        two records.
+    Observed:
+        E   AssertionError: assert ['b.mp3', 'a.mp3'] == ['b.mp3', 'a.mp3', 'b.mp3']
+        E     Right contains one more item: 'b.mp3'
+    """
+    from traktor_nml.diskscan import index_files
+
+    a = tmp_path / "a.mp3"
+    b = tmp_path / "b.mp3"
+    a.write_bytes(b"\0" * 4096)
+    b.write_bytes(b"\0" * 2048)
+    records = index_files([b, a, b])
+    assert [r.file_name for r in records] == ["b.mp3", "a.mp3", "b.mp3"]
+    assert [r.filesize for r in records] == ["2", "4", "2"]
+    assert all(r.source_path is not None and r.entry is None for r in records)
+    assert (records[0].artist, records[0].title, records[0].playtime_float) == ("", "", "")
+
+
+def test_index_files_raises_on_stat_failure(tmp_path):
+    """A path that cannot be stat()ed mid-list raises DiskReadError
+    naming it; no shorter list comes back.
+
+    Mutation: index_files catches OSError from stat() with `continue` in
+        place of raising DiskReadError, so no exception is raised.
+    Observed:
+        E   Failed: DID NOT RAISE <class 'traktor_nml.diskscan.DiskReadError'>
+    """
+    import pytest
+
+    from traktor_nml.diskscan import DiskReadError, index_files
+
+    present = tmp_path / "a.mp3"
+    present.write_bytes(b"\0")
+    missing = tmp_path / "gone.mp3"
+    with pytest.raises(DiskReadError) as error:
+        index_files([present, missing, present])
+    assert error.value.path == missing.resolve()
+
+
+def test_index_files_writes_no_cache_file_without_a_cache(tmp_path):
+    """With cache None no file other than the inputs appears.
+
+    Mutation: index_files, given cache None, creates
+        TagCache(resolved.parent / 'tag_cache.json') and flushes it, so
+        a tag_cache.json file appears beside a.mp3.
+    Observed:
+        E   AssertionError: assert ['a.mp3', 'tag_cache.json'] == ['a.mp3']
+        E     Left contains one more item: 'tag_cache.json'
+    """
+    from traktor_nml.diskscan import index_files
+
+    track = tmp_path / "a.mp3"
+    track.write_bytes(b"\0")
+    index_files([track])
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["a.mp3"]
