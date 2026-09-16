@@ -1,0 +1,2 @@
+no_entries_resolved
+build_playlist_aborted=true

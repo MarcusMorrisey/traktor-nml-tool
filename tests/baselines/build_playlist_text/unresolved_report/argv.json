@@ -1,0 +1,1 @@
+["build-playlist", "base.nml", "tracks.txt", "out.nml", "--name", "Set", "--allow-unmatched", "--unresolved-report", "unresolved.csv"]

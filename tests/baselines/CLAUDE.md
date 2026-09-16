@@ -10,6 +10,7 @@
 | `manifest.schema.md`  | Field-by-field description of `manifest.json`'s schema and its regeneration invariant | Understanding a manifest entry's shape, or when regeneration is/isn't appropriate |
 | `run_root.py`         | Shared run-directory substitution used by both the writer and the parity test | Changing which cases are compared byte-for-byte |
 | `regenerate.py`       | Regenerates `manifest.json` from the current tool: `python -m tests.baselines.regenerate` | Deliberately updating the baseline after a reviewed behavior change |
+| `build_playlist_text/` | Golden corpus of plain-text build-playlist CLI runs, recorded from the code before the input seam, one directory per case; replayed byte for byte by `tests/test_build_playlist_text_parity.py`, and separate from `manifest.json` | Changing build-playlist's text path, or adding a text-path case |
 
 ## Regenerate
 

@@ -1,0 +1,2 @@
+unresolved_tracks
+build_playlist_aborted=true

@@ -1,0 +1,3 @@
+line_number,raw_text,artist,title,kind
+2,Nobody - Nothing,Nobody,Nothing,unmatched
+3,no delimiter,,,unparseable

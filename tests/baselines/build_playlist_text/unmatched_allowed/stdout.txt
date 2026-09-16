@@ -1,0 +1,9 @@
+lines_read=2
+lines_resolved=1
+unresolved_unparseable=0
+unresolved_unmatched=1
+unresolved_ambiguous=0
+playlist_name=Set
+entries_written=1
+unresolved line=2 kind=unmatched text='Nobody - Nothing'
+output_written=out.nml

@@ -1,0 +1,8 @@
+lines_read=1
+lines_resolved=0
+unresolved_unparseable=0
+unresolved_unmatched=1
+unresolved_ambiguous=0
+playlist_name=None
+entries_written=0
+unresolved line=1 kind=unmatched text='Nobody - Nothing'

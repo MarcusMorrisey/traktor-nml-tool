@@ -1,0 +1,8 @@
+lines_read=3
+lines_resolved=2
+unresolved_unparseable=1
+unresolved_unmatched=0
+unresolved_ambiguous=0
+playlist_name=None
+entries_written=0
+unresolved line=2 kind=unparseable text='no delimiter here'

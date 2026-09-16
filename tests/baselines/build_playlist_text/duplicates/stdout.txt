@@ -1,0 +1,8 @@
+lines_read=3
+lines_resolved=3
+unresolved_unparseable=0
+unresolved_unmatched=0
+unresolved_ambiguous=0
+playlist_name=Set
+entries_written=3
+output_written=out.nml
