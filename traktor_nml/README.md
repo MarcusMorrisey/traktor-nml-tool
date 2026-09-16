@@ -82,7 +82,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-272`:
+This file is the authority for the log's high-water mark, which is `DL-273`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2370,6 +2370,23 @@ names, so the next plan numbers from there.
   optional target-folder field, relative to the base collection's own
   directory, the same way `rewrite.path_collides` and the write step
   consume it (DL-272).
+- Every button in the GUI is drawn on the action blue, `theme.ACTION`,
+  with `theme.GROUND` as its ink, 8.2:1: the primary action through
+  `wizard-control-primary` and every other button through
+  `wizard-control-fill`, the artboards' `.btn` amended to the same blue
+  first (DL-071). Four kinds of button keep their own colour, because
+  the colour is what they say: `Accept` in the found tint and `Reject`
+  in the not-found tint (`Review.dc.html`'s `.btn-ok` and `.btn-no`),
+  the Review step's filter chips, whose tint marks the active filter,
+  and the Resolve step's answer card, a record read field by field
+  rather than a control. A disabled filled or primary button takes
+  `.btn.off`'s colours, so it does not read as a blue control waiting to
+  be pressed. Every button's label is set in the case it is written in
+  rather than in Quasar's capitals. With every button blue, colour does
+  not set a screen's primary action apart; weight 600 against 500 does,
+  and the primary's `TYPE_13` stands against Quasar's 14px. The call
+  sites are guarded in `tests/test_gui_button_fill.py`, and the page is
+  read in `docs/2026-09-16-button-fill-browser-record.md` (DL-273).
 
 ## Invariants
 
@@ -2480,6 +2497,12 @@ names, so the next plan numbers from there.
   loop leaves earlier group outputs written. Accepted because cross-file
   staging and commit is new machinery beyond a fix-only pass, and recorded
   here rather than left implied by the per-file atomicity claim (DL-022).
+- Every button carries the action blue, so a screen's primary action is
+  not set apart from the controls beside it by colour. It is set apart
+  by weight, 600 against 500, and by `TYPE_13` against Quasar's 14px,
+  which draws the primary the smaller of the two. Accepted because grey
+  buttons on the ground did not read as controls, which is what the
+  change answers (DL-273).
 
 ## Framework shortfalls
 

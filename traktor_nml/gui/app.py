@@ -419,7 +419,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 # have outranked them; color=None is the only place that works
                 # (DL-086 rung one). Main.dc.html:97's "Choose file..." is a plain
                 # .btn, not .btn-pri, so this control is deliberately not primary.
-                ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-label")
+                ui.button("Choose collection file...", on_click=choose_old_input, color=None).classes("wizard-control wizard-control-fill")
 
                 # Main.dc.html:105's .card-t (13px/600) for the section this
                 # control belongs to. The button label below names a concept
@@ -479,7 +479,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 # call, not an artboard citation - Specs' single-primary-action
                 # principle argues against a second blue button competing with
                 # this step's own "Continue".
-                ui.button("Add scan root...", on_click=add_scan_root, color=None).classes("wizard-control")
+                ui.button("Add scan root...", on_click=add_scan_root, color=None).classes("wizard-control wizard-control-fill")
                 # Main.dc.html:125's .meta (12px, TEXT_FAINT). Answers the
                 # question the control itself raises - these folders are read,
                 # nothing in them is written - which no other copy on this step
@@ -530,7 +530,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 
                 # Matches "Choose collection file..." above: a plain .btn with
                 # color=None (DL-086 rung one), not primary.
-                ui.button("Choose output folder...", on_click=choose_output, color=None).classes("wizard-control wizard-label")
+                ui.button("Choose output folder...", on_click=choose_output, color=None).classes("wizard-control wizard-control-fill")
 
                 def go_to_scan() -> None:
                     if old_input_holder["path"] is None or not scan_roots_holder:
@@ -644,7 +644,7 @@ def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 # definitely-wrong primary blue this control never should have
                 # carried; the danger tint itself is not applied here and is a
                 # separate finding, not invented into this fix.
-                cancel_button = ui.button("Cancel", color=None).classes("wizard-control")
+                cancel_button = ui.button("Cancel", color=None).classes("wizard-control wizard-control-fill")
                 # This step's one advancing action, primary for the same reason
                 # and by the same mechanism as the Set up step's own Continue.
                 start_button = ui.button("Start scan", color=None).classes("wizard-control wizard-control-primary")
@@ -655,7 +655,7 @@ def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 # only appears on Cancelling.dc.html, a stop-scan confirmation
                 # screen this wizard does not build), so this step gets a
                 # forward control only, not a second Back.
-                review_matches_button = ui.button("Review matches", on_click=lambda: go_to_review(), color=None).classes("wizard-control")
+                review_matches_button = ui.button("Review matches", on_click=lambda: go_to_review(), color=None).classes("wizard-control wizard-control-fill")
         review_matches_button.disable()
         state.footer_groups["Scan"] = (
             group,
@@ -1129,7 +1129,7 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                                 )
                             else:
                                 ui.button("Undo", on_click=lambda k=key: _decide_from_button(state, k, "undone", render_all), color=None).props("dense").classes(
-                                    "wizard-control wizard-decision-control wizard-body-12"
+                                    "wizard-control wizard-control-fill wizard-decision-control wizard-body-12"
                                 )
 
         def render_comparison() -> None:
@@ -1267,7 +1267,7 @@ def _build_review_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 # immediately before it), not something the artboard states
                 # outright for this one. Pure navigation - stepper.previous()
                 # touches neither state.scan_result nor state.decisions.
-                ui.button("Back", on_click=stepper.previous, color=None).classes("wizard-control")
+                ui.button("Back", on_click=stepper.previous, color=None).classes("wizard-control wizard-control-fill")
                 # This step's one advancing action. wizard-control-primary
                 # carries the blue and the artboard's own ink together, so the
                 # constructor passes color=None (DL-086 rung one).
@@ -1393,7 +1393,7 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                             # unlabelled "Back" - one step, to Review. Pure
                             # navigation - stepper.previous() touches neither
                             # state.scan_result nor state.decisions.
-                            ui.button("Back to review", on_click=stepper.previous, color=None).classes("wizard-control")
+                            ui.button("Back to review", on_click=stepper.previous, color=None).classes("wizard-control wizard-control-fill")
                             # Results.dc.html's own write control, .btn-pri, through
                             # wizard-control-primary with color=None at the
                             # constructor (DL-086 rung one); tabindex=0 stays in
@@ -1419,7 +1419,7 @@ def _build_write_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                                 # Confirm.dc.html:159 fixes this dialog's "Cancel" as a plain .btn,
                                 # not .btn-pri - color=None removes the primary blue
                                 # ui.button's own default would otherwise add.
-                                safe_button = ui.button("Cancel", on_click=dialog.close, color=None).props("autofocus").classes("wizard-control")
+                                safe_button = ui.button("Cancel", on_click=dialog.close, color=None).props("autofocus").classes("wizard-control wizard-control-fill")
                                 # Confirm.dc.html:160's .btn-pri "Write collection", through
                                 # wizard-control-primary with color=None at the constructor.
                                 ui.button("Write", on_click=lambda: (dialog.close(), _do_write()), color=None).classes("wizard-control wizard-control-primary")
@@ -1783,7 +1783,7 @@ def _build_build_playlist_page() -> None:
 
                         ui.button(
                             "Choose collection file...", on_click=choose_base, color=None
-                        ).classes("wizard-control wizard-label")
+                        ).classes("wizard-control wizard-control-fill")
 
                         tracklist_display = ui.label("No track list selected").classes(
                             "font-mono wizard-body-15 wizard-subtle-1"
@@ -1798,7 +1798,7 @@ def _build_build_playlist_page() -> None:
 
                         ui.button(
                             "Choose track list...", on_click=choose_tracklist, color=None
-                        ).classes("wizard-control wizard-label")
+                        ).classes("wizard-control wizard-control-fill")
 
                         name_input = ui.input(
                             "Playlist name", on_change=lambda _e: _refresh_write_button()
@@ -2192,7 +2192,7 @@ def _build_reconstruct_page() -> None:
                                 on_click=lambda _e, chosen=path: remove_source(chosen),
                                 color=None,
                             ).classes(
-                                "wizard-control wizard-tag-action-outline wizard-body-12"
+                                "wizard-control wizard-control-fill wizard-body-12"
                             )
 
             def draw_output_note() -> None:
@@ -2253,13 +2253,13 @@ def _build_reconstruct_page() -> None:
                                         "Choose file...",
                                         on_click=choose_base,
                                         color=None,
-                                    ).classes("wizard-control")
+                                    ).classes("wizard-control wizard-control-fill")
                                     base_remove = ui.button(
                                         "Remove",
                                         on_click=lambda: remove_base(),
                                         color=None,
                                     ).classes(
-                                        "wizard-control wizard-tag-action-outline "
+                                        "wizard-control wizard-control-fill "
                                         "wizard-body-12"
                                     )
                                 base_meta = ui.element("p").classes("wizard-meta")
@@ -2273,7 +2273,7 @@ def _build_reconstruct_page() -> None:
                                     "Add collection...",
                                     on_click=add_source,
                                     color=None,
-                                ).classes("wizard-control wizard-body-12")
+                                ).classes("wizard-control wizard-control-fill wizard-body-12")
                             with ui.element("div").classes("wizard-card-body"):
                                 source_list = ui.column().classes("w-full gap-2")
                                 ui.label(
@@ -2310,7 +2310,7 @@ def _build_reconstruct_page() -> None:
                                         "Choose folder...",
                                         on_click=choose_output,
                                         color=None,
-                                    ).classes("wizard-control")
+                                    ).classes("wizard-control wizard-control-fill")
                                 output_meta = ui.element("p").classes("wizard-meta")
 
                         with ui.element("section").classes("wizard-card"):
@@ -2506,7 +2506,7 @@ def _build_reconstruct_page() -> None:
                                 f"All {label}",
                                 on_click=lambda _e=None, index=input_index: bulk(index),
                                 color=None,
-                            ).classes("wizard-control wizard-decision-control")
+                            ).classes("wizard-control wizard-control-fill wizard-decision-control")
 
                 def conflict_table(views) -> None:
                     """Resolve.dc.html:54-60's .tbl: a header row and one
@@ -2568,7 +2568,7 @@ def _build_reconstruct_page() -> None:
                                     on_click=lambda _e=None, at=index: focus(at),
                                     color=None,
                                 ).classes(
-                                    "wizard-control wizard-decision-control"
+                                    "wizard-control wizard-control-fill wizard-decision-control"
                                 )
                         else:
                             # The decided cell names the collection that
@@ -2588,7 +2588,7 @@ def _build_reconstruct_page() -> None:
                                     ),
                                     color=None,
                                 ).classes(
-                                    "wizard-control wizard-decision-control"
+                                    "wizard-control wizard-control-fill wizard-decision-control"
                                 )
 
                 def detail_rail(views) -> None:
@@ -2693,7 +2693,7 @@ def _build_reconstruct_page() -> None:
                                         ).args["index"]
                                     ),
                                     color=None,
-                                ).classes("wizard-control")
+                                ).classes("wizard-control wizard-control-fill")
                                 # The rail's primary is the pick itself:
                                 # the first answer, which is the one the
                                 # digit 1 takes, so the pointer and the
@@ -3432,7 +3432,7 @@ def _build_reconstruct_page() -> None:
                     with ui.element("div").classes("wizard-dialog-actions"):
                         ui.button(
                             "Cancel", on_click=write_dialog.close, color=None
-                        ).classes("wizard-control")
+                        ).classes("wizard-control wizard-control-fill")
                         write_holder["confirm"] = ui.button(
                             "Write collection", on_click=write_output, color=None
                         ).classes("wizard-control wizard-control-primary")
@@ -3454,7 +3454,7 @@ def _build_reconstruct_page() -> None:
                     "Back to set up",
                     on_click=lambda: show_step(reconstruct_steps.SET_UP),
                     color=None,
-                ).classes("wizard-control")
+                ).classes("wizard-control wizard-control-fill")
                 ui.button(
                     "Continue to resolve",
                     on_click=lambda: advance_to(reconstruct_steps.RESOLVE),
@@ -3465,7 +3465,7 @@ def _build_reconstruct_page() -> None:
                     "Back to the preview",
                     on_click=lambda: show_step(reconstruct_steps.PREVIEW),
                     color=None,
-                ).classes("wizard-control")
+                ).classes("wizard-control wizard-control-fill")
                 resolve_holder["advance"] = ui.button(
                     "Continue to write",
                     on_click=lambda: advance_to(reconstruct_steps.WRITE),
@@ -3476,7 +3476,7 @@ def _build_reconstruct_page() -> None:
                     "Back to resolve",
                     on_click=lambda: show_step(reconstruct_steps.RESOLVE),
                     color=None,
-                ).classes("wizard-control")
+                ).classes("wizard-control wizard-control-fill")
                 ui.button(
                     # Redrawn before it opens: a file can appear at the
                     # output path between the step being drawn and the

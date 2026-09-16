@@ -44,7 +44,7 @@ def test_a_removed_review_back_button_is_caught():
     lookup test_review_back_button_calls_stepper_previous uses raises
     ValueError (substring not found) against the mutated copy."""
     source = _APP_PY.read_text(encoding="utf-8")
-    anchor = 'ui.button("Back", on_click=stepper.previous, color=None).classes("wizard-control")'
+    anchor = 'ui.button("Back", on_click=stepper.previous, color=None).classes("wizard-control wizard-control-fill")'
     assert anchor in source, "fixture assumption stale: Back button call site not found"
     mutated = source.replace(anchor, "", 1)
     assert anchor not in mutated

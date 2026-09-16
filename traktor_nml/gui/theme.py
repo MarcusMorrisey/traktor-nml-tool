@@ -363,7 +363,11 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-status-missing {{ color: {STATUS_NOT_FOUND}; }}
 .wizard-action {{ color: {ACTION}; }}
 .wizard-kbd {{ font: 500 {TYPE_11}/1 {FONT_MONO}; background: {SURFACE_4}; border: 1px solid {BORDER_STRONG}; border-bottom-width: 2px; border-radius: {RADIUS_SM}; padding: 3px 5px; color: {TEXT}; }}
-.wizard-control {{ min-height: {CONTROL_HEIGHT}; margin-bottom: {CONTROL_GAP}; white-space: nowrap; }}
+/* text-transform: none sets every button's label in the case it is
+   written in, as the artboards draw it: Quasar's q-btn uppercases its
+   label from inside a layer, so this unlayered rule is the one that
+   paints (DL-273). */
+.wizard-control {{ min-height: {CONTROL_HEIGHT}; margin-bottom: {CONTROL_GAP}; white-space: nowrap; text-transform: none; }}
 .wizard-control-group {{ display: flex; align-items: center; gap: {CONTROL_GAP}; }}
 /* Review.dc.html:35's .btn.sm padding (0 12px), distinct from
    .wizard-control's own height/nowrap-only rule so the two compose
@@ -378,6 +382,24 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    docs/2026-08-29-w004-focus-ring-record.md. Every value is an existing
    constant; this is a new combination of them. */
 .wizard-control-primary {{ background: {ACTION}; color: {GROUND}; font-weight: 600; font-size: {TYPE_13}; }}
+/* The artboards' .btn, which every neutral button carries: the same
+   action blue and ground ink as the primary, at .btn's weight of 500.
+   The primary is set apart from it by weight alone, 600 against 500;
+   colour does not separate the two. The artboard's border is the blue
+   itself and cannot be seen against the fill, and a 1px border here
+   measured the control 34px tall on the served page against Specs'
+   32px, so the rule carries none. No font-size here, because the row
+   controls carry wizard-body-12 and a size in this rule would set
+   theirs twice (DL-273). */
+.wizard-control-fill {{ background: {ACTION}; color: {GROUND}; font-weight: 500; }}
+/* The artboards' .btn.off. Quasar marks a disabled q-btn with the
+   disabled class, and two classes outrank the one the fill or the
+   primary rule is selected by, so a disabled blue button is drawn in
+   the off colours rather than as a paler blue. The off border is drawn
+   as an inset shadow, as .wizard-tab-selected draws its own, so it
+   adds nothing to the control's 32px height (DL-273). */
+.wizard-control-fill.disabled {{ background: {BORDER_SUBTLE_3}; box-shadow: inset 0 0 0 {SPACE_1} {BORDER}; color: {TEXT_SUBTLE_3}; }}
+.wizard-control-primary.disabled {{ background: {BORDER_SUBTLE_3}; box-shadow: inset 0 0 0 {SPACE_1} {BORDER}; color: {TEXT_SUBTLE_3}; }}
 *:focus-visible {{ outline: {FOCUS_RING}; outline-offset: {FOCUS_RING_OFFSET}; }}
 /* Quasar's q-btn carries the no-outline class, whose outline: 0
    !important is declared inside a layer Quasar names quasar_importants

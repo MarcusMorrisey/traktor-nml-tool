@@ -85,6 +85,13 @@ READING_DIGESTS = {
     # computed from the record as the browser run left it, so the rows
     # hashed are the rows that were read.
     "2026-09-15-resolve-rail-fields-browser-record.md": "33066ad27dee9e65b6726bd5c048ffcced89e31fe37f4689d5df3e0ca25c2483",
+    # Every button on the action blue closes on a served-page record
+    # reading each route's buttons - a disabled one and an exempt one on
+    # every route - with structural verdicts against the amended .btn,
+    # .btn-pri and .btn.off, its verdict rows registered here by digest
+    # (ref: DL-084, DL-169, DL-273). The digest is computed from the
+    # record as the browser run left it.
+    "2026-09-16-button-fill-browser-record.md": "8e93e5956dd0c07d1ef322d044fa9d2284f7b6becb711fb968e1cabb86babcd7",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written
