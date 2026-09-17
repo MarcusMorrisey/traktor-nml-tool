@@ -14,6 +14,7 @@ from traktor_nml.buildplaylist import BuildPlaylistResult, UnresolvedRow
 from traktor_nml.gui.buildplaylist_view import (
     FormInputs,
     csv_columns_note,
+    encoding_label,
     form_errors,
     playlist_folder_options,
     run_summary,
@@ -251,17 +252,20 @@ def test_run_summary_aborted_and_written():
 
 
 def test_run_summary_names_format_and_encoding_for_each_format():
-    """csv and m3u runs append the format and codec, a folder run the
-    format alone, and a text run nothing, for written and aborted runs
-    alike (DL-280, DL-296).
+    """csv and m3u runs append the format and the encoding's display name,
+    a folder run the format alone, and a text run nothing, for written and
+    aborted runs alike (DL-280, DL-296, DL-303).
 
-    Mutation: _read_note returns '' for every format, so the CSV run's
-        summary lacks ' Read as CSV, cp1252.'.
+    Mutation: _read_note appends the raw input_encoding rather than
+        encoding_label(input_encoding), so the CSV run's summary reads
+        ' Read as CSV, cp1252.'.
     Observed:
-        E       assert 'Written: "L" with 1 track.' == 'Written: "L"... CSV, cp1252.'
+        E       assert 'Written: "L"... CSV, cp1252.' == 'Written: "L"...Windows-1252.'
         E
-        E         - Written: "L" with 1 track. Read as CSV, cp1252.
-        E         + Written: "L" with 1 track.
+        E         - Written: "L" with 1 track. Read as CSV, Windows-1252.
+        E         ?                                         ^^^^^^^^
+        E         + Written: "L" with 1 track. Read as CSV, cp1252.
+        E         ?                                         ^^
     """
     written = BuildPlaylistResult(output="<NML/>", stats={"entries_written": 1, "playlist_name": "L"})
     aborted = BuildPlaylistResult(
@@ -270,13 +274,48 @@ def test_run_summary_names_format_and_encoding_for_each_format():
                          UnresolvedRow(3, "z", "", "", "unparseable")],
         errors=["unresolved_tracks"],
     )
-    assert run_summary(written, InputFormat.CSV, "cp1252") == 'Written: "L" with 1 track. Read as CSV, cp1252.'
-    assert run_summary(written, InputFormat.M3U, "utf-8-sig") == 'Written: "L" with 1 track. Read as M3U, utf-8-sig.'
+    assert run_summary(written, InputFormat.CSV, "cp1252") == 'Written: "L" with 1 track. Read as CSV, Windows-1252.'
+    assert run_summary(written, InputFormat.M3U, "utf-8-sig") == 'Written: "L" with 1 track. Read as M3U, UTF-8.'
     assert run_summary(written, InputFormat.FOLDER, "n/a") == 'Written: "L" with 1 track. Read as Folder.'
     assert run_summary(written, InputFormat.TEXT, "utf-8-sig") == 'Written: "L" with 1 track.'
     assert run_summary(aborted, InputFormat.CSV, "cp1252") == (
-        "Not written: 3 entries did not resolve and Allow unmatched is off. Read as CSV, cp1252."
+        "Not written: 3 entries did not resolve and Allow unmatched is off. Read as CSV, Windows-1252."
     )
+
+
+def test_encoding_label_names_each_reader_codec_and_passes_an_unknown_one_through():
+    """playlistinput's readers put utf-8-sig, cp1252 or n/a in
+    InputRead.encoding. The screen shows utf-8-sig and utf-8 as UTF-8 and
+    cp1252 as Windows-1252; any other name, n/a included, is shown as it
+    is rather than as None or an empty string (DL-303). n/a never reaches
+    the footer, because a folder run names no encoding.
+
+    Mutation: _ENCODING_LABELS maps "utf-8-sig" to "utf-8-sig" and
+        encoding_label returns _ENCODING_LABELS.get(codec), dropping the
+        fall-through, and this guard rerun.
+    Observed:
+        E       AssertionError: assert 'utf-8-sig' == 'UTF-8'
+        E
+        E         - UTF-8
+        E         + utf-8-sig
+    Mutation: encoding_label returns _ENCODING_LABELS.get(codec), with
+        the table as it stands, and this guard rerun.
+    Observed:
+        E       AssertionError: assert None == 'n/a'
+        E        +  where None = encoding_label('n/a')
+    Mutation: _ENCODING_LABELS maps "cp1252" to "cp1252" and this guard
+        rerun.
+    Observed:
+        E       AssertionError: assert 'cp1252' == 'Windows-1252'
+        E
+        E         - Windows-1252
+        E         + cp1252
+    """
+    assert encoding_label("utf-8-sig") == "UTF-8"
+    assert encoding_label("utf-8") == "UTF-8"
+    assert encoding_label("cp1252") == "Windows-1252"
+    assert encoding_label("n/a") == "n/a"
+    assert encoding_label("latin-1") == "latin-1"
 
 
 def test_playlist_folder_options_disable_shared_names():

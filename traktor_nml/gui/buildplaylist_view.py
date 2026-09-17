@@ -179,16 +179,37 @@ def _target_folder_error(errors: tuple[str, ...]) -> Optional[str]:
     return None
 
 
+# The operator's name for each codec playlistinput's readers put in
+# InputRead.encoding. "utf-8-sig" is Python's name for UTF-8 read past a
+# byte-order mark, and the CSV template is written with one (DL-284), so
+# the raw name would stand on every template-based run. The CLI prints
+# the raw name (DL-294); only the screen reads this table (DL-303).
+_ENCODING_LABELS = {
+    "utf-8-sig": "UTF-8",
+    "utf-8": "UTF-8",
+    "cp1252": "Windows-1252",
+}
+
+
+def encoding_label(codec: str) -> str:
+    """The screen's name for a codec: 'UTF-8' for utf-8-sig and utf-8,
+    'Windows-1252' for cp1252. A codec the table does not hold is shown
+    as its raw name, so a reader that returns a new codec is still named
+    on screen rather than hidden (DL-303)."""
+    return _ENCODING_LABELS.get(codec, codec)
+
+
 def _read_note(input_format: Optional[InputFormat], input_encoding: str) -> str:
-    """' Read as CSV, cp1252.' for a run on csv or m3u input, ' Read as
-    Folder.' for a folder, and nothing for text: only a run on CSV, M3U or
-    folder input names what it read (DL-296). The codec is named because a cp1252 fallback
-    misreads another codepage without an error (DL-283)."""
+    """' Read as CSV, Windows-1252.' for a run on csv or m3u input, ' Read
+    as Folder.' for a folder, and nothing for text: only a run on CSV, M3U
+    or folder input names what it read (DL-296). The encoding is named, as
+    encoding_label gives it, because a Windows-1252 fallback misreads
+    another codepage without an error (DL-283, DL-303)."""
     if input_format is None or input_format is InputFormat.TEXT:
         return ""
     if input_format is InputFormat.FOLDER:
         return f" Read as {format_label(input_format)}."
-    return f" Read as {format_label(input_format)}, {input_encoding}."
+    return f" Read as {format_label(input_format)}, {encoding_label(input_encoding)}."
 
 
 def run_summary(

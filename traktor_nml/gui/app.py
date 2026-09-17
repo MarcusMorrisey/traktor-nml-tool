@@ -2020,6 +2020,16 @@ def _build_build_playlist_page() -> None:
                         ui.label(str(line_number)).classes("font-mono wizard-dim")
                         ui.label(raw_text).classes("font-mono buildplaylist-report-entry")
                         ui.label(kind).classes("wizard-subtle-1")
+            # The report card stands below the form, past the fold of
+            # wizard-middle, the scroll owner (DL-189). A run that leaves
+            # rows brings the card into view; a run with none does not
+            # scroll. The message is queued after the card's updates, so
+            # the browser shows the card before it scrolls to it (DL-303).
+            if rows:
+                ui.run_javascript(
+                    f"getHtmlElement({report_section.id})"
+                    ".scrollIntoView({block: 'start', behavior: 'smooth'})"
+                )
 
         with chrome.footer_actions:
             write_button = ui.button(

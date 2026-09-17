@@ -128,6 +128,15 @@ READING_DIGESTS = {
     # Specs.dc.html's table.rep (ref: DL-084, DL-169, DL-302). The digest is
     # computed from the record as the browser run left it.
     "2026-09-17-report-columns-browser-record.md": "48bf6feacb2fc5caa0f60874eef43823312b06d999d9a9136d2bfc1b0b645ccc",
+    # The report card scrolled into view after a refused run and the
+    # encoding's display name close on a served-page record reading the
+    # middle region's scrollTop before and after each run, the card's box
+    # inside the middle at two heights, the document staying unscrolled
+    # and the footer for a UTF-8 and a cp1252 CSV, with structural
+    # verdicts against the amended .ft-note (ref: DL-084, DL-169,
+    # DL-303). The digest is computed from the record as the browser run
+    # left it.
+    "2026-09-17-report-scroll-and-encoding-browser-record.md": "e7723a0e854a6887b161d6f78e1afcd1a7ccfc595cbb4af50eef8192a43f305b",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

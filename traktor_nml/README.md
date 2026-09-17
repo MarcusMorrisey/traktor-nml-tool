@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-302`:
+This file is the authority for the log's high-water mark, which is `DL-303`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2458,9 +2458,9 @@ names, so the next plan numbers from there.
   `tracklist_decode_error` (DL-282).
 - Decoding: plain text and `.m3u8` are `utf-8-sig` strict; `.m3u` and
   `.csv` try `utf-8-sig` and fall back to `cp1252`. The codec used is
-  `InputRead.encoding`, printed by the CLI and shown by the screen, because
-  a `cp1252` fallback misreads another single-byte codepage without an
-  error (DL-283).
+  `InputRead.encoding`, which the CLI prints raw and the screen names in
+  the operator's terms (DL-303), because a `cp1252` fallback misreads
+  another single-byte codepage without an error (DL-283).
 - `playlistinput.CSV_COLUMNS` - `Artist`, `Title` (required), `Album`,
   `Duration`, `File name` - is the one CSV header definition.
   `csv_template_bytes()` is that header alone, UTF-8 with a BOM and CRLF,
@@ -2626,6 +2626,28 @@ names, so the next plan numbers from there.
   app.py for the header and every body row built on the grid; the
   columns are read in `docs/2026-09-17-report-columns-browser-record.md`
   (DL-302).
+- The `/build-playlist` footer names the encoding a run read in the
+  operator's terms: `UTF-8` for `utf-8-sig` and `utf-8`,
+  `Windows-1252` for `cp1252`, from `buildplaylist_view.encoding_label`'s
+  table, and any other codec name as it stands, so a reader returning a
+  new codec is named rather than hidden. `utf-8-sig` is Python's name for
+  UTF-8 read past a byte-order mark and `csv_template_bytes()` writes
+  one (DL-284), so every template-based CSV showed that name. The CLI's
+  `input_encoding=` stays `InputRead.encoding` raw, because DL-294 fixes
+  that output and `tests/test_build_playlist_inputs.py` pins it; the
+  table lives in the nicegui-free `buildplaylist_view.py` (DL-069) and
+  `Specs.dc.html:227`'s footer note is amended to the displayed name
+  first (DL-071). After a run that leaves unresolved rows,
+  `write_playlist` calls `ui.run_javascript` with `scrollIntoView` on the
+  report card's element, gated on rows existing, so the card standing
+  below the fold is brought into view; the layout is unchanged and the
+  scroll owner is `.wizard-middle`, not the document (DL-189). The
+  message is queued after the card's own updates, which the outbox sends
+  before it. A guard reads `app.py` for the call gated on the rows,
+  because a view helper alone is green where the page never calls it; the
+  scrollTops, the card's box and the footer texts are read in
+  `docs/2026-09-17-report-scroll-and-encoding-browser-record.md`
+  (DL-303).
 
 ## Invariants
 

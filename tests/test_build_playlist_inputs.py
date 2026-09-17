@@ -247,6 +247,39 @@ def test_cli_run_over_csv_prints_format_and_encoding_first(tmp_path: Path) -> No
     assert result.stdout.splitlines()[:3] == ["input_format=csv", "input_encoding=utf-8-sig", "lines_read=1"]
 
 
+def test_cli_prints_the_raw_codec_name_the_screen_relabels(tmp_path: Path) -> None:
+    """The CLI's input_encoding= is InputRead.encoding as the reader
+    returned it: a UTF-8 CSV with a byte-order mark prints utf-8-sig and a
+    cp1252 CSV prints cp1252. The screen's UTF-8 and Windows-1252 are
+    buildplaylist_view.encoding_label's and never reach stdout (DL-294,
+    DL-303).
+
+    Mutation: build_playlist_cmd.py printed
+        f"input_encoding={encoding_label(input_read.encoding)}", importing
+        encoding_label from traktor_nml.gui.buildplaylist_view, and this
+        guard rerun.
+    Observed:
+        E       AssertionError: assert 'input_encoding=UTF-8' == 'input_encoding=utf-8-sig'
+        E
+        E         - input_encoding=utf-8-sig
+        E         ?                ^^^  ----
+        E         + input_encoding=UTF-8
+        E         ?                ^^^
+    """
+    from tests.conftest import run_tool
+
+    track = tmp_path / "Music" / "a.mp3"
+    (tmp_path / "base.nml").write_text(_nml([_entry_for(track, "A", "T")]), encoding="utf-8", newline="")
+    (tmp_path / "bom.csv").write_bytes(b"\xef\xbb\xbfArtist,Title\r\nA,T\r\n")
+    (tmp_path / "win.csv").write_bytes("Artist,Title\r\nA,T\r\nBeyonc\u00e9,Halo\r\n".encode("cp1252"))
+    bom = run_tool(["build-playlist", "base.nml", "bom.csv", "a.nml", "--name", "L"], cwd=tmp_path)
+    win = run_tool(
+        ["build-playlist", "base.nml", "win.csv", "b.nml", "--name", "L", "--allow-unmatched"], cwd=tmp_path
+    )
+    assert bom.stdout.splitlines()[1] == "input_encoding=utf-8-sig"
+    assert win.stdout.splitlines()[1] == "input_encoding=cp1252"
+
+
 def test_cli_unresolved_label_is_position_for_folder_and_line_otherwise(tmp_path: Path) -> None:
     r"""A folder run labels an unresolved row position=, because its
     line_number is the file's place in name order; a CSV run keeps line=

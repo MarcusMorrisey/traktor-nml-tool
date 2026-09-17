@@ -145,3 +145,51 @@ def test_the_page_builds_the_header_and_every_row_inside_the_report_grid():
     cells = rows[0].body
     assert len(cells) == 3, "a body row carries other than the header's three cells"
     assert "buildplaylist-report-entry" in ast.unparse(cells[1])
+
+
+def test_a_run_that_leaves_rows_scrolls_the_report_card_into_view():
+    """write_playlist calls ui.run_javascript with scrollIntoView on
+    report_section's element, inside an `if rows:` and after the report's
+    rows are built, so a run that leaves unresolved rows brings the card
+    below the fold of wizard-middle into view and a run with none does not
+    scroll. A view helper alone is green when the page never calls it, so
+    this reads app.py (DL-189, DL-303). That the middle region scrolls and
+    the document does not is read in
+    docs/2026-09-17-report-scroll-and-encoding-browser-record.md.
+
+    Mutation: `if rows:` above the scroll call in app.py was changed to
+        `if True:` and this guard rerun.
+    Observed:
+        E       AssertionError: the scroll is not gated on rows existing
+        E       assert 'True' == 'rows'
+        E
+        E         - rows
+        E         + True
+    """
+    module = ast.parse(_APP_PY.read_text(encoding="utf-8"))
+    write = next(
+        node
+        for node in ast.walk(module)
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "write_playlist"
+    )
+    fill = next(
+        index
+        for index, node in enumerate(write.body)
+        if isinstance(node, ast.With) and "report_table" in ast.unparse(node.items[0].context_expr)
+    )
+    gated = [
+        node
+        for node in write.body
+        if isinstance(node, ast.If)
+        and "scrollIntoView" in ast.unparse(node)
+    ]
+    assert len(gated) == 1, "write_playlist scrolls to the report under no condition of its own"
+    scroll = gated[0]
+    assert ast.unparse(scroll.test) == "rows", "the scroll is not gated on rows existing"
+    assert not scroll.orelse
+    source = ast.unparse(scroll.body)
+    assert "ui.run_javascript" in source
+    assert "report_section.id" in source
+    assert write.body.index(scroll) > fill, "the scroll runs before the rows are built"
+    outside = [node for node in write.body if node is not scroll]
+    assert not any("scrollIntoView" in ast.unparse(node) for node in outside)
