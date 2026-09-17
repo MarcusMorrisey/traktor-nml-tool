@@ -114,6 +114,13 @@ READING_DIGESTS = {
     # DL-299). The digest is computed from the record as the browser run
     # left it.
     "2026-09-16-chooser-width-browser-record.md": "cfd0ec905103370579809cc81b01b5bbef6614d44a4d58f3b70df9ddfaa73507",
+    # every Choose button on /, /reconnect and /build-playlist: its centre
+    # against its path's, its margins and its row's align-items, and the
+    # space below each row, before and after .wizard-control's bottom
+    # margin was cancelled inside the chooser rows, with structural verdicts
+    # against each route's artboard .row (ref: DL-084, DL-169, DL-301). The
+    # digest is computed from the record as the browser run left it.
+    "2026-09-16-chooser-offset-browser-record.md": "2acd86830d5e8244eb06a422fae2bedcea3c77fe16da938ac753e5f223cb8bae",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

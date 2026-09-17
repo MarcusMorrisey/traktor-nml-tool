@@ -860,4 +860,12 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-path-row > .font-mono, .wizard-path-row > .q-field {{ flex: 1; min-width: 0; }}
 .wizard-path-row > .font-mono {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
 .wizard-path-row > .q-btn {{ flex: none; }}
+/* Main.dc.html:46's, Reconstruct.dc.html:46's and Specs.dc.html:42's
+   .row centre a .btn on its path with no margin on either. A flex row
+   centres each item's margin box, so .wizard-control's CONTROL_GAP
+   below the button lifted its border box half that, 4px above the path
+   beside it, and made the row that much taller than its tallest box.
+   Inside a chooser row the row places the button, so the gap is
+   cancelled here and .wizard-control keeps it everywhere else (DL-301). */
+.wizard-path-row > .wizard-control, .wizard-field-row > .wizard-control, .buildplaylist-input-row > .wizard-control {{ margin-bottom: 0; }}
 """

@@ -123,3 +123,94 @@ def test_every_chooser_stands_in_a_flex_row_the_sheet_declares():
         if not any(_is_flex_row(sheet, cls) for cls in container)
     ]
     assert stretched == [], f"chooser buttons outside a flex row: {stretched}"
+
+
+# The rows that stand a path beside the control choosing it. A flex row
+# centres each item's margin box, so .wizard-control's bottom margin on
+# a button in one of these rows lifts it above its path (DL-301).
+_CHOOSER_ROWS = ("wizard-path-row", "wizard-field-row", "buildplaylist-input-row")
+# "Choose collection file...", "Choose folder..." and the like: a control
+# that picks a path. The conflict table's bare "Choose..." picks a
+# candidate, not a path, and stands in no path row.
+_PATH_CHOOSER_LABEL = re.compile(r"^Choose .*(file|folder)\.\.\.$")
+
+
+def _button_classes(tree: ast.AST, lineno: int, label: str) -> list[str]:
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "classes"
+        ):
+            inner = node.func.value
+            if (
+                isinstance(inner, ast.Call)
+                and isinstance(inner.func, ast.Attribute)
+                and inner.func.attr == "button"
+                and inner.lineno == lineno
+                and inner.args
+                and isinstance(inner.args[0], ast.Constant)
+                and inner.args[0].value == label
+            ):
+                return _classes_of(node)
+    return []
+
+
+def _zero_bottom_margin_in(sheet: str, row_cls: str) -> bool:
+    """A rule whose selector list names `.row_cls > .wizard-control`
+    and whose body sets margin-bottom to zero."""
+    child = re.escape(f".{row_cls} > .wizard-control")
+    for match in re.finditer(r"(?m)^([^{}\n]*)\{([^}]*)\}", sheet):
+        selectors = [s.strip() for s in match.group(1).split(",")]
+        if any(re.fullmatch(child, s) for s in selectors) and re.search(
+            r"margin-bottom:\s*0(px)?\s*;", match.group(2)
+        ):
+            return True
+    return False
+
+
+def test_every_path_chooser_stands_in_a_chooser_row():
+    """The margin rule below reaches the page only through these rows, so
+    each path chooser must be built in one and carry .wizard-control.
+
+    Mutation: `_CHOOSER_ROWS` reduced to `("wizard-path-row",
+    "wizard-field-row")`. Observed:
+        E       AssertionError: path choosers outside a chooser row: [('Choose file...', 1823, ['buildplaylist-input-row'], ['wizard-control', 'wizard-control-fill']), ('Choose file...', 1849, ['buildplaylist-input-row'], ['wizard-control', 'wizard-control-fill']), ('Choose folder...', 1852, ['buildplaylist-input-row'], ['wizard-control', 'wizard-control-fill']), ('Choose folder...', 1890, ['buildplaylist-input-row'], ['wizard-control', 'wizard-control-fill'])]
+        E       assert [('Choose fil...ntrol-fill'])] == []
+        E
+        E         Left contains 4 more items, first extra item: ('Choose file...', 1823, ['buildplaylist-input-row'], ['wizard-control', 'wizard-control-fill'])
+        E         Use -v to get more diff
+    """
+    tree = ast.parse(_APP_PY.read_text(encoding="utf-8"))
+    found = [
+        (label, line, container, _button_classes(tree, line, label))
+        for label, line, container in _choosers_and_containers()
+        if _PATH_CHOOSER_LABEL.match(label)
+    ]
+    assert len(found) >= 8
+    outside = [
+        row
+        for row in found
+        if not any(cls in _CHOOSER_ROWS for cls in row[2])
+        or "wizard-control" not in row[3]
+    ]
+    assert outside == [], f"path choosers outside a chooser row: {outside}"
+
+
+def test_every_chooser_row_cancels_the_control_bottom_margin():
+    """Mutation: the `.wizard-path-row > .wizard-control, ...
+    { margin-bottom: 0; }` rule and its comment removed from theme.py,
+    with theme.py copied aside beforehand and restored from the copy.
+    Observed:
+        E       AssertionError: chooser rows whose .wizard-control keeps its bottom margin: ['wizard-path-row', 'wizard-field-row', 'buildplaylist-input-row']
+        E       assert ['wizard-path...st-input-row'] == []
+        E
+        E         Left contains 3 more items, first extra item: 'wizard-path-row'
+        E         Use -v to get more diff
+    """
+    sheet = theme.page_stylesheet()
+    for cls in _CHOOSER_ROWS:
+        assert _is_flex_row(sheet, cls), cls
+        assert "align-items: center" in (_rule_body(sheet, cls) or ""), cls
+    missing = [cls for cls in _CHOOSER_ROWS if not _zero_bottom_margin_in(sheet, cls)]
+    assert missing == [], f"chooser rows whose .wizard-control keeps its bottom margin: {missing}"

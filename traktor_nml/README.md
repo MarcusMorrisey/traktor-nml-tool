@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-300`:
+This file is the authority for the log's high-water mark, which is `DL-301`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2594,6 +2594,21 @@ names, so the next plan numbers from there.
   `--unresolved-report` CSV keeps its `line_number` column for every
   format, and the GUI's unresolved table shows the bare number with no
   label (DL-300).
+- A chooser button in a `wizard-path-row`, `wizard-field-row` or
+  `buildplaylist-input-row` carries no bottom margin. `.wizard-control`'s
+  `margin-bottom` of `CONTROL_GAP` spaces stacked controls, but a flex row
+  with `align-items: center` centres each item's margin box, so on
+  `/reconnect`, `/` and `/build-playlist` every `Choose` button's border
+  box stood `4px` above the path beside it and each row stood that margin
+  taller than its tallest box. The artboards' `.row` centres a `.btn` on
+  its path with no margin (DL-071), so `theme.py` cancels the margin on
+  `.wizard-control` children of those three rows only (DL-069), and
+  `.wizard-control` keeps it everywhere else. The card body's `12px` gap
+  below each row is unchanged, and what stands below a row sits up by
+  the height the row loses. A guard reads the sheet for the zero margin
+  on each row class and reads app.py for every path chooser standing in
+  one of them as a `.wizard-control`; the offsets are read before and
+  after in `docs/2026-09-16-chooser-offset-browser-record.md` (DL-301).
 
 ## Invariants
 
