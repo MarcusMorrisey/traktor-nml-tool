@@ -137,6 +137,15 @@ READING_DIGESTS = {
     # DL-303). The digest is computed from the record as the browser run
     # left it.
     "2026-09-17-report-scroll-and-encoding-browser-record.md": "e7723a0e854a6887b161d6f78e1afcd1a7ccfc595cbb4af50eef8192a43f305b",
+    # The unresolved report's kind pills close on a served-page record
+    # reading each pill's text, colour, tinted ground and border, the
+    # shape the three share, that the pill hugs its word inside the
+    # 120px Kind column, the column's left edge and width against the
+    # header and the document staying unscrolled, with structural
+    # verdicts against Specs.dc.html's .kind (ref: DL-084, DL-169,
+    # DL-304). The digest is computed from the record as the browser run
+    # left it.
+    "2026-09-17-report-kind-pills-browser-record.md": "745dd332bba458251ca1cbff52ac4d4d093688d41ac2ca320a1dae5ba6deb7cf",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

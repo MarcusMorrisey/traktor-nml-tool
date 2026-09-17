@@ -14,7 +14,7 @@ from pathlib import Path
 
 import tinycss2
 
-from traktor_nml.gui import theme
+from traktor_nml.gui import buildplaylist_view, theme
 
 _HEX_LITERAL = re.compile(r"#[0-9A-Fa-f]{6}\b")
 _APP_PY = Path(__file__).resolve().parents[1] / "traktor_nml" / "gui" / "app.py"
@@ -196,11 +196,32 @@ def _stylesheet_classes() -> dict:
 _UNRESOLVED = "<unresolved>"
 
 
+# A classes() argument is not always written at the call site either: a
+# decision like the report's kind-to-class belongs in a nicegui-free
+# view module rather than in app.py (DL-069), so the page reads the
+# class back through a helper call. Each such helper is registered here
+# with the whole set of classes it can return, read from the view
+# module at test time rather than transcribed, so every class the call
+# can carry is still expanded and held to the cascade guards below.
+_VIEW_CLASS_HELPERS = {
+    "kind_pill_classes": lambda: sorted(
+        set(buildplaylist_view.KIND_PILL_CLASSES.values())
+        | {buildplaylist_view.KIND_PILL_BASE_CLASS}
+    ),
+}
+
+
 def _literal_options(node, choices: dict) -> list:
     """Every string one expression node can evaluate to, given the
     names already resolved in choices."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return [node.value]
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _VIEW_CLASS_HELPERS
+    ):
+        return _VIEW_CLASS_HELPERS[node.func.attr]()
     if isinstance(node, ast.IfExp):
         return _literal_options(node.body, choices) + _literal_options(node.orelse, choices)
     if isinstance(node, ast.Name):
@@ -273,6 +294,21 @@ def test_an_interpolated_class_name_is_expanded():
         "ui.label(status).classes(f'w-24 {tone}')\n"
     )
     assert _classes_calls(source) == ["w-24 wizard-tag-found", "w-24 wizard-tag-missing"]
+
+
+def test_a_view_helper_class_call_is_expanded():
+    """Mutation: a synthetic module passes
+    buildplaylist_view.kind_pill_classes(kind) to classes(), the shape
+    app.py's report row uses. Observed: _classes_calls, the same helper
+    the cascade guards route app.py through, returns every class that
+    helper can return - the three kind pills and the base class alone -
+    in place of an unexpanded call."""
+    source = "ui.label(kind).classes(buildplaylist_view.kind_pill_classes(kind))\n"
+    assert _classes_calls(source) == sorted(
+        set(buildplaylist_view.KIND_PILL_CLASSES.values())
+        | {buildplaylist_view.KIND_PILL_BASE_CLASS}
+    )
+    assert _UNRESOLVED not in _classes_calls(source)
 
 
 # Tailwind's text-size utilities set font-size too, and are class

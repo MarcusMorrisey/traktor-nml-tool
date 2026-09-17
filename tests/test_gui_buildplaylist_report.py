@@ -1,13 +1,16 @@
-"""Guards the build-playlist report's grid: the tracks and header rule the
-sheet emits, and that traktor_nml/gui/app.py builds the header row and
-every body row on that grid, read under the system interpreter, which has
-no nicegui.
+"""Guards the build-playlist report's grid and its kind pills: the tracks,
+the header rule and the pill rule per kind the sheet emits, and that
+traktor_nml/gui/app.py builds the header row, every body row and the kind
+cell's pill on that grid, read under the system interpreter, which has no
+nicegui.
 
 A sheet guard alone is green in the state where the page never applies the
-rule, so the second guard reads app.py's source for the call sites (DL-189).
+rule, so the page guards read app.py's source for the call sites (DL-189).
 Neither can read what the browser laid out: the resolved column edges, the
 rules and the truncation are read on a served page in
-docs/2026-09-17-report-columns-browser-record.md (DL-084, DL-169, DL-302).
+docs/2026-09-17-report-columns-browser-record.md (DL-084, DL-169, DL-302),
+and the pills' colours, shape and width against the Kind column in
+docs/2026-09-17-report-kind-pills-browser-record.md (DL-304).
 
 Each guard records the mutation applied to make it fail and the verbatim
 output observed under that mutation, with the trailing spaces pytest
@@ -74,6 +77,128 @@ def test_the_report_grid_declares_the_artboards_three_tracks_and_header_label():
     assert "text-overflow: ellipsis" in entry
     assert "white-space: nowrap" in entry
     assert "overflow: hidden" in entry
+
+
+def test_each_kind_pill_carries_the_artboards_tint_on_the_shared_pill_shape():
+    """design/build-playlist/Specs.dc.html:60 shapes .kind as a 600
+    11px/1 mono pill, uppercase at .04em, 3px by 6px inside a 4px
+    radius and never wrapped, and :61-63 give the three kinds their own
+    text hue, tinted ground and 1px border. The sheet declares the
+    shape once on the class every pill carries and each kind's three
+    colours on its own rule, and the shared rule sets no colour or
+    border of its own so a kind with no tint rule still reads.
+
+    Mutation: the unmatched pill's background in theme.py was changed
+    from REPORT_KIND_UNMATCHED_TINT_BG to STATUS_NOT_FOUND_TINT_BG -
+    the nearest-named token, and a different colour - and this guard
+    rerun. Observed:
+        E           AssertionError: unmatched
+        E           assert 'background: #2B1D14' in ' color: #E07A4C; background: #21160F; border: 1px solid #5A3A24; '
+    """
+    shared = _rule(f".{buildplaylist_view.KIND_PILL_BASE_CLASS}")
+    assert f"font: 600 {theme.TYPE_11}/1 {theme.FONT_MONO}" in shared
+    assert "text-transform: uppercase" in shared
+    assert "letter-spacing: .04em" in shared
+    assert f"padding: {theme.SPACE_3} {theme.SPACE_6}" in shared
+    assert f"border-radius: {theme.RADIUS_SM}" in shared
+    assert "white-space: nowrap" in shared
+    # The pill hugs its word rather than filling the 120px Kind track.
+    assert "display: inline-block" in shared
+    assert "color:" not in shared, "the shared pill rule fixes a colour each kind sets"
+    assert "border:" not in shared, "the shared pill rule fixes a border each kind sets"
+    expected = {
+        "unmatched": (
+            theme.STATUS_NOT_FOUND,
+            theme.REPORT_KIND_UNMATCHED_TINT_BG,
+            theme.REPORT_KIND_UNMATCHED_TINT_BORDER,
+        ),
+        "ambiguous": (
+            theme.STATUS_NEEDS_REVIEW,
+            theme.STATUS_NEEDS_REVIEW_TINT_BG,
+            theme.STATUS_NEEDS_REVIEW_STRONG,
+        ),
+        "unparseable": (
+            theme.TEXT_SUBTLE_1,
+            theme.REPORT_KIND_UNPARSEABLE_TINT_BG,
+            theme.BORDER_STRONG,
+        ),
+    }
+    for kind, (colour, background, border) in expected.items():
+        body = _rule(f".{buildplaylist_view.KIND_PILL_BASE_CLASS}-{kind}")
+        assert f"color: {colour}" in body, kind
+        assert f"background: {background}" in body, kind
+        assert f"border: 1px solid {border}" in body, kind
+
+
+_TRACKLIST_PY = Path(__file__).resolve().parents[1] / "traktor_nml" / "tracklist.py"
+_BUILDPLAYLIST_PY = Path(__file__).resolve().parents[1] / "traktor_nml" / "buildplaylist.py"
+
+
+def _model_kinds() -> set:
+    """Every UnresolvedRow.kind a run can produce, read from
+    tracklist.resolve_candidates - the one function that decides a
+    candidate's outcome - rather than restated here, so an outcome
+    added to it arrives in the guard below on its own. Sound only while
+    buildplaylist._resolve_lines copies that outcome into kind for
+    every outcome but `matched`, which the guard also checks."""
+    module = ast.parse(_TRACKLIST_PY.read_text(encoding="utf-8"))
+    resolve = next(
+        node
+        for node in ast.walk(module)
+        if isinstance(node, ast.FunctionDef) and node.name == "resolve_candidates"
+    )
+    outcomes = {
+        keyword.value.value
+        for node in ast.walk(resolve)
+        if isinstance(node, ast.Call)
+        for keyword in node.keywords
+        if keyword.arg == "outcome"
+        and isinstance(keyword.value, ast.Constant)
+        and isinstance(keyword.value.value, str)
+    }
+    assert outcomes, "no outcome= literal read from resolve_candidates"
+    return outcomes - {"matched"}
+
+
+def test_every_kind_the_model_can_produce_has_a_pill_rule():
+    """The kinds are read from tracklist.resolve_candidates' own
+    outcome= literals, so a kind added there fails here rather than
+    reaching the report with no tint. Each one is named by
+    buildplaylist_view's closed kind-to-class mapping and has a rule of
+    that name in the sheet.
+
+    Mutation: `outcome="ambiguous"` in tracklist.resolve_candidates was
+    changed to `outcome="tied"`, standing in for a kind added to the
+    model with no pill rule of its own, and this guard rerun. Observed:
+        E       AssertionError: the kind-to-class mapping and the kinds the model produces differ
+        E       assert {'ambiguous',...'unparseable'} == {'tied', 'unm...'unparseable'}
+        E
+        E         Extra items in the left set:
+        E         'ambiguous'
+        E         Extra items in the right set:
+        E         'tied'
+        E         Use -v to get more diff
+    """
+    assert "kind=resolution.outcome" in _BUILDPLAYLIST_PY.read_text(encoding="utf-8"), (
+        "_resolve_lines no longer carries the resolution's outcome as the row's kind, "
+        "so resolve_candidates is not the source of truth these kinds are read from"
+    )
+    kinds = _model_kinds()
+    assert set(buildplaylist_view.KIND_PILL_CLASSES) == kinds, (
+        "the kind-to-class mapping and the kinds the model produces differ"
+    )
+    for kind in sorted(kinds):
+        classes = buildplaylist_view.kind_pill_classes(kind)
+        assert classes.split() == [
+            buildplaylist_view.KIND_PILL_BASE_CLASS,
+            f"{buildplaylist_view.KIND_PILL_BASE_CLASS}-{kind}",
+        ], kind
+        _rule(f".{buildplaylist_view.KIND_PILL_BASE_CLASS}-{kind}")
+    # A kind the mapping does not name keeps the pill's shape and the
+    # row's ink rather than raising or going unstyled.
+    assert buildplaylist_view.kind_pill_classes("wedged") == (
+        buildplaylist_view.KIND_PILL_BASE_CLASS
+    )
 
 
 def _fill_function() -> ast.With:
@@ -145,6 +270,36 @@ def test_the_page_builds_the_header_and_every_row_inside_the_report_grid():
     cells = rows[0].body
     assert len(cells) == 3, "a body row carries other than the header's three cells"
     assert "buildplaylist-report-entry" in ast.unparse(cells[1])
+
+
+def test_the_page_builds_the_kind_cell_as_a_pill_classed_from_the_row_kind():
+    """A stylesheet rule the page never applies is green in the sheet
+    guard above, so this reads app.py for the kind cell itself (DL-189):
+    the third cell of the body row holds a pill element whose classes
+    come from buildplaylist_view.kind_pill_classes called on the loop's
+    own kind and whose text comes from kind_pill_label, so every row
+    carries the class the sheet gives that row's kind.
+
+    Mutation: the pill's classes() argument in app.py was changed from
+    buildplaylist_view.kind_pill_classes(kind) to the literal
+    "buildplaylist-report-kind buildplaylist-report-kind-unmatched", so
+    every row would carry one kind's tint, and this guard rerun.
+    Observed:
+        E       AssertionError: the kind pill's classes are not derived from the row's kind
+        E       assert 'buildplaylist_view.kind_pill_classes(kind)' in "ui.label(buildplaylist_view.kind_pill_label(kind)).classes('buildplaylist-report-kind buildplaylist-report-kind-unmatched')"
+    """
+    fill = _fill_function()
+    loop = next(node for node in fill.body if isinstance(node, ast.For))
+    kind_name = loop.target.elts[2].id
+    row = next(node for node in loop.body if isinstance(node, ast.With))
+    cell = row.body[2]
+    assert isinstance(cell, ast.With), "the kind cell holds no element of its own"
+    pill = ast.unparse(cell.body)
+    assert f"buildplaylist_view.kind_pill_classes({kind_name})" in pill, (
+        "the kind pill's classes are not derived from the row's kind"
+    )
+    assert f"buildplaylist_view.kind_pill_label({kind_name})" in pill
+    assert "classes" in pill
 
 
 def test_a_run_that_leaves_rows_scrolls_the_report_card_into_view():

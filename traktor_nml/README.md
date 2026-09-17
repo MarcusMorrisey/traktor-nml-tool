@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-303`:
+This file is the authority for the log's high-water mark, which is `DL-304`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2648,6 +2648,38 @@ names, so the next plan numbers from there.
   scrollTops, the card's box and the footer texts are read in
   `docs/2026-09-17-report-scroll-and-encoding-browser-record.md`
   (DL-303).
+- The unresolved report draws each row's kind as a pill rather than as
+  plain text: `design/build-playlist/Specs.dc.html:60`'s `.kind` shape -
+  600 11px/1 IBM Plex Mono, uppercase at `.04em`, `3px 6px` inside a
+  `4px` radius, never wrapped - on one class every pill carries, and
+  `:61`-`63`'s three kinds each on their own rule, so the shared shape is
+  declared once and a kind's tint is a colour triple beside it (DL-071).
+  `:61`'s `#2B1D14` and `#5A3A24` and `:63`'s `#1B1D20` are colours
+  `theme.py` did not name; they are `REPORT_KIND_UNMATCHED_TINT_BG`,
+  `REPORT_KIND_UNMATCHED_TINT_BORDER` and
+  `REPORT_KIND_UNPARSEABLE_TINT_BG`, named for the pill each paints
+  rather than folded into the nearest `STATUS_NOT_FOUND_*` variant,
+  which is a different pair of colours (DL-078). The review screen's
+  `.wizard-tag-review` and `.wizard-tag-missing` are not reused: the
+  first carries its hue on a `strong` child and neither declares the
+  pill's type or radius, and `.wizard-tag-missing`'s ground and border
+  are `#21160F` and `#6A3F2C`, not `:61`'s pair. The kind-to-class
+  decision and the pill's word live in the nicegui-free
+  `buildplaylist_view.py` (DL-069) as a closed mapping, so the class the
+  page can carry is always one the sheet has a rule for; a kind the
+  mapping does not name falls back to the shared class alone and reads
+  as an uppercase mono word in the row's own ink rather than raising.
+  The Kind cell holds the pill inside it, so the cell keeps the body
+  row's inset while `display: inline-block` lets the pill hug its word
+  instead of filling the `120px` track. Three guards stand behind this:
+  the sheet's rule per kind, `app.py`'s own kind cell read from its AST,
+  because a rule the page never applies is green in a sheet guard
+  (DL-189), and every kind the model can produce having a rule, with the
+  kinds read from `tracklist.resolve_candidates`' `outcome=` literals
+  rather than restated, so a kind added there fails rather than arriving
+  untinted. The pills' colours, shape, width against the column and the
+  column's own edges are read in
+  `docs/2026-09-17-report-kind-pills-browser-record.md` (DL-304).
 
 ## Invariants
 

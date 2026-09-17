@@ -77,6 +77,19 @@ ACTION_TINT_BORDER_ALT = "#2F5A72"
 ACTION_TINT_TEXT = "#8FCFF2"
 ACTION_TINT_TEXT_ALT = "#9BD4F5"
 
+# The unresolved report's kind pills carry two tinted surfaces and one
+# border the reconnect artboards never paint, so no STATUS_* variant
+# above names them: design/build-playlist/Specs.dc.html:61 sets the
+# unmatched pill on #2B1D14 inside #5A3A24 - a deeper ground and a
+# lighter border than STATUS_NOT_FOUND_TINT_BG and
+# STATUS_NOT_FOUND_STRONG, which are a different pair of colours - and
+# :63 sets the unparseable pill on #1B1D20, whose border is
+# BORDER_STRONG and whose text is TEXT_SUBTLE_1, both already named
+# above. Named for the pill each paints.
+REPORT_KIND_UNMATCHED_TINT_BG = "#2B1D14"
+REPORT_KIND_UNMATCHED_TINT_BORDER = "#5A3A24"
+REPORT_KIND_UNPARSEABLE_TINT_BG = "#1B1D20"
+
 # Further border greys, named for the surface pair each separates.
 BORDER_SUBTLE_1 = "#131619"
 BORDER_SUBTLE_2 = "#141C21"
@@ -865,6 +878,19 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 /* The entry cell holds an input line with no break opportunity in it,
    so it shortens with an ellipsis rather than pushing Kind. */
 .buildplaylist-report-entry {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+/* Specs.dc.html:60's .kind: the pill the Kind cell holds, shaped like
+   :64's .fmt - 600 11px/1 mono, uppercase at .04em, 3px by 6px inside
+   a 4px radius, and never wrapped. display: inline-block is what makes
+   the pill hug its own text instead of filling the 120px Kind track,
+   and the cell around it keeps the body row's 7px inset. The base rule
+   sets no colour or border of its own, so a kind :61-63 name no tint
+   for still reads as an uppercase mono word in the row's own ink. */
+.buildplaylist-report-kind {{ display: inline-block; font: 600 {TYPE_11}/1 {FONT_MONO}; letter-spacing: .04em; text-transform: uppercase; padding: {SPACE_3} {SPACE_6}; border-radius: {RADIUS_SM}; white-space: nowrap; }}
+/* :61-63's three kinds: the hue each pill's text carries, on its own
+   tinted ground inside its own border. */
+.buildplaylist-report-kind-unmatched {{ color: {STATUS_NOT_FOUND}; background: {REPORT_KIND_UNMATCHED_TINT_BG}; border: 1px solid {REPORT_KIND_UNMATCHED_TINT_BORDER}; }}
+.buildplaylist-report-kind-ambiguous {{ color: {STATUS_NEEDS_REVIEW}; background: {STATUS_NEEDS_REVIEW_TINT_BG}; border: 1px solid {STATUS_NEEDS_REVIEW_STRONG}; }}
+.buildplaylist-report-kind-unparseable {{ color: {TEXT_SUBTLE_1}; background: {REPORT_KIND_UNPARSEABLE_TINT_BG}; border: 1px solid {BORDER_STRONG}; }}
 .buildplaylist-note-lead {{ color: {TEXT}; font-weight: 600; margin-right: {SPACE_4}; }}
 /* Specs.dc.html's template button sits at the note's right edge. */
 .buildplaylist-template-control {{ margin-left: auto; flex: none; }}

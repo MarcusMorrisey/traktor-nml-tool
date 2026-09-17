@@ -159,6 +159,33 @@ def unresolved_report_rows(
     )
 
 
+# design/build-playlist/Specs.dc.html:179-181's kind cells: each kind
+# is drawn as a pill whose class names the tint :61-63 gives it. The
+# kind-to-class decision lives here rather than at the nicegui call
+# site (DL-069), and it is a closed mapping so the class the page can
+# carry is always one the sheet has a rule for.
+KIND_PILL_BASE_CLASS = "buildplaylist-report-kind"
+KIND_PILL_CLASSES = {
+    kind: f"{KIND_PILL_BASE_CLASS} {KIND_PILL_BASE_CLASS}-{kind}"
+    for kind in ("unmatched", "ambiguous", "unparseable")
+}
+
+
+def kind_pill_classes(kind: str) -> str:
+    """The classes one row's kind pill carries. A kind the mapping does
+    not name falls back to the base pill class alone, which carries the
+    pill's shape and type but no tint of its own, so the word still
+    reads in the row's own ink rather than going unstyled or raising."""
+    return KIND_PILL_CLASSES.get(kind, KIND_PILL_BASE_CLASS)
+
+
+def kind_pill_label(kind: str) -> str:
+    """The word one kind pill shows: Specs.dc.html:179-181 writes the
+    kind with its first letter capital (`Unmatched`), which the pill's
+    own text-transform then renders uppercase."""
+    return kind.capitalize()
+
+
 def _target_folder_error(errors: tuple[str, ...]) -> Optional[str]:
     """The one error string among a target-folder lookup's four shapes
     (no_root_subnodes, root_subnodes_span_not_found,

@@ -2019,7 +2019,16 @@ def _build_build_playlist_page() -> None:
                     ):
                         ui.label(str(line_number)).classes("font-mono wizard-dim")
                         ui.label(raw_text).classes("font-mono buildplaylist-report-entry")
-                        ui.label(kind).classes("wizard-subtle-1")
+                        # Specs.dc.html:179-181 draws the kind inside
+                        # its cell as a pill, so the cell keeps the body
+                        # row's own inset and the pill hugs its word.
+                        # The class comes from the kind through
+                        # buildplaylist_view, so the rule the sheet
+                        # gives that kind is the one the page applies.
+                        with ui.element("div"):
+                            ui.label(
+                                buildplaylist_view.kind_pill_label(kind)
+                            ).classes(buildplaylist_view.kind_pill_classes(kind))
             # The report card stands below the form, past the fold of
             # wizard-middle, the scroll owner (DL-189). A run that leaves
             # rows brings the card into view; a run with none does not
