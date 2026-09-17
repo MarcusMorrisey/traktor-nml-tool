@@ -15,7 +15,14 @@ from ..split import build_output
 from ..xmlio import parse_xml_bytes
 
 
-def _write_unresolved_report(rows: list[UnresolvedRow], csv_path: Path | None) -> str | None:
+def _write_unresolved_report(
+    rows: list[UnresolvedRow], csv_path: Path | None, input_format: InputFormat
+) -> str | None:
+    # A folder row's line_number is the file's position in name order, so
+    # a folder run labels it position=; every other format keeps line=, so
+    # a text run's stdout replays the corpus (DL-300). The CSV column stays
+    # line_number for every format.
+    label = "position" if input_format is InputFormat.FOLDER else "line"
     # An unresolved report is always written, matching splice_cmd.py's own
     # _write_conflict_report convention (both now go through the shared
     # write_row_report): a record of what a run could not resolve is kept
@@ -31,7 +38,7 @@ def _write_unresolved_report(rows: list[UnresolvedRow], csv_path: Path | None) -
             "title": row.title,
             "kind": row.kind,
         },
-        print_line=lambda row: f"unresolved line={row.line_number} kind={row.kind} text={row.raw_text!r}",
+        print_line=lambda row: f"unresolved {label}={row.line_number} kind={row.kind} text={row.raw_text!r}",
         label="unresolved",
     )
 
@@ -90,7 +97,7 @@ def _handle_build_playlist(args: argparse.Namespace) -> int:
         print(f"input_encoding={input_read.encoding}")
     for key, value in result.stats.items():
         print(f"{key}={value}")
-    if _write_unresolved_report(result.unresolved_rows, args.unresolved_report) is not None:
+    if _write_unresolved_report(result.unresolved_rows, args.unresolved_report, input_read.format) is not None:
         return 2
 
     if result.output is None:

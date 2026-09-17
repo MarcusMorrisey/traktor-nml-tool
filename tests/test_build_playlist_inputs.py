@@ -245,3 +245,35 @@ def test_cli_run_over_csv_prints_format_and_encoding_first(tmp_path: Path) -> No
     result = run_tool(["build-playlist", "base.nml", "list.csv", "out.nml", "--name", "L"], cwd=tmp_path)
     assert result.exit_code == 0, result.stderr
     assert result.stdout.splitlines()[:3] == ["input_format=csv", "input_encoding=utf-8-sig", "lines_read=1"]
+
+
+def test_cli_unresolved_label_is_position_for_folder_and_line_otherwise(tmp_path: Path) -> None:
+    r"""A folder run labels an unresolved row position=, because its
+    line_number is the file's place in name order; a CSV run keeps line=
+    (DL-300).
+
+    Mutation: _write_unresolved_report sets label = "line" for every
+        format, so the folder run prints unresolved line=1.
+    Observed:
+        E       assert "unresolved position=1 kind=unmatched text='stray.mp3'" in "input_format=folder\ninput_encoding=n/a\nlines_read=1\nlines_resolved=0\nunresolved_unparseable=0\nunresolved_unmatched=1\nunresolved_ambiguous=0\nplaylist_name=None\nentries_written=0\nunresolved line=1 kind=unmatched text='stray.mp3'\n"
+        E        +  where "input_format=folder\ninput_encoding=n/a\nlines_read=1\nlines_resolved=0\nunresolved_unparseable=0\nunresolved_unmatched=1\nunresolved_ambiguous=0\nplaylist_name=None\nentries_written=0\nunresolved line=1 kind=unmatched text='stray.mp3'\n" = RunResult(exit_code=2, stdout="input_format=folder\ninput_encoding=n/a\nlines_read=1\nlines_resolved=0\nunresolved_unp...n=0\nunresolved line=1 kind=unmatched text='stray.mp3'\n", stderr='no_entries_resolved\nbuild_playlist_aborted=true\n').stdout
+    """
+    from tests.conftest import run_tool
+
+    folder = tmp_path / "set"
+    folder.mkdir()
+    (folder / "stray.mp3").write_bytes(b"\0" * 4096)
+    (tmp_path / "base.nml").write_text(_nml([]), encoding="utf-8", newline="")
+    folder_run = run_tool(
+        ["build-playlist", "base.nml", "set", "out.nml", "--name", "Set", "--allow-unmatched", "--dry-run"],
+        cwd=tmp_path,
+    )
+    assert "unresolved position=1 kind=unmatched text='stray.mp3'" in folder_run.stdout
+    assert "unresolved line=" not in folder_run.stdout
+
+    (tmp_path / "list.csv").write_text("Artist,Title\nA,T\n", encoding="utf-8")
+    csv_run = run_tool(
+        ["build-playlist", "base.nml", "list.csv", "out.nml", "--name", "Set", "--allow-unmatched", "--dry-run"],
+        cwd=tmp_path,
+    )
+    assert "unresolved line=2 kind=unmatched" in csv_run.stdout

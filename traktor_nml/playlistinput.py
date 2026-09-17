@@ -103,7 +103,10 @@ def _decode_with_fallback(data: bytes, path: Path) -> tuple[str, str]:
     which decodes the bytes an .m3u saved by Windows software carries.
     cp1252 accepts almost any byte sequence, so a file in another
     single-byte codepage decodes wrongly without an error; the codec is
-    returned so the run can name it."""
+    returned so the run can name it. The refusal code is
+    tracklist_decode_error for every input format, as _decode_strict's is:
+    the code the CLI prints, kept so a text run's output stays the
+    recorded corpus's (tests/baselines/build_playlist_text/decode_error)."""
     try:
         return data.decode("utf-8-sig"), "utf-8-sig"
     except UnicodeDecodeError:

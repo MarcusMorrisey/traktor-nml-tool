@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-299`:
+This file is the authority for the log's high-water mark, which is `DL-300`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -360,8 +360,11 @@ names, so the next plan numbers from there.
   text like "Jean-Michel" (DL-031).
 - `build-playlist` calls the matching cascade at a fixed
   `MatchConfidence.LOOSE` with no `--match-confidence` flag, because a
-  text-only track list carries only artist and title, making every tier
-  above `artist_title` structurally unreachable for it (DL-032).
+  plain-text track list carries only artist and title, making every tier
+  above `artist_title` structurally unreachable for it (DL-032). That
+  reason covers plain-text input only; why LOOSE stays fixed for CSV, M3U
+  and folder candidates, which can reach the stricter tiers, is DL-276's
+  (see Resolution runs at a fixed `MatchConfidence.LOOSE` below).
 - `build-playlist` makes no network or API calls of any kind - track
   identity is resolved entirely against the local base collection through
   the existing matching cascade, consistent with the tool's offline
@@ -2427,7 +2430,11 @@ names, so the next plan numbers from there.
   `detect_format`, and `read_input` returning `InputRead(format, encoding,
   candidates)` or raising `InputReadError(code)`. The CLI handler and the
   GUI's `_run_build_playlist` read an input through `read_input` and
-  nothing else (DL-281).
+  nothing else (DL-281). An undecodable input refuses with
+  `tracklist_decode_error=<path>` for every input format - text, CSV and
+  M3U share the decode helpers - the code the CLI prints, kept so a text
+  run's output stays the recorded corpus's
+  (`tests/baselines/build_playlist_text/decode_error`).
 - Resolution runs at a fixed `MatchConfidence.LOOSE`. A candidate carrying
   more than artist and title reaches the stricter tiers at LOOSE because
   the cascade tries tiers strongest first; `FILENAME` would add
@@ -2576,6 +2583,17 @@ names, so the next plan numbers from there.
   anything but a class the stylesheet declares as a flex row, and the
   widths are read in `docs/2026-09-16-chooser-width-browser-record.md`
   (DL-299).
+- `build-playlist` prints each unresolved row as `unresolved
+  position=<n> kind=<kind> text=<raw>` for a folder run and `unresolved
+  line=<n> kind=<kind> text=<raw>` for text, CSV and M3U runs. A folder
+  row's `line_number` is the file's 1-based position in name order, not a
+  line; the other formats keep `line=` so a text run's stdout replays the
+  corpus under `tests/baselines/build_playlist_text/` and CSV and M3U
+  output is unchanged. The handler passes `InputRead.format` to the
+  printer rather than inferring the format from the row. The
+  `--unresolved-report` CSV keeps its `line_number` column for every
+  format, and the GUI's unresolved table shows the bare number with no
+  label (DL-300).
 
 ## Invariants
 

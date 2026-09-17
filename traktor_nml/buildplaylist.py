@@ -27,7 +27,11 @@ from .tracklist import Candidate, resolve_candidates
 
 @dataclass
 class UnresolvedRow:
-    """One input entry that did not become a written ENTRY, and why."""
+    """One input entry that did not become a written ENTRY, and why.
+    line_number and raw_text carry the meaning given by the
+    playlistinput.py reader that produced the candidate (read_csv,
+    read_m3u, read_folder; read_text's candidates come from
+    tracklist.text_candidates, which states it)."""
     line_number: int
     raw_text: str
     artist: str

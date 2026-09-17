@@ -11,7 +11,7 @@ A CLI for inspecting, repairing, merging, and splitting Traktor DJ software's `.
   - against the actual files on disk, scanning one or more directories and matching by audio tags and optionally acoustic fingerprints (`rewrite-from-reconnect`).
 - **Merge** additional `.nml` files into a base collection (`splice`), or **partition** one collection into several outputs by playlist (`split`).
 - **Reconstruct playlists** in a base collection from the playlists at the same folder path in an older one (`splice --reconstruct-playlists`), for a collection whose playlists survive by name while their contents do not.
-- **Build a playlist** from an external plain-text track list, matched against a base collection (`build-playlist`). Outputs a self-contained single-playlist NML by default; use `--full-collection` to retain the source collection.
+- **Build a playlist** from a plain-text `Artist - Title` list, a CSV with `Artist` and `Title` columns (a header-only template is downloadable in the app), an M3U/M3U8 playlist, or a folder whose audio files form the playlist in name order, matched against a base collection (`build-playlist`); `--input-format` overrides detection from the suffix. Outputs a self-contained single-playlist NML by default; use `--full-collection` to retain the source collection.
 - **Discover candidate files** for an external track list across one or more folders (`discover-tracks`); writes a review CSV and never modifies an NML.
 - **Discover collection candidates** for an external track list with the same relaxed scoring (`discover-collection-tracks`); writes a review CSV and never modifies an NML.
 
@@ -40,7 +40,7 @@ Two other situations are reported and written rather than refused, because the c
 
 Track identity is resolved through the same cascade the merge itself uses, so a base and an older collection referring to one track at different paths still pair up.
 
-`build-playlist` is deliberately not in that list even though it runs the same cascade: a plain-text track list carries no size or duration, so there is nothing for the check to contradict and it can never fire. A flag there would do nothing.
+`build-playlist` is not in that list, although it runs the same cascade and the check. A plain-text track list carries no size or duration, so there is nothing for the check to contradict. A CSV `Duration`, an M3U `#EXTINF` duration, and the size and duration read from a file on disk do carry numbers, and a candidate they contradict is withdrawn; `build-playlist` has no `refuted` counter and no `--no-refute`, so the entry resolves without that candidate, matched through another candidate or a later tier, reported ambiguous, or reported unmatched, depending on what the cascade finds next.
 
 `--dry-run` suppresses the write to the command's declared **NML output file only**. Side files are still written, because each is a record of what the run saw rather than the artifact the run produces:
 
