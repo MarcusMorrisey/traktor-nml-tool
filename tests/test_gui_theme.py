@@ -112,6 +112,10 @@ _TEXT_PAIRS = (
 # folded into the 4.5:1 text floor above.
 _NON_TEXT_PAIRS = (
     (theme.SWITCH_KNOB, theme.SWITCH_TRACK, 3.0),
+    # Main.dc.html:57 .sw.on i, the knob a switch carries when it is on,
+    # against the on-state track at Main.dc.html:56 .sw.on; the same
+    # background-only painting and the same 3:1 floor.
+    (theme.ACTION, theme.ACTION_TINT_BORDER, 3.0),
 )
 
 
@@ -1196,3 +1200,80 @@ def test_the_header_bar_sets_no_width_of_its_own():
     assert padding is None, (
         f".wizard-header-bar declares its own padding: {padding.group(1).strip() if padding else None}"
     )
+
+
+# The three declarations Quasar's own toggle sheet
+# (nicegui/static/quasar.unimportant.css) makes, each of which paints
+# the switch as something other than Main.dc.html:54-57's .sw: the
+# visible knob is .q-toggle__thumb:after, a 50%-rounded circle inside a
+# square .q-toggle__thumb box, so a knob colour set on the box paints
+# square corners around the circle; .q-toggle__track carries
+# opacity: .38, which washes any track colour out against the ground;
+# and the on state colours the knob from --q-primary rather than from
+# ACTION. Held as a literal table because the suite's interpreter has
+# no nicegui to read that sheet from.
+_SWITCH_SELECTORS = (
+    ".q-toggle__inner",
+    ".q-toggle__track",
+    '[dir="ltr"] .q-toggle__thumb',
+    ".q-toggle__thumb:after",
+    ".q-toggle__inner--truthy .q-toggle__track",
+    '[dir="ltr"] .q-toggle__inner--truthy .q-toggle__thumb',
+    ".q-toggle__inner--truthy .q-toggle__thumb:after",
+)
+
+
+def _switch_rules(sheet: str) -> dict[str, str]:
+    """Every switch rule in the emitted stylesheet, selector text to
+    declaration block, read with tinycss2 so a selector's prefix is
+    read as written rather than matched loosely."""
+    found = {}
+    for rule in tinycss2.parse_stylesheet(sheet, skip_whitespace=True, skip_comments=True):
+        if rule.type != "qualified-rule":
+            continue
+        selector = tinycss2.serialize(rule.prelude).strip()
+        if "q-toggle" in selector:
+            found[selector] = tinycss2.serialize(rule.content)
+    return found
+
+
+def test_the_switch_is_painted_as_the_artboards_own_switch():
+    """The screen's switches are Quasar q-toggles, and every part of
+    Main.dc.html:54-57 that Quasar disagrees with has to be restated:
+    the knob colour belongs on .q-toggle__thumb:after and not on the
+    square .q-toggle__thumb box, the track has to be taken off
+    Quasar's opacity: .38, and the on state has to name
+    ACTION_TINT_BORDER and ACTION rather than inherit --q-primary.
+
+    This guard reads the emitted stylesheet, so it cannot see the
+    cascade that decides which declaration lands - the served page is
+    the evidence, measured in
+    docs/2026-09-17-switch-contrast-browser-record.md. What it pins is
+    the set of selectors and the four values that measurement turned
+    on.
+
+    Mutation: the knob colour moved back onto the thumb box, as
+    '.q-toggle__thumb {{ background: {SWITCH_KNOB}; }}', and this guard
+    rerun. Observed:
+        AssertionError: the selectors do not match the artboard's
+        switch: missing ['.q-toggle__thumb:after'], unexpected
+        ['.q-toggle__thumb']
+    """
+    rules = _switch_rules(theme.page_stylesheet())
+    missing = sorted(set(_SWITCH_SELECTORS) - set(rules))
+    unexpected = sorted(set(rules) - set(_SWITCH_SELECTORS))
+    assert not missing and not unexpected, (
+        "the selectors do not match the artboard's switch: "
+        f"missing {missing}, unexpected {unexpected}"
+    )
+    assert theme.SWITCH_KNOB in rules[".q-toggle__thumb:after"]
+    assert "opacity: 1" in rules[".q-toggle__track"], (
+        "the track keeps Quasar's opacity: .38: "
+        + rules[".q-toggle__track"].strip()
+    )
+    on_track = rules[".q-toggle__inner--truthy .q-toggle__track"]
+    assert theme.ACTION_TINT_BORDER in on_track and "opacity: 1" in on_track, (
+        "the on-state track does not name the artboard's fill: "
+        + on_track.strip()
+    )
+    assert theme.ACTION in rules[".q-toggle__inner--truthy .q-toggle__thumb:after"]

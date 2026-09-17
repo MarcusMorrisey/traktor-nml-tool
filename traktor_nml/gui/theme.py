@@ -48,6 +48,18 @@ TEXT_SUBTLE_6 = "#BEC5CA"
 SWITCH_KNOB = "#7E868D"
 SWITCH_TRACK = "#2E3338"
 
+# Main.dc.html:54-57's .sw geometry: a 34x19 track rounded to 10px with
+# a 1px BORDER_STRONG edge, holding a 13px knob inset 2px from the
+# track's left edge when off. SWITCH_KNOB_ON_LEFT is the same knob at
+# the other end - the track's 34px less the 13px knob and the 2px
+# inset - which is what Main.dc.html:57 writes as "right:2px".
+SWITCH_TRACK_WIDTH = "34px"
+SWITCH_TRACK_HEIGHT = "19px"
+SWITCH_TRACK_RADIUS = "10px"
+SWITCH_KNOB_SIZE = "13px"
+SWITCH_KNOB_INSET = "2px"
+SWITCH_KNOB_ON_LEFT = "19px"
+
 # Status hues: the three review statuses (ambiguous, refuted, format)
 # share STATUS_NEEDS_REVIEW on purpose - a distinct icon silhouette and
 # the written word tell them apart, not a fourth colour
@@ -530,8 +542,21 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-body-13-5 {{ font-size: {TYPE_13_5}; }}
 .wizard-body-14-5 {{ font-size: {TYPE_14_5}; }}
 .wizard-body-15 {{ font-size: {TYPE_15}; }}
-.q-toggle__thumb {{ background: {SWITCH_KNOB}; }}
-.q-toggle__track {{ background: {SWITCH_TRACK}; }}
+/* Main.dc.html:54-57's .sw. Quasar's own sheet
+   (quasar.unimportant.css) sizes .q-toggle__inner in ems off a 40px
+   font-size, draws the knob as .q-toggle__thumb:after - a 50%-rounded
+   white circle inside a square .q-toggle__thumb box - and paints
+   .q-toggle__track at opacity .38, taking its truthy colour from
+   --q-primary. Each of those is restated here in the artboard's terms,
+   and the thumb rules carry a [dir="ltr"] prefix to match the
+   specificity of the rules that place the knob there. */
+.q-toggle__inner {{ width: {SWITCH_TRACK_WIDTH}; min-width: {SWITCH_TRACK_WIDTH}; height: {SWITCH_TRACK_HEIGHT}; padding: 0; }}
+.q-toggle__track {{ height: {SWITCH_TRACK_HEIGHT}; border: 1px solid {BORDER_STRONG}; border-radius: {SWITCH_TRACK_RADIUS}; background: {SWITCH_TRACK}; opacity: 1; box-sizing: border-box; }}
+[dir="ltr"] .q-toggle__thumb {{ top: {SWITCH_KNOB_INSET}; left: {SWITCH_KNOB_INSET}; width: {SWITCH_KNOB_SIZE}; height: {SWITCH_KNOB_SIZE}; }}
+.q-toggle__thumb:after {{ background: {SWITCH_KNOB}; box-shadow: none; }}
+.q-toggle__inner--truthy .q-toggle__track {{ background: {ACTION_TINT_BORDER}; border-color: {ACTION_TINT_BORDER_ALT}; opacity: 1; }}
+[dir="ltr"] .q-toggle__inner--truthy .q-toggle__thumb {{ left: {SWITCH_KNOB_ON_LEFT}; }}
+.q-toggle__inner--truthy .q-toggle__thumb:after {{ background-color: {ACTION}; }}
 .body--dark, .body--dark .q-stepper, .body--dark .q-field__native, .body--dark .q-field__control {{ color: {TEXT}; }}
 /* Main.dc.html:15's .app: a header band, a middle that takes what is
    left, and a footer band, at the viewport's height.

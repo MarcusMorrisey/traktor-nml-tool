@@ -157,6 +157,14 @@ READING_DIGESTS = {
     # truncation (ref: DL-084, DL-169, DL-305). The digest is computed
     # from the record as the browser run left it.
     "2026-09-17-mono-typeface-browser-record.md": "7f24ff2a62034690dd2927990bbbae541c65afb0dfb0b87b2b7c02f2bf132637",
+    # The switch closes on a served-page record reading, in both
+    # states and against the state before it, the track box, radius,
+    # fill, border and opacity, the knob box, radius, fill and
+    # resting position, and the seven rules the page carries, with
+    # structural verdicts against Main.dc.html's .sw, .sw i, .sw.on
+    # and .sw.on i (ref: DL-084, DL-169, DL-306). The digest is
+    # computed from the record as the browser run left it.
+    "2026-09-17-switch-contrast-browser-record.md": "2604cc9792a072a654539e358e858152cb4c13fe51935a89deb713d7facec3a6",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

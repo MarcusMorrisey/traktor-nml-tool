@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-305`:
+This file is the authority for the log's high-water mark, which is `DL-306`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2706,6 +2706,29 @@ names, so the next plan numbers from there.
   utility, before and after, and what `document.fonts` reports about the
   vendored face are read in
   `docs/2026-09-17-mono-typeface-browser-record.md` (DL-305).
+- The switch is Quasar's `q-toggle` restated as `Main.dc.html:54`-`57`'s
+  `.sw`: a 34x19 track rounded to 10px, filled `SWITCH_TRACK` inside a
+  1px `BORDER_STRONG` border, holding a 13px `SWITCH_KNOB` circle inset
+  2px, and an on state filling the track `ACTION_TINT_BORDER` inside
+  `ACTION_TINT_BORDER_ALT` with the knob `ACTION` at the other end.
+  Three of Quasar's own declarations paint something else and each is
+  named: the visible knob is `.q-toggle__thumb:after`, a 50%-rounded
+  circle inside a square `.q-toggle__thumb` box, so a knob colour set on
+  the box paints square corners around the circle; `.q-toggle__track`
+  carries `opacity: .38`, which washes a track colour out against the
+  ground; and the on state colours the knob from `--q-primary` rather
+  than from `ACTION`. The two rules that place the knob carry a
+  `[dir="ltr"]` prefix, matching the specificity of the rules that place
+  it at Quasar's own em offsets. The knob's two ends are one dimension
+  each in `theme.py` and the second is derived from the first: the
+  track's width less the knob and the inset (DL-078). The on-state knob
+  against the on-state track is measured as a non-text pair in
+  `tests/test_gui_theme.py` on the 3:1 floor, the same footing the off
+  pair stands on, because both are painted only as backgrounds. The
+  guard reads the emitted stylesheet and so cannot see the cascade; both
+  states, the state before the change and the seven rules the page
+  carries are read in
+  `docs/2026-09-17-switch-contrast-browser-record.md` (DL-306).
 
 ## Invariants
 
