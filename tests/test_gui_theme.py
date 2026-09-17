@@ -348,10 +348,124 @@ def test_two_font_size_classes_on_one_call_is_caught():
     test_no_classes_call_sets_font_size_twice routes every real call
     through, returns ['text-xs', 'wizard-heading-sm'] for it, so the
     call is reported as setting font-size twice."""
-    literal = "font-mono text-xs wizard-heading-sm"
+    literal = "wizard-mono text-xs wizard-heading-sm"
     used = _size_setting_tokens(literal)
     assert used == ["text-xs", "wizard-heading-sm"]
     assert len(used) > 1
+
+
+# The same stacking question for the typeface, and the reason it needs
+# its own guard rather than riding on the sheet: font-mono is Quasar's
+# own Tailwind utility, and its stack is a generic monospace one, not
+# the vendored IBM Plex Mono theme.py names. A utility class on the
+# element and a class whose rule declares FONT_MONO sit at equal
+# specificity, so which one paints is decided by <head> source order,
+# and Quasar's sheet is loaded after this one - which is why an element
+# naming the utility reads the system monospace however carefully
+# FONT_MONO is declared for the class beside it.
+#
+# DL-189 is why this reads app.py rather than the sheet: a guard
+# asserting that page_stylesheet() declares FONT_MONO is green while
+# every call site names the utility, which is exactly the state where
+# the served page paints the wrong face. What the browser resolves is
+# decided by the class list on the element, so the class list is what
+# is read here.
+_TAILWIND_FONT_FAMILY = re.compile(r"^font-(?:mono|sans|serif)$")
+# Wider than _CLASS_RULE: the mono-carrying rules include
+# buildplaylist-* names (the report's header and its kind pills) as
+# well as wizard-* ones.
+_ANY_CLASS_RULE = re.compile(r"\.((?:wizard|buildplaylist)-[\w-]+)\s*\{([^}]*)\}")
+
+
+def _mono_carrying_classes() -> set:
+    """Every class page_stylesheet() declares theme.FONT_MONO for.
+
+    Derived from the sheet text rather than restated as a list, so a
+    rule that starts declaring FONT_MONO later is covered by the guards
+    below without this file changing - the same reason _ALL_TOKENS is
+    read by introspection (DL-078).
+    """
+    sheet = theme.page_stylesheet()
+    return {
+        name
+        for name, body in _ANY_CLASS_RULE.findall(sheet)
+        if theme.FONT_MONO in body
+    }
+
+
+def _family_setting_tokens(call: str) -> list:
+    """Every token in one classes() literal that decides the element's
+    font-family - the sheet's own classes whose rule declares
+    FONT_MONO, plus Tailwind's family utilities."""
+    mono = _mono_carrying_classes()
+    return [
+        tok
+        for tok in call.split()
+        if tok in mono or _TAILWIND_FONT_FAMILY.match(tok)
+    ]
+
+
+def test_the_sheet_declares_font_mono_for_at_least_one_class():
+    """_mono_carrying_classes is what the two guards below read app.py
+    against, and a regex that matched nothing would pass both of them
+    while saying nothing. wizard-mono is the class theme.py declares
+    FONT_MONO for on its own, with no size or colour of its own, so it
+    is the one an element wanting the typeface and nothing else
+    carries."""
+    mono = _mono_carrying_classes()
+    assert "wizard-mono" in mono
+    assert theme.FONT_MONO not in theme.FONT_SANS
+
+
+def test_no_classes_call_names_a_tailwind_font_family_utility():
+    """Every element app.py means to read a typeface names a class
+    theme.py declares that typeface for, never Quasar's font-* utility.
+
+    Mutation: in `_build_build_playlist_page`, the report's number cell
+    was reverted to
+    `ui.label(str(line_number)).classes("font-mono wizard-dim")`.
+    Observed:
+        E       AssertionError: a classes() call names Tailwind's own font-family utility, which beats the rule that names the element's class: [('font-mono wizard-dim', ['font-mono'])]
+        E       assert [('font-mono ...'font-mono'])] == []
+        E
+        E         Left contains one more item: ('font-mono wizard-dim', ['font-mono'])
+        E         Use -v to get more diff
+    """
+    offending = []
+    for call in _classes_calls(_APP_PY.read_text(encoding="utf-8")):
+        named = [tok for tok in call.split() if _TAILWIND_FONT_FAMILY.match(tok)]
+        if named:
+            offending.append((call, named))
+    assert offending == [], (
+        "a classes() call names Tailwind's own font-family utility, which "
+        f"beats the rule that names the element's class: {offending}"
+    )
+
+
+def test_no_classes_call_sets_font_family_twice():
+    """The companion to test_no_classes_call_sets_font_size_twice: an
+    element carrying two font-family setters has its typeface decided
+    by <head> order rather than by the class list, whether or not
+    either setter is a utility."""
+    offending = []
+    for call in _classes_calls(_APP_PY.read_text(encoding="utf-8")):
+        used = _family_setting_tokens(call)
+        if len(used) > 1:
+            offending.append((call, used))
+    assert offending == [], f"classes() call sets font-family twice: {offending}"
+
+
+def test_no_stylesheet_rule_selects_a_tailwind_font_family_utility():
+    """A rule selecting `> .font-mono` describes its row's children by
+    the utility they carry, so the row's layout - the ellipsis
+    truncation the path rows and the build-playlist input rows get - is
+    tied to the utility staying on the element. The child selectors
+    name a class page_stylesheet() defines a rule for instead."""
+    sheet = theme.page_stylesheet()
+    utilities = sorted(set(re.findall(r">\s*\.(font-[\w-]+)", sheet)))
+    assert utilities == [], (
+        f"a stylesheet rule selects a Tailwind font utility as a child: {utilities}"
+    )
 
 
 # wizard-heading-lg is the one class this guard does not require app.py

@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-304`:
+This file is the authority for the log's high-water mark, which is `DL-305`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2680,6 +2680,32 @@ names, so the next plan numbers from there.
   untinted. The pills' colours, shape, width against the column and the
   column's own edges are read in
   `docs/2026-09-17-report-kind-pills-browser-record.md` (DL-304).
+- A mono element names a class the sheet declares `FONT_MONO` for, never
+  Quasar's own `font-mono` utility. `font-mono` is Tailwind's utility and
+  its stack is a generic monospace one, not the vendored IBM Plex Mono
+  `theme.py` names, so an element carrying it reads whatever monospace
+  the system supplies. A utility on the element and a class whose rule
+  declares `FONT_MONO` sit at equal specificity, and Quasar's sheet is
+  loaded after this one, so on an element carrying both the utility is
+  what paints - which is why the rule beside it is not a fix. An element
+  whose own rule already declares `FONT_MONO` names no font class at
+  all, and one that wants the typeface and nothing else carries
+  `wizard-mono`, whose rule declares the family and no size or colour
+  (DL-069 keeps both in `theme.py`; `app.py` names the class). The two
+  rules that describe a row's flexible child by the class it carries,
+  `.wizard-path-row > .wizard-mono` and
+  `.buildplaylist-input-row > .wizard-mono`, name that class rather than
+  the utility, so the ellipsis truncation travels with it. The guard
+  reads `app.py`'s own class lists rather than the sheet, because a
+  guard asserting the sheet declares `FONT_MONO` is green in exactly the
+  state where every call site names the utility and the page paints the
+  wrong face (DL-189); the mono-carrying classes it reads app.py against
+  are derived from `page_stylesheet()`'s text, so a rule that starts
+  declaring `FONT_MONO` later is covered without editing the guard
+  (DL-078). The computed family on every element that carried the
+  utility, before and after, and what `document.fonts` reports about the
+  vendored face are read in
+  `docs/2026-09-17-mono-typeface-browser-record.md` (DL-305).
 
 ## Invariants
 

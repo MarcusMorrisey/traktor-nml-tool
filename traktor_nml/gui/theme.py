@@ -852,7 +852,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    detected format tag and the two choosers on one line, the path taking
    the room and truncating rather than pushing the buttons off the card. */
 .buildplaylist-input-row {{ display: flex; align-items: center; gap: {SPACE_10}; flex-wrap: nowrap; min-width: 0; width: 100%; }}
-.buildplaylist-input-row > .font-mono {{ flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.buildplaylist-input-row > .wizard-mono {{ flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
 /* Specs.dc.html's .fmt: the format read_input will read the input as,
    tinted with the action hue because it describes what the run does. */
 .buildplaylist-format-tag {{ flex: none; font: 600 {TYPE_11}/1 {FONT_MONO}; letter-spacing: .06em; text-transform: uppercase; color: {ACTION_TINT_TEXT}; background: {BORDER_SUBTLE_9}; border: 1px solid {ACTION_TINT_BORDER_ALT}; border-radius: {RADIUS_SM}; padding: {SPACE_3} {SPACE_6}; white-space: nowrap; }}
@@ -905,8 +905,8 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    so a chooser standing in it alone is drawn as wide as the card; in
    this row it is sized to its label, as the artboard's .btn is (DL-299). */
 .wizard-path-row {{ display: flex; align-items: center; gap: {SPACE_10}; flex-wrap: nowrap; min-width: 0; width: 100%; }}
-.wizard-path-row > .font-mono, .wizard-path-row > .q-field {{ flex: 1; min-width: 0; }}
-.wizard-path-row > .font-mono {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+.wizard-path-row > .wizard-mono, .wizard-path-row > .q-field {{ flex: 1; min-width: 0; }}
+.wizard-path-row > .wizard-mono {{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
 .wizard-path-row > .q-btn {{ flex: none; }}
 /* Main.dc.html:46's, Reconstruct.dc.html:46's and Specs.dc.html:42's
    .row centre a .btn on its path with no margin on either. A flex row

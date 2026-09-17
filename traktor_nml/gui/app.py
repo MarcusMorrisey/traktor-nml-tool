@@ -409,7 +409,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                 # chooses it on one line, the control sized to its label rather
                 # than stretched across the card body's column (DL-299).
                 with ui.element("div").classes("wizard-path-row"):
-                    old_input_display = ui.label("No collection selected").classes("font-mono wizard-body-15 wizard-subtle-1")
+                    old_input_display = ui.label("No collection selected").classes("wizard-mono wizard-body-15 wizard-subtle-1")
                     old_input_holder: dict[str, Optional[Path]] = {"path": None}
 
                     async def choose_old_input() -> None:
@@ -457,7 +457,7 @@ def _build_setup_step(state: _WizardPageState, stepper: ui.stepper) -> None:
                             # for Specs' general 32px/8px rule rather than any
                             # artboard specific to this row.
                             with ui.row().classes("gap-2 items-center wizard-control"):
-                                ui.label(str(path)).classes("font-mono wizard-body-11 wizard-subtle-2")
+                                ui.label(str(path)).classes("wizard-mono wizard-body-11 wizard-subtle-2")
                                 volume_input = ui.input("Volume", value=default_volume).classes("w-24")
                                 volumeid_input = ui.input("Volume ID", value=default_volumeid).classes("w-24")
                             # Visible without hovering, matching the cache-path
@@ -831,7 +831,7 @@ def _build_scan_step(state: _WizardPageState, stepper: ui.stepper) -> None:
 def _candidate_panel(state: _WizardPageState, review) -> ui.column:
     panel = ui.column().classes("gap-2")
     with panel:
-        ui.label(f"Old: {review.old.file_name}").classes("font-mono wizard-heading-sm")
+        ui.label(f"Old: {review.old.file_name}").classes("wizard-mono wizard-heading-sm")
         for i, candidate_view in enumerate(review.candidates, start=1):
             confidence = review_model.display_confidence(candidate_view)
             # A refuted candidate reads at the inactive-marker weight
@@ -840,7 +840,7 @@ def _candidate_panel(state: _WizardPageState, review) -> ui.column:
             ui.label(
                 f"[{i}] {candidate_view.candidate.file_name} - {confidence}"
                 + (" (refuted)" if candidate_view.refuted else "")
-            ).classes(f"font-mono wizard-body-13 {weight_class}")
+            ).classes(f"wizard-mono wizard-body-13 {weight_class}")
     return panel
 
 
@@ -1808,7 +1808,7 @@ def _build_build_playlist_page() -> None:
                         ui.label("Base collection").classes("wizard-label")
                         with ui.row().classes("buildplaylist-input-row"):
                             base_display = ui.label("No collection selected").classes(
-                                "font-mono wizard-body-15 wizard-subtle-1"
+                                "wizard-mono wizard-body-15 wizard-subtle-1"
                             )
 
                             async def choose_base() -> None:
@@ -1827,7 +1827,7 @@ def _build_build_playlist_page() -> None:
                         ui.label("Input").classes("wizard-label")
                         with ui.row().classes("buildplaylist-input-row"):
                             input_display = ui.label("No input selected").classes(
-                                "font-mono wizard-body-15 wizard-subtle-1"
+                                "wizard-mono wizard-body-15 wizard-subtle-1"
                             )
                             format_tag = ui.label("").classes("buildplaylist-format-tag")
                             format_tag.set_visibility(False)
@@ -1878,7 +1878,7 @@ def _build_build_playlist_page() -> None:
                                 ui.label("Output folder").classes("wizard-label")
                                 with ui.row().classes("buildplaylist-input-row"):
                                     output_dir_display = ui.label("").classes(
-                                        "font-mono wizard-body-15 wizard-subtle-1"
+                                        "wizard-mono wizard-body-15 wizard-subtle-1"
                                     )
 
                                     async def choose_output_dir() -> None:
@@ -2017,8 +2017,8 @@ def _build_build_playlist_page() -> None:
                     with ui.element("div").classes(
                         "buildplaylist-report-grid buildplaylist-report-row"
                     ):
-                        ui.label(str(line_number)).classes("font-mono wizard-dim")
-                        ui.label(raw_text).classes("font-mono buildplaylist-report-entry")
+                        ui.label(str(line_number)).classes("wizard-mono wizard-dim")
+                        ui.label(raw_text).classes("wizard-mono buildplaylist-report-entry")
                         # Specs.dc.html:179-181 draws the kind inside
                         # its cell as a pill, so the cell keeps the body
                         # row's own inset and the pill hugs its word.
@@ -2731,12 +2731,12 @@ def _build_reconstruct_page() -> None:
                         f'role="row" aria-selected="{str(focused).lower()}"'
                     ):
                         ui.label(view.identity_key).classes(
-                            "font-mono wizard-body-12 "
+                            "wizard-mono wizard-body-12 "
                             "wizard-conflict-track"
                         )
                         ui.label(", ".join(view.attrs)).classes("wizard-body-12")
                         ui.label(str(len(view.candidates))).classes(
-                            "font-mono wizard-body-12"
+                            "wizard-mono wizard-body-12"
                         )
                         ui.label(
                             ", ".join(
@@ -2807,7 +2807,7 @@ def _build_reconstruct_page() -> None:
                             # Path row, which in a rail this narrow would
                             # print the same string twice (ref: DL-250).
                             ui.label(view.identity_key).classes(
-                                "font-mono wizard-body-14-5"
+                                "wizard-mono wizard-body-14-5"
                             )
                             # The count is read off the group rather
                             # than written into the sentence: a group
@@ -3228,7 +3228,7 @@ def _build_reconstruct_page() -> None:
                                 ):
                                     for reason in record.reasons:
                                         ui.label(reason).classes(
-                                            "font-mono wizard-body-12"
+                                            "wizard-mono wizard-body-12"
                                         )
 
             def _render_preview_run() -> None:
@@ -3437,7 +3437,7 @@ def _build_reconstruct_page() -> None:
                                             "wizard-list-row"
                                         ):
                                             ui.label(original).classes(
-                                                "font-mono wizard-list-name"
+                                                "wizard-mono wizard-list-name"
                                             )
                                             ui.label("Not modified").classes(
                                                 "wizard-badge"

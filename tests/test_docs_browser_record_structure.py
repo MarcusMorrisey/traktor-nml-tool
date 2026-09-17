@@ -146,6 +146,17 @@ READING_DIGESTS = {
     # DL-304). The digest is computed from the record as the browser run
     # left it.
     "2026-09-17-report-kind-pills-browser-record.md": "745dd332bba458251ca1cbff52ac4d4d093688d41ac2ca320a1dae5ba6deb7cf",
+    # The monospace typeface closes on a served-page record reading the
+    # computed font-family of every element that named Quasar's
+    # font-mono utility, before and after, on /, /reconnect and
+    # /build-playlist, beside what document.fonts reports about the
+    # vendored face at the weights those states paint, the ellipsis
+    # truncation on every path and cell that carries it and the report's
+    # column tracks, with structural verdicts against theme.py's
+    # FONT_MONO and the two child selectors that own the path rows'
+    # truncation (ref: DL-084, DL-169, DL-305). The digest is computed
+    # from the record as the browser run left it.
+    "2026-09-17-mono-typeface-browser-record.md": "7f24ff2a62034690dd2927990bbbae541c65afb0dfb0b87b2b7c02f2bf132637",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written
