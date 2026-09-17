@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-301`:
+This file is the authority for the log's high-water mark, which is `DL-302`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2609,6 +2609,23 @@ names, so the next plan numbers from there.
   on each row class and reads app.py for every path chooser standing in
   one of them as a `.wizard-control`; the offsets are read before and
   after in `docs/2026-09-16-chooser-offset-browser-record.md` (DL-301).
+- `/build-playlist`'s unresolved-entries report is one CSS grid of three
+  tracks, `REPORT_GRID_TRACKS` (`64px`, the rest, `120px`), with a header
+  row carrying `buildplaylist_view.REPORT_COLUMN_LABELS` (`#`, `Entry`,
+  `Kind`) as a modifier row on the grid every body row uses, so a heading
+  stands over its column at every row. `Specs.dc.html:177`-`178` draws a
+  `table.rep` with those headers and widths, and the report was label
+  rows with no header and no shared widths (DL-071). It is a hand-rolled
+  grid rather than `ui.table` or aggrid, on the conflict grid's reasoning
+  (DL-079). `theme.py` carries `:57`'s header label and rule, `:58`-`59`'s
+  row inset and rules with none under the last row, and an entry cell
+  that shortens with an ellipsis rather than pushing `Kind` (DL-069). The
+  number cell reads `.wizard-dim`, the artboard's `.dim`. The kind pills
+  of `:60`-`63` and the read-only note of `:185` are not built. A guard
+  reads the sheet for the three tracks and the header label and reads
+  app.py for the header and every body row built on the grid; the
+  columns are read in `docs/2026-09-17-report-columns-browser-record.md`
+  (DL-302).
 
 ## Invariants
 

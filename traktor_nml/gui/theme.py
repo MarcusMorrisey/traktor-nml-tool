@@ -258,6 +258,10 @@ DETAIL_RAIL_WIDTH = "400px"
 # resolves to inside .wizard-content-width beside the rail, not against
 # the width the artboard's full-bleed main gives it (DL-213).
 CONFLICT_GRID_TRACKS = "minmax(0, 1fr) 108px 72px 164px 120px"
+# design/build-playlist/Specs.dc.html:178's report header: `#` at 64px,
+# Entry taking the rest and Kind at 120px, held as one string so the
+# header row and every body row read the identical tracks.
+REPORT_GRID_TRACKS = "64px minmax(0, 1fr) 120px"
 # Reconstruct.dc.html:44's .field height - the box a chosen path stands
 # in, taller than a control so the path inside it is not crowded by its
 # own border.
@@ -843,6 +847,24 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    and the note's two phrases run on as one sentence. */
 .buildplaylist-note-text {{ min-width: 0; }}
 .buildplaylist-note-text > div {{ display: inline; }}
+/* Specs.dc.html:56-59's table.rep, drawn as one grid rather than a
+   table (DL-079): :56's 12px type, and the three tracks a header row
+   and every body row are laid out on, so a heading stands over its
+   column at every row. :58's td is `vertical-align: top`. */
+.buildplaylist-report {{ font-size: {TYPE_12}; }}
+.buildplaylist-report-grid {{ display: grid; grid-template-columns: {REPORT_GRID_TRACKS}; align-items: start; }}
+/* :57's th: the rule under the header and the mono label its cells
+   carry. A modifier on the grid, declaring no tracks of its own. */
+.buildplaylist-report-header {{ border-bottom: 1px solid {BORDER}; }}
+.buildplaylist-report-header > * {{ padding: 0 0 {SPACE_8}; font: 600 {TYPE_11}/1 {FONT_MONO}; letter-spacing: .06em; text-transform: uppercase; color: {TEXT_FAINT}; }}
+/* :58-59's td: the rule under each body row, none under the last, and
+   the cell inset. min-width: 0 lets a cell shorten inside its track. */
+.buildplaylist-report-row {{ border-bottom: 1px solid {SURFACE_5}; }}
+.buildplaylist-report-row:last-child {{ border-bottom: 0; }}
+.buildplaylist-report-row > * {{ padding: {SPACE_7} 0; min-width: 0; }}
+/* The entry cell holds an input line with no break opportunity in it,
+   so it shortens with an ellipsis rather than pushing Kind. */
+.buildplaylist-report-entry {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 .buildplaylist-note-lead {{ color: {TEXT}; font-weight: 600; margin-right: {SPACE_4}; }}
 /* Specs.dc.html's template button sits at the note's right edge. */
 .buildplaylist-template-control {{ margin-left: auto; flex: none; }}

@@ -142,6 +142,11 @@ def playlist_folder_options(choices: list[PlaylistFolderChoice]) -> list[Playlis
     return options
 
 
+# design/build-playlist/Specs.dc.html:178's header cells, in the order
+# the report's three tracks lay them out.
+REPORT_COLUMN_LABELS = ("#", "Entry", "Kind")
+
+
 def unresolved_report_rows(
     result: BuildPlaylistResult,
 ) -> tuple[tuple[int, str, str], ...]:

@@ -1920,7 +1920,7 @@ def _build_build_playlist_page() -> None:
                     with ui.element("div").classes("wizard-card-head"):
                         ui.label("Unresolved entries").classes("wizard-card-title")
                     with ui.element("div").classes("wizard-card-body"):
-                        report_table = ui.column().classes("gap-1")
+                        report_table = ui.element("div").classes("buildplaylist-report")
                 report_section.set_visibility(False)
 
         def _show_output_dir() -> None:
@@ -2005,11 +2005,20 @@ def _build_build_playlist_page() -> None:
             report_table.clear()
             rows = buildplaylist_view.unresolved_report_rows(result)
             report_section.set_visibility(bool(rows))
+            # The header is a modifier row on the body rows' own grid, so
+            # a heading stands over its column at every row (DL-302).
             with report_table:
+                with ui.element("div").classes(
+                    "buildplaylist-report-grid buildplaylist-report-header"
+                ):
+                    for column_label in buildplaylist_view.REPORT_COLUMN_LABELS:
+                        ui.label(column_label)
                 for line_number, raw_text, kind in rows:
-                    with ui.row().classes("gap-3"):
-                        ui.label(str(line_number)).classes("font-mono wizard-subtle-3")
-                        ui.label(raw_text).classes("font-mono")
+                    with ui.element("div").classes(
+                        "buildplaylist-report-grid buildplaylist-report-row"
+                    ):
+                        ui.label(str(line_number)).classes("font-mono wizard-dim")
+                        ui.label(raw_text).classes("font-mono buildplaylist-report-entry")
                         ui.label(kind).classes("wizard-subtle-1")
 
         with chrome.footer_actions:

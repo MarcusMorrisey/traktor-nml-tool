@@ -121,6 +121,13 @@ READING_DIGESTS = {
     # against each route's artboard .row (ref: DL-084, DL-169, DL-301). The
     # digest is computed from the record as the browser run left it.
     "2026-09-16-chooser-offset-browser-record.md": "2acd86830d5e8244eb06a422fae2bedcea3c77fe16da938ac753e5f223cb8bae",
+    # The build-playlist report's column headers close on a served-page
+    # record reading the header cells' label, each column's left edge and
+    # width on the header and every body row, the header and row rules and
+    # a long entry's truncation, with structural verdicts against
+    # Specs.dc.html's table.rep (ref: DL-084, DL-169, DL-302). The digest is
+    # computed from the record as the browser run left it.
+    "2026-09-17-report-columns-browser-record.md": "48bf6feacb2fc5caa0f60874eef43823312b06d999d9a9136d2bfc1b0b645ccc",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written
