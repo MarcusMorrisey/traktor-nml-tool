@@ -199,7 +199,8 @@ def test_the_page_gates_the_playlist_folder_on_full_collection() -> None:
         call for call in ast.walk(page)
         if isinstance(call, ast.Call)
         and ast.unparse(call.func) == "ui.switch"
-        and call.args and ast.unparse(call.args[0]) == "'Full collection'"
+        and call.args
+        and ast.unparse(call.args[0]) == "buildplaylist_view.FULL_COLLECTION_LABEL"
     )
     on_change = {kw.arg: kw.value for kw in switch.keywords}["on_change"]
     assert "_sync_playlist_folder" in _calls(on_change)

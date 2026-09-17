@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-306`:
+This file is the authority for the log's high-water mark, which is `DL-307`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2729,6 +2729,27 @@ names, so the next plan numbers from there.
   states, the state before the change and the seven rules the page
   carries are read in
   `docs/2026-09-17-switch-contrast-browser-record.md` (DL-306).
+- A switch on the build-playlist screen is drawn as the option row
+  `Specs.dc.html:47`-`50` and `:155`-`169` draw: the switch, its label,
+  and under the label a description of what each state writes. A label
+  alone leaves the difference between the two states nowhere on the
+  screen, which is what `Full collection` read as. The label stays
+  Quasar's own, so it keeps toggling the switch, and the description is
+  a sibling of the whole control indented by `OPTION_NOTE_INDENT`, the
+  track's width plus the row's gap, because Quasar builds the label as
+  the switch's child rather than as a sibling block (DL-078). The
+  unresolved report carries `:185`'s note, built once with the card
+  rather than beside the rows, because the run that refills the table
+  clears it first. Every sentence lives in `buildplaylist_view.py` and
+  `tests/test_gui_buildplaylist_options.py` reads it off the artboard
+  rather than repeating it, folding the artboard's em dash to the
+  hyphen the string carries, so a sentence edited in the design and not
+  on the screen fails the same guard as the reverse; the page guards
+  read app.py's own call sites, because a guard reading the constants
+  is green in exactly the state where the page never builds them
+  (DL-189). The rendered rows, the indent under the label, the label
+  still toggling and the note under the table are read in
+  `docs/2026-09-17-switch-options-browser-record.md` (DL-307).
 
 ## Invariants
 

@@ -1909,10 +1909,27 @@ def _build_build_playlist_page() -> None:
                                     buildplaylist_view.PLAYLIST_FOLDER_NEEDS_FULL_COLLECTION
                                 ).classes("wizard-subtle-1")
 
-                        allow_unmatched_switch = ui.switch("Allow unmatched lines")
-                        full_collection_switch = ui.switch(
-                            "Full collection", on_change=lambda _e: _sync_playlist_folder()
-                        )
+                        # Specs.dc.html:155-169 draws each switch as an
+                        # option row: the switch, its label, and under
+                        # the label the description of what each state
+                        # writes. The label stays Quasar's own, so it
+                        # keeps toggling the switch, and the note is a
+                        # sibling indented to start under it (DL-307).
+                        with ui.element("div").classes("buildplaylist-option"):
+                            allow_unmatched_switch = ui.switch(
+                                buildplaylist_view.ALLOW_UNMATCHED_LABEL
+                            )
+                            ui.label(
+                                buildplaylist_view.ALLOW_UNMATCHED_NOTE
+                            ).classes("buildplaylist-option-note")
+                        with ui.element("div").classes("buildplaylist-option"):
+                            full_collection_switch = ui.switch(
+                                buildplaylist_view.FULL_COLLECTION_LABEL,
+                                on_change=lambda _e: _sync_playlist_folder(),
+                            )
+                            ui.label(
+                                buildplaylist_view.FULL_COLLECTION_NOTE
+                            ).classes("buildplaylist-option-note")
 
                 with ui.element("section").classes(
                     "wizard-card wizard-content-width"
@@ -1921,6 +1938,13 @@ def _build_build_playlist_page() -> None:
                         ui.label("Unresolved entries").classes("wizard-card-title")
                     with ui.element("div").classes("wizard-card-body"):
                         report_table = ui.element("div").classes("buildplaylist-report")
+                        # Specs.dc.html:185's note, a sibling after the
+                        # table. Its sentence is the same for every run,
+                        # so it is built once with the card rather than
+                        # refilled beside the rows (DL-307).
+                        ui.label(
+                            buildplaylist_view.REPORT_READ_ONLY_NOTE
+                        ).classes("buildplaylist-report-note")
                 report_section.set_visibility(False)
 
         def _show_output_dir() -> None:

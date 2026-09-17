@@ -95,6 +95,25 @@ def csv_columns_note() -> str:
 
 COLLECTION_ROOT_LABEL = "Collection root"
 
+# design/build-playlist/Specs.dc.html:156-169 draws each switch as a
+# labelled option with a description under its label: the .opt-t title
+# and the .opt-d line beneath it. A switch's label names the setting and
+# the description says what each state writes, which is the whole of
+# what the option means - a label alone leaves the two states'
+# difference nowhere on the screen.
+ALLOW_UNMATCHED_LABEL = "Allow unmatched lines"
+ALLOW_UNMATCHED_NOTE = (
+    "Write the playlist even if some entries could not be matched. "
+    "Off, a run with any unmatched or ambiguous entry aborts and "
+    "writes nothing."
+)
+FULL_COLLECTION_LABEL = "Full collection"
+FULL_COLLECTION_NOTE = (
+    "Keep the whole source collection and playlist tree in the output. "
+    "Off, the file written holds only this one playlist and the entries "
+    "it matched - the normal, importable hand-off."
+)
+
 # Appended to a shared-name folder's label. The page's disable predicate
 # matches on it, because NiceGUI hands the browser each option's label and
 # its index, never its key.
@@ -145,6 +164,16 @@ def playlist_folder_options(choices: list[PlaylistFolderChoice]) -> list[Playlis
 # design/build-playlist/Specs.dc.html:178's header cells, in the order
 # the report's three tracks lay them out.
 REPORT_COLUMN_LABELS = ("#", "Entry", "Kind")
+
+# design/build-playlist/Specs.dc.html:185's note under the report table.
+# The report is a reading of one run: nothing in it is a control, and the
+# way to change an entry is to change the input and choose it again. The
+# sentence says "the input" rather than naming a format, because every
+# format reaches this report (DL-296).
+REPORT_READ_ONLY_NOTE = (
+    "This report is read-only. Fixing an entry means editing the input "
+    "and choosing it again."
+)
 
 
 def unresolved_report_rows(

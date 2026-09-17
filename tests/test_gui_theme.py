@@ -1226,13 +1226,15 @@ _SWITCH_SELECTORS = (
 def _switch_rules(sheet: str) -> dict[str, str]:
     """Every switch rule in the emitted stylesheet, selector text to
     declaration block, read with tinycss2 so a selector's prefix is
-    read as written rather than matched loosely."""
+    read as written rather than matched loosely. A screen's own rule for
+    the label beside a switch is not one of the switch's parts, so a
+    selector scoped to buildplaylist-option is left out."""
     found = {}
     for rule in tinycss2.parse_stylesheet(sheet, skip_whitespace=True, skip_comments=True):
         if rule.type != "qualified-rule":
             continue
         selector = tinycss2.serialize(rule.prelude).strip()
-        if "q-toggle" in selector:
+        if "q-toggle" in selector and "buildplaylist-option" not in selector:
             found[selector] = tinycss2.serialize(rule.content)
     return found
 

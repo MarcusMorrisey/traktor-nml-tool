@@ -165,6 +165,16 @@ READING_DIGESTS = {
     # and .sw.on i (ref: DL-084, DL-169, DL-306). The digest is
     # computed from the record as the browser run left it.
     "2026-09-17-switch-contrast-browser-record.md": "2604cc9792a072a654539e358e858152cb4c13fe51935a89deb713d7facec3a6",
+    # The switches' option rows and the report's read-only note close
+    # on a served-page record reading each row's box, ground and
+    # border, the label's type and gap, the description's text, type
+    # and indent under the label, that the label still toggles and the
+    # description does not, and the note's text, type and distance
+    # under the table, with structural verdicts against
+    # Specs.dc.html's .opt, .opt-t, .opt-d and :185 (ref: DL-084,
+    # DL-169, DL-307). The digest is computed from the record as the
+    # browser run left it.
+    "2026-09-17-switch-options-browser-record.md": "890975a3f22f3d9e62df465cd9d69dd8c51fed34372e4ed6cd744298c6f0e49a",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

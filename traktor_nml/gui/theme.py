@@ -60,6 +60,14 @@ SWITCH_KNOB_SIZE = "13px"
 SWITCH_KNOB_INSET = "2px"
 SWITCH_KNOB_ON_LEFT = "19px"
 
+# Specs.dc.html:47's .opt lays the switch and the option's body side by
+# side with an 11px gap, so a description under the label starts at the
+# track's width plus that gap: 34px + 11px. Quasar builds the label as
+# the switch's own child rather than as a sibling block, so the
+# description is a sibling of the whole switch and takes the offset
+# here instead.
+OPTION_NOTE_INDENT = "45px"
+
 # Status hues: the three review statuses (ambiguous, refuted, format)
 # share STATUS_NEEDS_REVIEW on purpose - a distinct icon silhouette and
 # the written word tell them apart, not a fourth colour
@@ -889,6 +897,13 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    table (DL-079): :56's 12px type, and the three tracks a header row
    and every body row are laid out on, so a heading stands over its
    column at every row. :58's td is `vertical-align: top`. */
+/* Specs.dc.html:47-50's .opt: a bordered option row holding the switch
+   and, under its label, the description of what each state writes. The
+   switch keeps Quasar's own label, which is where :49's .opt-t title
+   sits, and the note is indented to start under it. */
+.buildplaylist-option {{ border: 1px solid {BORDER}; border-radius: {RADIUS_LG}; background: {SURFACE_1}; padding: {SPACE_11} {SPACE_12}; }}
+[dir="ltr"] .buildplaylist-option .q-toggle__label {{ font-size: {TYPE_13}; font-weight: 600; padding-left: {SPACE_11}; }}
+.buildplaylist-option-note {{ margin: {SPACE_3} 0 0 {OPTION_NOTE_INDENT}; font-size: {TYPE_12}; color: {TEXT_MUTED}; line-height: 1.45; }}
 .buildplaylist-report {{ font-size: {TYPE_12}; }}
 .buildplaylist-report-grid {{ display: grid; grid-template-columns: {REPORT_GRID_TRACKS}; align-items: start; }}
 /* :57's th: the rule under the header and the mono label its cells
@@ -902,6 +917,8 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .buildplaylist-report-row > * {{ padding: {SPACE_7} 0; min-width: 0; }}
 /* The entry cell holds an input line with no break opportunity in it,
    so it shortens with an ellipsis rather than pushing Kind. */
+/* Specs.dc.html:185's note under the report table. */
+.buildplaylist-report-note {{ margin: {SPACE_8} 0 0; font-size: {TYPE_11_5}; color: {TEXT_FAINT}; }}
 .buildplaylist-report-entry {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 /* Specs.dc.html:60's .kind: the pill the Kind cell holds, shaped like
    :64's .fmt - 600 11px/1 mono, uppercase at .04em, 3px by 6px inside
