@@ -1,0 +1,70 @@
+{
+  "task_spec": [
+    "SUBJECT: tier what a reconstruct run counts as a metadata conflict - the three MEASURED attributes (filesize, playtime_float, bitrate) stop raising a conflict and follow the winning record through the entry_patches path they already travel, the three EDITORIAL attributes (artist, title, album) raise one exactly as today, and the run's report names how many groups the rule settled and lists every group whose measured-attribute gap exceeds a relative band as an outlier READING rather than a row to decide.",
+    "scope: traktor_nml/splice.py (the divergence rule at :341 and what a ConflictRow carries), traktor_nml/reconstruct_report.py and the CLI reconstruct command (the settled count and the outlier listing), traktor_nml/gui/conflict_model.py, the Resolve and Preview surfaces in traktor_nml/gui/app.py, design/reconnect-wizard/*.dc.html where the screen changes, tests/, docs/",
+    "out-of-scope: matching.py and confidence.py - tracklist.py's module docstring states they are imported and called, never edited or wrapped; their tolerant verification at matching.py:120-150 is the RECONNECT side answering a different question and is not being changed",
+    "out-of-scope: the /build-playlist route; accessibility and keyboard work (DL-197)"
+  ],
+  "constraints": [
+    "MUST: traktor_nml/README.md is the decision-log authority; its high-water mark is DL-307, so new entries start at DL-308",
+    "MUST: DL-069 nicegui boundary - only app.py, file_picker.py and __main__.py import nicegui, so every decision rule (the tier, the band, the outlier projection) lives in a nicegui-free module the suite reaches, and every CSS rule, class and dimension lives in theme.py",
+    "MUST: DL-071 - a screen disagreeing with the artboard is fixed in the design first; DL-079 - hand-rolled ui.row/ui.element, never aggrid",
+    "MUST: DL-148 - a resolution names the record that wins, not a base-or-source token; DL-215 - a sentence naming a count reads it off the model; plurals through traktor_nml/gui/wording.plural (tests/test_gui_wording.py forbids an inline `x if n == 1 else y` under gui/)",
+    "MUST: DL-084 as amended by DL-169 - a milestone changing a screen closes on a served-page record in docs/ with a verdict row per surface plus structural verdicts, its verdict-row digest registered in tests/test_docs_browser_record_structure.py",
+    "MUST: every guard proven to FAIL FIRST with its specific mutation and VERBATIM observed output in its docstring; DL-189 - beware a guard green in exactly the broken state",
+    "MUST: app.py is 100% CRLF and must stay so (write with newline=''); theme.py, conflict_model.py, splice.py and tests/ are LF; docs/CLAUDE.md and tests/CLAUDE.md are CRLF",
+    "MUST: documentation describes the code as it stands - no 'previously', 'now does', 'no longer', 'added'; never cite a source for something it does not say, line numbers included",
+    "MUST: run the suite with the SYSTEM interpreter C:\\Users\\marcu\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe, not .venv (.venv carries nicegui for running the app)",
+    "MUST-NOT: regenerate tests/baselines/manifest.json or fixture/w002gatefix2; restore a file with git checkout (copy aside and restore from the copy); write into build/ or dist/; install anything into the system interpreter; edit anything under docs/plans/; spawn background agents",
+    "MUST: the plan settles explicitly whether a bound on draw() (cap, window or yielding) and a reconnect_timeout decision belong to this work or are separate - stated, not implied"
+  ],
+  "entry_points": [
+    "traktor_nml/splice.py:341 - `attr for attr in _TRACKED_ATTRS if len({getattr(r, attr) for _, r in members}) > 1`, the divergence rule being tiered; _TRACKED_ATTRS at :52",
+    "traktor_nml/splice.py:239-260 - _agreed and the ConflictRow construction that pairs attrs with agreed values",
+    "traktor_nml/splice.py:~400 - entry_patches, `(winner, {attr: getattr(named_record, attr) for attr in divergent_attrs})`: a tiered attribute must still travel with the winner",
+    "traktor_nml/gui/conflict_model.py:82 ConflictGroup (identity_key, attrs, member_keys, candidates, agreed), :158 reference_from_input, :179 conflict_groups, :385 resolve_gate",
+    "traktor_nml/gui/app.py:2661 draw() - clears and rebuilds every conflict row and the rail on the event loop; :3534 assemble(); :3570 preview()",
+    "traktor_nml/reconstruct_report.py - where the run's counts and refusal sentences are composed, and where the outlier listing belongs",
+    "traktor_nml/gui/app.py:3193 _render_preview and :3221 _render_preview_refusal - the Preview surfaces that read the run's report",
+    "traktor_nml/model.py:66-96 EntryRecord and primary_key from LocationParts - identity is the LOCATION, which is why a re-encode to a new extension is never a conflict"
+  ],
+  "rejected_alternatives": [
+    "a relative band as THE rule (user's first choice, withdrawn on measurement) - group-level survivors are 2,203 rows at 1% and the curve plateaus past it, so ~1,650 measured divergences sit above any band; the band survives only as the outlier threshold",
+    "technical attributes never conflict with no outlier listing ('tier, plain') - rejected because the 6 playtime_float groups beyond 1%, worst 3,516s, would pass unnamed",
+    "keeping playtime_float conflicting while tiering filesize and bitrate - rejected: the user took the outlier listing INSTEAD of that",
+    "redrawing the Resolve table bulk-first or paginated as the fix for the freeze - the rule removes 94.2% of rows, so the freeze is expected to go with them; any bound is defence in depth, to be decided explicitly",
+    "widening reconnect_timeout as the fix - moves the threshold without addressing what holds the loop"
+  ],
+  "current_understanding": [
+    "splice.py:341 compares raw attribute strings by set size, so '8123' vs '8124' KB is a divergence and becomes a conflict group the operator must decide.",
+    "Measured on the user's real collection pair (9,052 groups, two inputs): 8,113 groups (89.6%) diverge on filesize ALONE; 8,523 (94.2%) on nothing but the three measured attributes; 529 (5.8%) touch artist/title/album.",
+    "filesize: 7,469 groups diverge, gap min 1 KB, median 2 KB, max 16,425,110 KB, relative median 0.0162%, max 99.9%. playtime_float: 70 groups, median 0.0392s, max 3,516.5s. bitrate: 402 groups, median 89, max 1,091,200.",
+    "Group-level band survivors: 0.01% -> 7,279; 0.1% -> 2,679; 1% -> 2,203; 5% -> 2,180; 10% -> 2,176. The plateau past 1% is why a band cannot be the rule.",
+    "The widest measured gaps are one file described twice: .stem.m4a filesize at roughly a 4x ratio (17564 vs 69203) and .aif bitrate 1411000 vs 320000 - two Traktor analyses disagreeing about what to measure in a container, on the same LOCATION.",
+    "BUG this removes as a side effect: draw() (app.py:2661) builds all 9,052 rows on the event loop, measured at 8.5-10.1s; nicegui's budget is 6s (ping_interval 4s + ping_timeout 2s, nicegui.py:138-139, from the default reconnect_timeout 3.0 that __main__.py:19 does not override); the socket drops, client.py:383-388 deletes the client after 3s, and because wizard state lives in the @ui.page builder's closures the reconnect can only rebuild - the run is lost and the window returns to step 1. Reproduction: load the user's two collections on /, click Preview. 529 rows at the measured 0.64ms/row is under a second."
+  ],
+  "assumptions": [
+    "The measured-attribute tier does not change which record wins a group, only whether the group is put to the operator (H - entry_patches substitutes the named record's values either way; must be verified against the resolution path)",
+    "Some recorded baseline or golden output carries conflict rows whose counts change under the new rule (M-H - the parity question below; must be found before implementation, not during)",
+    "The outlier band and the tier can share one nicegui-free module that both the CLI report and conflict_model read, so the screen and the printed run cannot disagree (M - structure to be decided in planning)",
+    "A group that diverges on both an editorial and a measured attribute stays a conflict on the editorial attribute alone, and its measured divergence is not listed twice (M - the plan must state what such a group's attrs tuple holds and whether it can also be an outlier)",
+    "reconstruct_report.py is where an outlier listing belongs rather than splice.py (M - splice reports rows; the report composes sentences)"
+  ],
+  "invisible_knowledge": [
+    "A conflict compares Traktor against Traktor, so a measured difference is a real recorded fact. The reason to tier is NOT that the difference is unreal - it is that no operator judgement exists for a measured attribute. That is the opposite of matching.py's reason for tolerating one (Traktor against the disk, two measurement systems), which is why the two rules must not be described as the same idea or share a tolerance.",
+    "entry_patches already substitutes _TRACKED_ATTRS values from the named record, so a tiered attribute still travels with the winner: the written file does not silently keep base's number.",
+    "The one user-visible exposure is playtime_float - 6 groups beyond 1%, worst 3,516s, which shows as a wrong track length in Traktor until it re-analyses. The outlier listing is what the user accepted INSTEAD of keeping playtime conflicting, so it must actually name those groups, not merely count them.",
+    "A WAV converted to .stem.m4a changes the filename, so it changes the primary key and is never a conflict at all - it is a dangling entry for the reconnect wizard. The new rule must not be documented as covering that case.",
+    "Tiering is a change to what the operator is asked, not to what the tool records: the count of groups settled by the rule is read off the model (DL-215) so the screen and the CLI cannot disagree about how many decisions were made for the operator.",
+    "9,052 rows was never a screen anyone could work; the volume was the symptom, and both collections settle every group by either bulk action, so the per-row table earns its place only for rows a rule cannot reach."
+  ],
+  "reference_docs": [
+    "traktor_nml/README.md - decision-log authority, high-water DL-307; DL-004, DL-027, DL-036, DL-069, DL-071, DL-079, DL-084, DL-094, DL-100, DL-105, DL-116, DL-148, DL-153, DL-158, DL-169, DL-189, DL-197, DL-215, DL-245",
+    "design/reconnect-wizard/Resolve.dc.html and Preview.dc.html - the artboards the changed surfaces are built to; Specs.dc.html for cross-screen rules",
+    "traktor_nml/matching.py:120-150 - the tolerant-verification comment block, cited for CONTRAST: a different question, not the model for this rule",
+    "traktor_nml/gui/CLAUDE.md and traktor_nml/CLAUDE.md - module navigation",
+    "docs/2026-09-17-switch-options-browser-record.md - the shape a served-page record takes",
+    "tests/test_docs_browser_record_structure.py - where a record's verdict-row digest is registered",
+    "tests/test_gui_wording.py - the plural rule and the fail-first docstring convention"
+  ]
+}

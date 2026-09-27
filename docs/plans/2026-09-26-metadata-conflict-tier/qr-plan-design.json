@@ -1,0 +1,324 @@
+{
+  "phase": "plan-design",
+  "iteration": 2,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every non-obvious choice the plan makes is logged as a DL-308..DL-317 decision with its own reasoning chain, and no choice appears only inside a milestone's behavior prose",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "planning_context.decisions",
+      "check": "The decision to name the new module traktor_nml/metadata_tier.py and to re-export _TRACKED_ATTRS from splice.py is logged (DL-309) rather than asserted only in CI-M-001-001",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "planning_context.decisions",
+      "check": "The choice to emit a SettledRow on SpliceResult rather than reusing ConflictRow is logged (DL-312) and names the conflict_model projection as the reason",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001c",
+      "parent_id": "qa-001",
+      "scope": "planning_context.decisions",
+      "check": "The plan logs an explicit decision for the two items the constraints demand be settled rather than implied: a bound on draw() (DL-315) and reconnect_timeout (DL-316)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "planning_context.decisions[DL-313]",
+      "check": "OUTLIER_BAND = 0.01 is backed by the user's measured survivor curve (7,279 / 2,679 / 2,203 / 2,180 / 2,176) rather than being a policy default the planner chose, and the boundary case (a gap exactly at 1%) is stated as excluded",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decisions",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "planning_context.decisions[DL-311]",
+      "check": "The assumption that the tier does not change which record's measured values reach the output is validated against the actual resolution path (_resolve_conflicts patching base's ENTRY span only for a named non-base record, whole-span transplant otherwise), with that citation in the reasoning",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decisions",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "planning_context.decisions[DL-317]",
+      "check": "The baseline-parity assumption is validated by naming the twelve recorded cases and stating that none invokes splice, rather than assuming manifest.json is unaffected",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decisions",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "planning_context.decisions[DL-310]",
+      "check": "The mixed-group rule states unambiguously what attrs holds, that such a group produces no settled row, and that it therefore cannot be an outlier - the question the context's assumptions raised",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-decisions",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "milestones",
+      "check": "No milestone is an orphan: each of M-001..M-005 carries at least one code_intent, M-005 included as a documentation-only milestone",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-milestone-structure",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "milestones[].code_intents[].decision_refs",
+      "check": "Every decision_ref resolves to a decision that exists, and every decision DL-308..DL-317 is referenced by at least one code_intent",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-milestone-structure",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "milestones[M-004].code_intents[CI-M-004-003]",
+      "check": "CI-M-004-003 cites DL-315, a decision that puts a draw() bound OUT of scope; verify the reference is apt for a render intent or is replaced by the decision that actually governs it",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-reference-integrity",
+      "version": 3
+    },
+    {
+      "id": "qa-009",
+      "scope": "diagram_graphs[DIAG-001]",
+      "check": "No node in DIAG-001 has zero edges",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-diagram",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "diagram_graphs[DIAG-001]",
+      "check": "Every edge in DIAG-001 references node ids that exist in its nodes list",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-diagram",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "waves",
+      "check": "Every milestone id named in waves W-001..W-004 exists in milestones, and every milestone appears in exactly one wave",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-waves",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "waves",
+      "check": "Wave ordering respects the real dependency: M-002 and M-003 both read SpliceResult.settled_rows introduced in M-001, and M-004 places what M-003 composes",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-waves",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "readme_entries",
+      "check": "readme_entries is empty while M-005 mints DL-308 through DL-317 into traktor_nml/README.md - verify the ten log entries are carried where the executing milestone can read them, or that their absence is deliberate",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-reference-integrity",
+      "version": 3
+    },
+    {
+      "id": "qa-014",
+      "scope": "*",
+      "check": "Every constraint in the task spec is carried into planning_context.constraints with no loss: the DL-307 high-water mark, DL-069, DL-071/DL-079, DL-148/DL-215, DL-084 as amended by DL-169, the fail-first guard rule, the line-ending map, the system interpreter, the MUST-NOTs, and the matching.py/confidence.py exclusion",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "planning_context.constraints",
+      "check": "The DL-084/DL-169 served-page-record constraint is discharged by the milestone that changes a screen: M-004 names both the docs record and its registration in tests/test_docs_browser_record_structure.py",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-constraints",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "planning_context.constraints",
+      "check": "The DL-069 nicegui boundary holds across the plan: metadata_tier.py, splice.py and gui/reconstruct_report.py carry every decision rule, and no rule, band or count lives in app.py",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-constraints",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "planning_context.risks",
+      "check": "Every risk R-001..R-005 carries a mitigation, an anchor and a decision_ref, and no risk is identified without a stated response",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-risks",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "planning_context.risks[R-001]",
+      "check": "The test-migration risk is discharged by a milestone that owns it: M-001 lists tests/test_splice.py and its acceptance criteria cover both sides of the tier, so the migration is planned work rather than a surprise during execution",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-risks",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "planning_context.risks[R-003]",
+      "check": "The non-numeric or absent measured-value risk has a home in a code_intent (CI-M-001-002 answering no reading rather than raising) and a guard in M-001's error tests",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-risks",
+      "version": 2
+    },
+    {
+      "id": "qa-020",
+      "scope": "planning_context.risks[R-005]",
+      "check": "The task spec's 'CLI reconstruct command' is reconciled with the codebase: the plan states no reconstruct subcommand exists and routes the printed reading to commands/splice_cmd.py (M-002) and the page to gui/reconstruct_report.py (M-003)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-risks",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "*",
+      "check": "Reasoning chains are not shallow: each of DL-308..DL-317 states premise, implication and conclusion rather than a bare assertion",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "planning_context.rejected_alternatives",
+      "check": "Every alternative the user's context named (band-as-rule, tier-plain, keep-playtime-conflicting, paginate the table, widen reconnect_timeout) appears with a rejection reason and a decision_ref, and the withdrawn-on-measurement first choice is recorded as withdrawn rather than as never considered",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-completeness-of-record",
+      "version": 2
+    },
+    {
+      "id": "qa-023",
+      "scope": "invisible_knowledge",
+      "check": "The contrast between this tier and matching.py's tolerant verification - same-looking idea, different question, no shared tolerance - is captured in invisible_knowledge AND carried into a decision entry so it survives into the log",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-invisible-knowledge",
+      "version": 2
+    },
+    {
+      "id": "qa-024",
+      "scope": "invisible_knowledge.invariants",
+      "check": "The LOCATION-is-identity invariant is recorded, including that a re-encode to a new extension is a dangling entry rather than a conflict, so the new rule is never documented as covering that case",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-invisible-knowledge",
+      "version": 2
+    },
+    {
+      "id": "qa-025",
+      "scope": "invisible_knowledge.tradeoffs",
+      "check": "The plan records the price it accepts: a settled group inside the band is never named, and the freeze is expected to go with the rows rather than being fixed directly",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-invisible-knowledge",
+      "version": 2
+    },
+    {
+      "id": "qa-026",
+      "scope": "invisible_knowledge",
+      "check": "The user-visible playtime_float exposure (6 groups beyond 1%, worst 3,516s) and the fact that the outlier listing was accepted INSTEAD of keeping playtime conflicting is recorded, so a later reader cannot drop the listing as decoration",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-invisible-knowledge",
+      "version": 2
+    },
+    {
+      "id": "qa-027",
+      "scope": "milestones[M-003].code_intents[CI-M-003-002]",
+      "check": "CI-M-003-002 formats values as answer_detail formats that attribute, but gui/answer_detail.py appears in no milestone's files list - verify the dependency is read-only or add the file where it is touched",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-reference-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-028",
+      "scope": "*",
+      "check": "The task spec named the Resolve surface, gui/conflict_model.py and the reconnect-wizard artboards as in scope, yet the plan leaves conflict_model and Resolve.dc.html unchanged - verify that exclusion rests on a logged decision rather than an omission",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-029",
+      "scope": "milestones[].acceptance_criteria",
+      "check": "Each milestone's acceptance criteria are observable statements about the built thing rather than restatements of its requirements",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-structure",
+      "version": 2
+    },
+    {
+      "id": "qa-030",
+      "scope": "milestones[M-005]",
+      "check": "The documentation-only milestone claims no guards; verify every behaviour it describes is guarded in M-001..M-004, so 'no guards' is a consequence rather than a gap",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-completeness-of-record",
+      "version": 2
+    },
+    {
+      "id": "qa-031",
+      "scope": "*",
+      "check": "Naming is consistent across the plan: settled row, settled_rows, groups_settled_by_rule, settled_groups_outlying, and OUTLIER_BAND against the prose '1%', are used the same way everywhere",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-032",
+      "scope": "overview",
+      "check": "The overview's problem and approach agree with the decisions beneath them, and every figure it quotes traces to the measured context rather than being introduced here",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    }
+  ]
+}

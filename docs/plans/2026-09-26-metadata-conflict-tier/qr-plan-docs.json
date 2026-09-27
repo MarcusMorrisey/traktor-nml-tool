@@ -1,0 +1,307 @@
+{
+  "phase": "plan-docs",
+  "iteration": 2,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "No doc_diff addition uses change-relative language (previously, now, no longer, added, removed, used to, formerly, the change or tier 'removes', the stats block 'gains')",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001a",
+      "parent_id": "qa-001",
+      "scope": "CC-M-001-007",
+      "check": "The test_splice.py section comment does not describe the edit ('the thing the tier removes', guards 'left on' a fixture, 'an editorial one still aborting') but states what each guard asserts as it stands",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 3
+    },
+    {
+      "id": "qa-001b",
+      "parent_id": "qa-001",
+      "scope": "CC-M-001-005",
+      "check": "The SpliceResult and assemble_output docstring additions read as present-state description; 'an aborted run is still a run' is within-run reasoning rather than change-relative",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every DL-XXX cited in a doc_diff exists in traktor_nml/README.md and says what the citing sentence claims it says",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "CC-M-003-001",
+      "check": "preview_report's 'empty labels reads each winner as its input index ... rather than an IndexError' is cited to DL-150, which is about candidate keying and a pick storing the lowest-index contributor and says nothing about labels or an IndexError",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002b",
+      "parent_id": "qa-002",
+      "scope": "CC-M-004-005",
+      "check": "'an empty card or a sentence reading 0 is what the wording rules refuse' is cited to DL-215 and DL-233; DL-233 states noun-count agreement, not a refusal of a zero count or an empty card",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002c",
+      "parent_id": "qa-002",
+      "scope": "CC-M-001-001",
+      "check": "The contrast paragraph's citation is corrected from DL-310 to DL-308, and DL-308's stated reasoning is in fact the Traktor-against-Traktor contrast rather than the conflict-raising rule",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-002d",
+      "parent_id": "qa-002",
+      "scope": "CC-M-004-002",
+      "check": "theme.py's 'a second class for one panel would be a second definition of the same rule' is supported by DL-078 (one definition, not repeated at a call site) and DL-188 (a call site names a class)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "CC-M-005-001",
+      "check": "The README doc_diff brings the DL-312 entry into line with the pair correction: the entry says SettledRow carries 'the primary key of the record whose values the output carries' while SettledRow.winner is an (input index, primary key) pair and CC-M-005-002's doc_diff corrects the identical phrase in traktor_nml/CLAUDE.md, leaving the decision-log authority contradicting the module map",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-doc-consistency",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "No decision from planning_context.decisions is left undocumented; DL-315, DL-316 and DL-317 appear only in the README diff and in no doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-004a",
+      "parent_id": "qa-004",
+      "scope": "CC-M-004-003",
+      "check": "A doc_diff states at draw() that a bound on it is deliberately out of this work's scope (DL-315), so a reader meets the decision where it binds rather than only in the README",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-004b",
+      "parent_id": "qa-004",
+      "scope": "M-005",
+      "check": "The reconnect_timeout decision (DL-316) is documented where __main__.py's ui.run call is described, not only as a README entry",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004",
+      "version": 3
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "Every code_change carrying a diff carries a non-empty doc_diff (22 of 22 at iteration 1)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "Each doc_diff is a well-formed overlay: --- a/ and +++ b/ naming the same path as the code_change's file, with context lines matching the post-diff state of that file",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006a",
+      "parent_id": "qa-006",
+      "scope": "CC-M-005-003",
+      "check": "The removal line quotes the gui/CLAUDE.md reconstruct_report.py row as it stands after the code diff (preview_report(stats, groups, decisions, settled_rows)); the repository row reads preview_report(stats, groups, decisions), so the overlay must be anchored to post-diff text",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006b",
+      "parent_id": "qa-006",
+      "scope": "CC-M-005-002",
+      "check": "The removal line quotes the traktor_nml/CLAUDE.md splice.py row exactly as CC-M-005-002's own diff writes it, so the pair correction replaces text that exists",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "No doc_diff addition flips a file's line endings: app.py, traktor_nml/CLAUDE.md, tests/CLAUDE.md and docs/CLAUDE.md are CRLF; theme.py, splice.py, metadata_tier.py and tests/ are LF",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "Added comments and docstrings give the reason rather than restating the code",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-008",
+      "version": 2
+    },
+    {
+      "id": "qa-008a",
+      "parent_id": "qa-008",
+      "scope": "CC-M-001-004",
+      "check": "SettledRow.is_outlier's docstring explains why the readings are read off the row rather than describing that it returns bool(self.outliers)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-008",
+      "version": 2
+    },
+    {
+      "id": "qa-008b",
+      "parent_id": "qa-008",
+      "scope": "CC-M-003-001",
+      "check": "PreviewReport.outlier_count's docstring explains why it counts readings rather than groups",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-008",
+      "version": 2
+    },
+    {
+      "id": "qa-008c",
+      "parent_id": "qa-008",
+      "scope": "CC-M-003-002",
+      "check": "OutlierRow._read's docstring explains why the raw string leads rather than describing the f-string",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-008",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "check": "No doc_diff describes the tier as the same idea as matching.py's tolerant verification or as sharing its tolerance; matching.py is cited for contrast only",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "*",
+      "check": "No doc_diff documents the new rule as covering a re-encode to a new extension: a changed filename changes the LOCATION and the primary key, so it is a dangling entry rather than a conflict or a settled group",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "*",
+      "check": "Every doc_diff describing the outlier listing calls it a reading rather than a row to decide, and none describes a settled group as also being a conflict",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "M-001,M-002,M-003,M-004",
+      "check": "Each test-file doc_diff records the specific mutation and the verbatim observed output convention, and states the paired-guard requirement where a band is asserted (DL-189)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-012",
+      "version": 3
+    },
+    {
+      "id": "qa-012a",
+      "parent_id": "qa-012",
+      "scope": "CC-M-001-006",
+      "check": "The band's paired guards are documented with the two values read off the real collection pair, and the pairing is justified as closing the guard-green-in-exactly-the-broken-state case",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-012",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "*",
+      "check": "No doc_diff cites a line number or quoted source text the named file does not carry (splice.py:341 and :52, matching.py:120-150, model.py:66-96, app.py:2661)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "traktor_nml/metadata_tier.py,traktor_nml/splice.py,traktor_nml/gui/reconstruct_report.py",
+      "check": "Where two code_changes overlay the same file, their doc_diff additions agree with each other and neither states a rule the other contradicts",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-doc-consistency",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "*",
+      "check": "Any doc_diff wording that names a count routes its plural through gui/wording.plural and describes the count as read off the model (DL-215)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "*",
+      "check": "No doc_diff writes into docs/plans/, and the docs/ record's date and name match the milestone that produces it",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "*",
+      "check": "Hunk headers use the planner's prose-anchor convention consistently across all 22 doc_diffs rather than mixing prose anchors with line-range headers",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "CC-M-001-001",
+      "check": "The rewritten contrast paragraph does not cite DL-308 twice in one sentence where one citation carries it",
+      "status": "PASS",
+      "severity": "COULD",
+      "version": 3
+    }
+  ]
+}

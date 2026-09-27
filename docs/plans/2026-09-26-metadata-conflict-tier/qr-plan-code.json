@@ -1,0 +1,632 @@
+{
+  "phase": "plan-code",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every diff hunk's context lines match the target file as it stands; new-file diffs use a /dev/null header.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "scope": "traktor_nml/metadata_tier.py",
+      "check": "CC-M-001-001 and CC-M-001-002 apply cleanly against metadata_tier.py as it stands.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "scope": "traktor_nml/splice.py",
+      "check": "CC-M-001-003, CC-M-001-004 and CC-M-001-005 context lines match splice.py at the divergence rule (:341), _TRACKED_ATTRS (:52), _agreed and ConflictRow (:239-260) and entry_patches (~:400).",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001c",
+      "scope": "traktor_nml/commands/splice_cmd.py",
+      "check": "CC-M-002-001 context lines match the stats block in _handle_splice as it stands.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001d",
+      "scope": "reconstruct_report.py",
+      "check": "CC-M-003-001 and CC-M-003-002 context lines match the module at its real path.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-001e",
+      "scope": "theme.py / app.py / Preview.dc.html",
+      "check": "CC-M-004-001, CC-M-004-002 and CC-M-004-003 context lines match page_stylesheet, the preview render path and the artboard as they stand.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Line endings per file: app.py CRLF; metadata_tier.py, splice.py, theme.py, conflict_model.py and tests/ LF; docs/CLAUDE.md, traktor_nml/CLAUDE.md and tests/CLAUDE.md CRLF.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Every decision_ref used across intents and why_comments resolves to an entry the plan actually creates.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003a",
+      "scope": "CC-M-005-001",
+      "check": "Each of DL-308 through DL-317 is defined by the README diff.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003b",
+      "scope": "*",
+      "check": "No reference presents an existing entry at or below DL-307 as new.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-003c",
+      "scope": "CC-M-005-001",
+      "check": "New entry numbering is contiguous from the DL-307 high-water mark with no gap or reuse.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "DL-069: no nicegui import in metadata_tier.py, splice.py or reconstruct_report.py, and no CSS class, colour or dimension literal in app.py.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "DL-215: every count sentence reads its number off the model and pluralises through gui/wording.plural; no inline one-line conditional plural under gui/.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "Every renamed or reshaped symbol is updated at every call site.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006a",
+      "scope": "*",
+      "check": "The _TRACKED_ATTRS to TRACKED_ATTRS move is closed at every reader.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006b",
+      "scope": "*",
+      "check": "The ConflictRow shape change is closed at every construction and consumption site.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006c",
+      "scope": "traktor_nml/splice.py",
+      "check": "Any _agreed signature change is closed at every caller.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 2
+    },
+    {
+      "id": "qa-006d",
+      "scope": "*",
+      "check": "SpliceResult gaining settled_rows and the two new stats is closed at every consumer.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-006",
+      "group_id": "parent-qa-006",
+      "version": 3
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "No diff touches matching.py, confidence.py, the build-playlist route, docs/plans/, tests/baselines/manifest.json or fixture/w002gatefix2.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "No unresolved import, undefined name, circular import or unused export the linter would flag across the 15 changes.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "check": "DL-148: resolution and settled wording names the winning record rather than a base-or-source token.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 4
+    },
+    {
+      "id": "qa-010",
+      "scope": "CC-M-001-001",
+      "check": "MEASURED_ATTRS and EDITORIAL_ATTRS exactly partition TRACKED_ATTRS with no overlap or omission, and TRACKED_ATTRS order is the order a rail and a CSV read.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-metadata-tier",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "CC-M-001-001",
+      "check": "metadata_tier.py is introduced as a genuinely new, dependency-free module.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-011",
+      "version": 2
+    },
+    {
+      "id": "qa-011a",
+      "scope": "CC-M-001-001",
+      "check": "The diff header presents metadata_tier.py as a new file.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-011",
+      "group_id": "parent-qa-011",
+      "version": 2
+    },
+    {
+      "id": "qa-011b",
+      "scope": "CC-M-001-001",
+      "check": "The module imports nothing from the package and nothing from nicegui, so no cycle is possible.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-011",
+      "group_id": "parent-qa-011",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "CC-M-001-002",
+      "check": "outlier_attrs computes the relative gap against the larger value and cannot divide by zero.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-metadata-tier",
+      "version": 2
+    },
+    {
+      "id": "qa-013",
+      "scope": "CC-M-001-002",
+      "check": "Measured values arriving as strings are converted before comparison, and a non-numeric value cannot raise.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "component-metadata-tier",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "CC-M-001-002",
+      "check": "OUTLIER_BAND is 0.01 and is the single constant both the CLI listing and the preview listing read.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-metadata-tier",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "CC-M-001-003",
+      "check": "An editorial divergence still produces a conflict carrying its full attribute set.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-015",
+      "version": 2
+    },
+    {
+      "id": "qa-015a",
+      "scope": "CC-M-001-003",
+      "check": "A group with at least one divergent editorial attribute still raises a conflict and can still take a resolution, an on_conflict policy or the unresolved abort.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-015",
+      "group_id": "parent-qa-015",
+      "version": 2
+    },
+    {
+      "id": "qa-015b",
+      "scope": "CC-M-001-003",
+      "check": "That group's attrs holds every divergent attribute, measured ones included.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-015",
+      "group_id": "parent-qa-015",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "CC-M-001-003",
+      "check": "A group divergent on measured attributes alone produces no ConflictRow and cannot reach the unresolved abort.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-splice-rule",
+      "version": 2
+    },
+    {
+      "id": "qa-017",
+      "scope": "CC-M-001-003",
+      "check": "A group divergent on both tiers is not also listed as an outlier, so no group is reported twice.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-splice-rule",
+      "version": 2
+    },
+    {
+      "id": "qa-018",
+      "scope": "CC-M-001-004",
+      "check": "SettledRow carries the identity key, the divergent measured attribute names, the per-member values, the winning record's primary key and the outlier readings.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-splice-rule",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "CC-M-001-005",
+      "check": "A tiered attribute still travels with the winning record into the written output.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-019",
+      "version": 2
+    },
+    {
+      "id": "qa-019a",
+      "scope": "CC-M-001-005",
+      "check": "divergent_attrs still contains the tiered measured attributes where entry_patches reads it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-019",
+      "group_id": "parent-qa-019",
+      "version": 2
+    },
+    {
+      "id": "qa-019b",
+      "scope": "CC-M-001-005",
+      "check": "The written entry carries the winner's measured values, never base's silently retained number.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-019",
+      "group_id": "parent-qa-019",
+      "version": 2
+    },
+    {
+      "id": "qa-020",
+      "scope": "CC-M-001-005",
+      "check": "settled_rows is present on every run including a clean one, and groups_settled_by_rule and settled_groups_outlying are derived from that list rather than counted separately.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-splice-rule",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "CC-M-002-001",
+      "check": "_handle_splice prints groups_settled_by_rule with the stats and one outlier line per outlying settled row read off result.settled_rows; a run that settled nothing prints no listing.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "CC-M-003-001",
+      "check": "The reconstruct_report.py path is settled: the plan places it under traktor_nml/gui/ while the entry-point contract names traktor_nml/.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-reconstruct-report",
+      "version": 2
+    },
+    {
+      "id": "qa-023",
+      "scope": "CC-M-003-001",
+      "check": "settled_sentence states the count read off the model and names the record the answer was taken from.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-reconstruct-report",
+      "version": 2
+    },
+    {
+      "id": "qa-024",
+      "scope": "CC-M-003-002",
+      "check": "OutlierRow carries no candidate reference and no decision state, so it cannot be mistaken for a decidable row.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-reconstruct-report",
+      "version": 2
+    },
+    {
+      "id": "qa-025",
+      "scope": "CC-M-004-001",
+      "check": "DL-071: the artboard change is ordered before the screen change inside M-004.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-preview-surface",
+      "version": 2
+    },
+    {
+      "id": "qa-026",
+      "scope": "CC-M-004-002",
+      "check": "Every class, ground, rule, radius, type size, column gap and row padding for the settled reading and the outlier listing is declared in page_stylesheet.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-preview-surface",
+      "version": 2
+    },
+    {
+      "id": "qa-027",
+      "scope": "CC-M-004-003",
+      "check": "_render_preview_run names a function that exists; the entry-point contract names _render_preview and _render_preview_refusal instead.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-preview-surface",
+      "version": 2
+    },
+    {
+      "id": "qa-028",
+      "scope": "CC-M-004-003",
+      "check": "DL-079: the new nodes are hand-rolled ui.element and ui.row, never aggrid.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-preview-surface",
+      "version": 2
+    },
+    {
+      "id": "qa-029",
+      "scope": "M-001..M-004",
+      "check": "Each milestone's fail-first guards exist as authored test changes.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-029",
+      "version": 3
+    },
+    {
+      "id": "qa-029a",
+      "scope": "M-001",
+      "check": "test_metadata_tier.py and test_splice.py guards exist with their specific mutation and verbatim observed output.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-029",
+      "group_id": "parent-qa-029",
+      "version": 3
+    },
+    {
+      "id": "qa-029b",
+      "scope": "M-002",
+      "check": "test_cli_contract.py guards exist with their mutation and verbatim output.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-029",
+      "group_id": "parent-qa-029",
+      "version": 3
+    },
+    {
+      "id": "qa-029c",
+      "scope": "M-003",
+      "check": "test_gui_preview_and_write_composition.py guards exist with their mutation and verbatim output.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-029",
+      "group_id": "parent-qa-029",
+      "version": 3
+    },
+    {
+      "id": "qa-029d",
+      "scope": "M-004",
+      "check": "test_gui_settled_reading.py guards exist with their mutation and verbatim output.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-029",
+      "group_id": "parent-qa-029",
+      "version": 3
+    },
+    {
+      "id": "qa-030",
+      "scope": "M-004",
+      "check": "DL-084 as amended by DL-169 is satisfied by authored changes.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-030",
+      "version": 3
+    },
+    {
+      "id": "qa-030a",
+      "scope": "M-004",
+      "check": "docs/2026-09-26-tiered-conflict-browser-record.md exists as a change with a verdict row per surface plus structural verdicts.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-030",
+      "group_id": "parent-qa-030",
+      "version": 3
+    },
+    {
+      "id": "qa-030b",
+      "scope": "M-004",
+      "check": "Its verdict-row digest is registered in tests/test_docs_browser_record_structure.py by a change.",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-030",
+      "group_id": "parent-qa-030",
+      "version": 3
+    },
+    {
+      "id": "qa-031",
+      "scope": "plan",
+      "check": "readme_entries holds a single entry with no id or number while ten DL references depend on it.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-plan-metadata-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-032",
+      "scope": "plan",
+      "check": "conflict_model.py is in scope with five named entry points (ConflictGroup, reference_from_input, conflict_groups, resolve_gate) yet carries no intent and no change.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-scope-coverage",
+      "version": 2
+    },
+    {
+      "id": "qa-033",
+      "scope": "plan",
+      "check": "The Resolve surface (app.py draw() and Resolve.dc.html) is in scope but unaddressed; only Preview is changed.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-scope-coverage",
+      "version": 2
+    },
+    {
+      "id": "qa-034",
+      "scope": "plan",
+      "check": "The required explicit verdict on whether a draw() bound and a reconnect_timeout decision belong to this work is stated nowhere.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-scope-coverage",
+      "version": 2
+    },
+    {
+      "id": "qa-035",
+      "scope": "plan",
+      "check": "ASSUMPTION_UNVALIDATED: the baseline or golden parity question, recorded conflict counts shifting under the new rule, has no change and no citation, though the contract requires it be found before implementation.",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-scope-coverage",
+      "version": 2
+    },
+    {
+      "id": "qa-036",
+      "scope": "plan",
+      "check": "No code_change carries a line_range, so no hunk is anchored to a location.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-plan-metadata-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-037",
+      "scope": "CC-M-005-002",
+      "check": "The metadata_tier.py row in traktor_nml/CLAUDE.md names the module CC-M-001-001 actually creates.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-nav-tables",
+      "version": 2
+    },
+    {
+      "id": "qa-038",
+      "scope": "CC-M-005-003",
+      "check": "The reconstruct_report.py row names the module at the path M-003 actually changes.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-nav-tables",
+      "version": 2
+    },
+    {
+      "id": "qa-039",
+      "scope": "CC-M-005-004",
+      "check": "The tests/CLAUDE.md rows name test files that exist as changes in this plan.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-nav-tables",
+      "version": 2
+    },
+    {
+      "id": "qa-040",
+      "scope": "CC-M-004-001",
+      "check": "The artboard's measurements are the ones theme.py declares, so screen and artboard cannot disagree.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-preview-surface",
+      "version": 2
+    },
+    {
+      "id": "qa-041",
+      "scope": "plan",
+      "check": "The wave order W-001 to W-004 leaves no change depending on a symbol a later wave introduces.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-plan-metadata-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-042",
+      "scope": "CC-M-001-005",
+      "check": "settled_groups_outlying counts groups rather than readings when one group outlies on two measured attributes.",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-splice-rule",
+      "version": 2
+    },
+    {
+      "id": "qa-043",
+      "scope": "plan",
+      "check": "CI-M-004-003 is at version 2 while its change CC-M-004-003 is at version 1: check the change is not stale against the intent.",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-plan-metadata-integrity",
+      "version": 2
+    }
+  ]
+}
