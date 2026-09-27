@@ -1,0 +1,1374 @@
+{
+  "phase": "plan-docs",
+  "iteration": 2,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Every code_change with a non-empty diff has a non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001a",
+      "scope": "CC-M-001-001",
+      "check": "CC-M-001-001 (spike/dedupe/measure.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001b",
+      "scope": "CC-M-001-002",
+      "check": "CC-M-001-002 (spike/dedupe/README.md) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001c",
+      "scope": "CC-M-001-003",
+      "check": "CC-M-001-003 (docs/2026-09-26-dedupe-spike.md) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001d",
+      "scope": "CC-M-002-001",
+      "check": "CC-M-002-001 (traktor_nml/README.md) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001e",
+      "scope": "CC-M-002-002",
+      "check": "CC-M-002-002 (traktor_nml/dedupe.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001f",
+      "scope": "CC-M-002-003",
+      "check": "CC-M-002-003 (traktor_nml/commands/dedupe_cmd.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001g",
+      "scope": "CC-M-002-004",
+      "check": "CC-M-002-004 (tests/fixtures/dedupe/build_dedupe_fixtures.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001h",
+      "scope": "CC-M-002-005",
+      "check": "CC-M-002-005 (tests/test_dedupe_core.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001i",
+      "scope": "CC-M-002-006",
+      "check": "CC-M-002-006 (tests/test_dedupe_references.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001j",
+      "scope": "CC-M-002-007",
+      "check": "CC-M-002-007 (tests/test_dedupe_cli.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001k",
+      "scope": "CC-M-002-008",
+      "check": "CC-M-002-008 (tests/test_dedupe_write.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001l",
+      "scope": "CC-M-002-009",
+      "check": "CC-M-002-009 (tests/test_cli_contract.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001m",
+      "scope": "CC-M-002-010",
+      "check": "CC-M-002-010 (tests/test_gui_command_classification.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001n",
+      "scope": "CC-M-002-011",
+      "check": "CC-M-002-011 (traktor_nml/dedupe_members.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001o",
+      "scope": "CC-M-002-012",
+      "check": "CC-M-002-012 (traktor_nml/dedupe_fields.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001p",
+      "scope": "CC-M-002-013",
+      "check": "CC-M-002-013 (traktor_nml/dedupe_paths.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001q",
+      "scope": "CC-M-002-014",
+      "check": "CC-M-002-014 (traktor_nml/dedupe_groups.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001r",
+      "scope": "CC-M-002-015",
+      "check": "CC-M-002-015 (traktor_nml/dedupe_merge.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001s",
+      "scope": "CC-M-002-016",
+      "check": "CC-M-002-016 (traktor_nml/dedupe_decisions.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001t",
+      "scope": "CC-M-002-017",
+      "check": "CC-M-002-017 (traktor_nml/dedupe_references.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001u",
+      "scope": "CC-M-002-018",
+      "check": "CC-M-002-018 (traktor_nml/dedupe_assembly.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001v",
+      "scope": "CC-M-002-019",
+      "check": "CC-M-002-019 (traktor_nml/dedupe_write.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001w",
+      "scope": "CC-M-003-001",
+      "check": "CC-M-003-001 (traktor_nml/gui/dedupe_model.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001x",
+      "scope": "CC-M-003-002",
+      "check": "CC-M-003-002 (traktor_nml/gui/dedupe_steps.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001y",
+      "scope": "CC-M-003-003",
+      "check": "CC-M-003-003 (traktor_nml/gui/app.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001z",
+      "scope": "CC-M-003-004",
+      "check": "CC-M-003-004 (traktor_nml/gui/navigation.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001aa",
+      "scope": "CC-M-003-005",
+      "check": "CC-M-003-005 (tests/test_gui_dedupe_model.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ab",
+      "scope": "CC-M-003-006",
+      "check": "CC-M-003-006 (tests/test_gui_dedupe_parity.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ac",
+      "scope": "CC-M-003-007",
+      "check": "CC-M-003-007 (tests/test_gui_navigation.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ad",
+      "scope": "CC-M-003-008",
+      "check": "CC-M-003-008 (tests/test_gui_header_tabs.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ae",
+      "scope": "CC-M-004-001",
+      "check": "CC-M-004-001 (traktor_nml/dedupe_tier3.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001af",
+      "scope": "CC-M-004-002",
+      "check": "CC-M-004-002 (tests/test_dedupe_tier3.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ag",
+      "scope": "CC-M-005-001",
+      "check": "CC-M-005-001 (traktor_nml/dedupe_tier4.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ah",
+      "scope": "CC-M-005-002",
+      "check": "CC-M-005-002 (tests/test_dedupe_tier4.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ai",
+      "scope": "CC-M-006-001",
+      "check": "CC-M-006-001 (traktor_nml/dedupe_extras.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001aj",
+      "scope": "CC-M-006-002",
+      "check": "CC-M-006-002 (traktor_nml/commands/dedupe_cmd.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-001ak",
+      "scope": "CC-M-006-003",
+      "check": "CC-M-006-003 (tests/test_dedupe_extras.py) has non-empty doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-001",
+      "group_id": "parent-qa-001\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every DL-XXX decision is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-002\r",
+      "version": 3
+    },
+    {
+      "id": "qa-002a",
+      "scope": "DL-308",
+      "check": "DL-308 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 3
+    },
+    {
+      "id": "qa-002b",
+      "scope": "DL-309",
+      "check": "DL-309 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002c",
+      "scope": "DL-310",
+      "check": "DL-310 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002d",
+      "scope": "DL-311",
+      "check": "DL-311 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002e",
+      "scope": "DL-312",
+      "check": "DL-312 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 3
+    },
+    {
+      "id": "qa-002f",
+      "scope": "DL-313",
+      "check": "DL-313 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002g",
+      "scope": "DL-314",
+      "check": "DL-314 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002h",
+      "scope": "DL-315",
+      "check": "DL-315 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002i",
+      "scope": "DL-316",
+      "check": "DL-316 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002j",
+      "scope": "DL-317",
+      "check": "DL-317 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002k",
+      "scope": "DL-318",
+      "check": "DL-318 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002l",
+      "scope": "DL-319",
+      "check": "DL-319 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002m",
+      "scope": "DL-320",
+      "check": "DL-320 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002n",
+      "scope": "DL-321",
+      "check": "DL-321 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002o",
+      "scope": "DL-322",
+      "check": "DL-322 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002p",
+      "scope": "DL-323",
+      "check": "DL-323 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-002q",
+      "scope": "DL-324",
+      "check": "DL-324 is referenced in at least one doc_diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-002",
+      "group_id": "parent-qa-002\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Every doc_diff is a valid unified diff",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003a",
+      "scope": "CC-M-001-001",
+      "check": "CC-M-001-001 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003b",
+      "scope": "CC-M-001-002",
+      "check": "CC-M-001-002 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003c",
+      "scope": "CC-M-001-003",
+      "check": "CC-M-001-003 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003d",
+      "scope": "CC-M-002-001",
+      "check": "CC-M-002-001 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003e",
+      "scope": "CC-M-002-002",
+      "check": "CC-M-002-002 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003f",
+      "scope": "CC-M-002-003",
+      "check": "CC-M-002-003 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003g",
+      "scope": "CC-M-002-004",
+      "check": "CC-M-002-004 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003h",
+      "scope": "CC-M-002-005",
+      "check": "CC-M-002-005 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003i",
+      "scope": "CC-M-002-006",
+      "check": "CC-M-002-006 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003j",
+      "scope": "CC-M-002-007",
+      "check": "CC-M-002-007 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003k",
+      "scope": "CC-M-002-008",
+      "check": "CC-M-002-008 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003l",
+      "scope": "CC-M-002-009",
+      "check": "CC-M-002-009 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003m",
+      "scope": "CC-M-002-010",
+      "check": "CC-M-002-010 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003n",
+      "scope": "CC-M-002-011",
+      "check": "CC-M-002-011 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003o",
+      "scope": "CC-M-002-012",
+      "check": "CC-M-002-012 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003p",
+      "scope": "CC-M-002-013",
+      "check": "CC-M-002-013 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003q",
+      "scope": "CC-M-002-014",
+      "check": "CC-M-002-014 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003r",
+      "scope": "CC-M-002-015",
+      "check": "CC-M-002-015 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003s",
+      "scope": "CC-M-002-016",
+      "check": "CC-M-002-016 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003t",
+      "scope": "CC-M-002-017",
+      "check": "CC-M-002-017 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003u",
+      "scope": "CC-M-002-018",
+      "check": "CC-M-002-018 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003v",
+      "scope": "CC-M-002-019",
+      "check": "CC-M-002-019 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003w",
+      "scope": "CC-M-003-001",
+      "check": "CC-M-003-001 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003x",
+      "scope": "CC-M-003-002",
+      "check": "CC-M-003-002 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003y",
+      "scope": "CC-M-003-003",
+      "check": "CC-M-003-003 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003z",
+      "scope": "CC-M-003-004",
+      "check": "CC-M-003-004 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003aa",
+      "scope": "CC-M-003-005",
+      "check": "CC-M-003-005 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ab",
+      "scope": "CC-M-003-006",
+      "check": "CC-M-003-006 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ac",
+      "scope": "CC-M-003-007",
+      "check": "CC-M-003-007 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ad",
+      "scope": "CC-M-003-008",
+      "check": "CC-M-003-008 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ae",
+      "scope": "CC-M-004-001",
+      "check": "CC-M-004-001 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003af",
+      "scope": "CC-M-004-002",
+      "check": "CC-M-004-002 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ag",
+      "scope": "CC-M-005-001",
+      "check": "CC-M-005-001 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ah",
+      "scope": "CC-M-005-002",
+      "check": "CC-M-005-002 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ai",
+      "scope": "CC-M-006-001",
+      "check": "CC-M-006-001 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003aj",
+      "scope": "CC-M-006-002",
+      "check": "CC-M-006-002 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-003ak",
+      "scope": "CC-M-006-003",
+      "check": "CC-M-006-003 doc_diff is valid unified diff syntax",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-003",
+      "group_id": "parent-qa-003\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "No doc_diff contains temporal/change-relative language (added, now, previously, instead of, new, changed)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004a",
+      "scope": "CC-M-001-001",
+      "check": "CC-M-001-001 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004b",
+      "scope": "CC-M-001-002",
+      "check": "CC-M-001-002 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004c",
+      "scope": "CC-M-001-003",
+      "check": "CC-M-001-003 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004d",
+      "scope": "CC-M-002-001",
+      "check": "CC-M-002-001 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004e",
+      "scope": "CC-M-002-002",
+      "check": "CC-M-002-002 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004f",
+      "scope": "CC-M-002-003",
+      "check": "CC-M-002-003 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004g",
+      "scope": "CC-M-002-004",
+      "check": "CC-M-002-004 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004h",
+      "scope": "CC-M-002-005",
+      "check": "CC-M-002-005 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004i",
+      "scope": "CC-M-002-006",
+      "check": "CC-M-002-006 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004j",
+      "scope": "CC-M-002-007",
+      "check": "CC-M-002-007 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004k",
+      "scope": "CC-M-002-008",
+      "check": "CC-M-002-008 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004l",
+      "scope": "CC-M-002-009",
+      "check": "CC-M-002-009 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004m",
+      "scope": "CC-M-002-010",
+      "check": "CC-M-002-010 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004n",
+      "scope": "CC-M-002-011",
+      "check": "CC-M-002-011 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004o",
+      "scope": "CC-M-002-012",
+      "check": "CC-M-002-012 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004p",
+      "scope": "CC-M-002-013",
+      "check": "CC-M-002-013 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004q",
+      "scope": "CC-M-002-014",
+      "check": "CC-M-002-014 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004r",
+      "scope": "CC-M-002-015",
+      "check": "CC-M-002-015 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004s",
+      "scope": "CC-M-002-016",
+      "check": "CC-M-002-016 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004t",
+      "scope": "CC-M-002-017",
+      "check": "CC-M-002-017 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004u",
+      "scope": "CC-M-002-018",
+      "check": "CC-M-002-018 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004v",
+      "scope": "CC-M-002-019",
+      "check": "CC-M-002-019 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004w",
+      "scope": "CC-M-003-001",
+      "check": "CC-M-003-001 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004x",
+      "scope": "CC-M-003-002",
+      "check": "CC-M-003-002 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004y",
+      "scope": "CC-M-003-003",
+      "check": "CC-M-003-003 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004z",
+      "scope": "CC-M-003-004",
+      "check": "CC-M-003-004 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004aa",
+      "scope": "CC-M-003-005",
+      "check": "CC-M-003-005 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ab",
+      "scope": "CC-M-003-006",
+      "check": "CC-M-003-006 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ac",
+      "scope": "CC-M-003-007",
+      "check": "CC-M-003-007 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ad",
+      "scope": "CC-M-003-008",
+      "check": "CC-M-003-008 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ae",
+      "scope": "CC-M-004-001",
+      "check": "CC-M-004-001 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004af",
+      "scope": "CC-M-004-002",
+      "check": "CC-M-004-002 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ag",
+      "scope": "CC-M-005-001",
+      "check": "CC-M-005-001 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ah",
+      "scope": "CC-M-005-002",
+      "check": "CC-M-005-002 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ai",
+      "scope": "CC-M-006-001",
+      "check": "CC-M-006-001 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004aj",
+      "scope": "CC-M-006-002",
+      "check": "CC-M-006-002 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-004ak",
+      "scope": "CC-M-006-003",
+      "check": "CC-M-006-003 doc_diff free of temporal contamination",
+      "status": "PASS",
+      "severity": "MUST",
+      "parent_id": "qa-004",
+      "group_id": "parent-qa-004\r",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "doc_diff comments explain WHY (rationale, invariants), not WHAT the code does",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "Public functions/classes introduced in diffs have docstrings in doc_diff",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-007",
+      "scope": "traktor_nml/README.md",
+      "check": "CC-M-002-001 decision-log entries (G0) documented with rationale for DL-308..DL-324",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "Invariants from invisible_knowledge (missed-duplicate-not-wrong-merge, dangling-key backstop, stale decisions dropped, single write path) documented in relevant doc_diffs",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-009",
+      "scope": "traktor_nml/commands/dedupe_cmd.py",
+      "check": "Two doc_diffs on dedupe_cmd.py (CC-M-002-003, CC-M-006-002) do not conflict or duplicate",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "*",
+      "check": "doc_diff formatting consistent (hunk headers, comment style)",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    }
+  ]
+}

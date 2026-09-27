@@ -1,0 +1,519 @@
+{
+  "phase": "plan-code",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "Diff context lines for modified existing files match the current codebase",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "Every code_intent has at least one code_change referencing it",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "Diffs use valid unified format (+/- prefixes, consistent hunk headers)",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Imported names and called APIs (spans, textpatch, rewrite, volumes, splice, playlists) exist with the used signatures",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "*",
+      "check": "Any why_comments decision_ref points to an existing DL in planning_context",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "*",
+      "check": "Exit codes follow 0/2/3 contract; no exit code 1 for usage/refusal",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "*",
+      "check": "All writes go through dedupe.write_validated_output -> rewrite.write_bytes_atomically; no reserialisation",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "No code writes to an input path or live collection.nml",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 4
+    },
+    {
+      "id": "qa-009",
+      "scope": "*",
+      "check": "GUI view models (dedupe_model, dedupe_steps) import no nicegui (DL-069)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-010",
+      "scope": "*",
+      "check": "Location equality never uses matching._fold; unprobed volumes treated case-sensitive",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "*",
+      "check": "No function exceeds 50 lines or 3 nesting levels (GOD_FUNCTION)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 4
+    },
+    {
+      "id": "qa-012",
+      "scope": "*",
+      "check": "No module/class exceeds 15 methods or 10 deps (GOD_OBJECT), esp. dedupe.py",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-013",
+      "scope": "*",
+      "check": "No change edits splice._TRACKED_ATTRS or EntryRecord",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "*",
+      "check": "No keyboard/accessibility work in GUI changes",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-015",
+      "scope": "*",
+      "check": "No unused functions or impossible branches (DEAD_CODE)",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-016",
+      "scope": "*",
+      "check": "Files for M-004/M-005/M-006 (dedupe_tier3/tier4/extras) are consistent with task_spec scope",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-017",
+      "scope": "CC-M-001-001",
+      "check": "Change to spike/dedupe/measure.py is correct, consistent with its intent CI-M-001-001, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m001",
+      "version": 3
+    },
+    {
+      "id": "qa-018",
+      "scope": "CC-M-001-002",
+      "check": "Change to spike/dedupe/README.md is correct, consistent with its intent CI-M-001-002, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m001",
+      "version": 2
+    },
+    {
+      "id": "qa-019",
+      "scope": "CC-M-001-003",
+      "check": "Change to docs/2026-09-26-dedupe-spike.md is correct, consistent with its intent CI-M-001-003, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m001",
+      "version": 3
+    },
+    {
+      "id": "qa-020",
+      "scope": "CC-M-002-001",
+      "check": "Change to traktor_nml/README.md is correct, consistent with its intent CI-M-002-001, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-readme",
+      "version": 2
+    },
+    {
+      "id": "qa-021",
+      "scope": "CC-M-002-002",
+      "check": "Change to traktor_nml/dedupe.py is correct, consistent with its intent CI-M-002-002, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-core",
+      "version": 2
+    },
+    {
+      "id": "qa-022",
+      "scope": "CC-M-002-003",
+      "check": "Change to traktor_nml/commands/dedupe_cmd.py is correct, consistent with its intent CI-M-002-003, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-023",
+      "scope": "CC-M-002-004",
+      "check": "Change to tests/fixtures/dedupe/build_dedupe_fixtures.py is correct, consistent with its intent CI-M-002-004, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-dedupe-core-tests",
+      "version": 3
+    },
+    {
+      "id": "qa-024",
+      "scope": "CC-M-002-005",
+      "check": "Change to tests/test_dedupe_core.py is correct, consistent with its intent CI-M-002-005, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-dedupe-core-tests",
+      "version": 3
+    },
+    {
+      "id": "qa-025",
+      "scope": "CC-M-002-006",
+      "check": "Change to tests/test_dedupe_references.py is correct, consistent with its intent CI-M-002-006, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-dedupe-core-tests",
+      "version": 2
+    },
+    {
+      "id": "qa-026",
+      "scope": "CC-M-002-007",
+      "check": "Change to tests/test_dedupe_cli.py is correct, consistent with its intent CI-M-002-007, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-dedupe-core-tests",
+      "version": 2
+    },
+    {
+      "id": "qa-027",
+      "scope": "CC-M-002-008",
+      "check": "Change to tests/test_dedupe_write.py is correct, consistent with its intent CI-M-002-008, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-dedupe-core-tests",
+      "version": 2
+    },
+    {
+      "id": "qa-028",
+      "scope": "CC-M-002-009",
+      "check": "Change to tests/test_cli_contract.py is correct, consistent with its intent CI-M-002-009, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-cli-contract",
+      "version": 2
+    },
+    {
+      "id": "qa-029",
+      "scope": "CC-M-002-010",
+      "check": "Change to tests/test_gui_command_classification.py is correct, consistent with its intent CI-M-002-009, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-gui-classification",
+      "version": 3
+    },
+    {
+      "id": "qa-030",
+      "scope": "CC-M-003-001",
+      "check": "Change to traktor_nml/gui/dedupe_model.py is correct, consistent with its intent CI-M-003-001, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-gui-dedupe-viewmodel",
+      "version": 2
+    },
+    {
+      "id": "qa-031",
+      "scope": "CC-M-003-002",
+      "check": "Change to traktor_nml/gui/dedupe_steps.py is correct, consistent with its intent CI-M-003-002, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-gui-dedupe-viewmodel",
+      "version": 2
+    },
+    {
+      "id": "qa-032",
+      "scope": "CC-M-003-003",
+      "check": "Change to traktor_nml/gui/app.py is correct, consistent with its intent CI-M-003-003, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-gui-app",
+      "version": 2
+    },
+    {
+      "id": "qa-033",
+      "scope": "CC-M-003-004",
+      "check": "Change to traktor_nml/gui/navigation.py is correct, consistent with its intent CI-M-003-004, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-gui-navigation",
+      "version": 2
+    },
+    {
+      "id": "qa-034",
+      "scope": "CC-M-003-005",
+      "check": "Change to tests/test_gui_dedupe_model.py is correct, consistent with its intent CI-M-003-005, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-gui-dedupe-viewmodel",
+      "version": 2
+    },
+    {
+      "id": "qa-035",
+      "scope": "CC-M-003-006",
+      "check": "Change to tests/test_gui_dedupe_parity.py is correct, consistent with its intent CI-M-003-006, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-gui-dedupe-viewmodel",
+      "version": 2
+    },
+    {
+      "id": "qa-036",
+      "scope": "CC-M-003-007",
+      "check": "Change to tests/test_gui_navigation.py is correct, consistent with its intent CI-M-003-007, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-gui-navigation",
+      "version": 2
+    },
+    {
+      "id": "qa-037",
+      "scope": "CC-M-003-008",
+      "check": "Change to tests/test_gui_header_tabs.py is correct, consistent with its intent CI-M-003-007, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-gui-header-tabs",
+      "version": 3
+    },
+    {
+      "id": "qa-038",
+      "scope": "CC-M-004-001",
+      "check": "Change to traktor_nml/dedupe_tier3.py is correct, consistent with its intent CI-M-004-001, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-later-tiers",
+      "version": 2
+    },
+    {
+      "id": "qa-039",
+      "scope": "CC-M-004-002",
+      "check": "Change to tests/test_dedupe_tier3.py is correct, consistent with its intent CI-M-004-002, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-later-tiers",
+      "version": 2
+    },
+    {
+      "id": "qa-040",
+      "scope": "CC-M-005-001",
+      "check": "Change to traktor_nml/dedupe_tier4.py is correct, consistent with its intent CI-M-005-001, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-later-tiers",
+      "version": 2
+    },
+    {
+      "id": "qa-041",
+      "scope": "CC-M-005-002",
+      "check": "Change to tests/test_dedupe_tier4.py is correct, consistent with its intent CI-M-005-002, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-later-tiers",
+      "version": 2
+    },
+    {
+      "id": "qa-042",
+      "scope": "CC-M-006-001",
+      "check": "Change to traktor_nml/dedupe_extras.py is correct, consistent with its intent CI-M-006-001, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-later-tiers",
+      "version": 2
+    },
+    {
+      "id": "qa-043",
+      "scope": "CC-M-006-002",
+      "check": "Change to traktor_nml/commands/dedupe_cmd.py is correct, consistent with its intent CI-M-006-001, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-044",
+      "scope": "CC-M-006-003",
+      "check": "Change to tests/test_dedupe_extras.py is correct, consistent with its intent CI-M-006-002, and API-compatible with referenced modules",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-later-tiers",
+      "version": 2
+    },
+    {
+      "id": "qa-045",
+      "scope": "CC-M-003-003",
+      "check": "Context lines in diff for existing file traktor_nml/gui/app.py match actual file content",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-gui-app",
+      "version": 2
+    },
+    {
+      "id": "qa-046",
+      "scope": "CC-M-003-004",
+      "check": "Context lines in diff for existing file traktor_nml/gui/navigation.py match actual file content",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-gui-navigation",
+      "version": 2
+    },
+    {
+      "id": "qa-047",
+      "scope": "CC-M-002-009",
+      "check": "Context lines in diff for existing file tests/test_cli_contract.py match actual file content",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-cli-contract",
+      "version": 2
+    },
+    {
+      "id": "qa-048",
+      "scope": "CC-M-002-010",
+      "check": "Context lines in diff for existing file tests/test_gui_command_classification.py match actual file content",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-gui-classification",
+      "version": 2
+    },
+    {
+      "id": "qa-049",
+      "scope": "CC-M-003-007",
+      "check": "Context lines in diff for existing file tests/test_gui_navigation.py match actual file content",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-gui-navigation",
+      "version": 2
+    },
+    {
+      "id": "qa-050",
+      "scope": "CC-M-003-008",
+      "check": "Context lines in diff for existing file tests/test_gui_header_tabs.py match actual file content",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-test-gui-header-tabs",
+      "version": 2
+    },
+    {
+      "id": "qa-051",
+      "scope": "CC-M-002-001",
+      "check": "Context lines in diff for existing file traktor_nml/README.md match actual file content",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-readme",
+      "version": 2
+    },
+    {
+      "id": "qa-052",
+      "scope": "CC-M-002-003",
+      "check": "dedupe_cmd registers via commands auto-discovery (DL-003) compatible with cli.build_parser",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-053",
+      "scope": "CC-M-006-002",
+      "check": "Second change to dedupe_cmd.py applies cleanly on top of CC-M-002-003",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-cmd",
+      "version": 2
+    },
+    {
+      "id": "qa-054",
+      "scope": "M-001",
+      "check": "Spike tests reference inventory and AUDIO_ID stability before M-002",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-milestone-m001",
+      "version": 2
+    },
+    {
+      "id": "qa-055",
+      "scope": "CC-M-002-002",
+      "check": "dedupe.py implements generic dangling-key scan that refuses unknown reference shapes",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-core",
+      "version": 2
+    },
+    {
+      "id": "qa-056",
+      "scope": "CC-M-002-002",
+      "check": "Decisions file keyed by sorted member primary keys; stale groups dropped not refused",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-core",
+      "version": 2
+    },
+    {
+      "id": "qa-057",
+      "scope": "CC-M-002-002",
+      "check": "Post-write validation failure returns exit 3",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-dedupe-core",
+      "version": 2
+    }
+  ]
+}

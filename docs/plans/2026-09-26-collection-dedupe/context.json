@@ -1,0 +1,60 @@
+{
+  "task_spec": [
+    "Collection dedupe for Traktor NML: find duplicate collection ENTRYs in four tiers, merge losers' metadata into a chosen survivor, redirect every track reference to it, and write a new NML, via a `dedupe` CLI command and a `/dedupe` GUI section",
+    "scope: traktor_nml/dedupe.py (new), traktor_nml/commands/dedupe_cmd.py (new), traktor_nml/gui/dedupe_model.py + dedupe_steps.py (new), traktor_nml/gui/app.py, traktor_nml/gui/navigation.py, traktor_nml/README.md decision log, spike/dedupe/, tests/ and tests/fixtures/dedupe/",
+    "out-of-scope: deleting/moving/renaming audio files; editing the input NML in place; keyboard or accessibility work; widening splice._TRACKED_ATTRS or changing splice behaviour"
+  ],
+  "constraints": [
+    "MUST: follow docs/plans/2026-09-26-collection-dedupe/plan.md (reviewed twice; its reference inventory, merge data model, path policy, recovery sequence, decisions schema and test gates G0-G8 are fixed)",
+    "MUST: G0 - record DL entries in traktor_nml/README.md before M-002 code",
+    "MUST: M-001 spike (reference inventory + AUDIO_ID stability) before M-002; tier 3 only if promotion thresholds met",
+    "MUST: nicegui-free view models (DL-069); page code only in app.py",
+    "MUST: byte-span patching (spans/textpatch), never reserialise; write via rewrite.write_bytes_atomically inside dedupe.write_validated_output",
+    "MUST: exit codes 0 / 2 (argparse usage and refusals) / 3 (post-write validation failed)",
+    "MUST: never write to an input path or the live collection.nml; any dangling reference or unknown reference shape refuses",
+    "MUST-NOT: use matching._fold for location equality; treat unprobed volumes as case-sensitive",
+    "MUST-NOT: keyboard/accessibility work (user memory)"
+  ],
+  "entry_points": [
+    "traktor_nml/playlists.py:find_playlist_nodes/node_primary_keys - existing playlist reference discovery (PLAYLIST nodes only)",
+    "traktor_nml/splice.py - redirect-key logic, _TRACKED_ATTRS, entry_location_collision/collection_entry_count audits",
+    "traktor_nml/model.py:EntryRecord - identity fields only; MergeFields sits beside it",
+    "traktor_nml/matching.py - cascade, refute, _fold (unconditional casefold)",
+    "traktor_nml/volumes.py:resolve_volume_identity/local_path_for_location - volume identity and file existence",
+    "traktor_nml/rewrite.py:write_bytes_atomically - atomic writer",
+    "traktor_nml/spans.py, textpatch.py:patch_entry_attributes - byte-preserving patching",
+    "traktor_nml/cli.py:build_parser - commands auto-discovered from traktor_nml/commands (DL-003)",
+    "traktor_nml/gui/navigation.py:SECTIONS, conflict_model.py, answer_detail.py, reconstruct_steps.py - GUI patterns to follow"
+  ],
+  "rejected_alternatives": [
+    "Reusing write_nml_safely - drives tree mutation/reserialisation and prints its own stats",
+    "Summing PLAYCOUNT - double-counts shared listening history; max chosen (still an open question for M-001)",
+    "Exit code 1 for usage errors - conflicts with argparse's 2 used repo-wide",
+    "Widening EntryRecord / _TRACKED_ATTRS for merge fields - would change splice",
+    "Deleting audio files - tool only edits collection files"
+  ],
+  "current_understanding": [
+    "NML: COLLECTION/ENTRY keyed by LOCATION (VOLUME, VOLUMEID, DIR, FILE); playlists reference by PRIMARYKEY KEY path string; deleting an ENTRY without redirecting orphans references",
+    "Existing commands preview before writing, refuse to overwrite inputs, report ambiguity via stats and CSV",
+    "GUI is nicegui; three sections today (reconstruct /, reconnect, build-playlist)"
+  ],
+  "assumptions": [
+    "Traktor tolerates byte-preserved unknown attributes/children (H)",
+    "AUDIO_ID stable across copies/re-analysis (L - measured by M-001)",
+    "History/_LOOPS/_RECORDINGS use the PRIMARYKEY shape (M - confirmed by M-001)",
+    "Real library, re-analysed copy and copy/format-converted sample are available for M-001 (M - needs confirmation)",
+    "Appending raw CUE_V2 spans needs no ordering/count fix-up (M - check in M-001)"
+  ],
+  "invisible_knowledge": [
+    "Failure mode must always be a missed duplicate, never a wrong merge: unprobed volumes case-sensitive, unmapped volumes unknown not dead",
+    "Generic dangling-key scan is the backstop that makes unknown reference shapes refuse rather than orphan",
+    "Decisions file keyed by sorted member primary keys; stale groups dropped, never refused",
+    "write_validated_output is the single write path so CLI and GUI cannot skip post-write validation"
+  ],
+  "reference_docs": [
+    "docs/plans/2026-09-26-collection-dedupe/plan.md - the reviewed design this plan implements",
+    "traktor_nml/README.md - decision log (authority)",
+    "traktor_nml/gui/README.md - nicegui import boundary",
+    "docs/plans/README.md - plan directory conventions"
+  ]
+}

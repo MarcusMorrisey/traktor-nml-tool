@@ -1,0 +1,192 @@
+{
+  "phase": "plan-design",
+  "iteration": 3,
+  "items": [
+    {
+      "id": "qa-001",
+      "scope": "*",
+      "check": "planning_context.constraints is populated with the MUST/MUST-NOT constraints from context.json (currently empty)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-002",
+      "scope": "*",
+      "check": "planning_context.risks is populated, and each risk has a mitigation (currently empty)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002a",
+      "parent_id": "qa-002",
+      "scope": "M-001",
+      "check": "A risk is recorded, with mitigation, for real-library, re-analysed and converted samples being unavailable for the M-001 spike",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-002b",
+      "parent_id": "qa-002",
+      "scope": "M-002",
+      "check": "A risk is recorded, with mitigation, for appending raw CUE_V2 spans needing an ordering or count fix-up",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "parent-qa-002",
+      "version": 3
+    },
+    {
+      "id": "qa-003",
+      "scope": "*",
+      "check": "invisible_knowledge (system, invariants, tradeoffs) captures the four invisible-knowledge items from context.json (currently empty)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003a",
+      "parent_id": "qa-003",
+      "scope": "*",
+      "check": "invisible_knowledge.invariants includes: failure mode is a missed duplicate, never a wrong merge",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003b",
+      "parent_id": "qa-003",
+      "scope": "*",
+      "check": "invisible_knowledge.invariants includes: write_validated_output is the single write path",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003c",
+      "parent_id": "qa-003",
+      "scope": "*",
+      "check": "invisible_knowledge includes: the generic dangling-key scan is the backstop for unknown reference shapes",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-003d",
+      "parent_id": "qa-003",
+      "scope": "*",
+      "check": "invisible_knowledge includes: stale decision groups are dropped, never refused",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "parent-qa-003",
+      "version": 3
+    },
+    {
+      "id": "qa-004",
+      "scope": "*",
+      "check": "Each decision DL-308..DL-319 has a multi-step reasoning chain (premise -> implication -> choice)",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-005",
+      "scope": "DL-315",
+      "check": "Tier 3 admission thresholds are explicit, and the behaviour when tier 3 is not admitted (M-004 skipped or review-only) is stated",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "component-tier3-admission",
+      "version": 2
+    },
+    {
+      "id": "qa-006",
+      "scope": "DL-316",
+      "check": "PLAYCOUNT=max is backed by user or design-doc authority, and the plan says how the open M-001 question can revise it",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "concern-decision-justification",
+      "version": 2
+    },
+    {
+      "id": "qa-007",
+      "scope": "DL-313",
+      "check": "Path policy (unprobed volumes case-sensitive, unmapped volumes unknown) cites plan.md and forbids matching._fold",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-decision-justification",
+      "version": 3
+    },
+    {
+      "id": "qa-008",
+      "scope": "*",
+      "check": "Every non-trivial choice has a logged decision (e.g., the removable-files CSV format and the repeat-collapse semantics in M-006, and the GUI step flow in M-003)",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 4
+    },
+    {
+      "id": "qa-009",
+      "scope": "M-006",
+      "check": "M-006 code intents reference decisions specific to their behaviour, not only the umbrella DL-308",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-reference-integrity",
+      "version": 3
+    },
+    {
+      "id": "qa-010",
+      "scope": "M-004",
+      "check": "M-004 code intents are explicitly gated on the M-001 measured outcomes",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "component-tier3-admission",
+      "version": 2
+    },
+    {
+      "id": "qa-011",
+      "scope": "*",
+      "check": "All decision_refs in code_intents resolve to existing decision IDs, and all milestone scopes exist",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 2
+    },
+    {
+      "id": "qa-012",
+      "scope": "*",
+      "check": "Architectural assumptions (Traktor tolerates unknown attributes, AUDIO_ID stability, PRIMARYKEY shape for history) are cited or tied to M-001 validation",
+      "status": "PASS",
+      "severity": "MUST",
+      "group_id": "umbrella",
+      "version": 3
+    },
+    {
+      "id": "qa-013",
+      "scope": "DL-308",
+      "check": "Gates G0-G8 each map to an owning milestone or code intent",
+      "status": "PASS",
+      "severity": "SHOULD",
+      "group_id": "concern-reference-integrity",
+      "version": 2
+    },
+    {
+      "id": "qa-014",
+      "scope": "DL-311",
+      "check": "Exit-code decision rejects exit 1 with rationale, consistent with argparse's 2",
+      "status": "PASS",
+      "severity": "COULD",
+      "group_id": "concern-decision-justification",
+      "version": 2
+    }
+  ]
+}
