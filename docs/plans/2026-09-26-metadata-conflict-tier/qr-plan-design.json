@@ -5,7 +5,7 @@
     {
       "id": "qa-001",
       "scope": "*",
-      "check": "Every non-obvious choice the plan makes is logged as a DL-308..DL-317 decision with its own reasoning chain, and no choice appears only inside a milestone's behavior prose",
+      "check": "Every non-obvious choice the plan makes is logged as a DL-325..DL-334 decision with its own reasoning chain, and no choice appears only inside a milestone's behavior prose",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-001",
@@ -15,7 +15,7 @@
       "id": "qa-001a",
       "parent_id": "qa-001",
       "scope": "planning_context.decisions",
-      "check": "The decision to name the new module traktor_nml/metadata_tier.py and to re-export _TRACKED_ATTRS from splice.py is logged (DL-309) rather than asserted only in CI-M-001-001",
+      "check": "The decision to name the new module traktor_nml/metadata_tier.py and to re-export _TRACKED_ATTRS from splice.py is logged (DL-326) rather than asserted only in CI-M-001-001",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-001",
@@ -25,7 +25,7 @@
       "id": "qa-001b",
       "parent_id": "qa-001",
       "scope": "planning_context.decisions",
-      "check": "The choice to emit a SettledRow on SpliceResult rather than reusing ConflictRow is logged (DL-312) and names the conflict_model projection as the reason",
+      "check": "The choice to emit a SettledRow on SpliceResult rather than reusing ConflictRow is logged (DL-329) and names the conflict_model projection as the reason",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-001",
@@ -35,7 +35,7 @@
       "id": "qa-001c",
       "parent_id": "qa-001",
       "scope": "planning_context.decisions",
-      "check": "The plan logs an explicit decision for the two items the constraints demand be settled rather than implied: a bound on draw() (DL-315) and reconnect_timeout (DL-316)",
+      "check": "The plan logs an explicit decision for the two items the constraints demand be settled rather than implied: a bound on draw() (DL-332) and reconnect_timeout (DL-333)",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-001",
@@ -43,7 +43,7 @@
     },
     {
       "id": "qa-002",
-      "scope": "planning_context.decisions[DL-313]",
+      "scope": "planning_context.decisions[DL-330]",
       "check": "OUTLIER_BAND = 0.01 is backed by the user's measured survivor curve (7,279 / 2,679 / 2,203 / 2,180 / 2,176) rather than being a policy default the planner chose, and the boundary case (a gap exactly at 1%) is stated as excluded",
       "status": "PASS",
       "severity": "MUST",
@@ -52,7 +52,7 @@
     },
     {
       "id": "qa-003",
-      "scope": "planning_context.decisions[DL-311]",
+      "scope": "planning_context.decisions[DL-328]",
       "check": "The assumption that the tier does not change which record's measured values reach the output is validated against the actual resolution path (_resolve_conflicts patching base's ENTRY span only for a named non-base record, whole-span transplant otherwise), with that citation in the reasoning",
       "status": "PASS",
       "severity": "MUST",
@@ -61,7 +61,7 @@
     },
     {
       "id": "qa-004",
-      "scope": "planning_context.decisions[DL-317]",
+      "scope": "planning_context.decisions[DL-334]",
       "check": "The baseline-parity assumption is validated by naming the twelve recorded cases and stating that none invokes splice, rather than assuming manifest.json is unaffected",
       "status": "PASS",
       "severity": "MUST",
@@ -70,7 +70,7 @@
     },
     {
       "id": "qa-005",
-      "scope": "planning_context.decisions[DL-310]",
+      "scope": "planning_context.decisions[DL-327]",
       "check": "The mixed-group rule states unambiguously what attrs holds, that such a group produces no settled row, and that it therefore cannot be an outlier - the question the context's assumptions raised",
       "status": "PASS",
       "severity": "MUST",
@@ -89,7 +89,7 @@
     {
       "id": "qa-007",
       "scope": "milestones[].code_intents[].decision_refs",
-      "check": "Every decision_ref resolves to a decision that exists, and every decision DL-308..DL-317 is referenced by at least one code_intent",
+      "check": "Every decision_ref resolves to a decision that exists, and every decision DL-325..DL-334 is referenced by at least one code_intent",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "component-milestone-structure",
@@ -98,7 +98,7 @@
     {
       "id": "qa-008",
       "scope": "milestones[M-004].code_intents[CI-M-004-003]",
-      "check": "CI-M-004-003 cites DL-315, a decision that puts a draw() bound OUT of scope; verify the reference is apt for a render intent or is replaced by the decision that actually governs it",
+      "check": "CI-M-004-003 cites DL-332, a decision that puts a draw() bound OUT of scope; verify the reference is apt for a render intent or is replaced by the decision that actually governs it",
       "status": "PASS",
       "severity": "SHOULD",
       "group_id": "concern-reference-integrity",
@@ -143,7 +143,7 @@
     {
       "id": "qa-013",
       "scope": "readme_entries",
-      "check": "readme_entries is empty while M-005 mints DL-308 through DL-317 into traktor_nml/README.md - verify the ten log entries are carried where the executing milestone can read them, or that their absence is deliberate",
+      "check": "readme_entries is empty while M-005 mints DL-325 through DL-334 into traktor_nml/README.md - verify the ten log entries are carried where the executing milestone can read them, or that their absence is deliberate",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "concern-reference-integrity",
@@ -215,7 +215,7 @@
     {
       "id": "qa-021",
       "scope": "*",
-      "check": "Reasoning chains are not shallow: each of DL-308..DL-317 states premise, implication and conclusion rather than a bare assertion",
+      "check": "Reasoning chains are not shallow: each of DL-325..DL-334 states premise, implication and conclusion rather than a bare assertion",
       "status": "PASS",
       "severity": "SHOULD",
       "group_id": "umbrella",

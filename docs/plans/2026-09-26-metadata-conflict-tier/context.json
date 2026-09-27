@@ -6,7 +6,7 @@
     "out-of-scope: the /build-playlist route; accessibility and keyboard work (DL-197)"
   ],
   "constraints": [
-    "MUST: traktor_nml/README.md is the decision-log authority; its high-water mark is DL-307, so new entries start at DL-308",
+    "MUST: traktor_nml/README.md is the decision-log authority; its high-water mark is DL-307 and docs/plans/2026-09-26-collection-dedupe holds DL-308 through DL-324, so new entries start at DL-325",
     "MUST: DL-069 nicegui boundary - only app.py, file_picker.py and __main__.py import nicegui, so every decision rule (the tier, the band, the outlier projection) lives in a nicegui-free module the suite reaches, and every CSS rule, class and dimension lives in theme.py",
     "MUST: DL-071 - a screen disagreeing with the artboard is fixed in the design first; DL-079 - hand-rolled ui.row/ui.element, never aggrid",
     "MUST: DL-148 - a resolution names the record that wins, not a base-or-source token; DL-215 - a sentence naming a count reads it off the model; plurals through traktor_nml/gui/wording.plural (tests/test_gui_wording.py forbids an inline `x if n == 1 else y` under gui/)",

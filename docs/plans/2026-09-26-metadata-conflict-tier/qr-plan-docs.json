@@ -64,7 +64,7 @@
       "id": "qa-002c",
       "parent_id": "qa-002",
       "scope": "CC-M-001-001",
-      "check": "The contrast paragraph's citation is corrected from DL-310 to DL-308, and DL-308's stated reasoning is in fact the Traktor-against-Traktor contrast rather than the conflict-raising rule",
+      "check": "The contrast paragraph's citation is corrected from DL-327 to DL-325, and DL-325's stated reasoning is in fact the Traktor-against-Traktor contrast rather than the conflict-raising rule",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-002",
@@ -83,7 +83,7 @@
     {
       "id": "qa-003",
       "scope": "CC-M-005-001",
-      "check": "The README doc_diff brings the DL-312 entry into line with the pair correction: the entry says SettledRow carries 'the primary key of the record whose values the output carries' while SettledRow.winner is an (input index, primary key) pair and CC-M-005-002's doc_diff corrects the identical phrase in traktor_nml/CLAUDE.md, leaving the decision-log authority contradicting the module map",
+      "check": "The README doc_diff brings the DL-329 entry into line with the pair correction: the entry says SettledRow carries 'the primary key of the record whose values the output carries' while SettledRow.winner is an (input index, primary key) pair and CC-M-005-002's doc_diff corrects the identical phrase in traktor_nml/CLAUDE.md, leaving the decision-log authority contradicting the module map",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "concern-doc-consistency",
@@ -92,7 +92,7 @@
     {
       "id": "qa-004",
       "scope": "*",
-      "check": "No decision from planning_context.decisions is left undocumented; DL-315, DL-316 and DL-317 appear only in the README diff and in no doc_diff",
+      "check": "No decision from planning_context.decisions is left undocumented; DL-332, DL-333 and DL-334 appear only in the README diff and in no doc_diff",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-004",
@@ -102,7 +102,7 @@
       "id": "qa-004a",
       "parent_id": "qa-004",
       "scope": "CC-M-004-003",
-      "check": "A doc_diff states at draw() that a bound on it is deliberately out of this work's scope (DL-315), so a reader meets the decision where it binds rather than only in the README",
+      "check": "A doc_diff states at draw() that a bound on it is deliberately out of this work's scope (DL-332), so a reader meets the decision where it binds rather than only in the README",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-004",
@@ -112,7 +112,7 @@
       "id": "qa-004b",
       "parent_id": "qa-004",
       "scope": "M-005",
-      "check": "The reconnect_timeout decision (DL-316) is documented where __main__.py's ui.run call is described, not only as a README entry",
+      "check": "The reconnect_timeout decision (DL-333) is documented where __main__.py's ui.run call is described, not only as a README entry",
       "status": "PASS",
       "severity": "MUST",
       "group_id": "parent-qa-004",
@@ -298,7 +298,7 @@
     {
       "id": "qa-018",
       "scope": "CC-M-001-001",
-      "check": "The rewritten contrast paragraph does not cite DL-308 twice in one sentence where one citation carries it",
+      "check": "The rewritten contrast paragraph does not cite DL-325 twice in one sentence where one citation carries it",
       "status": "PASS",
       "severity": "COULD",
       "version": 3

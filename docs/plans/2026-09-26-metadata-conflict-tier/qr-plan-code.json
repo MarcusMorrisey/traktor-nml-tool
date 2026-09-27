@@ -82,7 +82,7 @@
     {
       "id": "qa-003a",
       "scope": "CC-M-005-001",
-      "check": "Each of DL-308 through DL-317 is defined by the README diff.",
+      "check": "Each of DL-325 through DL-334 is defined by the README diff.",
       "status": "PASS",
       "severity": "MUST",
       "parent_id": "qa-003",
