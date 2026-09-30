@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-307`:
+This file is the authority for the log's high-water mark, which is `DL-334`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2750,6 +2750,96 @@ names, so the next plan numbers from there.
   (DL-189). The rendered rows, the indent under the label, the label
   still toggling and the note under the table are read in
   `docs/2026-09-17-switch-options-browser-record.md` (DL-307).
+- The six tracked attributes carry a tier. `filesize`, `playtime_float`
+  and `bitrate` are MEASURED: Traktor wrote both numbers by analysing the
+  one file at the LOCATION the identity is derived from
+  (`model.py:66`-`96`), so both are real recorded facts and there is no
+  operator judgement to ask for. `artist`, `title` and `album` are
+  EDITORIAL: a disagreement there is a disagreement about something a
+  person typed. A group whose divergence is measured-only is settled by
+  rule rather than put to the operator. The reason is the absence of a
+  judgement, not the unreality of the difference, which is why this is a
+  different question from `matching.py:120`-`150`'s tolerant
+  verification: that rule compares Traktor's recorded numbers against the
+  bytes on disk - two measurement systems, one of which may be stale -
+  and answers whether a candidate is the same file. The two share no
+  tolerance and no vocabulary, so a reader unifying the two tolerances
+  would be unifying two different questions (DL-325).
+- The tier tables, the outlier band and the outlier projection live in
+  `metadata_tier.py`, which imports nothing from `traktor_nml`, so
+  `splice.py`, the CLI report and the GUI report reach one definition of
+  the partition and one band, and the suite reads every rule in it under
+  the system interpreter (DL-069). `splice.py` takes `TRACKED_ATTRS` from
+  it and keeps `_TRACKED_ATTRS` as the name `answer_detail.py` and the
+  guards already import, so a second tuple of the six names cannot drift
+  from the partition the tier is decided on (DL-326).
+- A conflict is raised when at least one EDITORIAL attribute diverges. A
+  group raising one carries every divergent attribute in `attrs`, the
+  measured names included, so its CSV row, its candidates and its resolve
+  rail stand as they stand and its measured divergence is never reported
+  twice - once as a conflict attribute and again as a settled row. Moving
+  those names out of `attrs` would drop them from `answer_fields`, which
+  leaves out any attribute standing in neither `attrs` nor `agreed`
+  (DL-327).
+- A settled group's measured values are the base record's where the group
+  holds one, and the run-wide picker's winner where it holds none. No
+  entry patch is collected for it: `entry_patches` is written only where a
+  resolution names a record other than base's, and a settled group is
+  named by no resolution, so base keeps the numbers its own entry carries
+  and a transplanted winner carries its own verbatim (DL-328).
+- A settled group reports a `SettledRow` on `SpliceResult` beside
+  `conflict_rows` rather than a `ConflictRow`, because a `ConflictRow`
+  carrying member keys is projected into a resolve-table row, which is
+  the thing being removed. The row carries the identity key, the measured
+  names the group diverged on, the values each of them took across the
+  members, the `(input index, primary key)` pair naming the record whose
+  values the output carries - the record, never a base-or-source token
+  (DL-148), and the pair rather than the key alone because both members
+  of a settled group describe the one LOCATION and carry the identical
+  primary key, so a key standing alone equals the identity key and says
+  which record won of neither - and the group's outlier readings. The
+  list is populated on every run, a clean one and an abort included, for
+  the reason `conflict_rows` is (DL-008): what the rule answered is part
+  of what the run did. The conflict CSV's three columns and
+  `splice_cmd`'s printed conflict line stand where they are (DL-329).
+- An outlier is a settled group whose gap on one measured attribute
+  exceeds 1% of the larger of the two values, read per attribute and
+  strictly, so a gap exactly at the band is not one. The band is not the
+  conflict rule. Measured as one on a real collection pair, group-level
+  survivors run 7,279 at 0.01%, 2,679 at 0.1%, 2,203 at 1% and 2,176 at
+  10%: past 1% the band separates nothing, so roughly 1,650 measured
+  divergences sit above any band and a band read as the rule leaves a
+  screen nobody can work, while a tier holding one measured attribute
+  outside it would be two rules over the one kind of fact. 1% is the
+  knee, and it survives as the threshold above which a settled group is
+  worth READING - the six `playtime_float` groups whose gap reaches 3,516
+  seconds show as a wrong track length in Traktor until it re-analyses,
+  and the listing is what names them rather than leaving them counted. A
+  settled group inside the band is named nowhere, which is the price of
+  the screen (DL-330).
+- The settled count and the outlier listing are read off the run's own
+  settled rows by both `gui/reconstruct_report.py` and
+  `commands/splice_cmd.py`, so the screen and the printed run cannot
+  disagree about how many decisions were made for the operator (DL-215).
+  The count and the listing are one division of that one list, made in
+  the report rather than in the render, for the reason `LISTED_PLAYLISTS`
+  is divided there (DL-217, DL-331).
+- A bound on `draw()` - a cap, a window or yielding - is out of this
+  work's scope. The 9,052-row build that overran nicegui's 6s socket
+  budget is 529 rows under the tier, measured at 0.64ms each, so the
+  freeze goes with the rows and a bound would be defence in depth against
+  a load the rule removes rather than a fix for one the tool still
+  carries (DL-332).
+- `reconnect_timeout` stays at its default and `gui/__main__.py` keeps
+  its `ui.run` call unchanged. The default sets the ping interval and
+  ping timeout the socket lives inside, so widening it lets a slower
+  draw survive without making the draw faster: the threshold is not the
+  fault, and moving it would hide the next one (DL-333).
+- `tests/baselines/manifest.json` is untouched and no recorded CLI output
+  moves. Not one of the recorded cases invokes splice, and a settled
+  group produces no `ConflictRow`, so the conflict report's three
+  fieldnames and its rows stand and the two counts the stats block
+  carries are printed beside the ones already there (DL-334).
 
 ## Invariants
 
