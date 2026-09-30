@@ -54,11 +54,22 @@ from traktor_nml.splice import (
 
 def _record(
     dir_value: str,
-    bitrate: str = "320",
+    album: str = "320",
     title: str = "Song",
     file_name: str = "track.mp3",
     playtime: str = "100.0",
 ) -> EntryRecord:
+    """One collection record, distinguished from another copy of the same
+    track by its ALBUM.
+
+    ALBUM is the divergent attribute because these guards are about a
+    group put to the operator, and a conflict is raised for an editorial
+    divergence: a group diverging on measured attributes alone is settled
+    by rule and reports no conflict row at all (DL-325, DL-327). The
+    album values are the arbitrary strings "320", "128" and "064" - three
+    distinct answers, one per collection - and the digits mean nothing
+    beyond telling the three apart.
+    """
     return EntryRecord(
         entry=None,
         artist="A",
@@ -66,8 +77,8 @@ def _record(
         audio_id="",
         filesize="16",
         playtime_float=playtime,
-        bitrate=bitrate,
-        album="",
+        bitrate="320",
+        album=album,
         file_name=file_name,
         location=LocationParts(
             volume="C:", volumeid="C:", dir_value=dir_value, file_name=file_name
@@ -86,8 +97,8 @@ def _groups(records_by_input: list[list[EntryRecord]]):
 
 def _one_track_inputs() -> list[list[EntryRecord]]:
     """A base collection and one source holding the same track at a
-    differing BITRATE - the smallest input reaching the divergent
-    attribute branch."""
+    differing ALBUM - the smallest input reaching the divergent
+    attribute branch as a conflict the operator is asked about."""
     return [[_record("/:Base/:", "320")], [_record("/:One/:", "128")]]
 
 
@@ -143,7 +154,7 @@ def test_a_row_projects_the_key_the_attrs_and_the_candidates() -> None:
     assert len(rows) == 1
     row = rows[0]
     assert row.identity_key == "C:/:Base/:track.mp3"
-    assert row.attrs == ("bitrate",)
+    assert row.attrs == ("album",)
     assert row.candidates == groups[0].candidates
     assert len(row.candidates) == 2
     assert [candidate.values for candidate in row.candidates] == [("320",), ("128",)]
@@ -298,7 +309,7 @@ def test_a_fresh_set_and_one_reset_key_by_key_behave_identically() -> None:
     survives the reset: AssertionError on `assert decisions.rows(groups)
     == fresh_rows`, reported with `At index 0 diff:
     ConflictRowView(identity_key='C:/:Base/:track.mp3',
-    attrs=('bitrate',), candidates=(ConflictCandidate(values=('320',),
+    attrs=('album',), candidates=(ConflictCandidate(values=('320',),
     members=((0, 'C:/:Base/:track.mp3'),)),
     ConflictCandidate(values=('128',), members=((1,
     'C:/:One/:track.mp3'),))), decision=(0, 'C:/:Base/:track.mp3')) !=
@@ -854,15 +865,15 @@ def test_a_decision_re_attaches_where_only_the_agreed_pairs_differ() -> None:
     candidates; this guard rerun. Observed:
         AssertionError: assert 'undecided' == (1, 'C:/:One/:track.mp3')
          +  where 'undecided' = decision(ConflictGroup(
-            identity_key='C:/:Base/:track.mp3', attrs=('bitrate',), ...,
-            agreed=(('album', 'Later'),)))
+            identity_key='C:/:Base/:track.mp3', attrs=('album',), ...,
+            agreed=(('bitrate', 'Later'),)))
     """
     first = _groups(_one_track_inputs())[0]
     decisions = ConflictDecisions()
     reference = _reference_at(first, 1)
     decisions.resolve(first, reference)
 
-    moved = dataclasses.replace(first, agreed=(("album", "Later"),))
+    moved = dataclasses.replace(first, agreed=(("bitrate", "Later"),))
 
     assert moved.member_keys == first.member_keys
     assert moved.candidates == first.candidates

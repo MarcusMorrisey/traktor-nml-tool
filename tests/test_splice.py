@@ -43,6 +43,35 @@ def _entry(artist, title, filename, size="16", time="1.0"):
     )
 
 
+def _diverged(bitrate: str) -> tuple:
+    """The pair of str.replace arguments that moves one copy of an _entry
+    away from base, applied as `text.replace(*_diverged("128"))`.
+
+    It moves BITRATE and gives the copy an ALBUM of its own in one
+    substitution, because the two are one divergence. A group diverging on
+    measured attributes alone is settled by rule and reports no conflict row
+    (DL-325), so every fixture that is about conflict behaviour - the abort,
+    the resolution, the candidates, the CSV report - needs an editorial name
+    to be a conflict at all, and the measured name rides along in attrs
+    exactly as DL-327 says it does.
+
+    The ALBUM child is written after </LOCATION>, which is the child order
+    textpatch writes in, and base's own copy carries no ALBUM child at all -
+    the empty album string a record with no ALBUM element reads as."""
+    return (
+        '</LOCATION><INFO BITRATE="320"',
+        '</LOCATION><ALBUM TITLE="Alb %s"></ALBUM><INFO BITRATE="%s"' % (bitrate, bitrate),
+    )
+
+
+# The editorial half of a divergence that inserts no child element. ARTIST
+# stands on the ENTRY tag base already carries, so a patch naming the source
+# substitutes a value inside base's own span rather than writing a new child
+# into it - which is what a guard reading the bytes a substitution leaves,
+# or the children base's entry keeps, needs its divergence to be (DL-327).
+_DIVERGED_ARTIST = ('ARTIST="A"', 'ARTIST="A2"')
+
+
 def _playlist(name: str, keys: list[str], uuid: str) -> str:
     entries = "".join(f'<ENTRY><PRIMARYKEY TYPE="TRACK" KEY="{k}"></PRIMARYKEY></ENTRY>' for k in keys)
     return (
@@ -129,7 +158,7 @@ def test_unresolved_conflict_without_policy_aborts_but_still_reports(tmp_path: P
     # tier) but a different bitrate - a divergent attribute between the two
     # copies of "the same" track.
     other_path.write_text(
-        _nml(_entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""),
+        _nml(_entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")), 1, ""),
         encoding="utf-8", newline="",
     )
 
@@ -148,7 +177,7 @@ def test_conflict_resolved_with_on_conflict_keep_first_still_writes_report(tmp_p
     base_path.write_text(_nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, ""), encoding="utf-8", newline="")
     other_path = tmp_path / "other.nml"
     other_path.write_text(
-        _nml(_entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""),
+        _nml(_entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")), 1, ""),
         encoding="utf-8", newline="",
     )
 
@@ -171,13 +200,16 @@ def _parsed(text: str) -> tuple:
 
 def _diverging_pair() -> tuple:
     """A base collection and one source collection holding the same track
-    with a differing BITRATE - the smallest input reaching the
-    divergent-attribute branch, and the shape the CLI conflict guards build.
+    with a differing ALBUM and BITRATE - the smallest input reaching the
+    conflict branch, and the shape the CLI conflict guards build. The
+    editorial name is what a conflict is raised for; a divergence over the
+    measured names alone is settled by rule and reports no row to decide
+    (DL-325, DL-327).
     Returned as parsed roots so a guard calls assemble_output directly:
     resolutions has no CLI flag to drive it through run_tool (DL-108)."""
     base_text = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
     source_text = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""
+        _entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")), 1, ""
     )
     return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(source_text)]
 
@@ -330,20 +362,22 @@ def test_an_unmatched_resolutions_key_is_inert() -> None:
 
 
 def _three_way_bitrate() -> tuple:
-    """base and two sources holding one track, disagreeing on FILESIZE and
-    three ways on BITRATE. The two sources differ from each other, so input 2
-    is a value neither base nor the keep-first non-base copy carries: a guard
-    naming input 2 cannot pass by coincidence with the run-wide picker."""
+    """base and two sources holding one track, disagreeing on ALBUM, on
+    FILESIZE and three ways on BITRATE. The two sources differ from each
+    other, so input 2 is a value neither base nor the keep-first non-base
+    copy carries: a guard naming input 2 cannot pass by coincidence with the
+    run-wide picker.
+
+    ALBUM is what makes the group a conflict at all: a divergence over the
+    measured attributes alone is settled by rule and reports no conflict row
+    (DL-325). base carries no ALBUM child, so its album value is the empty
+    string, and the three answers are three distinct tuples."""
     base_text = _nml(_entry("A", "Song", "track.mp3", size="16", time="100.0"), 1, "")
     first = _nml(
-        _entry("A", "Song", "track.mp3", size="32", time="100.0").replace(
-            'BITRATE="320"', 'BITRATE="128"'
-        ), 1, "",
+        _entry("A", "Song", "track.mp3", size="32", time="100.0").replace(*_diverged("128")), 1, "",
     )
     second = _nml(
-        _entry("A", "Song", "track.mp3", size="32", time="100.0").replace(
-            'BITRATE="320"', 'BITRATE="064"'
-        ), 1, "",
+        _entry("A", "Song", "track.mp3", size="32", time="100.0").replace(*_diverged("064")), 1, "",
     )
     return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(first), _parsed(second)]
 
@@ -354,25 +388,33 @@ def test_a_conflict_row_carries_one_candidate_per_distinct_answer() -> None:
     candidate naming the (input index, primary key) pairs that supply it,
     sorted by input index (DL-149, DL-150).
 
-    Observed with _candidates reading `for attr in reversed(attrs)`:
-    AssertionError on the candidates mapping, `Left contains 3 more
-    items: {('064', '32'): ((2, 'C:/:Music/:track.mp3'),), ('128', '32'):
-    ((1, ...),), ('320', '16'): ((0, ...),)}` - every candidate's values
-    read BITRATE where attrs named FILESIZE.
+    Mutation: _candidates was changed to read `for attr in
+    reversed(attrs)` and this guard rerun. Observed:
+        AssertionError: assert {('064', '32'...track.mp3'),)} == {('', '16', '...track.mp3'),)}
+
+          Left contains 3 more items:
+          {('064', '32', 'Alb 064'): ((2, 'C:/:Music/:track.mp3'),),
+           ('128', '32', 'Alb 128'): ((1, 'C:/:Music/:track.mp3'),),
+           ('320', '16', ''): ((0, 'C:/:Music/:track.mp3'),)}
+          Right contains 3 more items:
+          {('', '16', '320'): ((0, 'C:/:Music/:track.mp3'),),...
+
+          ...Full output truncated (3 lines hidden), use '-vv' to show
     """
     base_text, base_root, contributions = _three_way_bitrate()
     result = assemble_output(base_text, base_root, contributions, MatchConfidence.STRICT)
 
     row = result.conflict_rows[0]
     key = "C:" + "/:Music/:" + "track.mp3"
-    assert row.attrs == "filesize,bitrate"
+    assert row.attrs == "album,filesize,bitrate"
     assert len(row.candidates) == 3
     assert all(len(c.values) == len(row.attrs.split(",")) for c in row.candidates)
-    # Position 0 is FILESIZE and position 1 is BITRATE, in every candidate.
+    # Position 0 is ALBUM, 1 is FILESIZE and 2 is BITRATE, in every
+    # candidate: the order attrs names, which is _TRACKED_ATTRS' own.
     assert {c.values: c.members for c in row.candidates} == {
-        ("16", "320"): ((0, key),),
-        ("32", "128"): ((1, key),),
-        ("32", "064"): ((2, key),),
+        ("", "16", "320"): ((0, key),),
+        ("Alb 128", "32", "128"): ((1, key),),
+        ("Alb 064", "32", "064"): ((2, key),),
     }
 
 
@@ -381,15 +423,16 @@ def test_records_agreeing_on_every_divergent_attribute_are_one_candidate() -> No
     sources that agree collapse into one candidate naming both contributors
     rather than into two identical answers (DL-150).
 
-    Observed with the candidate key written as `values + (str(input_idx),)`,
-    so each record kept its own entry: AssertionError `assert 3 == 2`,
-    the row carrying ConflictCandidate(values=('128', '1'), ...) and
-    ConflictCandidate(values=('128', '2'), ...) as two answers where the
-    two sources agree.
+    Mutation: the candidate key in _candidates was written as `values +
+    (str(input_idx),)`, so each record kept its own entry, and this guard
+    rerun. Observed:
+        AssertionError: assert 3 == 2
+         +  where 3 = len((ConflictCandidate(values=('', '320', '0'), members=((0, 'C:/:Music/:track.mp3'),)), ConflictCandidate(values=('Alb 12... 'C:/:Music/:track.mp3'),)), ConflictCandidate(values=('Alb 128', '128', '2'), members=((2, 'C:/:Music/:track.mp3'),))))
+         +    where (ConflictCandidate(values=('', '320', '0'), members=((0, 'C:/:Music/:track.mp3'),)), ConflictCandidate(values=('Alb 12... 'C:/:Music/:track.mp3'),)), ConflictCandidate(values=('Alb 128', '128', '2'), members=((2, 'C:/:Music/:track.mp3'),))) = ConflictRow(identity_key='C:/:Music/:track.mp3', attrs='album,bitrate', resolution='unresolved', member_keys=frozenset.../:Music/:track.mp3'),))), agreed=(('artist', 'A'), ('title', 'Song'), ('filesize', '16'), ('playtime_float', '100.0'))).candidates
     """
     base_text = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
     agreeing = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'),
+        _entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")),
         1, "",
     )
     result = assemble_output(
@@ -399,11 +442,11 @@ def test_records_agreeing_on_every_divergent_attribute_are_one_candidate() -> No
 
     row = result.conflict_rows[0]
     key = "C:" + "/:Music/:" + "track.mp3"
-    assert row.attrs == "bitrate"
+    assert row.attrs == "album,bitrate"
     assert len(row.candidates) == 2
     assert {c.values: c.members for c in row.candidates} == {
-        ("320",): ((0, key),),
-        ("128",): ((1, key), (2, key)),
+        ("", "320"): ((0, key),),
+        ("Alb 128", "128"): ((1, key), (2, key)),
     }
 
 
@@ -440,14 +483,15 @@ def test_a_three_answer_group_carries_the_agreeing_tracked_attributes() -> None:
 
     Mutation: `if attr not in divergent` in splice._agreed was changed
     to `if attr in divergent` and this guard rerun. Observed:
-        AssertionError: assert (('bitrate', '320'),) ==
-        (('artist', '...at', '100.0'))
-          At index 0 diff: ('bitrate', '320') != ('artist', 'A')
-          Right contains 4 more items, first extra item: ('title', 'One')
+        AssertionError: assert (('album', ''...rate', '320')) == (('artist', '...at', '100.0'))
+
+          At index 0 diff: ('album', '') != ('artist', 'A')
+          Right contains 2 more items, first extra item: ('filesize', '8192')
+          Use -v to get more diff
     """
     base_text = _nml(_entry("A", "One", "one.mp3", size="8192", time="100.0"), 1, "")
-    first = base_text.replace('BITRATE="320"', 'BITRATE="128"')
-    second = base_text.replace('BITRATE="320"', 'BITRATE="064"')
+    first = base_text.replace(*_diverged("128"))
+    second = base_text.replace(*_diverged("064"))
     result = assemble_output(
         base_text, parse_xml_bytes(base_text.encode("utf-8")),
         [_parsed(first), _parsed(second)], MatchConfidence.STRICT,
@@ -455,11 +499,10 @@ def test_a_three_answer_group_carries_the_agreeing_tracked_attributes() -> None:
 
     row = result.conflict_rows[0]
     assert len(row.candidates) == 3
-    assert row.attrs == "bitrate"
+    assert row.attrs == "album,bitrate"
     assert row.agreed == (
         ("artist", "A"),
         ("title", "One"),
-        ("album", ""),
         ("filesize", "8192"),
         ("playtime_float", "100.0"),
     )
@@ -500,14 +543,13 @@ def test_the_conflict_report_and_the_printed_line_are_unmoved_by_agreed(tmp_path
     Mutation: `",".join(divergent_attrs)` in _metadata_conflict_row was
     changed to `",".join(divergent_attrs + [a for a, _ in _agreed(members, divergent_attrs)])`
     and this guard rerun. Observed:
-        assert ['identity_ke...",keep-first'] ==
-        ['identity_ke...e,keep-first']
-          At index 1 diff:
-          'C:/:Music/:one.mp3,"bitrate,artist,title,album,filesize,playtime_float",keep-first'
-          != 'C:/:Music/:one.mp3,bitrate,keep-first'
+        assert ['identity_ke...",keep-first'] == ['identity_ke...",keep-first']
+
+          At index 1 diff: 'C:/:Music/:one.mp3,"album,bitrate,artist,title,filesize,playtime_float",keep-first' != 'C:/:Music/:one.mp3,"album,bitrate",keep-first'
+          Use -v to get more diff
     """
     base_text = _nml(_entry("A", "One", "one.mp3", size="8192", time="100.0"), 1, "")
-    source_text = base_text.replace('BITRATE="320"', 'BITRATE="128"')
+    source_text = base_text.replace(*_diverged("128"))
     base_path = tmp_path / "base.nml"
     base_path.write_text(base_text, encoding="utf-8", newline="")
     other_path = tmp_path / "other.nml"
@@ -531,10 +573,10 @@ def test_the_conflict_report_and_the_printed_line_are_unmoved_by_agreed(tmp_path
     assert result.exit_code == 0
     assert csv_path.read_text(encoding="utf-8", newline="").splitlines() == [
         "identity_key,attrs,resolution",
-        "C:" + "/:Music/:" + "one.mp3,bitrate,keep-first",
+        "C:" + "/:Music/:" + 'one.mp3,"album,bitrate",keep-first',
     ]
     assert (
-        "conflict_key=C:" + "/:Music/:" + "one.mp3 attrs=bitrate resolution=keep-first"
+        "conflict_key=C:" + "/:Music/:" + "one.mp3 attrs=album,bitrate resolution=keep-first"
     ) in result.stdout.splitlines()
 
 
@@ -555,7 +597,7 @@ def test_a_duplicate_playlist_name_row_and_an_ambiguous_redirect_row_keep_their_
         _playlist("MySet", [], "uuid-base") + _playlist("MySet", [track_key], "uuid-base2"),
     )
     duplicate_source = _nml(
-        entries.replace('BITRATE="320"', 'BITRATE="128"'), 1,
+        entries.replace(*_diverged("128")), 1,
         _playlist("MySet", [track_key], "uuid-prev"),
     )
     duplicate_result = _resolved(duplicate_base, duplicate_source, 1, reconstruct=True)
@@ -565,7 +607,7 @@ def test_a_duplicate_playlist_name_row_and_an_ambiguous_redirect_row_keep_their_
 
     a1 = _entry("A", "Song", "a1.mp3", time="100.0")
     a2 = _entry("A", "Song", "a2.mp3", time="100.0")
-    a3 = _entry("A", "Song", "a3.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"')
+    a3 = _entry("A", "Song", "a3.mp3", time="100.0").replace(*_diverged("128"))
     other = _entry("B", "Other", "other.mp3")
     redirect_base = _nml(
         a1 + a2 + other, 3, _playlist("MySet", ["C:" + "/:Music/:" + "a1.mp3"], "uuid-base")
@@ -677,7 +719,7 @@ def _base_less_pair() -> tuple:
     base_text = _nml(_entry("Z", "Other", "other.mp3"), 1, "")
     first = _nml(_entry("A", "Song", "one.mp3", time="100.0"), 1, "")
     second = _nml(
-        _entry("A", "Song", "two.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'),
+        _entry("A", "Song", "two.mp3", time="100.0").replace(*_diverged("128")),
         1, "",
     )
     return base_text, [first, second]
@@ -746,7 +788,7 @@ def test_a_multi_base_group_under_a_non_base_pick_keeps_every_key_ambiguous() ->
     """
     a1 = _entry("A", "Song", "a1.mp3", time="100.0")
     a2 = _entry("A", "Song", "a2.mp3", time="100.0")
-    a3 = _entry("A", "Song", "a3.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"')
+    a3 = _entry("A", "Song", "a3.mp3", time="100.0").replace(*_diverged("128"))
     base_text = _nml(a1 + a2, 2, "")
     source_text = _nml(a3, 1, "")
     row = _reported(
@@ -801,8 +843,8 @@ def test_a_mixed_run_resolves_the_named_group_and_aborts_on_the_unnamed_one() ->
         _entry("A", "One", "one.mp3", time="100.0") + _entry("B", "Two", "two.mp3", time="200.0"), 2, ""
     )
     source_text = _nml(
-        _entry("A", "One", "one.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"')
-        + _entry("B", "Two", "two.mp3", time="200.0").replace('BITRATE="320"', 'BITRATE="192"'),
+        _entry("A", "One", "one.mp3", time="100.0").replace(*_diverged("128"))
+        + _entry("B", "Two", "two.mp3", time="200.0").replace(*_diverged("192")),
         2, "",
     )
     base_root = parse_xml_bytes(base_text.encode("utf-8"))
@@ -850,7 +892,7 @@ def _two_source_divergence() -> tuple:
     base_text = _nml(_entry("Z", "Other", "other.mp3", time="9.0"), 1, "")
     first = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
     second = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""
+        _entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")), 1, ""
     )
     return base_text, parse_xml_bytes(base_text.encode("utf-8")), first, second
 
@@ -893,7 +935,7 @@ def test_an_enlarged_group_carries_a_different_identity_key() -> None:
     """
     base_text, base_root, first, second = _two_source_divergence()
     third = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="192"'), 1, ""
+        _entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("192")), 1, ""
     )
 
     small = assemble_output(
@@ -1288,11 +1330,13 @@ def _assembled(base_text: str, source_text: str):
 
 
 def _bitrate_pair() -> tuple:
-    """base and one source text holding the same track, diverging on BITRATE
-    alone - the smallest input reaching a source pick over a track base owns."""
+    """base and one source text holding the same track, diverging on ALBUM
+    and BITRATE - the smallest input reaching a source pick over a track base
+    owns. ALBUM is the divergence the conflict is raised for and BITRATE is
+    the measured name that rides along in attrs (DL-325, DL-327)."""
     base_text = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
     source_text = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""
+        _entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")), 1, ""
     )
     return base_text, source_text
 
@@ -1384,12 +1428,16 @@ def test_a_source_pick_of_an_empty_value_keeps_the_carrier_and_its_siblings() ->
     """
     base_text = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
     source_text = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE=""'), 1, ""
+        _entry("A", "Song", "track.mp3", time="100.0")
+        .replace('BITRATE="320"', 'BITRATE=""')
+        .replace(*_DIVERGED_ARTIST),
+        1, "",
     )
     result = _resolved(base_text, source_text, 1)
     assert result.output is not None
     assert _child_tags(result.output, "track.mp3") == ["LOCATION", "INFO"]
     assert 'BITRATE=""' in result.output
+    assert 'ARTIST="A2"' in result.output
     assert 'PLAYTIME_FLOAT="100.0"' in result.output
     assert 'FILESIZE="16"' in result.output
 
@@ -1412,11 +1460,17 @@ def test_a_crlf_base_file_keeps_its_line_endings_through_a_patch() -> None:
 
     substituted = _resolved(
         base_text,
-        _nml(_entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""),
+        _nml(
+            _entry("A", "Song", "track.mp3", time="100.0")
+            .replace('BITRATE="320"', 'BITRATE="128"')
+            .replace(*_DIVERGED_ARTIST),
+            1, "",
+        ),
         1,
     )
     assert substituted.output is not None
     assert 'BITRATE="128"' in substituted.output
+    assert 'ARTIST="A2"' in substituted.output
     assert substituted.output.count("\r\n") == base_text.count("\r\n")
     assert substituted.output.count("\n") - substituted.output.count("\r\n") == 0
 
@@ -1460,7 +1514,7 @@ def test_a_base_less_group_still_transplants_under_keep_first_and_keep_last() ->
     base_text = _nml(_entry("Z", "Base", "base.mp3"), 1, "")
     first = _nml(_entry("A", "Song", "track.mp3", time="100.0"), 1, "")
     second = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"'), 1, ""
+        _entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")), 1, ""
     )
     for policy, bitrate in (("keep-first", "320"), ("keep-last", "128")):
         result = assemble_output(
@@ -1568,7 +1622,7 @@ def test_a_duplicate_playlist_name_abort_discards_the_source_picks_patch() -> No
         entries, 1, _playlist("MySet", [], "uuid-base") + _playlist("MySet", [track_key], "uuid-base2")
     )
     source_text = _nml(
-        entries.replace('BITRATE="320"', 'BITRATE="128"'), 1, _playlist("MySet", [track_key], "uuid-prev")
+        entries.replace(*_diverged("128")), 1, _playlist("MySet", [track_key], "uuid-prev")
     )
     result = _resolved(base_text, source_text, 1, reconstruct=True)
     assert result.output is None
@@ -1589,7 +1643,7 @@ def test_a_source_pick_on_two_base_records_patches_the_first_only() -> None:
     """
     a1 = _entry("A", "Song", "a1.mp3", time="100.0")
     a2 = _entry("A", "Song", "a2.mp3", time="100.0")
-    a3 = _entry("A", "Song", "a3.mp3", time="100.0").replace('BITRATE="320"', 'BITRATE="128"')
+    a3 = _entry("A", "Song", "a3.mp3", time="100.0").replace(*_diverged("128"))
     other = _entry("B", "Other", "other.mp3")
     # The incoming playlist holds a track base's does not, so its redirected
     # key sequence differs from base's and the run reaches the rebuild rather
@@ -1712,9 +1766,7 @@ def test_every_emitted_playlist_key_names_an_emitted_collection_entry() -> None:
         _playlist("MySet", [track_key], "uuid-base"),
     )
     source_text = _nml(
-        _entry("A", "Song", "track.mp3", time="100.0").replace(
-            'BITRATE="320"', 'BITRATE="128"'
-        ),
+        _entry("A", "Song", "track.mp3", time="100.0").replace(*_diverged("128")),
         1,
         _playlist("MySet", [track_key], "uuid-prev"),
     )
@@ -2128,6 +2180,394 @@ def test_a_dropped_entry_reports_every_key_that_left_with_it(tmp_path: Path) -> 
     surviving = _pkeys(_ET_tostring(playlist))
     assert surviving == [_key("two")]
     assert playlist.attrib["ENTRIES"] == "1"
+
+
+# ---------------------------------------------------------------- the tier
+#
+# What a divergence is put to the operator for, and what the run answers
+# itself. Each guard below records the mutation applied to make it fail
+# and the verbatim output observed under that mutation. This file is LF.
+#
+# One guard per behaviour on each side of the tier: a measured-only
+# divergence settling, an editorial divergence standing as an unresolved
+# conflict, and a mixed divergence doing exactly one of the two. Every
+# guard asserting conflict behaviour builds its fixture from an editorial
+# divergence, because an editorial divergence is what a conflict is
+# raised for; a guard asserting that a measured value travels with the
+# winning record reads the settled row, which is where a measured-only
+# divergence is reported (DL-325, DL-327).
+#
+# Every winner assertion reads the (input index, primary key) pair rather
+# than the key alone: both members of a settled group describe the one
+# LOCATION and carry the identical primary key, so a guard reading the key
+# alone is green whichever record won (DL-148, DL-189).
+
+_TIER_KEY = "C:" + "/:Music/:Sets/:Deep/:" + "one.mp3"
+
+# One record's tracked values, which a fixture below moves one name of at a
+# time. The numbers are the user's own collection pair's shape: an 8 MB
+# file, a 100-second track and a 320 kbps encode as Traktor records them.
+_TIER_VALUES = {
+    "artist": "A",
+    "title": "One",
+    "album": "Alb",
+    "filesize": "8192",
+    "playtime_float": "100.0",
+    "bitrate": "320000",
+}
+
+
+def _tier_entry(values: dict) -> str:
+    """One ENTRY carrying every tracked attribute as a caller-set value,
+    three folders deep so the path_suffix_3 tier strict admits groups two of
+    them whatever they disagree on - including a pair disagreeing on ARTIST
+    and FILESIZE at once, which no other strict tier would group."""
+    return _deep_entry(
+        values["artist"],
+        values["title"],
+        values["album"],
+        values["filesize"],
+        values["playtime_float"],
+        values["bitrate"],
+    )
+
+
+def _tier_copies(divergence: dict, count: int = 2, **constants) -> list:
+    """count collection texts for the one LOCATION, the record in copy i
+    carrying divergence[attr][i] for each name divergence holds and
+    _TIER_VALUES[attr] for every other name.
+
+    The divergence is stated as a mapping of attribute name to the values
+    the copies hold for it, which is how the tier reads it, rather than by
+    editing XML. constants override _TIER_VALUES for every copy alike, which
+    is how a second track in one run is made a second identity group rather
+    than a fourth member of the first: two records agreeing on artist, title,
+    filesize and playtime share the artist_title_size_time key whatever their
+    file names are."""
+    texts = []
+    for i in range(count):
+        values = dict(_TIER_VALUES, **constants)
+        for attr, side_values in divergence.items():
+            values[attr] = side_values[i]
+        texts.append(_nml(_tier_entry(values), 1, ""))
+    return texts
+
+
+def _tier_pair(divergence: dict) -> tuple:
+    """base, base's parsed root and one contribution, the two describing the
+    one LOCATION and differing exactly on the names divergence holds."""
+    base_text, source_text = _tier_copies(divergence)
+    return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(source_text)]
+
+
+def _tier_two_groups(editorial: dict, measured: dict) -> tuple:
+    """base and one contribution holding two tracks: one group diverging on
+    the editorial names given and one on the measured names given, so a run
+    reports a conflict and a settled row at once.
+
+    The second track is the same deep folder under another file name and
+    another TITLE, so path_suffix_3 groups its two copies the way it groups
+    the first's while no tier joins the two groups."""
+    first_base, first_source = _tier_copies(editorial)
+    second_base, second_source = (
+        text.replace('FILE="one.mp3"', 'FILE="two.mp3"')
+        for text in _tier_copies(measured, title="Two")
+    )
+    base_text = _nml(_entries_of(first_base) + _entries_of(second_base), 2, "")
+    source_text = _nml(_entries_of(first_source) + _entries_of(second_source), 2, "")
+    return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(source_text)]
+
+
+def _entries_of(nml_text: str) -> str:
+    """The ENTRY elements a one-track collection text holds, so two of these
+    texts compose one two-track collection without a second wrapper."""
+    collection = _collection_of(nml_text)
+    return collection[collection.index(">") + 1:]
+
+
+def _tier_base_less(divergence: dict) -> tuple:
+    """base holding an unrelated track and two sources holding the one deep
+    LOCATION, differing on the names divergence holds.
+
+    The group holds no base record, so the run-wide picker names the
+    survivor. keep-last is passed by the guard that uses this, which makes
+    the winner input 2 while the group's first member is input 1 - so a
+    reading that took the first member rather than the winner cannot pass
+    (DL-189)."""
+    base_text = _nml(_entry("Z", "Other", "other.mp3", time="9.0"), 1, "")
+    first, second = _tier_copies(divergence)
+    return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(first), _parsed(second)]
+
+
+def test_a_measured_only_divergence_settles_and_reports_a_settled_row() -> None:
+    """A base-and-source pair differing only in BITRATE assembles output
+    with no conflict row, no unresolved abort, and one settled row naming
+    the record the output keeps (DL-325, DL-328).
+
+    Mutation: `settled_by_rule = bool(divergent_attrs) and not
+    editorial_attrs` in _resolve_conflicts replaced by `settled_by_rule =
+    False`, so the group took the conflict branch.
+    Observed:
+        AssertionError: assert [ConflictRow(...', '100.0')))] == []
+
+          Left contains one more item: ConflictRow(identity_key='C:/:Music/:Sets/:Deep/:one.mp3', attrs='bitrate', resolution=None, member_keys=frozenset({'C...),))), agreed=(('artist', 'A'), ('title', 'One'), ('album', 'Alb'), ('filesize', '8192'), ('playtime_float', '100.0')))
+          Use -v to get more diff
+    """
+    result = assemble_output(
+        *_tier_pair({"bitrate": ("320000", "1411000")}), MatchConfidence.STRICT
+    )
+    assert result.conflict_rows == []
+    assert result.errors == []
+    assert result.output is not None
+    (settled,) = result.settled_rows
+    assert settled.identity_key == _TIER_KEY
+    assert settled.attrs == ("bitrate",)
+    assert settled.values_by_attr == (("bitrate", ("320000", "1411000")),)
+    # The pair, not the key: both members describe the one LOCATION, so
+    # the key equals identity_key and the input index is the half that
+    # says which record won (DL-148).
+    assert settled.winner == (0, _TIER_KEY)
+    assert result.stats["groups_settled_by_rule"] == 1
+    assert result.stats["conflicts_reported"] == 0
+
+
+def test_an_editorial_divergence_is_still_put_to_the_operator() -> None:
+    """A pair differing in ARTIST aborts an unresolved run exactly as it
+    does today, and reports no settled row: the rule answered nothing for
+    it.
+
+    Mutation: the two halves of split_by_tier's result unpacked the other
+    way round in _resolve_conflicts, so an ARTIST divergence read as a
+    measured one and settled.
+    Observed:
+        assert '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD... TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' is None
+         +  where '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD... TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' = SpliceResult(output='<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor...t',), values_by_attr=(('artist', ('A', 'B')),), winner=(0, 'C:/:Music/:Sets/:Deep/:one.mp3'), outliers=())], errors=[]).output
+    """
+    result = assemble_output(*_tier_pair({"artist": ("A", "B")}), MatchConfidence.STRICT)
+    assert result.output is None
+    assert result.errors == ["unresolved_conflicts"]
+    assert result.settled_rows == []
+    (row,) = result.conflict_rows
+    assert row.attrs == "artist"
+    assert result.stats["groups_settled_by_rule"] == 0
+
+
+def test_a_mixed_divergence_is_one_conflict_row_and_no_settled_row() -> None:
+    """A group diverging on ARTIST and BITRATE reports one conflict row
+    whose attrs reads artist, bitrate - every divergent name, so its CSV
+    row and its resolve rail stand as they stand - and contributes no
+    settled row, so its measured divergence is never reported twice
+    (DL-329).
+
+    Mutation: `if settled_by_rule:` in _resolve_conflicts relaxed to `if
+    measured_attrs:`, so a group carrying any measured divergence reported a
+    settled row.
+    Observed:
+        AssertionError: assert [SettledRow(i...890148831),))] == []
+
+          Left contains one more item: SettledRow(identity_key='C:/:Music/:Sets/:Deep/:one.mp3', attrs=('bitrate',), values_by_attr=(('bitrate', ('320000', '.../:one.mp3'), outliers=(OutlierReading(attr='bitrate', low='320000', high='1411000', relative_gap=0.7732104890148831),))
+          Use -v to get more diff
+    """
+    # keep-first so the run reaches the reporting branches rather than the
+    # unresolved abort, which reports its row and moves on before the tier
+    # divides anything.
+    result = assemble_output(
+        *_tier_pair({"artist": ("A", "B"), "bitrate": ("320000", "1411000")}),
+        MatchConfidence.STRICT,
+        "keep-first",
+    )
+    assert result.output is not None
+    assert result.settled_rows == []
+    (row,) = result.conflict_rows
+    assert row.attrs == "artist,bitrate"
+    assert row.resolution == "keep-first"
+    assert result.stats["groups_settled_by_rule"] == 0
+    assert result.stats["settled_groups_outlying"] == 0
+
+
+def test_the_wide_filesize_pair_reads_as_an_outlier_and_the_drift_does_not() -> None:
+    """17564 against 69203 is the .stem.m4a described twice and is worth
+    reading; 8123 against 8124 is the 1 KB drift the pair is full of and
+    is not (DL-330).
+
+    Mutation: OUTLIER_BAND = 0.0 in metadata_tier.
+    Observed:
+        AssertionError: assert True is False
+         +  where True = SettledRow(identity_key='C:/:Music/:Sets/:Deep/:one.mp3', attrs=('filesize',), values_by_attr=(('filesize', ('8123', '.../:one.mp3'), outliers=(OutlierReading(attr='filesize', low='8123', high='8124', relative_gap=0.00012309207287050715),)).is_outlier
+    """
+    wide = assemble_output(
+        *_tier_pair({"filesize": ("17564", "69203")}), MatchConfidence.STRICT
+    )
+    drift = assemble_output(
+        *_tier_pair({"filesize": ("8123", "8124")}), MatchConfidence.STRICT
+    )
+    assert wide.settled_rows[0].is_outlier is True
+    assert drift.settled_rows[0].is_outlier is False
+    assert wide.stats["settled_groups_outlying"] == 1
+    assert drift.stats["settled_groups_outlying"] == 0
+    (reading,) = wide.settled_rows[0].outliers
+    assert (reading.attr, reading.low, reading.high) == ("filesize", "17564", "69203")
+
+
+def test_a_settled_row_stands_on_a_run_that_aborts() -> None:
+    """The rule answered those groups whatever the run's outcome, so a
+    reader asking what was decided for the operator reads it off an
+    aborted run too (DL-329).
+
+    Mutation: settled_rows left off the early
+    SpliceResult(output=None, ..., errors=["unresolved_conflicts"]) return.
+    Observed:
+        AssertionError: assert 0 == 1
+         +  where 0 = len([])
+         +    where [] = SpliceResult(output=None, stats={'inputs_merged': 1, 'identity_groups': 2, 'conflicts_reported': 1, 'groups_settled_by...ize', '8192'), ('playtime_float', '100.0'), ('bitrate', '320000')))], settled_rows=[], errors=['unresolved_conflicts']).settled_rows
+    """
+    result = assemble_output(
+        *_tier_two_groups(
+            editorial={"artist": ("A", "B")}, measured={"bitrate": ("320000", "1411000")}
+        ),
+        MatchConfidence.STRICT,
+    )
+    assert result.output is None
+    assert result.errors == ["unresolved_conflicts"]
+    assert len(result.conflict_rows) == 1
+    assert len(result.settled_rows) == 1
+    assert result.stats["groups_settled_by_rule"] == 1
+
+
+def test_a_group_with_no_base_member_carries_the_winners_measured_values() -> None:
+    """Where the group holds no base record the run-wide picker's winner is
+    transplanted and its measured values travel with it, so the written file
+    does not keep a number no record holds (DL-328).
+
+    The pair is what the assertion reads: the two sources describe the one
+    LOCATION and carry the one primary key, so a guard reading the key alone
+    passes whichever of them was picked and this one would be green in the
+    broken state (DL-148, DL-189).
+
+    Mutation: _settled_row handed the group's first member in place
+    of the winner (`*members[0]`).
+    Observed:
+        AssertionError: assert (1, 'C:/:Musi...eep/:one.mp3') == (2, 'C:/:Musi...eep/:one.mp3')
+
+          At index 0 diff: 1 != 2
+          Use -v to get more diff
+    """
+    result = assemble_output(
+        *_tier_base_less({"filesize": ("17564", "69203")}),
+        MatchConfidence.STRICT,
+        "keep-last",
+    )
+    assert result.output is not None
+    (settled,) = result.settled_rows
+    assert settled.winner == (2, _TIER_KEY)
+    # keep-last named input 2, and input 2's own FILESIZE is the one the
+    # transplanted ENTRY span carries.
+    assert 'FILESIZE="69203"' in _collection_of(result.output)
+    assert 'FILESIZE="17564"' not in _collection_of(result.output)
+
+
+def test_a_resolution_naming_a_settled_groups_record_is_inert() -> None:
+    """A settled group is named by no resolution, so a mapping entry naming
+    one of its records changes nothing: the group is settled by rule either
+    way and no entry patch is collected for it (DL-105, DL-153, DL-328).
+
+    Mutation: the resolutions lookup left reading `if divergent_attrs`
+    in place of `if editorial_attrs`, so a pair naming a settled group's
+    source record patched base's entry.
+    Observed:
+        assert '<?xml versio...DEXING></NML>' == '<?xml versio...DEXING></NML>'
+
+          Skipping 305 identical leading characters in diff, use -v to show
+          -  BITRATE="320000" PLAYTIME_FLOAT="100.0" FILESIZE="8192"></INFO></ENTRY></COLLECTION><PLAYLISTS><NODE TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>
+          ?           ^^^^^^^
+          +  BITRATE="1411000" PLAYTIME_FLOAT="100.0" FILESIZE="8192"></INFO></ENTRY></COLLECTION><PLAYLISTS><NODE TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>
+          ?           ^^^^^^^^
+    """
+    inputs = _tier_pair({"bitrate": ("320000", "1411000")})
+    plain = assemble_output(*inputs, MatchConfidence.STRICT)
+    named = assemble_output(
+        *inputs, MatchConfidence.STRICT, resolutions={_TIER_KEY: (1, _TIER_KEY)}
+    )
+    assert plain.output is not None
+    assert named.output == plain.output
+    assert named.settled_rows == plain.settled_rows
+    assert named.conflict_rows == []
+
+
+def test_resolved_conflicts_carries_settled_rows_by_name() -> None:
+    """_resolve_conflicts returns the settled rows as a named attribute
+    beside entry_patches, so the five values a positional caller unpacks
+    stay the five it unpacks and assemble_output reads an attribute that
+    exists (DL-100's precedent, DL-104).
+
+    Mutation: `self.settled_rows = settled_rows` in
+    ResolvedConflicts.__new__ replaced by `self.settled_rows = []`.
+    Observed:
+        ValueError: not enough values to unpack (expected 1, got 0)
+    """
+    base_text, source_text = _tier_copies({"bitrate": ("320000", "1411000")})
+    resolved = _resolved_groups(base_text, [source_text])
+    old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys = resolved
+    assert conflict_rows == []
+    assert unresolved is False
+    (settled,) = resolved.settled_rows
+    assert settled.identity_key == _TIER_KEY
+    assert resolved.entry_patches == []
+
+
+def test_tracked_attrs_is_metadata_tiers_tuple() -> None:
+    """splice holds no second tuple of the six names: answer_detail's
+    import of _TRACKED_ATTRS and every test reading it reach the one
+    definition the tier is decided on (DL-326).
+
+    Mutation: _TRACKED_ATTRS spelled out in splice.py again as its
+    own six-name tuple instead of metadata_tier.TRACKED_ATTRS.
+    Observed:
+        AssertionError: assert ('artist', 'title', 'album', 'filesize', 'playtime_float', 'bitrate') is ('artist', 'title', 'album', 'filesize', 'playtime_float', 'bitrate')
+         +  where ('artist', 'title', 'album', 'filesize', 'playtime_float', 'bitrate') = <module 'traktor_nml.metadata_tier' from 'C:\\codex\\traktor-nml-tool\\traktor_nml\\metadata_tier.py'>.TRACKED_ATTRS
+    """
+    from traktor_nml import metadata_tier
+
+    assert _TRACKED_ATTRS is metadata_tier.TRACKED_ATTRS
+
+
+def test_the_conflict_csv_and_the_printed_line_stand_for_a_remaining_conflict(
+    tmp_path: Path,
+) -> None:
+    """The three fieldnames and the printed conflict line are what a
+    caller of this command already parses, so a group that is still a
+    conflict reports exactly what it reported before the tier existed.
+
+    Mutation: a fourth "settled" fieldname added to splice_cmd's
+    conflict-report DictWriter.
+    Observed:
+        AssertionError: assert ['identity_ke...,keep-first,'] == ['identity_ke...t,keep-first']
+
+          At index 0 diff: 'identity_key,attrs,resolution,settled' != 'identity_key,attrs,resolution'
+          Use -v to get more diff
+    """
+    base_text, source_text = _tier_copies({"artist": ("A", "B")})
+    base_path = tmp_path / "base.nml"
+    base_path.write_text(base_text, encoding="utf-8", newline="")
+    other_path = tmp_path / "other.nml"
+    other_path.write_text(source_text, encoding="utf-8", newline="")
+    csv_path = tmp_path / "conflicts.csv"
+
+    result = run_tool(
+        ["splice", str(base_path), str(tmp_path / "out.nml"), "--input", str(other_path),
+         "--on-conflict", "keep-first", "--conflict-report", str(csv_path)],
+        cwd=tmp_path,
+    )
+
+    assert result.exit_code == 0
+    assert csv_path.read_text(encoding="utf-8", newline="").splitlines() == [
+        "identity_key,attrs,resolution",
+        _TIER_KEY + ",artist,keep-first",
+    ]
+    assert (
+        "conflict_key=%s attrs=artist resolution=keep-first" % _TIER_KEY
+    ) in result.stdout.splitlines()
+
 
 
 def _ET_tostring(element) -> str:

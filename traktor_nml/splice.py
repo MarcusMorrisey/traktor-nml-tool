@@ -33,6 +33,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Optional
 
+from . import metadata_tier
 from .confidence import MatchConfidence
 from .matching import record_keys
 from .model import EntryRecord, collection_entries, collection_records
@@ -49,7 +50,12 @@ from .spans import OutputBuilder, SpanIndex, find_element_span
 from .textpatch import patch_entry_attributes
 from .xmlio import ET, parse_xml_bytes
 
-_TRACKED_ATTRS = ("artist", "title", "album", "filesize", "playtime_float", "bitrate")
+# Imported rather than held here: metadata_tier is the one definition of
+# the six names and of which of them carry an operator judgement, and a
+# second tuple beside it would drift from the partition the tier is
+# decided on (DL-326). The name keeps its underscore so answer_detail's
+# import of it, and every test reading it, stand unchanged.
+_TRACKED_ATTRS = metadata_tier.TRACKED_ATTRS
 
 # The assembled output is scanned for these rather than parsed: the audit
 # below reads the text the run is about to return, and a second lxml parse
@@ -114,15 +120,71 @@ class ConflictRow:
     agreed: tuple[tuple[str, str], ...] = ()
 
 
+@dataclass(frozen=True)
+class SettledRow:
+    """One group the tier answered without asking the operator.
+
+    identity_key names the group the way group_identity_key does, so a
+    settled row and a conflict row name a group by the one rule.
+    attrs holds the measured attribute names the group diverged on, in
+    metadata_tier.TRACKED_ATTRS order; values_by_attr holds the values
+    each of those attributes took across the members, so a reader can
+    say what the two numbers were without a second look at the records.
+    winner is the (input index, primary key) pair naming the record whose
+    values the output carries - the shape _candidates already names a
+    contributor by and conflict_model calls a CandidateRef. The pair
+    rather than the key alone because base and a source describing the
+    one LOCATION carry the identical primary key, the commonest settled
+    shape there is, so a key standing alone equals identity_key and says
+    which record won of neither. DL-148 asks a settled group to name the
+    record, never a base-or-source token, and the index is the half that
+    names it.
+    outliers holds the readings metadata_tier.outlier_attrs answers for
+    this group - empty for the ordinary 2 KB drift.
+
+    A row, not a sentence. splice reports what the run found and a
+    reader divides and words it, which is why no count and no plural
+    stands here (DL-215, DL-331).
+    """
+
+    identity_key: str
+    attrs: tuple[str, ...]
+    values_by_attr: tuple[tuple[str, tuple[str, ...]], ...]
+    winner: tuple[int, str]
+    outliers: tuple[metadata_tier.OutlierReading, ...] = ()
+
+    @property
+    def is_outlier(self) -> bool:
+        """Whether any of this group's measured attributes reads past the
+        band, which is what a caller divides the run's settled rows on to
+        get its listing. Read off the readings the row already carries,
+        so a count of outlying groups and the rows drawn for them are the
+        one set (DL-330, DL-331)."""
+        return bool(self.outliers)
+
+
 @dataclass
 class SpliceResult:
     """output is None exactly when errors is non-empty - an abort with
     nothing written (extending DL-012's validate-before-write invariant
     to a multi-input merge); conflict_rows is populated on every run
-    regardless of outcome, even a clean one (DL-008)."""
+    regardless of outcome, even a clean one (DL-008).
+
+    conflict_rows are the groups the run puts to the operator;
+    settled_rows are the groups the tier answered for them. The two
+    lists are disjoint, and stats carries a count read off each of them,
+    so a surface naming how many decisions remain and how many were made
+    for the operator reads both numbers off this one record (DL-215,
+    DL-329, DL-331)."""
     output: Optional[str]
     stats: dict[str, object]
     conflict_rows: list[ConflictRow] = field(default_factory=list)
+    # Populated on every run regardless of outcome, a clean one and an
+    # abort included, for the reason DL-008 populates conflict_rows that
+    # way: the groups the rule answered are part of what the run did,
+    # and a reader asking what was decided for the operator must not
+    # have to infer it from a count that is missing (DL-329).
+    settled_rows: list[SettledRow] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
 
@@ -192,7 +254,8 @@ def group_identity_key(members: list[tuple[int, EntryRecord]]) -> str:
 class ResolvedConflicts(tuple):
     """_resolve_conflicts' result: the five values (old_to_new_key,
     conflict_rows, unresolved, new_entries, ambiguous_keys) a caller unpacks
-    positionally, carrying entry_patches as a named attribute.
+    positionally, carrying entry_patches and settled_rows as named
+    attributes.
 
     entry_patches is reached by name rather than as a sixth positional
     element, so every caller that unpacks the five reads the five it reads
@@ -206,11 +269,17 @@ class ResolvedConflicts(tuple):
         new_entries: list[tuple[int, EntryRecord]],
         ambiguous_keys: set[str],
         entry_patches: list[tuple[EntryRecord, dict[str, str]]],
+        settled_rows: list["SettledRow"],
     ) -> "ResolvedConflicts":
         self = super().__new__(
             cls, (old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys)
         )
         self.entry_patches = entry_patches
+        # Named beside entry_patches rather than a sixth positional
+        # element, for the reason entry_patches is: every caller that
+        # unpacks the five reads the five it reads (DL-100's precedent,
+        # DL-104).
+        self.settled_rows = settled_rows
         return self
 
 
@@ -277,6 +346,34 @@ def _metadata_conflict_row(
     )
 
 
+def _settled_row(
+    identity_key: str,
+    measured_attrs: tuple[str, ...],
+    members: list[tuple[int, EntryRecord]],
+    winner_idx: int,
+    winner: EntryRecord,
+) -> SettledRow:
+    """The row one tier-settled group reports, read off the members
+    already grouped in the same pass _candidates and _agreed read them,
+    with no second walk over the records.
+
+    winner_idx travels beside winner because the record alone cannot say
+    which collection it was read from, and its primary key is the key
+    every other member of the group carries: the pair is what names it
+    (DL-148, DL-150)."""
+    values_by_attr = tuple(
+        (attr, tuple(dict.fromkeys(str(getattr(r, attr)) for _, r in members)))
+        for attr in measured_attrs
+    )
+    return SettledRow(
+        identity_key,
+        tuple(measured_attrs),
+        values_by_attr,
+        (winner_idx, winner.primary_key),
+        outliers=metadata_tier.outlier_attrs(dict(values_by_attr)),
+    )
+
+
 def _resolve_conflicts(
     groups: dict[int, list[tuple[int, EntryRecord]]],
     on_conflict: Optional[str],
@@ -319,9 +416,23 @@ def _resolve_conflicts(
     base_members[0]. Where the group holds no base record the pair names the
     winner appended to new_entries, so there and only there a pick moves the
     redirect target (DL-151, DL-152).
+
+    Each group's divergence is divided by tier before anything is asked
+    of the operator: a group carrying an editorial divergence is a
+    conflict and is reported as a ConflictRow over every divergent
+    attribute, while a group whose divergence is measured-only is
+    answered by the rule and reported as a SettledRow. No group appears
+    on both lists, so a reader counting what was put to the operator and
+    what was decided for them counts each group once (DL-325, DL-327,
+    DL-329).
+
+    A settled group takes no resolution and cannot abort the run: the
+    unresolved abort DL-105 states is reached by an editorial divergence
+    with neither a named resolution nor a run-wide on_conflict (DL-328).
     """
     old_to_new_key: dict[str, str] = {}
     conflict_rows: list[ConflictRow] = []
+    settled_rows: list[SettledRow] = []
     new_entries: list[tuple[int, EntryRecord]] = []
     entry_patches: list[tuple[EntryRecord, dict[str, str]]] = []
     ambiguous_keys: set[str] = set()
@@ -340,11 +451,27 @@ def _resolve_conflicts(
         divergent_attrs = [
             attr for attr in _TRACKED_ATTRS if len({getattr(r, attr) for _, r in members}) > 1
         ]
+        # The divergence is divided before anything is asked of the
+        # operator. editorial_attrs is what a person can answer for;
+        # measured_attrs is what Traktor measured twice off the one
+        # LOCATION, which no operator judgement settles (DL-325).
+        #
+        # A group carrying at least one editorial name is a conflict
+        # exactly as before and carries EVERY divergent attribute in
+        # attrs - the measured names included - so its CSV row, its
+        # candidates and its resolve rail stand as they stand, and its
+        # measured divergence is never reported twice (DL-329).
+        editorial_attrs, measured_attrs = metadata_tier.split_by_tier(divergent_attrs)
+        settled_by_rule = bool(divergent_attrs) and not editorial_attrs
         # A key naming no group is absent from this lookup, so an unmatched
         # entry is inert rather than an error (DL-105), and a pair naming no
         # member of the group it does name is inert the same way (DL-153):
         # picked stays None and the group falls through below.
-        pair = resolutions.get(identity_key) if divergent_attrs else None
+        #
+        # A settled group takes no resolution: there is nothing to name,
+        # and a mapping entry naming one is inert here the way a key
+        # naming no group is (DL-105, DL-153).
+        pair = resolutions.get(identity_key) if editorial_attrs else None
         picked = next(
             (
                 (idx, record)
@@ -356,7 +483,11 @@ def _resolve_conflicts(
         # The label the row and the CSV report carry for a settled group is
         # the pair itself, as "input index:primary key".
         resolution = None if picked is None else "%d:%s" % (picked[0], picked[1].primary_key)
-        if divergent_attrs and resolution is None and on_conflict is None:
+        # Only an editorial divergence can abort. A measured-only one is
+        # answered by the rule, so the run assembles where every group
+        # the operator was never asked about is the only divergence
+        # (DL-325, DL-328).
+        if editorial_attrs and resolution is None and on_conflict is None:
             unresolved = True
             conflict_rows.append(
                 _metadata_conflict_row(identity_key, divergent_attrs, members, "unresolved")
@@ -404,7 +535,18 @@ def _resolve_conflicts(
             if record is not winner:
                 old_to_new_key[record.primary_key] = winner.primary_key
 
-        if divergent_attrs:
+        if settled_by_rule:
+            # The record whose measured values the output carries, named
+            # by the (input index, primary key) pair the branches above
+            # already bound: base's own record where the group holds one,
+            # because base keeps its entry and no patch is collected for
+            # it, and the run-wide picker's winner where it holds none
+            # (DL-328). The index travels with it because every member of
+            # a settled group carries the one primary key (DL-148).
+            settled_rows.append(
+                _settled_row(identity_key, measured_attrs, members, winner_idx, winner)
+            )
+        elif divergent_attrs:
             conflict_rows.append(
                 _metadata_conflict_row(
                     identity_key, divergent_attrs, members, resolution or on_conflict
@@ -412,7 +554,13 @@ def _resolve_conflicts(
             )
 
     return ResolvedConflicts(
-        old_to_new_key, conflict_rows, unresolved, new_entries, ambiguous_keys, entry_patches
+        old_to_new_key,
+        conflict_rows,
+        unresolved,
+        new_entries,
+        ambiguous_keys,
+        entry_patches,
+        settled_rows,
     )
 
 
@@ -469,7 +617,16 @@ def assemble_output(
     pair naming one record of that group, and settles that group alone. An empty mapping leaves every group to on_conflict,
     which is what the parameter's absence leaves them to, so the bytes a
     call with an empty mapping produces are the bytes a call omitting it
-    produces (DL-104)."""
+    produces (DL-104).
+
+    The result's settled_rows are the groups the tier answered, reported
+    whatever the run's outcome: the groups the rule settled are part of
+    what the run did, and an aborted run is still a run whose measured
+    divergences were never put to the operator (DL-008's precedent,
+    DL-329). No entry patch is collected for them - a settled group is
+    named by no resolution, so base's own measured numbers stand where
+    the group holds a base record and the picked non-base record's span
+    is transplanted whole where it does not (DL-328)."""
     inputs = [base_root] + [root for _, root in contributions]
     sources = [base_source] + [text for text, _ in contributions]
     records_by_input = [collection_records(root) for root in inputs]
@@ -482,11 +639,19 @@ def assemble_output(
     groups = group_identities(records_by_input, confidence)
     resolved = _resolve_conflicts(groups, on_conflict, resolutions=resolutions)
     old_to_new_key, conflict_rows, unresolved, new_entries_records, ambiguous_keys = resolved
+    settled_rows = resolved.settled_rows
 
     stats = {
         "inputs_merged": len(contributions),
         "identity_groups": len(groups),
         "conflicts_reported": len(conflict_rows),
+        # How many groups the tier answered, and how many of those are
+        # worth reading. Read off settled_rows rather than counted a
+        # second time anywhere above, so the CLI's printed count, the
+        # preview's sentence and the rows behind them are the one set
+        # (DL-215, DL-331).
+        "groups_settled_by_rule": len(settled_rows),
+        "settled_groups_outlying": sum(1 for row in settled_rows if row.is_outlier),
         "collection_entries_added": 0,
         "playlists_imported": 0,
         "playlists_renamed": 0,
@@ -520,7 +685,13 @@ def assemble_output(
     }
 
     if unresolved:
-        return SpliceResult(output=None, stats=stats, conflict_rows=conflict_rows, errors=["unresolved_conflicts"])
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
+            errors=["unresolved_conflicts"],
+        )
 
     # New collection entries: transplant each winner's own ENTRY span from
     # its originating input, verbatim (collection entries are never renamed).
@@ -627,6 +798,7 @@ def assemble_output(
             )
             return SpliceResult(
                 output=None, stats=stats, conflict_rows=conflict_rows,
+                settled_rows=settled_rows,
                 errors=[f"ambiguous_playlist_name playlist={path}" for path in duplicate_paths],
             )
 
@@ -813,7 +985,13 @@ def assemble_output(
     output = base_source
     collection_span = find_element_span(output, "COLLECTION")
     if collection_span is None:
-        return SpliceResult(output=None, stats=stats, conflict_rows=conflict_rows, errors=["no_collection"])
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
+            errors=["no_collection"],
+        )
 
     # The count the COLLECTION element declares and the count the stats
     # report are one number read once, so a caller reporting the run's
@@ -914,13 +1092,25 @@ def assemble_output(
 
     subnodes_span = find_element_span(output, "SUBNODES")
     if subnodes_span is None:
-        return SpliceResult(output=None, stats=stats, conflict_rows=conflict_rows, errors=["no_root_subnodes"])
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
+            errors=["no_root_subnodes"],
+        )
     root_subnodes_elem = base_root.find(".//PLAYLISTS/NODE/SUBNODES")
     original_root_count = 0 if root_subnodes_elem is None else len(list(root_subnodes_elem))
 
     indexing_span = find_element_span(output, "INDEXING", start_from=subnodes_span.end)
     if indexing_span is None and sorting_info_fragments:
-        return SpliceResult(output=None, stats=stats, conflict_rows=conflict_rows, errors=["no_indexing"])
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
+            errors=["no_indexing"],
+        )
 
     builder.add_verbatim(output[collection_span.end: subnodes_span.start])
     builder.add_counted_span(
@@ -959,7 +1149,13 @@ def assemble_output(
 
     if unresolved_refs:
         errors = [f"unresolved_reference playlist={name} key={key}" for name, key in unresolved_refs]
-        return SpliceResult(output=None, stats=stats, conflict_rows=conflict_rows, errors=errors)
+        return SpliceResult(
+            output=None,
+            stats=stats,
+            conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
+            errors=errors,
+        )
 
     # Validate: the merge introduces no second entry for a LOCATION the
     # merged COLLECTION already holds. The primary key IS the location
@@ -987,6 +1183,7 @@ def assemble_output(
             output=None,
             stats=stats,
             conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
             errors=[f"entry_location_collision key={key}" for key in collisions],
         )
 
@@ -1000,6 +1197,7 @@ def assemble_output(
             output=None,
             stats=stats,
             conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
             errors=[
                 f"collection_entry_count base={len(records_by_input[0])} assembled={reparsed}"
             ],
@@ -1042,7 +1240,14 @@ def assemble_output(
             output=None,
             stats=stats,
             conflict_rows=conflict_rows,
+            settled_rows=settled_rows,
             errors=[f"emitted_key_unresolved key={key}" for key in unresolved_emitted],
         )
 
-    return SpliceResult(output=output, stats=stats, conflict_rows=conflict_rows, errors=[])
+    return SpliceResult(
+        output=output,
+        stats=stats,
+        conflict_rows=conflict_rows,
+        settled_rows=settled_rows,
+        errors=[],
+    )
