@@ -20,10 +20,29 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 
-from traktor_nml.gui import conflict_model, reconstruct_report, reconstruct_steps
+from traktor_nml import metadata_tier
+from traktor_nml.gui import (
+    answer_detail,
+    conflict_model,
+    reconstruct_report,
+    reconstruct_steps,
+)
 
 _APP_PY = Path(__file__).resolve().parents[1] / "traktor_nml" / "gui" / "app.py"
+_REPORT_PY = (
+    Path(__file__).resolve().parents[1]
+    / "traktor_nml"
+    / "gui"
+    / "reconstruct_report.py"
+)
+
+# The two collection names a run over a pair holds at input indices 0 and
+# 1, which is what app.py's _collection_labels answers: the collection
+# being repaired first, then the source. A listed winner cell is worded
+# from this tuple and the input index the settled row carries (DL-150).
+_LABELS = ("base", "collection-b.nml")
 
 
 def _source() -> str:
@@ -326,6 +345,234 @@ def test_an_output_path_that_exists_is_said_so_rather_than_left_unsaid():
         _stats(), [], conflict_model.ConflictDecisions(), "out.nml", False, []
     )
     assert absent.destination_badge == "Does not exist yet"
+
+
+# The settled half of the preview record. The stand-in below carries the
+# attributes the record reads and nothing else, so these guards need no
+# splice run and no collection on disk: what is under test is the
+# division of one settled-row list into a count and a listing, and the
+# wording read off that count (DL-215, DL-217).
+#
+# splice.SettledRow's own shape is guarded in tests/test_splice.py; a
+# stand-in that drifted from it would make these guards green against a
+# row the run never reports, so the attribute names here are the ones
+# that file asserts (DL-189).
+
+
+def _settled(identity_key, attr, low, high, gap, winner):
+    """One splice.SettledRow-shaped stand-in: the record half reads the
+    attributes it reads, so the guards below need no splice run.
+
+    winner is the (input index, primary key) pair the row carries, the
+    shape the record words its listed winner cell from (DL-148)."""
+    return SimpleNamespace(
+        identity_key=identity_key,
+        attrs=(attr,),
+        winner=winner,
+        outliers=(
+            metadata_tier.OutlierReading(
+                attr=attr, low=low, high=high, relative_gap=gap
+            ),
+        )
+        if gap
+        else (),
+        is_outlier=bool(gap),
+    )
+
+
+def test_a_run_with_settled_groups_and_outliers_composes_both_readings():
+    """The count sentence and the listing are one division of the one
+    settled_rows list, so the number the sentence names and the rows
+    drawn under it cannot disagree (DL-215, DL-217).
+
+    Fail-first mutation: `settled=len(settled_rows)` replaced by
+    `settled=sum(1 for r in settled_rows if r.is_outlier)`, so the
+    sentence's count is read off the listing rather than off the whole
+    settled list.
+    Observed:
+        E       AssertionError: assert 1 == 2
+        E        +  where 1 = PreviewReport(listed=(), remainder=None, filled=0, empty=0, entries_added=0, unfilled=(), conflicts=0, outstanding=0, ..., high='69203', low_detail='17.2 MB', high_detail='67.6 MB', relative_gap=0.7462, winner='base: C:/:Music/:one.mp3'),)).settled
+    """
+    record = reconstruct_report.preview_report(
+        _stats(),
+        (),
+        conflict_model.ConflictDecisions(),
+        (
+            _settled("C:/:Music/:one.mp3", "filesize", "17564", "69203", 0.7462,
+                     (0, "C:/:Music/:one.mp3")),
+            _settled("C:/:Music/:two.mp3", "filesize", "8123", "8124", 0.0,
+                     (1, "C:/:Music/:two.mp3")),
+        ),
+        _LABELS,
+    )
+    assert record.settled == 2
+    assert record.outlier_count == 1
+    assert "2 tracks are measured differently" in record.settled_sentence
+    assert record.outlier_title == "The one measured far apart"
+
+
+def test_one_settled_group_reads_the_singular():
+    """The sentence's word comes from wording.plural, so one group reads
+    "1 track is" and "It carries" (DL-233).
+
+    Fail-first mutation: `held = plural(self.settled, "track is",
+    "tracks are")` replaced by `held = "tracks are"`.
+    Observed:
+        E       assert '1 track is measured differently by the two collections' in "1 tracks are measured differently by the two collections - file size, length or bitrate. Both numbers are Traktor's own, so there is nothing to decide. It carries the values of the record the output keeps."
+        E        +  where "1 tracks are measured differently by the two collections - file size, length or bitrate. Both numbers are Traktor's own, so there is nothing to decide. It carries the values of the record the output keeps." = PreviewReport(listed=(), remainder=None, filled=0, empty=0, entries_added=0, unfilled=(), conflicts=0, outstanding=0, ...h='1411000', low_detail='320 kbps', high_detail='1411 kbps', relative_gap=0.7732, winner='base: C:/:Music/:one.mp3'),)).settled_sentence
+    """
+    record = reconstruct_report.preview_report(
+        _stats(),
+        (),
+        conflict_model.ConflictDecisions(),
+        (_settled("C:/:Music/:one.mp3", "bitrate", "320000", "1411000", 0.7732,
+                  (0, "C:/:Music/:one.mp3")),),
+        _LABELS,
+    )
+    assert "1 track is measured differently by the two collections" in record.settled_sentence
+    assert "It carries the values of the record the output keeps." in record.settled_sentence
+
+
+def test_the_listing_names_the_record_the_output_keeps():
+    """The note under the listing says the output carries the record named
+    beside each one, so every row names that record by the collection it
+    was read from and its primary key together. The key alone is the one
+    value every member of a settled group carries, and a collection word
+    alone is the base-or-source token DL-148 refuses, so a row naming
+    either on its own says which record won of neither.
+
+    The second row is the same track kept from the second collection, so
+    a cell worded from the key alone would read identically for both and
+    this guard would be green in exactly the broken state (DL-189).
+
+    Fail-first mutation: `winner=_winner_reading(row.winner, labels)`
+    replaced by `winner=row.attrs[0]` on the OutlierRow.
+    Observed:
+        E       AssertionError: assert 'filesize' == 'base: C:/:Music/:one.mp3'
+        E
+        E         - base: C:/:Music/:one.mp3
+        E         + filesize
+    """
+    record = reconstruct_report.preview_report(
+        _stats(),
+        (),
+        conflict_model.ConflictDecisions(),
+        (
+            _settled("C:/:Music/:one.mp3", "filesize", "17564", "69203", 0.7462,
+                     (0, "C:/:Music/:one.mp3")),
+            _settled("C:/:Music/:one.mp3", "bitrate", "320000", "1411000", 0.7732,
+                     (1, "C:/:Music/:one.mp3")),
+        ),
+        _LABELS,
+    )
+    first, second = record.outliers
+    assert first.winner == f"{_LABELS[0]}: C:/:Music/:one.mp3"
+    assert second.winner == f"{_LABELS[1]}: C:/:Music/:one.mp3"
+    assert first.winner != second.winner
+    assert first.label == answer_detail.LABELS["filesize"]
+    assert first.spread == "17564 (17.2 MB) -> 69203 (67.6 MB)"
+    assert first.gap_amount == "74.6%"
+    for text in (record.settled_sentence, record.outlier_note):
+        assert "base" not in text
+
+
+def test_a_winner_index_outside_the_labels_reads_as_the_index_itself():
+    """A caller composing a record for a run whose labels it does not
+    hold reads a row rather than an IndexError, and the index still tells
+    the two records apart.
+
+    Fail-first mutation: the `if input_index < len(labels)` branch
+    dropped, leaving `named = labels[input_index]`.
+    Observed:
+        winner = (1, 'C:/:Music/:one.mp3'), labels = ()
+        E       IndexError: tuple index out of range
+    """
+    record = reconstruct_report.preview_report(
+        _stats(),
+        (),
+        conflict_model.ConflictDecisions(),
+        (_settled("C:/:Music/:one.mp3", "filesize", "17564", "69203", 0.7462,
+                  (1, "C:/:Music/:one.mp3")),),
+    )
+    assert record.outliers[0].winner == "input 1: C:/:Music/:one.mp3"
+
+
+def test_a_run_with_settled_groups_but_no_outlier_composes_no_listing():
+    """The card is its count: the ordinary 1 KB drift answers the sentence
+    and draws no rows.
+
+    Fail-first mutation: `outlier_count` returning `self.settled`, so
+    the card's head counts settled groups rather than the readings drawn
+    under it.
+    Observed:
+        E       assert 1 == 0
+        E        +  where 1 = PreviewReport(listed=(), remainder=None, filled=0, empty=0, entries_added=0, unfilled=(), conflicts=0, outstanding=0, settled=1, outliers=()).outlier_count
+    """
+    record = reconstruct_report.preview_report(
+        _stats(),
+        (),
+        conflict_model.ConflictDecisions(),
+        (_settled("C:/:Music/:two.mp3", "filesize", "8123", "8124", 0.0,
+                  (0, "C:/:Music/:two.mp3")),),
+        _LABELS,
+    )
+    assert record.settled == 1
+    assert record.outlier_count == 0
+    assert record.outliers == ()
+
+
+def test_a_run_the_rule_settled_nothing_for_composes_no_settled_reading():
+    """A sentence reading 0 names something the run did not do, so it is
+    empty - the way conflict_sentence is empty for a run that reported no
+    divergence. A refused run reads the same way.
+
+    Fail-first mutation: the `if not self.settled: return ""` guard
+    removed from settled_sentence.
+    Observed:
+        E       AssertionError: assert '0 tracks are...output keeps.' == ''
+        E
+        E         + 0 tracks are measured differently by the two collections - file size, length or bitrate. Both numbers are Traktor's own, so there is nothing to decide. Each carries the values of the record the output keeps.
+    """
+    record = reconstruct_report.preview_report(
+        _stats(), (), conflict_model.ConflictDecisions()
+    )
+    assert record.settled_sentence == ""
+    assert record.outliers == ()
+
+
+def test_no_inline_count_of_one_conditional_stands_in_the_module():
+    """Every count sentence in reconstruct_report reads its number off the
+    record and takes its word from wording.plural; an `x if n == 1 else y`
+    beside one is the pattern tests/test_gui_wording.py forbids under gui/
+    and this guard reads this module for it directly (DL-215, DL-233).
+
+    Fail-first mutation: outlier_title written as
+    `"The one measured far apart" if self.outlier_count == 1 else ...`.
+    Observed:
+        E       AssertionError: reconstruct_report.py words a count with an inline conditional
+        E       assert ['outlier_title'] == []
+        E
+        E         Left contains one more item: 'outlier_title'
+        E         Use -v to get more diff
+    """
+    tree = ast.parse(_REPORT_PY.read_text(encoding="utf-8"))
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.IfExp) and any(
+                isinstance(cmp_node, ast.Compare)
+                and any(
+                    isinstance(c, ast.Constant) and c.value == 1
+                    for c in cmp_node.comparators
+                )
+                for cmp_node in ast.walk(inner.test)
+            ):
+                offenders.append(node.name)
+    assert offenders == [], (
+        "reconstruct_report.py words a count with an inline conditional"
+    )
 
 
 # --------------------------------------------------------------------

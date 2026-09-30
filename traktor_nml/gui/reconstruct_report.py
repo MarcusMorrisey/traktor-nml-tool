@@ -28,6 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Optional, Sequence
 
+from . import answer_detail
 from . import conflict_model
 from .wording import plural
 
@@ -60,6 +61,89 @@ class PlaylistRow:
         unit beside the number, so a row reading `214` alone would leave
         the reader to guess what was counted."""
         return f"{self.entries:,} entries"
+
+
+def _winner_reading(winner: tuple[int, str], labels: Sequence[str]) -> str:
+    """One settled group's winner as a reader sees it: the collection
+    name held at the winner's input index, with the record's primary key
+    behind it.
+
+    Both halves, because the members of a settled group describe the one
+    LOCATION and so carry the identical primary key: the key alone
+    repeats the track and names which of them won of neither, and a
+    collection name alone is the base-or-source token DL-148 refuses. The
+    name comes from the labels the page holds for its inputs, so the
+    cell names a collection the way the resolve rail's contributor chips
+    name one (DL-150).
+
+    An index outside the labels supplied is worded as the index itself,
+    which still tells the two records apart, so a caller composing a
+    record without labels reads a row rather than an IndexError.
+    """
+    input_index, primary_key = winner
+    named = (
+        labels[input_index] if input_index < len(labels) else f"input {input_index}"
+    )
+    return f"{named}: {primary_key}"
+
+
+@dataclass(frozen=True)
+class OutlierRow:
+    """One listed measured gap: the track it names, the attribute's own
+    label, the two values, how far apart they are and the record whose
+    number the output keeps.
+
+    A reading rather than a row to decide, so it carries no candidate
+    reference and no decision state - there is nothing on this row for
+    the operator to answer, and a field that looked like one would
+    invite a click the step does not offer (DL-330).
+
+    The label is answer_detail.LABELS' word, so a gap in PLAYTIME_FLOAT
+    prints here under the name the resolve rail gives it and the two
+    screens cannot call one attribute two things (ref: DL-254). The
+    values carry both readings for the reason the rail carries both: the
+    raw string is what the file holds and what tells the two numbers
+    apart by a digit, and the formatted one is what a kilobyte count, a
+    bitrate and a length mean. A value that does not parse has no
+    formatted reading and carries None (ref: DL-248).
+
+    winner is _winner_reading's wording of the (input index, primary key)
+    pair the run's settled row named the kept record by: the collection
+    the number was read from and the key behind it, never a
+    base-or-source token standing on its own and never the key alone,
+    which every member of a settled group carries (DL-148).
+    """
+
+    track: str
+    label: str
+    low: str
+    high: str
+    low_detail: Optional[str]
+    high_detail: Optional[str]
+    relative_gap: float
+    winner: str
+
+    @property
+    def spread(self) -> str:
+        """The two ends as one cell, each with its formatted reading
+        where it has one."""
+        return f"{self._read(self.low, self.low_detail)} -> {self._read(self.high, self.high_detail)}"
+
+    @property
+    def gap_amount(self) -> str:
+        """The gap as a percentage of the larger value, at one decimal:
+        the band is 1% and a whole-number reading would print 1% for
+        every group just past it."""
+        return f"{self.relative_gap * 100:.1f}%"
+
+    @staticmethod
+    def _read(raw: str, detail: Optional[str]) -> str:
+        """One end of the spread: the raw value the file holds, with the
+        formatted reading in brackets where the value parses. The raw
+        string leads because it is what tells 320000 from 1411000 by a
+        digit, and a value with no formatted reading prints as itself
+        rather than as a blank (ref: DL-248)."""
+        return raw if detail is None else f"{raw} ({detail})"
 
 
 @dataclass(frozen=True)
@@ -98,6 +182,13 @@ class PreviewReport:
     unfilled: tuple[str, ...]
     conflicts: int
     outstanding: int
+    # What the run answered without asking, and which of those answers
+    # are worth reading. settled is the count of groups the tier settled
+    # and outliers are the rows naming a measured gap past the band.
+    # Both default empty so a caller composing a record for a run that
+    # reported neither reads the record it reads (DL-329, DL-331).
+    settled: int = 0
+    outliers: tuple["OutlierRow", ...] = ()
 
     @property
     def filled_caption(self) -> str:
@@ -160,6 +251,72 @@ class PreviewReport:
     @property
     def unfilled_count(self) -> int:
         return len(self.unfilled)
+
+    @property
+    def settled_sentence(self) -> str:
+        """The note beside the conflict note: how many tracks the run
+        answered itself, and where the answer came from.
+
+        Empty for a run the rule settled nothing for, the way
+        conflict_sentence is empty for a run that reported no
+        divergence: a sentence reading 0 names something this run did
+        not do.
+
+        The sentence says the values came from one named record, and the
+        row for each listed gap names which record that is - the
+        collection it was read from and its primary key, because that is
+        what a resolution names (DL-148). It says why no decision was
+        asked for: the two numbers are both Traktor's own measurements of
+        the one file, so there is no judgement to make. The count is this
+        record's own (DL-215) and its word comes from wording.plural
+        (DL-233).
+        """
+        if not self.settled:
+            return ""
+        held = plural(self.settled, "track is", "tracks are")
+        measured = plural(self.settled, "It carries", "Each carries")
+        return (
+            f"{self.settled} {held} measured differently by the two "
+            "collections - file size, length or bitrate. Both numbers are "
+            f"Traktor's own, so there is nothing to decide. {measured} the "
+            "values of the record the output keeps."
+        )
+
+    @property
+    def outlier_title(self) -> str:
+        """The head of the card listing the wide measured gaps. The card
+        is the count, so a run with no outlier draws none and this is
+        never read for one.
+
+        The count's word comes from wording.plural like every other count
+        sentence on these screens; no conditional stands here, which is
+        what tests/test_gui_wording.py reads this module for (DL-215,
+        DL-233).
+        """
+        return plural(
+            self.outlier_count,
+            "The one measured far apart",
+            f"The {self.outlier_count} measured far apart",
+        )
+
+    @property
+    def outlier_count(self) -> int:
+        """How many readings the listing draws. The count of readings
+        rather than of groups: a group reading past the band on two
+        measured attributes draws two rows, and the card's head names the
+        rows under it (DL-215)."""
+        return len(self.outliers)
+
+    @property
+    def outlier_note(self) -> str:
+        """The small print under the listing. These are readings rather
+        than rows to decide, and the line says so, so the operator does
+        not look for a control that is not there (DL-330)."""
+        return (
+            "These are read, not decided. The output carries the record "
+            "named beside each one; Traktor rewrites its own measurement "
+            "the next time it analyses the file."
+        )
 
 
 @dataclass(frozen=True)
@@ -366,6 +523,8 @@ def preview_report(
     stats: Mapping[str, object],
     groups: Sequence[conflict_model.ConflictGroup],
     decisions: conflict_model.ConflictDecisions,
+    settled_rows: Sequence[object] = (),
+    labels: Sequence[str] = (),
 ) -> PreviewReport:
     """The step 2 record for one held run.
 
@@ -373,6 +532,27 @@ def preview_report(
     the same run's rows, and decisions are the answers given to them, so
     the conflict count this reports, the count still outstanding and the
     rows the resolve step offers are all the one set (DL-215).
+
+    settled_rows are the run's own splice.SettledRow list. The count and
+    the listing are one division of that one list, made here rather than
+    in the render, for the reason LISTED_PLAYLISTS is divided here
+    (DL-217): a render that filtered the outliers itself could draw a
+    number of rows the sentence above them does not name. It is a
+    keyword-shaped trailing parameter with an empty default, so every
+    existing positional caller reads the arguments it reads (DL-100's
+    precedent, DL-104).
+
+    labels is the collection name held at each input index, the tuple
+    _collection_labels builds and the resolve rail's own contributor
+    chips are named from. Each listed row's winner is worded here from
+    it and from the (input index, primary key) pair the run reported,
+    rather than left for the render to word: the members of a settled
+    group share the primary key, so the index is the half that says
+    which record won, and one reading of the pair keeps the row and the
+    rail naming a collection the one way (DL-148, DL-150, DL-215).
+    An empty labels reads each winner as its input index, so a caller
+    composing a record for a run whose labels it does not hold reads a
+    row rather than an IndexError.
 
     The playlists are ordered by entry count, largest first, and by name
     where two hold the same count, so the ordering is total: a dict whose
@@ -402,6 +582,21 @@ def preview_report(
         unfilled=tuple(stats.get("unfilled_playlists") or ()),
         conflicts=len(groups),
         outstanding=conflict_model.resolve_gate(decisions, groups).outstanding,
+        settled=len(settled_rows),
+        outliers=tuple(
+            OutlierRow(
+                track=row.identity_key,
+                label=answer_detail.LABELS[reading.attr],
+                low=reading.low,
+                high=reading.high,
+                low_detail=answer_detail.format_value(reading.attr, reading.low),
+                high_detail=answer_detail.format_value(reading.attr, reading.high),
+                relative_gap=reading.relative_gap,
+                winner=_winner_reading(row.winner, labels),
+            )
+            for row in settled_rows
+            for reading in row.outliers
+        ),
     )
 
 
