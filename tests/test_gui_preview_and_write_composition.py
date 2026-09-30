@@ -1093,3 +1093,66 @@ def test_the_dialog_is_filled_from_the_record_rather_than_built_once():
     assert "record.destination_note" in _source(), (
         "the step's note under the path is still a literal"
     )
+def test_the_composition_places_the_settled_reading_off_the_record():
+    """Preview.dc.html:147's .note info and :175's .ol: the preview places
+    the settled sentence beside the conflict note and each listed gap as a
+    hand-rolled row, and every cell of both is a string the record already
+    composed. A number formatted at this call site could disagree with the
+    sentence above it, which is the thing DL-215 and DL-331 exist to stop.
+
+    The record is asked for the run's own settled rows and for the labels
+    the page holds for its inputs, so the winner cell names a collection
+    the way the resolve rail's contributor chips do (DL-148, DL-150).
+
+    Read as source text and as an AST: what the browser paints is a
+    served-page reading (DL-189).
+
+    Mutation: outlier_row's gap cell written as
+    `ui.label(f"{row.relative_gap * 100:.1f}%")`. Observed:
+        E       AssertionError: ['row.track', 'row.label', 'row.spread', 'row.winner', 'f"{row.relative_gap * 100:.1f}%"']
+        E       assert ['row.track',...* 100:.1f}%"'] == ['row.track',...w.gap_amount']
+        E
+        E         At index 4 diff: 'f"{row.relative_gap * 100:.1f}%"' != 'row.gap_amount'
+        E         Use -v to get more diff
+        tests\\test_gui_preview_and_write_composition.py:1144: AssertionError
+    """
+    preview = _body_source_of("_render_preview_run")
+    # The record is composed from the run's settled rows and the page's
+    # own collection labels, not from a second reading of the result.
+    assert 'result_holder["result"].settled_rows' in preview, preview
+    assert "_collection_labels(source_holder)" in preview, preview
+    # The sentence stands in its own info panel beside the warn one, and
+    # a run the rule settled nothing for places neither.
+    assert "if record.settled_sentence:" in preview, preview
+    assert "wizard-callout wizard-callout-info" in _classes_in(
+        _named_function("_render_preview_run")
+    ), preview
+    # The card is the count: a run with no outlier draws no card.
+    assert "if record.outliers:" in preview, preview
+    for read in ("record.outlier_title", "record.outlier_note", "outlier_row(row)"):
+        assert read in preview, read
+    # Every cell is the record's own string, and nothing is formatted here.
+    row = _named_function("outlier_row")
+    cells = [
+        ast.get_source_segment(_source(), call.args[0])
+        for call in ast.walk(row)
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Attribute)
+        and call.func.attr == "label"
+        and call.args
+    ]
+    assert cells == [
+        "row.track",
+        "row.label",
+        "row.spread",
+        "row.winner",
+        "row.gap_amount",
+    ], cells
+    formatted = [
+        cell
+        for cell in cells
+        if cell is None or "f\"" in cell or ".format(" in cell or "%" in cell
+    ]
+    assert formatted == [], (
+        "outlier_row formats a value instead of placing the record's own"
+    )

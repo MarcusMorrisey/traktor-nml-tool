@@ -2664,6 +2664,13 @@ def _build_reconstruct_page() -> None:
                     bulk action moves every undecided row, the count
                     moves with any pick at all, and the rail describes
                     whichever row is focused."""
+                    # Every row is built in one pass on the event loop,
+                    # with no cap, window or yield point: what bounds the
+                    # work is how many groups carry an editorial
+                    # divergence, which the tier decides upstream in
+                    # splice, not anything measured here. A bound at this
+                    # call is a second mechanism over the same number
+                    # (DL-332).
                     gate = conflict_model.resolve_gate(decisions, groups)
                     views = decisions.rows(groups)
                     region.clear()
@@ -3261,7 +3268,17 @@ def _build_reconstruct_page() -> None:
                 what the run is and what it could not fill at the
                 right."""
                 record = reconstruct_report.preview_report(
-                    result_holder["result"].stats, conflict_holder, decisions
+                    result_holder["result"].stats,
+                    conflict_holder,
+                    decisions,
+                    result_holder["result"].settled_rows,
+                    # The collection names this page holds for its inputs,
+                    # the tuple the resolve rail's contributor chips are
+                    # named from: the record composes each listed row's
+                    # winner from them and from the pair the run reported,
+                    # so this step and that rail name a collection the one
+                    # way (DL-148, DL-150).
+                    _collection_labels(source_holder),
                 )
                 with report, ui.element("div").classes("wizard-step-split"):
                     with ui.element("div").classes("wizard-step-column"):
@@ -3290,6 +3307,17 @@ def _build_reconstruct_page() -> None:
                                 "wizard-callout wizard-callout-warn"
                             ):
                                 ui.label(record.conflict_sentence)
+                        # Beside the conflict note rather than inside it:
+                        # one states what is still to be decided, the
+                        # other what the run answered itself, and a
+                        # reader has to be able to tell which is which.
+                        # Empty for a run the rule settled nothing for,
+                        # so nothing is placed for it at all.
+                        if record.settled_sentence:
+                            with ui.element("div").classes(
+                                "wizard-callout wizard-callout-info"
+                            ):
+                                ui.label(record.settled_sentence)
                     with ui.element("div").classes("wizard-step-column"):
                         with ui.element("section").classes("wizard-card"):
                             with ui.element("div").classes("wizard-card-head"):
@@ -3334,6 +3362,22 @@ def _build_reconstruct_page() -> None:
                                         "empty. Adding another collection at "
                                         "step 1 may fill them."
                                     ).classes("wizard-meta")
+                        if record.outliers:
+                            with ui.element("section").classes("wizard-card"):
+                                with ui.element("div").classes(
+                                    "wizard-card-head"
+                                ):
+                                    ui.label(record.outlier_title).classes(
+                                        "wizard-card-title"
+                                    )
+                                with ui.element("div").classes(
+                                    "wizard-card-body"
+                                ):
+                                    for row in record.outliers:
+                                        outlier_row(row)
+                                    ui.label(record.outlier_note).classes(
+                                        "wizard-meta"
+                                    )
                         with ui.element("div").classes(
                             "wizard-callout wizard-callout-info"
                         ):
@@ -3351,6 +3395,41 @@ def _build_reconstruct_page() -> None:
                 with ui.element("div").classes("wizard-list-row"):
                     ui.label(row.name).classes("wizard-list-name")
                     ui.label(row.entry_count).classes("wizard-list-count")
+
+            def outlier_row(row) -> None:
+                """Preview.dc.html:175's .ol: one measured gap a settled
+                group is worth reading for, its track, the attribute's
+                own name, the two values and the record the output keeps
+                stacked at the left, and the gap at the right.
+
+                The winner cell is what makes this row a DL-148 reading
+                rather than a bare pair of numbers: outlier_note says the
+                output carries the record named beside each one, so the
+                record has to be named on the row the note stands under.
+                It is row.winner, the record the run's settled row named -
+                the collection the kept number was read from and the
+                primary key behind it - never a base-or-source word
+                standing alone, and never the key alone, which both
+                members of a settled group carry because they describe
+                the one LOCATION.
+
+                Every cell is a string the record already composed -
+                the label, the spread, the winner and the percentage - so
+                the page formats no number and the card cannot print a
+                gap the sentence above it disagrees with (DL-215,
+                DL-331).
+
+                Hand-rolled ui.element nodes rather than a table
+                component, and every class string is declared in
+                theme.page_stylesheet(): no dimension, hex or tint stands
+                here (DL-069, DL-079, DL-188).
+                """
+                with ui.element("div").classes("wizard-outlier-row"):
+                    ui.label(row.track).classes("wizard-outlier-name")
+                    ui.label(row.label).classes("wizard-outlier-key")
+                    ui.label(row.spread).classes("wizard-outlier-values")
+                    ui.label(row.winner).classes("wizard-outlier-winner")
+                    ui.label(row.gap_amount).classes("wizard-outlier-gap")
 
             def _render_write() -> None:
                 """Write.dc.html: what the file about to be written

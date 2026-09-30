@@ -803,6 +803,39 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-list-row:last-child {{ border-bottom: 0; }}
 .wizard-list-name {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 .wizard-list-count {{ font: 600 {TYPE_12}/1 {FONT_MONO}; color: {TEXT_MUTED}; white-space: nowrap; }}
+/* Preview.dc.html:86-92's .ol: one measured gap a settled group is worth
+   reading for. Four stacked cells at the left - the track, the
+   attribute's own name, the two values, the record the output keeps -
+   and the gap at the right at its own width, ruled off from the row
+   above it. A grid with named areas rather than a flex column, because
+   the gap spans all four rows and holds its own column against them.
+
+   The rule between rows is a top border on every row after the first,
+   which is what the artboard draws at :87. The settled sentence closes
+   this card from inside the same container, so the last row is never its
+   parent's last child and a rule cancelling a bottom border on it would
+   match nothing on any composition the page builds (DL-325, DL-189).
+
+   The gap wears the review hue: it is the one number on this screen the
+   operator might act on later, by letting Traktor re-analyse the file.
+   The values are set in mono and broken anywhere, for the reason
+   .wizard-destination-path is: a 1,411,000 beside a 320,000 is read
+   digit by digit. The winner cell is set in the faint text the key cell
+   uses and clipped rather than broken: it is a path, read for which
+   record it names and not digit by digit.
+
+   The settled sentence itself takes no class of its own: it stands in
+   the .wizard-callout .wizard-callout-info panel declared below, which
+   is the tint the artboard draws it in at :151-154. A second class for one
+   panel would be a second definition of the same rule (DL-078,
+   DL-188). */
+.wizard-outlier-row {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name gap" "key gap" "values gap" "winner gap"; gap: {SPACE_2} {SPACE_12}; align-items: center; padding: {SPACE_8} {SPACE_2}; font-size: {TYPE_12_5}; }}
+.wizard-outlier-row + .wizard-outlier-row {{ border-top: 1px solid {SURFACE_5}; }}
+.wizard-outlier-name {{ grid-area: name; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.wizard-outlier-key {{ grid-area: key; font: 600 {TYPE_11}/1 {FONT_MONO}; color: {TEXT_FAINT}; letter-spacing: .04em; }}
+.wizard-outlier-values {{ grid-area: values; font: 500 {TYPE_12}/1.4 {FONT_MONO}; color: {TEXT_MUTED}; word-break: break-all; }}
+.wizard-outlier-winner {{ grid-area: winner; font: 500 {TYPE_11}/1.4 {FONT_MONO}; color: {TEXT_FAINT}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.wizard-outlier-gap {{ grid-area: gap; font: 600 {TYPE_13}/1 {FONT_MONO}; color: {STATUS_NEEDS_REVIEW}; white-space: nowrap; }}
 /* Preview.dc.html:72's .scroll: the listing scrolls inside its own card
    rather than growing the page, which is what keeps the middle the
    scroll owner the shell record reads it as. */

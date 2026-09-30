@@ -69,6 +69,27 @@ main{padding:22px 24px 6px;display:grid;grid-template-rows:auto 1fr;grid-templat
 .pl:last-child{border-bottom:0}
 .pl .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pl .c{font:600 12px/1 'IBM Plex Mono',ui-monospace,monospace;color:#A5ADB4;white-space:nowrap}
+<!-- .ol: one measured gap a settled group is worth reading for. Four
+     stacked cells at the left - the track, the NML attribute name, the
+     two values, the record the output keeps - and the gap at the right,
+     spanning all four rows in its own column, which is why this is a
+     grid with named areas rather than a flex column. The gap wears the
+     needs-review hue: it is the one number here the operator might act
+     on later, by letting Traktor re-analyse the file. The values are
+     mono and broken anywhere, because 1411000 beside 320000 is read
+     digit by digit; the winner is faint mono and clipped, because it is
+     a path read for which record it names. The rule between rows is a
+     top border on every row after the first, not a bottom border on
+     each with the last one cancelled: the settled sentence closes this
+     card from inside the same container, so the last row is not its
+     parent's last child and a cancelling rule would never fire. -->
+.ol{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nm g" "k g" "v g" "w g";gap:2px 12px;align-items:center;padding:8px 2px;font-size:12.5px}
+.ol + .ol{border-top:1px solid #23272B}
+.ol .nm{grid-area:nm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ol .k{grid-area:k;font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace;color:#8E979E;letter-spacing:.04em}
+.ol .v{grid-area:v;font:500 12px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#A5ADB4;word-break:break-all}
+.ol .w{grid-area:w;font:500 11px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#8E979E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ol .g{grid-area:g;font:600 13px/1 'IBM Plex Mono',ui-monospace,monospace;color:#F5D96B;white-space:nowrap}
 .scroll{overflow-y:auto;min-height:0;display:flex;flex-direction:column}
 .tot{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px 12px;border-radius:6px;background:#1F2225;border:1px solid #3C4248;font-size:13px;font-weight:600;align-items:center}
 .big{font:600 15px/1 'IBM Plex Mono',ui-monospace,monospace}
@@ -127,6 +148,11 @@ main{padding:22px 24px 6px;display:grid;grid-template-rows:auto 1fr;grid-templat
         <span><strong>63 tracks are held differently by the two collections.</strong> Each one has to be decided before anything can be written. That is step 3.</span>
       </div>
 
+      <div class="note info">
+        <svg class="ico" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#7FC4E8" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v4"/><path d="M8 4.9h.01"/></svg>
+        <span><strong>8,523 tracks are measured differently by the two collections &mdash; file size, length or bitrate.</strong> Both numbers are Traktor&rsquo;s own, so there is nothing to decide. Each carries the values of the record the output keeps.</span>
+      </div>
+
     </div>
 
     <div class="col">
@@ -144,6 +170,16 @@ main{padding:22px 24px 6px;display:grid;grid-template-rows:auto 1fr;grid-templat
           <div class="pl"><span class="nm">Test</span><span class="c">not in the source</span></div>
           <div class="pl"><span class="nm">New playlist</span><span class="c">not in the source</span></div>
           <p class="meta" style="margin:0">These keep their names and stay empty. Adding another collection at step 1 may fill them.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><h2 class="card-t">The 3 measured far apart</h2></div>
+        <div class="card-b">
+          <div class="ol"><span class="nm">Drexciya &mdash; Andreaen Sand Dunes</span><span class="k">PLAYTIME_FLOAT</span><span class="v">311.5 (5:11) &rarr; 3828.0 (63:48)</span><span class="w">collection-b.nml: C:/:Music/:Drexciya/:andreaen.mp3</span><span class="g">91.9%</span></div>
+          <div class="ol"><span class="nm">Theo Parrish &mdash; Falling Up</span><span class="k">FILESIZE</span><span class="v">17564 (17.2 MB) &rarr; 69203 (67.6 MB)</span><span class="w">base: C:/:Music/:Sound Signature/:falling-up.stem.m4a</span><span class="g">74.6%</span></div>
+          <div class="ol"><span class="nm">Larry Heard &mdash; Missing You</span><span class="k">BITRATE</span><span class="v">320000 (320 kbps) &rarr; 1411000 (1411 kbps)</span><span class="w">collection-b.nml: C:/:Music/:Alleviated/:missing-you.aif</span><span class="g">77.3%</span></div>
+          <p class="meta" style="margin:0">These are read, not decided. The output carries the record named beside each one; Traktor rewrites its own measurement the next time it analyses the file.</p>
         </div>
       </section>
 
