@@ -218,13 +218,26 @@ def _collection(entries_xml: str, count: int) -> str:
     )
 
 
-def _entry_xml(artist: str, filename: str, bitrate: str = "320") -> str:
+def _entry_xml(
+    artist: str,
+    filename: str,
+    bitrate: str = "320",
+    filesize: str = "16",
+    directory: str = "/:Music/:",
+) -> str:
     """One ENTRY carrying every tracked attribute, at a LOCATION the
-    identity key is derived from."""
+    identity key is derived from.
+
+    directory and filename are parameters because the identity key the
+    settled listing prints is read off this LOCATION, so a guard over a
+    path holding a space writes the space here. filesize is a parameter
+    for the same reason bitrate is: a group reading past the band on two
+    measured attributes needs two of them moved.
+    """
     return (
         f'<ENTRY TITLE="Song" ARTIST="{artist}" AUDIO_ID="">'
-        f'<LOCATION DIR="/:Music/:" FILE="{filename}" VOLUME="C:" VOLUMEID="C:"></LOCATION>'
-        f'<INFO BITRATE="{bitrate}" PLAYTIME_FLOAT="100.0" FILESIZE="16"></INFO>'
+        f'<LOCATION DIR="{directory}" FILE="{filename}" VOLUME="C:" VOLUMEID="C:"></LOCATION>'
+        f'<INFO BITRATE="{bitrate}" PLAYTIME_FLOAT="100.0" FILESIZE="{filesize}"></INFO>'
         "</ENTRY>"
     )
 
@@ -294,10 +307,10 @@ def test_a_measured_only_pair_exits_zero_and_prints_the_settled_count(tmp_path: 
 
 def test_every_settled_outlier_line_names_a_measured_attribute(tmp_path: Path) -> None:
     """One line per wide measured gap, under the stats block, naming the
-    attribute, the two values, the relative gap and the record the output
-    keeps - named by the input index it was read from and its primary
-    key, never a base-or-source token, and never the key alone, which
-    both members of a settled group carry (DL-148, DL-330).
+    attribute, the two values, the relative gap and the record the rule
+    picked - by the input index it was read from and its primary key,
+    never a base-or-source token, and never the key alone, which both
+    members of a settled group carry (DL-148, DL-330).
 
     The attribute names are checked against metadata_tier.MEASURED_ATTRS
     read here rather than imported into the command, so no name stands in
@@ -306,7 +319,7 @@ def test_every_settled_outlier_line_names_a_measured_attribute(tmp_path: Path) -
     Fail-first mutation: the printed line's two winner fields replaced by
     a single f" winner=base".
     Observed:
-        E       AssertionError: assert 'winner_input=0 winner_key=C:/:Music/:one.mp3' in 'settled_outlier key=C:/:Music/:one.mp3 attr=bitrate low=128 high=320 relative_gap=0.6000 winner=base'
+        E       assert "winner_input=0 winner_key='C:/:Music/:one.mp3'" in "settled_outlier key='C:/:Music/:one.mp3' attr=bitrate low=128 high=320 relative_gap=0.6000 winner=base winner_in_output=true"
     """
     from traktor_nml.metadata_tier import MEASURED_ATTRS
 
@@ -317,7 +330,7 @@ def test_every_settled_outlier_line_names_a_measured_attribute(tmp_path: Path) -
     assert len(lines) == 1
     assert "attr=bitrate" in lines[0]
     assert all(any(f"attr={attr}" in line for attr in MEASURED_ATTRS) for line in lines)
-    assert "winner_input=0 winner_key=C:/:Music/:one.mp3" in lines[0]
+    assert "winner_input=0 winner_key='C:/:Music/:one.mp3'" in lines[0]
     assert "base" not in lines[0].split("winner_input=")[1]
 
 
@@ -336,8 +349,9 @@ def test_a_run_the_rule_settled_nothing_for_prints_no_outlier_line(tmp_path: Pat
     base, source, out = _identical_pair(tmp_path)
     result = _splice(tmp_path, base, out, source)
     assert result.exit_code == 0
-    assert [line for line in result.stdout.splitlines() if "settled_outlier" in line] == []
+    assert [line for line in result.stdout.splitlines() if line.startswith("settled_outlier ")] == []
     assert "groups_settled_by_rule=0" in result.stdout
+    assert "settled_outlier_readings=0" in result.stdout
 
 
 def test_a_run_with_a_conflict_and_a_settled_group_prints_both(tmp_path: Path) -> None:
@@ -384,3 +398,146 @@ def test_conflict_report_pointing_at_a_missing_parent_still_exits_two(tmp_path: 
     assert result.exit_code == 2
     settled = [line for line in result.stdout.splitlines() if line.startswith("settled_outlier ")]
     assert len(settled) == 1
+def _spaced_pair(tmp_path: Path):
+    """A pair diverging in BITRATE alone at a LOCATION whose directory
+    and filename both hold a space, so the identity key the settled
+    listing prints is a value a split on whitespace cannot survive."""
+    return _write_pair(
+        tmp_path, "spaced",
+        _entry_xml("A", "falling up.stem.m4a", directory="/:Music/:Sound Signature/:"),
+        _entry_xml("A", "falling up.stem.m4a", bitrate="128", directory="/:Music/:Sound Signature/:"),
+        1,
+    )
+
+
+def _two_reading_pair(tmp_path: Path):
+    """One group diverging in BITRATE and FILESIZE, both past the band:
+    one outlying group, two readings, so a count of groups and a count of
+    printed lines cannot be the same number."""
+    return _write_pair(
+        tmp_path, "twoattr",
+        _entry_xml("A", "one.mp3"),
+        _entry_xml("A", "one.mp3", bitrate="128", filesize="2048"),
+        1,
+    )
+
+
+def test_a_settled_outlier_line_is_recoverable_from_a_location_holding_spaces(tmp_path: Path) -> None:
+    """Every field of the line survives an identity key holding two
+    spaces: shlex.split reads the repr quoting the command prints key and
+    winner_key in, so a consumer recovers the seven values of a track
+    under "/:Sound Signature/:" and not the fragments of its path.
+
+    Split with shlex rather than str.split, which is the point: the guard
+    asserts the line is parseable, not that it happens to hold a
+    substring.
+
+    Fail-first mutation: the !r dropped from the printed key and
+    winner_key, so both values stand unquoted.
+    Observed:
+        E       AssertionError: settled_outlier key=C:/:Music/:Sound Signature/:falling up.stem.m4a attr=bitrate low=128 high=320 relative_gap=0.6000 winner_input=0 winner_key=C:/:Music/:Sound Signature/:falling up.stem.m4a winner_in_output=true
+        E       assert False
+        E        +  where False = all(<generator object test_a_settled_outlier_line_is_recoverable_from_a_location_holding_spaces.<locals>.<genexpr> at 0x0000023F073DF9F0>)
+    """
+    import shlex
+
+    base, source, out = _spaced_pair(tmp_path)
+    result = _splice(tmp_path, base, out, source)
+    assert result.exit_code == 0
+    lines = [line for line in result.stdout.splitlines() if line.startswith("settled_outlier ")]
+    assert len(lines) == 1
+    prefix, *fields = shlex.split(lines[0])
+    assert prefix == "settled_outlier"
+    # Asserted before the dict is built so an unparseable line is
+    # reported as the line, not as a dict-update ValueError.
+    assert all("=" in field for field in fields), lines[0]
+    recovered = dict(field.split("=", 1) for field in fields)
+    key = "C:/:Music/:Sound Signature/:falling up.stem.m4a"
+    assert recovered == {
+        "key": key,
+        "attr": "bitrate",
+        "low": "128",
+        "high": "320",
+        "relative_gap": "0.6000",
+        "winner_input": "0",
+        "winner_key": key,
+        "winner_in_output": "true",
+    }
+
+
+def test_the_stats_block_predicts_how_many_settled_outlier_lines_follow(tmp_path: Path) -> None:
+    """settled_outlier_readings counts the lines and
+    settled_groups_outlying counts the groups, so a group past the band
+    on two measured attributes prints 2 and 1: a caller reads the line
+    count off the stats block instead of inferring it from the group
+    count (DL-331).
+
+    The readings count is asserted against the lines actually printed,
+    not against a literal alone, so a count right in this fixture and
+    wrong in general still has to agree with the output beside it.
+
+    Fail-first mutation: _settled_outlier_readings returning
+    sum(1 for row in rows if row.is_outlier), the group count the stats
+    block already carries.
+    Observed:
+        E       assert 'settled_outlier_readings=2' in 'inputs_merged=1
+identity_groups=1
+conflicts_reported=0
+groups_settled_by_rule=1
+settled_groups_outlying=1
+collec...ritten=C:/Users/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1574/test_the_stats_block_predicts_0/twoattr_out.nml
+'
+        E        +  where 'inputs_merged=1
+identity_groups=1
+conflicts_reported=0
+groups_settled_by_rule=1
+settled_groups_outlying=1
+collec...ritten=C:/Users/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1574/test_the_stats_block_predicts_0/twoattr_out.nml
+' = RunResult(exit_code=0, stdout="inputs_merged=1
+identity_groups=1
+conflicts_reported=0
+groups_settled_by_rule=1
+set...ers/marcu/AppData/Local/Temp/pytest-of-marcu/pytest-1574/test_the_stats_block_predicts_0/twoattr_out.nml
+", stderr='').stdout
+    """
+    base, source, out = _two_reading_pair(tmp_path)
+    result = _splice(tmp_path, base, out, source)
+    assert result.exit_code == 0
+    lines = [line for line in result.stdout.splitlines() if line.startswith("settled_outlier ")]
+    assert f"settled_outlier_readings={len(lines)}" in result.stdout
+    assert "settled_outlier_readings=2" in result.stdout
+    assert "settled_groups_outlying=1" in result.stdout
+    assert sorted(line.split(" attr=")[1].split(" ")[0] for line in lines) == ["bitrate", "filesize"]
+
+
+def test_an_aborted_run_s_settled_lines_claim_no_output(tmp_path: Path) -> None:
+    """The listing an aborting run prints (DL-329) names the record the
+    rule picked and says the run built no output to carry it, so no line
+    on that path states a kept value for a file that was never written.
+    The same listing on a run that does write reads true.
+
+    The abort is an unresolved editorial conflict - the run with
+    --on-conflict omitted - which is the path that prints the listing and
+    then writes nothing.
+
+    Fail-first mutation: _print_settled_outliers called with
+    in_output=True unconditionally.
+    Observed:
+        E       assert False
+        E        +  where False = <built-in method endswith of str object at 0x000001BE1C14F910>(' winner_in_output=false')
+        E        +    where <built-in method endswith of str object at 0x000001BE1C14F910> = "settled_outlier key='C:/:Music/:one.mp3' attr=bitrate low=128 high=320 relative_gap=0.6000 winner_input=0 winner_key='C:/:Music/:one.mp3' winner_in_output=true".endswith
+    """
+    base, source, out, _ = _mixed_pair(tmp_path)
+    aborted = _splice(tmp_path, base, out, source)
+    assert aborted.exit_code == 2
+    assert "splice_aborted=true" in aborted.stderr
+    assert not out.exists()
+    lines = [line for line in aborted.stdout.splitlines() if line.startswith("settled_outlier ")]
+    assert len(lines) == 1
+    assert lines[0].endswith(" winner_in_output=false")
+
+    written = _splice(tmp_path, base, out, source, "--on-conflict", "keep-first")
+    assert written.exit_code == 0
+    kept = [line for line in written.stdout.splitlines() if line.startswith("settled_outlier ")]
+    assert len(kept) == 1
+    assert kept[0].endswith(" winner_in_output=true")

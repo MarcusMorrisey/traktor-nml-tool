@@ -26,21 +26,45 @@ def _write_conflict_report(rows: list[ConflictRow], csv_path: Path | None) -> st
     )
 
 
-def _print_settled_outliers(rows: list[SettledRow]) -> None:
-    """One line per settled group whose measured gap exceeds the band.
+def _print_settled_outliers(rows: list[SettledRow], *, in_output: bool) -> None:
+    """One line per settled reading whose measured gap exceeds the band.
 
-    The settled count itself is printed with the rest of the stats above,
-    because it is one of the run's counts. This is the reading beside it:
-    a group the rule answered where the two numbers are far enough apart
-    that the operator may want to know which one the output carries - a
+    The number of these lines is printed with the rest of the stats
+    above, as settled_outlier_readings, so a caller reading the stats
+    block knows how many lines follow it. It stands beside
+    settled_groups_outlying rather than in place of it, because the two
+    answer different questions: that count is groups, and a group
+    reading past the band on two measured attributes states two facts
+    under a count of one (DL-215, DL-331).
+
+    The counts are the run's own; these lines are the reading beside
+    them: a group the rule answered where the two numbers are far
+    enough apart that the operator may want to know which one the
+    output carries - a
     playtime_float 3,516 seconds apart shows as a wrong track length in
     Traktor until it re-analyses (DL-330, DL-331).
 
-    The record that won is named by both halves of the pair the row
-    carries, winner_input and winner_key: the two members of a settled
-    group describe the one LOCATION and so share the one primary key, so
-    winner_key on its own names neither of them, while the index says
-    which collection the kept numbers were read from (DL-148, DL-150).
+    The record the rule picked is named by both halves of the pair the
+    row carries, winner_input and winner_key: the two members of a
+    settled group describe the one LOCATION and so share the one primary
+    key, so winner_key on its own names neither of them, while the index
+    says which collection the kept numbers were read from (DL-148,
+    DL-150). winner_in_output says whether the run built a merged
+    collection for that record to be carried by: a run aborting on an
+    unresolved conflict prints these lines deliberately and writes
+    nothing (DL-329), so the pick it names is a decision and not an
+    output there. It reads true for a run holding output, a --dry-run
+    included, since that run's output is built and only the write is
+    skipped.
+
+    key and winner_key are repr-quoted, the form inspect_cmd and
+    build_playlist_cmd print a value that may hold a space in: an
+    identity key is read off a LOCATION, and a track under
+    "/:Sound Signature/:" splits on whitespace into fields that are not
+    the line's fields. A consumer recovers all of them with shlex.split,
+    which reads the quoting repr writes, the double quotes it switches to
+    for a path holding an apostrophe included. The attribute name, the
+    two values and the gap cannot hold a space and stand bare.
 
     A run whose rule settled nothing, and a run whose settled groups are
     all within the band, print no line at all rather than a header with
@@ -60,14 +84,22 @@ def _print_settled_outliers(rows: list[SettledRow]) -> None:
         for reading in row.outliers:
             print(
                 "settled_outlier"
-                f" key={row.identity_key}"
+                f" key={row.identity_key!r}"
                 f" attr={reading.attr}"
                 f" low={reading.low}"
                 f" high={reading.high}"
                 f" relative_gap={reading.relative_gap:.4f}"
                 f" winner_input={winner_input}"
-                f" winner_key={winner_key}"
+                f" winner_key={winner_key!r}"
+                f" winner_in_output={'true' if in_output else 'false'}"
             )
+
+
+def _settled_outlier_readings(rows: list[SettledRow]) -> int:
+    """How many settled_outlier lines _print_settled_outliers prints for
+    rows: one per reading, summed over the groups, which is what the
+    stats block states so a caller can predict the lines under it."""
+    return sum(len(row.outliers) for row in rows)
 
 
 def _handle_splice(args: argparse.Namespace) -> int:
@@ -104,12 +136,20 @@ def _handle_splice(args: argparse.Namespace) -> int:
 
     for key, value in result.stats.items():
         print(f"{key}={value}")
+    # Last of the stats block and directly above the lines it counts, so
+    # a caller reads how many settled_outlier lines follow before it
+    # reads them. Counted here rather than carried in result.stats
+    # because it is a fact about this command's own output: the rows the
+    # GUI renders carry their readings per group and count no lines.
+    print(f"settled_outlier_readings={_settled_outlier_readings(result.settled_rows)}")
     # Under the stats block, so groups_settled_by_rule is read first and
     # the lines below it are the reading of that count.
     # Before the conflict report is written, so a run that refuses on a
     # report it could not write has still printed what the rule settled
-    # (DL-008's precedent, DL-329).
-    _print_settled_outliers(result.settled_rows)
+    # (DL-008's precedent, DL-329). That run wrote no output and so did a
+    # run aborting on an unresolved conflict, which is what each line's
+    # winner_in_output states.
+    _print_settled_outliers(result.settled_rows, in_output=result.output is not None)
     if _write_conflict_report(result.conflict_rows, args.conflict_report) is not None:
         return 2
 
