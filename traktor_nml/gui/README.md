@@ -243,8 +243,10 @@ answers other than the ones now given. `conflict_model.run_assembled`
 answers the first and `conflict_model.run_is_current` the second, so the
 page never reads `result.output` itself and never asks twice whether the
 answers have changed. `reconstruct_report.preview_refusal` holds what
-the preview says when its run assembled nothing (DL-224, DL-225,
-DL-226).
+the preview says when its run assembled nothing - the reasons it stops,
+the conflicts behind them, and the same settled reading the assembled
+record makes, since a run reports the groups the rule answered whatever
+its outcome (DL-224, DL-225, DL-226, DL-329, DL-331).
 
 `collection_summary.py` holds what the set-up step says about a
 collection it has been given: its tracks, its playlists, how many of

@@ -175,17 +175,19 @@ READING_DIGESTS = {
     # DL-169, DL-307). The digest is computed from the record as the
     # browser run left it.
     "2026-09-17-switch-options-browser-record.md": "890975a3f22f3d9e62df465cd9d69dd8c51fed34372e4ed6cd744298c6f0e49a",
-    # The tier closes on a served-page record reading, over three
-    # collection pairs, the settled sentence and the count it takes
-    # off the run's own rows, the outlier listing's head against the
-    # settled count, each row's five cells, its grid, its type and
-    # the separator that stands between rows, the quiet case that
-    # draws a sentence and no listing, and the editorial case that
-    # draws neither and still refuses, with structural verdicts
-    # against Preview.dc.html's .ol and its info note (ref: DL-084,
-    # DL-169, DL-325, DL-330, DL-331). The digest is computed from
-    # the record as the browser run left it.
-    "2026-09-26-tiered-conflict-browser-record.md": "6e65d49174938beecd2af7ea5905131b5260271911708e8a16b92a346dd2819e",
+    # The tier closes on a served-page record reading, over four
+    # collection pairs, the settled sentence and the count it takes off
+    # the run's own stats, the listing's head against the readings it
+    # counts, the three rows the cap draws in descending gap order and
+    # the remainder row behind them, each row's five cells with the
+    # track named off the winning record and the kept value leading its
+    # pair, the refusal screen carrying the same reading beside its
+    # refusal card, the quiet case that draws a sentence and no listing,
+    # and the editorial case that draws neither, with structural
+    # verdicts against Preview.dc.html's .ol, .olr and its info note
+    # (ref: DL-084, DL-169, DL-325, DL-330, DL-331). The digest is
+    # computed from the record as the browser run left it.
+    "2026-09-26-tiered-conflict-browser-record.md": "c0c808cc75312f92283fb0b220e9ba291c75586cfb0d23d8da11966347e25401",
 }
 
 # A digest is the hash of the readings one run recorded, so it is written

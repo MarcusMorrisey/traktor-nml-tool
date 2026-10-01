@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-334`:
+This file is the authority for the log's high-water mark, which is `DL-337`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2756,8 +2756,19 @@ names, so the next plan numbers from there.
   (`model.py:66`-`96`), so both are real recorded facts and there is no
   operator judgement to ask for. `artist`, `title` and `album` are
   EDITORIAL: a disagreement there is a disagreement about something a
-  person typed. A group whose divergence is measured-only is settled by
-  rule rather than put to the operator. The reason is the absence of a
+  person typed. The reasoning behind that answer covers one case and one
+  only: one file, described twice, each collection carrying its own
+  analysis of it. Every part of that sentence is a precondition, and
+  `splice._resolve_conflicts` checks all three before it settles
+  anything - every member carries the one primary key, the group holds
+  the base record whose values the output keeps, and every value the
+  divergence is made of reads as a finite number
+  (`metadata_tier.unreadable_measured`). A group whose divergence is
+  measured-only and which passes all three is settled by rule rather
+  than put to the operator; a group failing any of them is a conflict,
+  because a sentence about two analyses of one file says nothing about
+  two files, about a whole ENTRY chosen by the run-wide policy, or about
+  a measurement missing on one side. The reason is the absence of a
   judgement, not the unreality of the difference, which is why this is a
   different question from `matching.py:120`-`150`'s tolerant
   verification: that rule compares Traktor's recorded numbers against the
@@ -2773,20 +2784,27 @@ names, so the next plan numbers from there.
   it and keeps `_TRACKED_ATTRS` as the name `answer_detail.py` and the
   guards already import, so a second tuple of the six names cannot drift
   from the partition the tier is decided on (DL-326).
-- A conflict is raised when at least one EDITORIAL attribute diverges. A
-  group raising one carries every divergent attribute in `attrs`, the
-  measured names included, so its CSV row, its candidates and its resolve
-  rail stand as they stand and its measured divergence is never reported
+- A conflict is raised when the rule did not answer the group's
+  divergence, which happens four ways: an EDITORIAL attribute diverges,
+  the members carry more than one primary key, the group holds no base
+  record, or a measured name holds a value that reads as no finite
+  number. A group raising one carries every divergent attribute in
+  `attrs`, the measured names included, so its CSV row, its candidates and
+  its resolve rail stand as they stand and its measured divergence is
+  never reported
   twice - once as a conflict attribute and again as a settled row. Moving
   those names out of `attrs` would drop them from `answer_fields`, which
   leaves out any attribute standing in neither `attrs` nor `agreed`
   (DL-327).
-- A settled group's measured values are the base record's where the group
-  holds one, and the run-wide picker's winner where it holds none. No
-  entry patch is collected for it: `entry_patches` is written only where a
-  resolution names a record other than base's, and a settled group is
-  named by no resolution, so base keeps the numbers its own entry carries
-  and a transplanted winner carries its own verbatim (DL-328).
+- A settled group's measured values are the base record's. The group
+  holds one, because a group holding none is a conflict and not a settled
+  row: its whole ENTRY, cue points and all, would otherwise be chosen by
+  the run-wide `--on-conflict` policy - or by `keep-first` where none was
+  given - under a row saying there was nothing to decide, which is a
+  decision rather than the absence of one. No entry patch is collected for
+  a settled group: `entry_patches` is written only where a resolution
+  names a record other than base's, and a settled group is named by no
+  resolution, so base keeps the numbers its own entry carries (DL-328).
 - A settled group reports a `SettledRow` on `SpliceResult` beside
   `conflict_rows` rather than a `ConflictRow`, because a `ConflictRow`
   carrying member keys is projected into a resolve-table row, which is
@@ -2794,18 +2812,39 @@ names, so the next plan numbers from there.
   names the group diverged on, the values each of them took across the
   members, the `(input index, primary key)` pair naming the record whose
   values the output carries - the record, never a base-or-source token
-  (DL-148), and the pair rather than the key alone because both members
-  of a settled group describe the one LOCATION and carry the identical
-  primary key, so a key standing alone equals the identity key and says
-  which record won of neither - and the group's outlier readings. The
-  list is populated on every run, a clean one and an abort included, for
-  the reason `conflict_rows` is (DL-008): what the rule answered is part
-  of what the run did. The conflict CSV's three columns and
-  `splice_cmd`'s printed conflict line stand where they are (DL-329).
-- An outlier is a settled group whose gap on one measured attribute
-  exceeds 1% of the larger of the two values, read per attribute and
-  strictly, so a gap exactly at the band is not one. The band is not the
-  conflict rule. Measured as one on a real collection pair, group-level
+  (DL-148), and the pair rather than the key alone because the identical
+  primary key across every member is a precondition of settling at all,
+  so a key standing alone equals the identity key and says which record
+  won of neither - and the group's outlier readings. The index is 0 on
+  every row here, because the record whose values the output keeps is
+  base's own. The list is populated on every run, a clean one and an
+  abort included, for the reason `conflict_rows` is (DL-008): what the
+  rule answered is part of what the run did, and `splice_cmd`'s
+  `settled_outlier` lines name that same pair as `winner_input` and
+  `winner_key` - the record the rule picked - with `winner_in_output`
+  saying whether the run built a merged collection for it to stand in,
+  since the lines print on an aborted run where none exists. The conflict
+  CSV's three columns and `splice_cmd`'s printed conflict line stand
+  where they are (DL-329).
+- An outlier is a settled group one of whose measured attributes reads a
+  gap exceeding 1% of the larger of the two values it is read between.
+  The reading is taken from the kept value - the winning record's own
+  number, which is what the merged collection carries - outwards against
+  the member value furthest from it, so the two numbers a reading names
+  are the one the output holds and one it does not; a spread read across
+  all the members would, for a group of three, name two values the output
+  holds neither of under a row saying it carries the record named beside
+  them. The comparison is per attribute and strict, so a gap exactly at
+  the band is not an outlier, and it is decided on exact rationals read
+  from the decimal strings the file holds: `playtime_float` 59.4 against
+  60.0 is exactly 1% and divides to 0.010000000000000024 in floats, so a
+  float comparison reports an exact 1% gap as an outlier. A value
+  spelling no finite number yields no reading at all - the empty string a
+  record with no INFO element carries, a NaN, an infinity - and a
+  measured name holding one makes the group a conflict rather than a
+  settled row (DL-325), so no reading is ever taken off a group the rule
+  could not answer for. The band is not the conflict rule. Measured as one
+  on a real collection pair, group-level
   survivors run 7,279 at 0.01%, 2,679 at 0.1%, 2,203 at 1% and 2,176 at
   10%: past 1% the band separates nothing, so roughly 1,650 measured
   divergences sit above any band and a band read as the rule leaves a
@@ -2823,7 +2862,20 @@ names, so the next plan numbers from there.
   disagree about how many decisions were made for the operator (DL-215).
   The count and the listing are one division of that one list, made in
   the report rather than in the render, for the reason `LISTED_PLAYLISTS`
-  is divided there (DL-217, DL-331).
+  is divided there (DL-217). The listing is ordered by gap, widest first,
+  with the track and the attribute behind it so the ordering is total,
+  and capped at `LISTED_OUTLIERS` with one remainder row naming how many
+  readings stand behind it and the widest of those: a real collection
+  pair reads a few thousand past the band against an artboard drawing
+  three, and the union-find order the rows arrive in is the order two
+  dicts happened to be walked, which would put a different three on
+  screen for two runs reporting the same readings and scatter the six
+  `playtime_float` groups the band exists for among thousands of 2 KB
+  `filesize` drifts. Both step 2 records carry the reading, the refusal
+  as well as the assembled one, off one mixin so the wording and the
+  plural cannot drift: a run populates and prints its settled rows on an
+  abort by design (DL-329), and a collection pair that stops at a
+  divergence is most of them (DL-331).
 - A bound on `draw()` - a cap, a window or yielding - is out of this
   work's scope. The 9,052-row build that overran nicegui's 6s socket
   budget is 529 rows under the tier, measured at 0.64ms each, so the
@@ -2840,6 +2892,32 @@ names, so the next plan numbers from there.
   group produces no `ConflictRow`, so the conflict report's three
   fieldnames and its rows stand and the two counts the stats block
   carries are printed beside the ones already there (DL-334).
+- `splice_cmd`'s `settled_outlier` lines are `k=v` pairs, and `key` and
+  `winner_key` are repr-quoted, the form `inspect_cmd` already prints a
+  path in: a LOCATION holds spaces, and an unquoted one breaks the parse
+  of every pair after it on the line. The stats block above the lines
+  carries `settled_outlier_readings`, how many of them follow, beside
+  `settled_groups_outlying`, which counts groups: a group reading past
+  the band on two measured attributes prints two lines, so the group
+  count does not predict the line count and a caller reading the block
+  needs both (DL-335).
+- `reconstruct_report.preview_report` and `preview_refusal` take
+  `settled_rows` and `labels` as required parameters rather than
+  defaulting them empty, and read the settled count off
+  `stats["groups_settled_by_rule"]`. A caller that omitted the rows would
+  compose a record stating a settled count of 0 for a run whose own stats
+  said 2,203 - the record contradicting the mapping it was built from,
+  which no default can make safe - and a caller that holds the stats
+  holds the rows beside them (DL-336).
+- A comment inside an artboard's `<style>` is written `/* */`. `<!--` and
+  `-->` reach a CSS parser as CDO and CDC tokens, which swallow the rules
+  standing between them, so an HTML comment in
+  `design/reconnect-wizard/Preview.dc.html`'s stylesheet leaves the `.ol`
+  and `.olr` rules its citations resolve against out of the sheet a
+  browser reads while the source still shows them. The guard in
+  `tests/test_gui_settled_reading.py` parses that stylesheet with
+  `tinycss2` rather than matching its text, because a pattern over the
+  source reads a rule the parser never sees (DL-337).
 
 ## Invariants
 
