@@ -67,7 +67,7 @@ def _reading_digest(text: str) -> str:
 READING_DIGESTS = {
     "2026-08-27-m001-browser-record.md": "dbef7a4a97c01c5701fe62983e9687be76650039eb9218bd3264c45430e4001e",
     "2026-08-28-w002-browser-record.md": "3a1759dce7ccd384c279c79c3aaa76d9eac3367ef8646e1ea8d8cf76e9a32250",
-    "2026-08-29-w004-focus-ring-record.md": "22120b36351a3e10ad6c3706503f04f6ddbb8bc602c3d5377b9a014da0ac3c88",
+    "2026-08-29-w004-focus-ring-record.md": "2df2753eb0aadc55526e9a31da377795e067aea0128ec5aa0f54b000fae3be6d",
     "2026-09-03-header-tabs-browser-record.md": "8efef9b91ac577095c5f8c76af04ea522c7dc4e8d473dd34e85fbd134413d5da",
     "2026-09-05-wizard-shell-browser-record.md": "96af8ac3efe80408c6004de8b51b74ccb52b6d2db5a7d093869d3b21c54176da",
     "2026-09-06-wizard-focus-order-browser-record.md": "dd1dc94601c280dee67ed38aee69f945de782d976ff33aab53b3e66084a0203e",

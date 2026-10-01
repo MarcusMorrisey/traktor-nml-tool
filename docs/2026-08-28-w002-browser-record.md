@@ -75,7 +75,7 @@ for the scan counter and tiles, and `Confirm.dc.html` for the write dialog.
 | Focus returns to the opener, Escape path | the opener is refocused | the focus ring lands back on `Write output`, read by the maintainer from a trusted Escape keypress | matches |
 
 The review row's decision buttons stand `8px` apart where `Review.dc.html:68`'s
-`.dec` and `.decd` groups render `6px`. Specs.dc.html:267 states the rule -
+`.dec` and `.decd` groups render `6px`. Specs.dc.html:313 states the rule -
 controls are 32px tall with 8px between them, every button on every screen -
 and a stated rule governs an artboard's own rendering under DL-088, the same
 decision that settles the 32px control height against the artboards rendering

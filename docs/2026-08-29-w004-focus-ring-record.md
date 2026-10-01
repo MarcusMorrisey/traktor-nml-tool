@@ -36,7 +36,7 @@ three non-zero counts summing to the three reviews the scan returned.
 | Filter chips | `32px` | `32px`, `min-height: 32px`, all seven | matches |
 | Row decision controls | `32px` | `32px`, `min-height: 32px` | matches |
 | Back, Continue to write | `32px` | `32.0125px` | matches |
-| Gap between the decision buttons | `8px` (Specs.dc.html:267) | `8px` between bounding rects, `gap: 8px` on `.wizard-control-group` | matches |
+| Gap between the decision buttons | `8px` (Specs.dc.html:313) | `8px` between bounding rects, `gap: 8px` on `.wizard-control-group` | matches |
 | Accept | `Review.dc.html:37`'s `.btn-ok`: `#12211D` on `#2C5449`, text `#4FD3BA` | `rgb(18, 33, 29)`, border `rgb(44, 84, 73)`, `rgb(79, 211, 186)`, `12px` | matches |
 | Reject | `Review.dc.html:38`'s `.btn-no`: `#21160F` on `#6A3F2C`, text `#E8956E` | `rgb(33, 22, 15)`, border `rgb(106, 63, 44)`, `rgb(232, 149, 110)`, `12px` | matches |
 | Needs-review status word | `#F5D96B` | `rgb(245, 217, 107)`, `12px` | matches |

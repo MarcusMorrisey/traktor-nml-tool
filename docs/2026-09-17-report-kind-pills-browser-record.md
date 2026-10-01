@@ -108,8 +108,8 @@ so the pill sits inside the track the header already fixed.
 
 | Structure | The artboard draws | The served page composes | Verdict |
 |---|---|---|---|
-| The report's kind cell | `Specs.dc.html:179`-`181`'s `<span class="kind unmatched">Unmatched</span>` and its two siblings, tinted by `:60`-`63` | a cell holding one `buildplaylist-report-kind buildplaylist-report-kind-<kind>` element per row, the shape on the shared class and each kind's three colours on its own rule | matches |
-| The kind pill's word | `:179`-`181`'s `Unmatched`, `Ambiguous`, `Unparseable`, rendered uppercase by `:60` | `Unmatched`, `Ambiguous` and `Unparseable` with `text-transform: uppercase` | matches |
+| The report's kind cell | `Specs.dc.html:180`-`182`'s `<span class="kind unmatched">Unmatched</span>` and its two siblings, tinted by `:60`-`63` | a cell holding one `buildplaylist-report-kind buildplaylist-report-kind-<kind>` element per row, the shape on the shared class and each kind's three colours on its own rule | matches |
+| The kind pill's word | `:180`-`182`'s `Unmatched`, `Ambiguous`, `Unparseable`, rendered uppercase by `:60` | `Unmatched`, `Ambiguous` and `Unparseable` with `text-transform: uppercase` | matches |
 
 ## What this run does not establish
 
