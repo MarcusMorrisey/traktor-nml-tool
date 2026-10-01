@@ -69,7 +69,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-rows:auto 1fr;grid-templat
 .pl:last-child{border-bottom:0}
 .pl .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pl .c{font:600 12px/1 'IBM Plex Mono',ui-monospace,monospace;color:#A5ADB4;white-space:nowrap}
-<!-- .ol: one measured gap a settled group is worth reading for. Four
+/* .ol: one measured gap a settled group is worth reading for. Four
      stacked cells at the left - the track, the NML attribute name, the
      two values, the record the output keeps - and the gap at the right,
      spanning all four rows in its own column, which is why this is a
@@ -82,7 +82,7 @@ main{padding:22px 24px 6px;display:grid;grid-template-rows:auto 1fr;grid-templat
      top border on every row after the first, not a bottom border on
      each with the last one cancelled: the settled sentence closes this
      card from inside the same container, so the last row is not its
-     parent's last child and a cancelling rule would never fire. -->
+     parent's last child and a cancelling rule would never fire. */
 .ol{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"nm g" "k g" "v g" "w g";gap:2px 12px;align-items:center;padding:8px 2px;font-size:12.5px}
 .ol + .ol{border-top:1px solid #23272B}
 .ol .nm{grid-area:nm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -90,6 +90,19 @@ main{padding:22px 24px 6px;display:grid;grid-template-rows:auto 1fr;grid-templat
 .ol .v{grid-area:v;font:500 12px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#A5ADB4;word-break:break-all}
 .ol .w{grid-area:w;font:500 11px/1.4 'IBM Plex Mono',ui-monospace,monospace;color:#8E979E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ol .g{grid-area:g;font:600 13px/1 'IBM Plex Mono',ui-monospace,monospace;color:#F5D96B;white-space:nowrap}
+/* .olr: the one row standing for every measured gap the listing does
+     not draw. A real collection pair settles thousands of groups and
+     reads past the band on thousands of attributes, so the listing is
+     capped at the three rows above and this row carries what is left:
+     how many there are, and how wide the widest of them reaches, since
+     the listing is ordered widest first. It is faint in both cells - it
+     names no track and no attribute, so nothing on it is the
+     needs-review number the .ol rows carry - and it takes the same
+     top-border rule, padding and type size as an .ol row, so the card
+     reads as one list divided rather than as a list and a footnote. */
+.olr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 2px;border-top:1px solid #23272B;font-size:12.5px}
+.olr .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8E979E}
+.olr .g{font:600 13px/1 'IBM Plex Mono',ui-monospace,monospace;color:#8E979E;white-space:nowrap}
 .scroll{overflow-y:auto;min-height:0;display:flex;flex-direction:column}
 .tot{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px 12px;border-radius:6px;background:#1F2225;border:1px solid #3C4248;font-size:13px;font-weight:600;align-items:center}
 .big{font:600 15px/1 'IBM Plex Mono',ui-monospace,monospace}
@@ -174,11 +187,12 @@ main{padding:22px 24px 6px;display:grid;grid-template-rows:auto 1fr;grid-templat
       </section>
 
       <section class="card">
-        <div class="card-h"><h2 class="card-t">The 3 measured far apart</h2></div>
+        <div class="card-h"><h2 class="card-t">The 2,203 measured far apart</h2></div>
         <div class="card-b">
           <div class="ol"><span class="nm">Drexciya &mdash; Andreaen Sand Dunes</span><span class="k">PLAYTIME_FLOAT</span><span class="v">311.5 (5:11) &rarr; 3828.0 (63:48)</span><span class="w">collection-b.nml: C:/:Music/:Drexciya/:andreaen.mp3</span><span class="g">91.9%</span></div>
-          <div class="ol"><span class="nm">Theo Parrish &mdash; Falling Up</span><span class="k">FILESIZE</span><span class="v">17564 (17.2 MB) &rarr; 69203 (67.6 MB)</span><span class="w">base: C:/:Music/:Sound Signature/:falling-up.stem.m4a</span><span class="g">74.6%</span></div>
           <div class="ol"><span class="nm">Larry Heard &mdash; Missing You</span><span class="k">BITRATE</span><span class="v">320000 (320 kbps) &rarr; 1411000 (1411 kbps)</span><span class="w">collection-b.nml: C:/:Music/:Alleviated/:missing-you.aif</span><span class="g">77.3%</span></div>
+          <div class="ol"><span class="nm">Theo Parrish &mdash; Falling Up</span><span class="k">FILESIZE</span><span class="v">17564 (17.2 MB) &rarr; 69203 (67.6 MB)</span><span class="w">base: C:/:Music/:Sound Signature/:falling-up.stem.m4a</span><span class="g">74.6%</span></div>
+          <div class="olr"><span class="nm">and 2,200 more measured far apart</span><span class="g">70.2% and narrower</span></div>
           <p class="meta" style="margin:0">These are read, not decided. The output carries the record named beside each one; Traktor rewrites its own measurement the next time it analyses the file.</p>
         </div>
       </section>
