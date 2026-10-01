@@ -116,19 +116,28 @@ def format_value(attr: str, raw: str) -> Optional[str]:
     string a record with no INFO element carries: the raw value then
     prints as itself with no formatted companion, rather than a division
     raising inside a page build (ref: DL-248).
+
+    The reading stands inside the guard with the parse, not after it, so
+    the function is total over every str: float() accepts 'nan', 'inf'
+    and '1e400', and int() and round() over those three raise ValueError
+    and OverflowError rather than returning a number. metadata_tier
+    screens non-finite values where it parses them, so nothing reaches
+    here today - but this is a formatter a page build calls, and the
+    reason it answers None rather than raising does not depend on which
+    caller found the value (ref: DL-248).
     """
     if attr not in ("filesize", "playtime_float", "bitrate"):
         return None
     try:
         number = float(raw)
-    except (TypeError, ValueError):
+        if attr == "filesize":
+            return f"{number / 1024:.1f} MB"
+        if attr == "bitrate":
+            return f"{round(number / 1000)} kbps"
+        minutes, seconds = divmod(int(number), 60)
+        return f"{minutes}:{seconds:02d}"
+    except (TypeError, ValueError, OverflowError):
         return None
-    if attr == "filesize":
-        return f"{number / 1024:.1f} MB"
-    if attr == "bitrate":
-        return f"{round(number / 1000)} kbps"
-    minutes, seconds = divmod(int(number), 60)
-    return f"{minutes}:{seconds:02d}"
 
 
 def answer_fields(

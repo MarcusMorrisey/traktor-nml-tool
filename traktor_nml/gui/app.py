@@ -3197,6 +3197,29 @@ def _build_reconstruct_page() -> None:
                     resolve_holder["keyboard"] = ui.keyboard(on_key=on_key)
                 draw()
 
+            def _preview_record():
+                """The step 2 record for the held run.
+
+                One composition for every step 2 screen that reads it -
+                the assembled one and the one for a run that rebuilt no
+                playlist - so the two cannot be composed from different
+                arguments and disagree about the same run (DL-204).
+                """
+                result = result_holder["result"]
+                return reconstruct_report.preview_report(
+                    result.stats,
+                    conflict_holder,
+                    decisions,
+                    result.settled_rows,
+                    # The collection names this page holds for its inputs,
+                    # the tuple the resolve rail's contributor chips are
+                    # named from: the record composes each listed row's
+                    # winner from them and from the pair the run reported,
+                    # so this step and that rail name a collection the one
+                    # way (DL-148, DL-150).
+                    _collection_labels(source_holder),
+                )
+
             def _render_preview() -> None:
                 """Preview.dc.html: what the held run would write.
 
@@ -3219,10 +3242,16 @@ def _build_reconstruct_page() -> None:
                     _render_preview_refusal(result)
                     return
                 if not result.stats.get("reconstructed_playlists"):
+                    # The settled reading stands under the sentence rather
+                    # than being skipped with the listing: a run that
+                    # rebuilt no playlist still measured the tracks and
+                    # still answered for them, and this sentence is not
+                    # the whole of what it did (DL-215, DL-329).
                     with report:
                         ui.label(
                             "Every matched playlist already holds these contents."
                         ).classes("wizard-body-13")
+                    _render_settled_reading(_preview_record())
                     return
                 _render_preview_run()
 
@@ -3240,7 +3269,11 @@ def _build_reconstruct_page() -> None:
                 DL-226).
                 """
                 record = reconstruct_report.preview_refusal(
-                    result.errors, conflict_holder
+                    result.errors,
+                    conflict_holder,
+                    result.stats,
+                    result.settled_rows,
+                    _collection_labels(source_holder),
                 )
                 with report, ui.element("section").classes("wizard-card"):
                     with ui.element("div").classes("wizard-card-head"):
@@ -3261,25 +3294,21 @@ def _build_reconstruct_page() -> None:
                                         ui.label(reason).classes(
                                             "wizard-mono wizard-body-12"
                                         )
+                # Under the refusal card: a refused run populated and
+                # counted its settled rows, by the design splice.py:187
+                # states, and the CLI prints them on the same abort. The
+                # card above says what stopped the run; this says what it
+                # answered anyway, and a screen showing only the first
+                # tells the operator less than the terminal does (DL-215,
+                # DL-329).
+                _render_settled_reading(record)
 
             def _render_preview_run() -> None:
                 """The two columns Preview.dc.html draws for a run
                 that assembled: what would be rebuilt at the left,
                 what the run is and what it could not fill at the
                 right."""
-                record = reconstruct_report.preview_report(
-                    result_holder["result"].stats,
-                    conflict_holder,
-                    decisions,
-                    result_holder["result"].settled_rows,
-                    # The collection names this page holds for its inputs,
-                    # the tuple the resolve rail's contributor chips are
-                    # named from: the record composes each listed row's
-                    # winner from them and from the pair the run reported,
-                    # so this step and that rail name a collection the one
-                    # way (DL-148, DL-150).
-                    _collection_labels(source_holder),
-                )
+                record = _preview_record()
                 with report, ui.element("div").classes("wizard-step-split"):
                     with ui.element("div").classes("wizard-step-column"):
                         with ui.element("section").classes("wizard-card"):
@@ -3311,13 +3340,7 @@ def _build_reconstruct_page() -> None:
                         # one states what is still to be decided, the
                         # other what the run answered itself, and a
                         # reader has to be able to tell which is which.
-                        # Empty for a run the rule settled nothing for,
-                        # so nothing is placed for it at all.
-                        if record.settled_sentence:
-                            with ui.element("div").classes(
-                                "wizard-callout wizard-callout-info"
-                            ):
-                                ui.label(record.settled_sentence)
+                        settled_note(record)
                     with ui.element("div").classes("wizard-step-column"):
                         with ui.element("section").classes("wizard-card"):
                             with ui.element("div").classes("wizard-card-head"):
@@ -3373,11 +3396,7 @@ def _build_reconstruct_page() -> None:
                                 with ui.element("div").classes(
                                     "wizard-card-body"
                                 ):
-                                    for row in record.outliers:
-                                        outlier_row(row)
-                                    ui.label(record.outlier_note).classes(
-                                        "wizard-meta"
-                                    )
+                                    outlier_rows(record)
                         with ui.element("div").classes(
                             "wizard-callout wizard-callout-info"
                         ):
@@ -3387,7 +3406,7 @@ def _build_reconstruct_page() -> None:
                             )
 
             def playlist_row(row) -> None:
-                """Preview.dc.html:110's .pl: one listed playlist,
+                """Preview.dc.html:144's .pl: one listed playlist,
                 its name at the left and its own entry count at the
                 right. The count's sentence is the row's, so the
                 unit is written once for every row that prints
@@ -3396,8 +3415,92 @@ def _build_reconstruct_page() -> None:
                     ui.label(row.name).classes("wizard-list-name")
                     ui.label(row.entry_count).classes("wizard-list-count")
 
+            def settled_note(record) -> None:
+                """The info callout carrying what the run answered for the
+                operator, drawn wherever a step 2 screen has room for it.
+
+                Empty for a run the rule settled nothing for, and then
+                nothing is placed at all - not a callout with an empty
+                label, which would draw a tinted panel around nothing.
+                The record decides that, by answering the empty string,
+                so the three screens that call this cannot disagree about
+                when the reading exists (DL-215, DL-329).
+                """
+                if not record.settled_sentence:
+                    return
+                with ui.element("div").classes(
+                    "wizard-callout wizard-callout-info"
+                ):
+                    ui.label(record.settled_sentence)
+
+            def _render_settled_reading(record) -> None:
+                """What the run answered for the operator, on the two step
+                2 screens that carry no run report: the refusal, and the
+                run that rebuilt no playlist.
+
+                It draws into the step's own panel as one column, under
+                whatever that screen already said, because neither screen
+                has the two columns the assembled one lays its reading out
+                across. Both readings come off the record the same way the
+                assembled screen reads them, so the three screens cannot
+                word the same run differently (DL-215, DL-329).
+
+                Nothing is placed for a run with neither reading, rather
+                than an empty column: an element drawn around nothing is
+                still a gap on the screen.
+                """
+                if not record.settled_sentence and not record.outliers:
+                    return
+                with report, ui.element("div").classes("wizard-step-column"):
+                    settled_note(record)
+                    if record.outliers:
+                        with ui.element("section").classes("wizard-card"):
+                            with ui.element("div").classes("wizard-card-head"):
+                                ui.label(record.outlier_title).classes(
+                                    "wizard-card-title"
+                                )
+                            with ui.element("div").classes("wizard-card-body"):
+                                outlier_rows(record)
+
+            def outlier_rows(record) -> None:
+                """The contents of Preview.dc.html's card of measured gaps:
+                the listed readings, the row standing for the rest where
+                there is a rest, and the note under them.
+
+                The card shell is built by the screen that owns the column
+                it stands in; what is shared is this, the record's own
+                division of the readings. No filtering and no slicing
+                stands here - the head above names the run's whole count
+                and these rows are that count divided once, in the record
+                (DL-217, DL-331).
+                """
+                for row in record.outliers:
+                    outlier_row(row)
+                if record.outlier_remainder is not None:
+                    outlier_remainder_row(record.outlier_remainder)
+                ui.label(record.outlier_note).classes("wizard-meta")
+
+            def outlier_remainder_row(remainder) -> None:
+                """Preview.dc.html's .olr: the row standing for every
+                reading the listing does not draw, how many there are at
+                the left and how wide the widest of them reaches at the
+                right.
+
+                Both cells are strings the record composed, like every
+                cell of a drawn reading, so this row cannot state a count
+                or a percentage the rows above it disagree with (DL-215,
+                DL-331).
+                """
+                with ui.element("div").classes("wizard-outlier-remainder"):
+                    ui.label(remainder.name).classes(
+                        "wizard-outlier-remainder-name"
+                    )
+                    ui.label(remainder.gap_amount).classes(
+                        "wizard-outlier-remainder-gap"
+                    )
+
             def outlier_row(row) -> None:
-                """Preview.dc.html:175's .ol: one measured gap a settled
+                """Preview.dc.html:192's .ol: one measured gap a settled
                 group is worth reading for, its track, the attribute's
                 own name, the two values and the record the output keeps
                 stacked at the left, and the gap at the right.

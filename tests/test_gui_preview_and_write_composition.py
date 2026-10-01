@@ -22,7 +22,7 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 
-from traktor_nml import metadata_tier
+from traktor_nml import metadata_tier, splice
 from traktor_nml.gui import (
     answer_detail,
     conflict_model,
@@ -114,6 +114,11 @@ def _stats(**overrides) -> dict:
         "empty_playlists": 0,
         "unfilled_playlists": [],
         "collection_entries_total": 0,
+        # The count of groups the tier answered, which splice writes from
+        # the same list settled_rows is: the record reads its settled
+        # count off this rather than off the rows handed in, so the two
+        # cannot disagree (DL-204, DL-215).
+        "groups_settled_by_rule": 0,
     }
     stats.update(overrides)
     return stats
@@ -141,7 +146,7 @@ def _group(identity_key: str, *values: str) -> conflict_model.ConflictGroup:
 
 
 def test_the_listing_and_the_row_standing_for_the_rest_are_one_division():
-    """Preview.dc.html:110-119 draws nine playlists by name and a tenth
+    """Preview.dc.html:144-153 draws nine playlists by name and a tenth
     row standing for the rest. The two are one division of one list, so
     the count that row names and the rows above it cannot disagree, and
     the entries it sums are the ones no row above it printed.
@@ -158,7 +163,11 @@ def test_the_listing_and_the_row_standing_for_the_rest_are_one_division():
     """
     rebuilt = {f"list-{index:02d}": index for index in range(1, 21)}
     record = reconstruct_report.preview_report(
-        _stats(reconstructed_playlists=rebuilt), [], conflict_model.ConflictDecisions()
+        _stats(reconstructed_playlists=rebuilt),
+        [],
+        conflict_model.ConflictDecisions(),
+        (),
+        (),
     )
     assert record.entries_added == 0, (
         "a run that added nothing reports nothing added, whatever its "
@@ -190,13 +199,17 @@ def test_a_run_whose_playlists_all_fit_draws_no_row_standing_for_the_rest():
         E        +  where PlaylistRow(name='and 0 more', entries=0) = PreviewReport(listed=(PlaylistRow(name='one', entries=3),), remainder=PlaylistRow(name='and 0 more', entries=0), filled=0, empty=0, entries_added=3, unfilled=(), conflicts=0).remainder
     """
     record = reconstruct_report.preview_report(
-        _stats(reconstructed_playlists={"one": 3}), [], conflict_model.ConflictDecisions()
+        _stats(reconstructed_playlists={"one": 3}),
+        [],
+        conflict_model.ConflictDecisions(),
+        (),
+        (),
     )
     assert record.remainder is None
 
 
 def test_the_head_counts_the_playlists_this_run_filled_against_the_ones_it_found():
-    """Preview.dc.html:107's label prints both numbers, because a count
+    """Preview.dc.html:141's label prints both numbers, because a count
     of playlists filled says nothing without the count there were to
     fill. Both are read off the run's own stats.
 
@@ -219,12 +232,14 @@ def test_the_head_counts_the_playlists_this_run_filled_against_the_ones_it_found
         ),
         [],
         conflict_model.ConflictDecisions(),
+        (),
+        (),
     )
     assert record.filled_caption == "3 of 9 empty playlists", record.filled_caption
 
 
 def test_the_preview_says_what_the_step_it_points_at_would_say():
-    """The note at Preview.dc.html:127 names how many tracks are held
+    """The note at Preview.dc.html:161 names how many tracks are held
     more than one way with no answer yet, and the resolve step offers one
     row per group. Both counts are the decisions' own, so a preview
     naming decisions still to make over a step where every one has an
@@ -242,7 +257,9 @@ def test_the_preview_says_what_the_step_it_points_at_would_say():
     """
     groups = [_group("one", "A", "B"), _group("two", "A", "B")]
     decisions = conflict_model.ConflictDecisions()
-    undecided = reconstruct_report.preview_report(_stats(), groups, decisions)
+    undecided = reconstruct_report.preview_report(
+        _stats(), groups, decisions, (), ()
+    )
     assert undecided.conflict_sentence.startswith("2 tracks are held"), (
         undecided.conflict_sentence
     )
@@ -250,7 +267,9 @@ def test_the_preview_says_what_the_step_it_points_at_would_say():
         decisions.resolve(
             group, conflict_model.candidate_reference(group.candidates[1])
         )
-    settled = reconstruct_report.preview_report(_stats(), groups, decisions)
+    settled = reconstruct_report.preview_report(
+        _stats(), groups, decisions, (), ()
+    )
     assert settled.conflict_sentence.startswith("Every one of the 2 tracks"), (
         settled.conflict_sentence
     )
@@ -258,7 +277,7 @@ def test_the_preview_says_what_the_step_it_points_at_would_say():
     # one naming zero.
     assert (
         reconstruct_report.preview_report(
-            _stats(), [], conflict_model.ConflictDecisions()
+            _stats(), [], conflict_model.ConflictDecisions(), (), ()
         ).conflict_sentence
         == ""
     )
@@ -359,7 +378,8 @@ def test_an_output_path_that_exists_is_said_so_rather_than_left_unsaid():
 # that file asserts (DL-189).
 
 
-def _settled(identity_key, attr, low, high, gap, winner):
+def _settled(identity_key, attr, low, high, gap, winner,
+             artist="Drexciya", title="Andreaen Sand Dunes"):
     """One splice.SettledRow-shaped stand-in: the record half reads the
     attributes it reads, so the guards below need no splice run.
 
@@ -369,9 +389,18 @@ def _settled(identity_key, attr, low, high, gap, winner):
         identity_key=identity_key,
         attrs=(attr,),
         winner=winner,
+        # The winning record's own artist and title, which is what
+        # Preview.dc.html:192 draws in a listed reading's .nm cell.
+        artist=artist,
+        title=title,
         outliers=(
+            # The reading names the value the output keeps and the member
+            # value it is read against; low and high are those two in
+            # magnitude order, which is what the record reads. The
+            # stand-in keeps the high end as the kept value, so the pair
+            # the record words its spread cell from is (low, high).
             metadata_tier.OutlierReading(
-                attr=attr, low=low, high=high, relative_gap=gap
+                attr=attr, kept=high, other=low, relative_gap=gap
             ),
         )
         if gap
@@ -394,7 +423,7 @@ def test_a_run_with_settled_groups_and_outliers_composes_both_readings():
         E        +  where 1 = PreviewReport(listed=(), remainder=None, filled=0, empty=0, entries_added=0, unfilled=(), conflicts=0, outstanding=0, ..., high='69203', low_detail='17.2 MB', high_detail='67.6 MB', relative_gap=0.7462, winner='base: C:/:Music/:one.mp3'),)).settled
     """
     record = reconstruct_report.preview_report(
-        _stats(),
+        _stats(groups_settled_by_rule=2),
         (),
         conflict_model.ConflictDecisions(),
         (
@@ -422,7 +451,7 @@ def test_one_settled_group_reads_the_singular():
         E        +  where "1 tracks are measured differently by the two collections - file size, length or bitrate. Both numbers are Traktor's own, so there is nothing to decide. It carries the values of the record the output keeps." = PreviewReport(listed=(), remainder=None, filled=0, empty=0, entries_added=0, unfilled=(), conflicts=0, outstanding=0, ...h='1411000', low_detail='320 kbps', high_detail='1411 kbps', relative_gap=0.7732, winner='base: C:/:Music/:one.mp3'),)).settled_sentence
     """
     record = reconstruct_report.preview_report(
-        _stats(),
+        _stats(groups_settled_by_rule=1),
         (),
         conflict_model.ConflictDecisions(),
         (_settled("C:/:Music/:one.mp3", "bitrate", "320000", "1411000", 0.7732,
@@ -454,11 +483,14 @@ def test_the_listing_names_the_record_the_output_keeps():
         E         + filesize
     """
     record = reconstruct_report.preview_report(
-        _stats(),
+        _stats(groups_settled_by_rule=2),
         (),
         conflict_model.ConflictDecisions(),
         (
-            _settled("C:/:Music/:one.mp3", "filesize", "17564", "69203", 0.7462,
+            # The wider gap of the two, so the listing's widest-first
+            # order puts this reading first and the assertions below read
+            # the two in a fixed order.
+            _settled("C:/:Music/:one.mp3", "filesize", "17564", "69203", 0.7962,
                      (0, "C:/:Music/:one.mp3")),
             _settled("C:/:Music/:one.mp3", "bitrate", "320000", "1411000", 0.7732,
                      (1, "C:/:Music/:one.mp3")),
@@ -471,7 +503,7 @@ def test_the_listing_names_the_record_the_output_keeps():
     assert first.winner != second.winner
     assert first.label == answer_detail.LABELS["filesize"]
     assert first.spread == "17564 (17.2 MB) -> 69203 (67.6 MB)"
-    assert first.gap_amount == "74.6%"
+    assert first.gap_amount == "79.6%"
     for text in (record.settled_sentence, record.outlier_note):
         assert "base" not in text
 
@@ -488,11 +520,12 @@ def test_a_winner_index_outside_the_labels_reads_as_the_index_itself():
         E       IndexError: tuple index out of range
     """
     record = reconstruct_report.preview_report(
-        _stats(),
+        _stats(groups_settled_by_rule=1),
         (),
         conflict_model.ConflictDecisions(),
         (_settled("C:/:Music/:one.mp3", "filesize", "17564", "69203", 0.7462,
                   (1, "C:/:Music/:one.mp3")),),
+        (),
     )
     assert record.outliers[0].winner == "input 1: C:/:Music/:one.mp3"
 
@@ -509,7 +542,7 @@ def test_a_run_with_settled_groups_but_no_outlier_composes_no_listing():
         E        +  where 1 = PreviewReport(listed=(), remainder=None, filled=0, empty=0, entries_added=0, unfilled=(), conflicts=0, outstanding=0, settled=1, outliers=()).outlier_count
     """
     record = reconstruct_report.preview_report(
-        _stats(),
+        _stats(groups_settled_by_rule=1),
         (),
         conflict_model.ConflictDecisions(),
         (_settled("C:/:Music/:two.mp3", "filesize", "8123", "8124", 0.0,
@@ -534,7 +567,7 @@ def test_a_run_the_rule_settled_nothing_for_composes_no_settled_reading():
         E         + 0 tracks are measured differently by the two collections - file size, length or bitrate. Both numbers are Traktor's own, so there is nothing to decide. Each carries the values of the record the output keeps.
     """
     record = reconstruct_report.preview_report(
-        _stats(), (), conflict_model.ConflictDecisions()
+        _stats(), (), conflict_model.ConflictDecisions(), (), ()
     )
     assert record.settled_sentence == ""
     assert record.outliers == ()
@@ -839,7 +872,7 @@ def test_the_refusal_names_the_step_that_settles_it():
     """
     groups = [_group("one", "A", "B"), _group("two", "A", "B")]
     conflicts = reconstruct_report.preview_refusal(
-        [conflict_model.CONFLICT_ABORT_TOKEN], groups
+        [conflict_model.CONFLICT_ABORT_TOKEN], groups, _stats(), (), ()
     )
     assert "Continue to resolve" in conflicts.sentence, conflicts.sentence
     assert conflicts.sentence.startswith("2 tracks are")
@@ -847,7 +880,9 @@ def test_the_refusal_names_the_step_that_settles_it():
         "the conflict token stands beside the sentence that replaces it"
     )
     assert not conflicts.has_reasons
-    other = reconstruct_report.preview_refusal(["ambiguous_playlist_name x"], [])
+    other = reconstruct_report.preview_refusal(
+        ["ambiguous_playlist_name x"], [], _stats(), (), ()
+    )
     assert other.reasons == ("ambiguous_playlist_name x",)
     assert other.title == "The repair could not be assembled"
 
@@ -1093,8 +1128,82 @@ def test_the_dialog_is_filled_from_the_record_rather_than_built_once():
     assert "record.destination_note" in _source(), (
         "the step's note under the path is still a literal"
     )
+def _real_settled(artist, title):
+    """One splice.SettledRow, built the way splice._settled_row builds it,
+    so the record half is read against the run's own row rather than a
+    stand-in shaped like it."""
+    return splice.SettledRow(
+        "C:/:Music/:one.mp3",
+        ("filesize",),
+        (("filesize", ("17564", "69203")),),
+        (0, "C:/:Music/:one.mp3"),
+        artist,
+        title,
+        outliers=(
+            metadata_tier.OutlierReading(
+                attr="filesize", kept="69203", other="17564", relative_gap=0.7462
+            ),
+        ),
+    )
+
+
+def test_the_listed_track_is_read_off_the_run_s_own_settled_row():
+    """The stand-ins above carry an artist and a title because the row the
+    run hands the record does, and a guard reading only stand-ins is green
+    on a run whose rows carry neither. This one composes the record from a
+    splice.SettledRow itself, so the two halves are read against one
+    shape (DL-071, DL-189).
+
+    Mutation: the `artist: str` and `title: str` fields dropped from
+    splice.SettledRow and the two arguments dropped from _settled_row's
+    construction of it.
+    Observed:
+        E       TypeError: SettledRow.__init__() got multiple values for argument 'outliers'
+    """
+    named = reconstruct_report.preview_report(
+        _stats(groups_settled_by_rule=1),
+        (),
+        conflict_model.ConflictDecisions(),
+        (_real_settled("Drexciya", "Andreaen Sand Dunes"),),
+        _LABELS,
+    )
+    assert named.outliers[0].track == "Drexciya - Andreaen Sand Dunes"
+
+
+def test_one_editorial_name_alone_reads_as_itself_and_neither_as_the_path():
+    """A record carrying one of the two names reads as that name: the
+    identity key is the reading for a row that names no track at all, and
+    a row naming half of one still names something a person recognises.
+
+    Mutation: `if artist and title:` in _track_reading relaxed to `if
+    artist or title:`, so a row carrying one name was joined to an empty
+    other.
+    Observed:
+        E       AssertionError: assert ' - Andreaen Sand Dunes' == 'Andreaen Sand Dunes'
+        E
+        E         - Andreaen Sand Dunes
+        E         +  - Andreaen Sand Dunes
+        E         ? +++
+    """
+    def track_of(artist, title):
+        record = reconstruct_report.preview_report(
+            _stats(groups_settled_by_rule=1),
+            (),
+            conflict_model.ConflictDecisions(),
+            (_real_settled(artist, title),),
+            _LABELS,
+        )
+        return record.outliers[0].track
+
+    assert track_of("", "Andreaen Sand Dunes") == "Andreaen Sand Dunes"
+    assert track_of("Drexciya", "") == "Drexciya"
+    # The path stands only where the row names neither.
+    assert track_of("", "") == "C:/:Music/:one.mp3"
+    assert track_of("  ", "  ") == "C:/:Music/:one.mp3"
+
+
 def test_the_composition_places_the_settled_reading_off_the_record():
-    """Preview.dc.html:147's .note info and :175's .ol: the preview places
+    """Preview.dc.html:164's .note info and :192's .ol: the preview places
     the settled sentence beside the conflict note and each listed gap as a
     hand-rolled row, and every cell of both is a string the record already
     composed. A number formatted at this call site could disagree with the
@@ -1118,19 +1227,25 @@ def test_the_composition_places_the_settled_reading_off_the_record():
     """
     preview = _body_source_of("_render_preview_run")
     # The record is composed from the run's settled rows and the page's
-    # own collection labels, not from a second reading of the result.
-    assert 'result_holder["result"].settled_rows' in preview, preview
-    assert "_collection_labels(source_holder)" in preview, preview
+    # own collection labels, not from a second reading of the result, and
+    # that composition is made once for every step 2 screen that reads it.
+    composed = _body_source_of("_preview_record")
+    assert "result.settled_rows" in composed, composed
+    assert "_collection_labels(source_holder)" in composed, composed
+    assert "_preview_record()" in preview, preview
     # The sentence stands in its own info panel beside the warn one, and
     # a run the rule settled nothing for places neither.
-    assert "if record.settled_sentence:" in preview, preview
+    note = _body_source_of("settled_note")
+    assert "if not record.settled_sentence:" in note, note
     assert "wizard-callout wizard-callout-info" in _classes_in(
-        _named_function("_render_preview_run")
-    ), preview
+        _named_function("settled_note")
+    ), note
     # The card is the count: a run with no outlier draws no card.
     assert "if record.outliers:" in preview, preview
-    for read in ("record.outlier_title", "record.outlier_note", "outlier_row(row)"):
-        assert read in preview, read
+    assert "record.outlier_title" in preview, preview
+    rows = _body_source_of("outlier_rows")
+    for read in ("record.outlier_note", "outlier_row(row)"):
+        assert read in rows, read
     # Every cell is the record's own string, and nothing is formatted here.
     row = _named_function("outlier_row")
     cells = [

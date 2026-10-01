@@ -836,11 +836,21 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-outlier-values {{ grid-area: values; font: 500 {TYPE_12}/1.4 {FONT_MONO}; color: {TEXT_MUTED}; word-break: break-all; }}
 .wizard-outlier-winner {{ grid-area: winner; font: 500 {TYPE_11}/1.4 {FONT_MONO}; color: {TEXT_FAINT}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
 .wizard-outlier-gap {{ grid-area: gap; font: 600 {TYPE_13}/1 {FONT_MONO}; color: {STATUS_NEEDS_REVIEW}; white-space: nowrap; }}
-/* Preview.dc.html:72's .scroll: the listing scrolls inside its own card
+/* Preview.dc.html's .olr: the one row standing for every measured gap the
+   listing does not draw, how many there are at the left and how wide the
+   widest of them reaches at the right. It takes the .wizard-outlier-row
+   rule, padding and type size, so the card reads as one list divided
+   rather than as a list and a footnote, and both its cells are faint: it
+   names no track and no attribute, so nothing on it is the needs-review
+   number a drawn reading carries. */
+.wizard-outlier-remainder {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: {SPACE_12}; align-items: center; padding: {SPACE_8} {SPACE_2}; border-top: 1px solid {SURFACE_5}; font-size: {TYPE_12_5}; }}
+.wizard-outlier-remainder-name {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: {TEXT_FAINT}; }}
+.wizard-outlier-remainder-gap {{ font: 600 {TYPE_13}/1 {FONT_MONO}; color: {TEXT_FAINT}; white-space: nowrap; }}
+/* Preview.dc.html:106's .scroll: the listing scrolls inside its own card
    rather than growing the page, which is what keeps the middle the
    scroll owner the shell record reads it as. */
 .wizard-scroll {{ overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }}
-/* Preview.dc.html:73's .tot and :74's .big: the summed count under the
+/* Preview.dc.html:107's .tot and :108's .big: the summed count under the
    listing, its label at the left and its number at the right. */
 .wizard-total {{ display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: {SPACE_12}; align-items: center; padding: {SPACE_11} {SPACE_12}; border-radius: {RADIUS_LG}; background: {SURFACE_3}; border: 1px solid {BORDER_STRONG}; font-size: {TYPE_13}; font-weight: 600; }}
 .wizard-total-amount {{ font: 600 {TYPE_15}/1 {FONT_MONO}; }}
@@ -897,12 +907,12 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 /* Reconstruct.dc.html:121: what a source's own row reports about the
    file, read from the field's right edge. */
 .wizard-field-note {{ font-family: {FONT_MONO}; font-size: {TYPE_11_5}; color: {TEXT_FAINT}; white-space: nowrap; margin-left: auto; }}
-/* Reconstruct.dc.html:112's .bar inside a .meta: the upright rule
+/* Reconstruct.dc.html:107's .bar inside a .meta: the upright rule
    between two phrases about one file. It is the header band's own
    divider at the meta line's own scale, and it is a separator rather
    than a bullet because the phrases are read as one line. */
 .wizard-meta-divider {{ width: {SPACE_1}; height: {META_DIVIDER_HEIGHT}; background: {BORDER_STRONG}; flex: none; }}
-/* Reconstruct.dc.html:112's own emphasis: the count of empty playlists
+/* Reconstruct.dc.html:107's own emphasis: the count of empty playlists
    is what the page exists to repair, so it reads at the review hue
    rather than at the muted ink of the phrases beside it. */
 .wizard-meta-count {{ color: {STATUS_NEEDS_REVIEW}; font-weight: 600; }}

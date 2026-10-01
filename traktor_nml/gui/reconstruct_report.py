@@ -17,7 +17,9 @@ The run is the authority for all of them (DL-204, DL-215).
 The listing is truncated here rather than in the render: `Preview.dc.html`
 draws nine rows and a tenth summarising the rest, so the count in that
 tenth row and the rows above it are one division of one list, made once
-(DL-217).
+(DL-217). The measured-gap listing is divided the same way and for the
+same reason, and is ordered widest gap first so the division is over a
+list whose order does not depend on the order two dicts were walked in.
 
 No nicegui import, so a guard under the system interpreter runs every
 rule in this file (DL-069).
@@ -32,11 +34,21 @@ from . import answer_detail
 from . import conflict_model
 from .wording import plural
 
-# How many playlists `Preview.dc.html:110-118` lists by name before the
-# row at :119 stands for the rest. The artboard draws nine named rows and
+# How many playlists `Preview.dc.html:144-152` lists by name before the
+# row at :153 stands for the rest. The artboard draws nine named rows and
 # one summary row; a run with nine or fewer playlists draws no summary
 # row at all, because there is nothing left for it to stand for.
 LISTED_PLAYLISTS = 9
+
+# How many measured gaps `Preview.dc.html:192-194` lists before the row at
+# :195 stands for the rest. The artboard draws three readings and one
+# summary row, and the cap is the same kind of division LISTED_PLAYLISTS
+# makes for the same reason: a real collection pair settles thousands of
+# groups and a few thousand of them read past the band, so an uncapped
+# listing draws a card no operator can read and a screen the artboard
+# does not describe (DL-217, DL-331). A run with three readings or fewer
+# draws no summary row, because there is nothing left for it to stand for.
+LISTED_OUTLIERS = 3
 
 # The tone tokens a write-step change row carries, naming what the row
 # reports rather than a colour: `Write.dc.html:111,116,121` paint the
@@ -50,14 +62,14 @@ TONE_UNTOUCHED = "untouched"
 @dataclass(frozen=True)
 class PlaylistRow:
     """One `.pl` row: a playlist's name and how many entries it holds
-    after the run. `Preview.dc.html:110` draws the pair."""
+    after the run. `Preview.dc.html:144` draws the pair."""
 
     name: str
     entries: int
 
     @property
     def entry_count(self) -> str:
-        """The row's right-hand cell. `Preview.dc.html:110` prints the
+        """The row's right-hand cell. `Preview.dc.html:144` prints the
         unit beside the number, so a row reading `214` alone would leave
         the reader to guess what was counted."""
         return f"{self.entries:,} entries"
@@ -87,11 +99,44 @@ def _winner_reading(winner: tuple[int, str], labels: Sequence[str]) -> str:
     return f"{named}: {primary_key}"
 
 
+def _track_reading(row) -> str:
+    """One settled group's track as `Preview.dc.html:192` draws it: the
+    artist and the title of the record the output keeps, joined the way
+    the artboard's `.nm` cell joins them.
+
+    The identity key is a LOCATION, which is a path. A path is what the
+    winner cell already carries, read for which record it names, and a
+    listing whose track cell carries the same path twice over names no
+    track at all - the artboard draws a person and a piece of music
+    there, and DL-071 is what makes that the surface rather than a
+    suggestion.
+
+    The artist and title come off the run's own settled row, so the
+    listing spells a track the way the resolve rail's answers spell one
+    and no second reading of the records stands here. A row carrying
+    neither reads as its identity key: that is the path, which still
+    tells the rows apart, so a caller composing a record from a run whose
+    rows predate those two fields reads a listing rather than an
+    AttributeError.
+    """
+    artist = (getattr(row, "artist", "") or "").strip()
+    title = (getattr(row, "title", "") or "").strip()
+    if artist and title:
+        return f"{artist} - {title}"
+    return title or artist or row.identity_key
+
+
 @dataclass(frozen=True)
 class OutlierRow:
     """One listed measured gap: the track it names, the attribute's own
     label, the two values, how far apart they are and the record whose
     number the output keeps.
+
+    track is _track_reading's wording of the winning record's artist and
+    title, which is what `Preview.dc.html:192` draws in its `.nm` cell -
+    a track, not the LOCATION the identity is derived from. The path is
+    on this row already, in the winner cell, where it is read for which
+    record it names (DL-071).
 
     A reading rather than a row to decide, so it carries no candidate
     reference and no decision state - there is nothing on this row for
@@ -147,6 +192,143 @@ class OutlierRow:
 
 
 @dataclass(frozen=True)
+class OutlierRemainder:
+    """The one row standing for every measured gap the listing does not
+    draw (`Preview.dc.html:195`).
+
+    count is how many readings are not listed and widest_gap is the
+    widest of those - the next gap below the narrowest listed one, since
+    the listing is ordered widest first. The pair is what makes the row a
+    reading rather than an apology: it says how many are left and how far
+    the widest of them reaches, so an operator who sees three rows at 90%
+    knows whether the two thousand behind them are 80% or 1%.
+
+    A remainder rather than a total: the listed rows and this row are one
+    division of one list, made once, the way PlaylistRow's remainder row
+    divides the playlists (DL-217, DL-331).
+    """
+
+    count: int
+    widest_gap: float
+
+    @property
+    def name(self) -> str:
+        """The row's left cell, grouped at the thousand the way every
+        other four-figure count on these screens is."""
+        return f"and {self.count:,} more measured far apart"
+
+    @property
+    def gap_amount(self) -> str:
+        """The row's right cell: the widest gap among the readings this
+        row stands for, at the one decimal the listed rows print, and
+        said to be the widest of them rather than the only one."""
+        return f"{self.widest_gap * 100:.1f}% and narrower"
+
+
+class _SettledReading:
+    """What a step 2 screen says about the groups the tier answered
+    without asking: the count, the listing divided widest-first, and the
+    four sentences over them.
+
+    Both step 2 records hold this reading rather than one of them.
+    splice.py:187 and splice_cmd.py:110 both state that a run populates
+    and prints its settled rows on an abort by design, so a refused run
+    has the same reading to make as an assembled one, and a screen that
+    drops it on refusal drops the reading for every collection pair that
+    stops at a divergence - which is most of them (DL-215, DL-329).
+
+    A mixin rather than a field on each record, so every rule here is
+    written once: a second copy of settled_sentence on the refusal record
+    is a second place the wording and the plural can drift (DL-215,
+    DL-233).
+
+    The holders declare the four fields, all defaulting empty, so a
+    caller composing a record for a run that reported no settled group
+    reads the record it reads (DL-329, DL-331).
+    """
+
+    settled: int
+    outliers: tuple["OutlierRow", ...]
+    outlier_remainder: Optional[OutlierRemainder]
+    outlier_total: int
+
+    @property
+    def settled_sentence(self) -> str:
+        """The note beside the conflict note: how many tracks the run
+        answered itself, and where the answer came from.
+
+        Empty for a run the rule settled nothing for, the way
+        conflict_sentence is empty for a run that reported no
+        divergence: a sentence reading 0 names something this run did
+        not do.
+
+        The count is read off the run's own stats rather than off the
+        listing beside it, because the listing is capped and the count is
+        not: a sentence derived from the rows drawn would name three
+        tracks for a run that settled two thousand (DL-215).
+
+        The sentence says the values came from one named record, and the
+        row for each listed gap names which record that is - the
+        collection it was read from and its primary key, because that is
+        what a resolution names (DL-148). It says why no decision was
+        asked for: the two numbers are both Traktor's own measurements of
+        the one file, so there is no judgement to make. Its count's word
+        comes from wording.plural (DL-233).
+        """
+        if not self.settled:
+            return ""
+        held = plural(self.settled, "track is", "tracks are")
+        measured = plural(self.settled, "It carries", "Each carries")
+        return (
+            f"{self.settled} {held} measured differently by the two "
+            "collections - file size, length or bitrate. Both numbers are "
+            f"Traktor's own, so there is nothing to decide. {measured} the "
+            "values of the record the output keeps."
+        )
+
+    @property
+    def outlier_title(self) -> str:
+        """The head of the card listing the wide measured gaps. The card
+        is the count, so a run with no outlier draws none and this is
+        never read for one.
+
+        The count is every reading the run made, not the handful listed
+        under it: the listed rows and the remainder row below them are
+        one division of that count, so the head and the rows are one
+        division of one list (DL-217, DL-331).
+
+        The count's word comes from wording.plural like every other count
+        sentence on these screens; no conditional stands here, which is
+        what tests/test_gui_wording.py reads this module for (DL-215,
+        DL-233).
+        """
+        return plural(
+            self.outlier_count,
+            "The one measured far apart",
+            f"The {self.outlier_count:,} measured far apart",
+        )
+
+    @property
+    def outlier_count(self) -> int:
+        """How many readings this run made. The count of readings rather
+        than of groups: a group reading past the band on two measured
+        attributes makes two readings, and the card's head names the
+        readings rather than the groups behind them (DL-215)."""
+        return self.outlier_total
+
+    @property
+    def outlier_note(self) -> str:
+        """The small print under the listing. These are readings rather
+        than rows to decide, and the line says so, so the operator does
+        not look for a control that is not there (DL-330)."""
+        return (
+            "These are read, not decided. The output carries the record "
+            "named beside each one; Traktor rewrites its own measurement "
+            "the next time it analyses the file."
+        )
+
+
+@dataclass(frozen=True)
 class ChangeRow:
     """One `.cr` row on the write step: what the new file will hold,
     the sentence under it saying how, the count, and the tone that count
@@ -165,7 +347,7 @@ class ChangeRow:
 
 
 @dataclass(frozen=True)
-class PreviewReport:
+class PreviewReport(_SettledReading):
     """What step 2 shows: the playlists the run filled, the entries that
     added, the ones it could not fill, and how many tracks are held
     differently by more than one collection.
@@ -183,23 +365,28 @@ class PreviewReport:
     conflicts: int
     outstanding: int
     # What the run answered without asking, and which of those answers
-    # are worth reading. settled is the count of groups the tier settled
-    # and outliers are the rows naming a measured gap past the band.
-    # Both default empty so a caller composing a record for a run that
-    # reported neither reads the record it reads (DL-329, DL-331).
+    # are worth reading. settled is the count of groups the tier settled,
+    # outliers are the listed rows naming a measured gap past the band,
+    # outlier_remainder stands for the readings past the cap and
+    # outlier_total is every reading the run made. _SettledReading words
+    # all four; the fields default empty so a caller composing a record
+    # for a run that reported none reads the record it reads (DL-329,
+    # DL-331).
     settled: int = 0
     outliers: tuple["OutlierRow", ...] = ()
+    outlier_remainder: Optional[OutlierRemainder] = None
+    outlier_total: int = 0
 
     @property
     def filled_caption(self) -> str:
         """The card head's label: how many of the empty playlists this
-        run filled. `Preview.dc.html:107` prints both numbers, because
+        run filled. `Preview.dc.html:141` prints both numbers, because
         the count filled means nothing without the count there were."""
         return f"{self.filled} of {self.empty} empty playlists"
 
     @property
     def conflict_sentence(self) -> str:
-        """The note at `Preview.dc.html:127`, or the empty string for a
+        """The note at `Preview.dc.html:161`, or the empty string for a
         run that reported no divergence at all.
 
         Both counts are read off the same decisions the resolve step
@@ -228,7 +415,7 @@ class PreviewReport:
 
     @property
     def total_sentence(self) -> str:
-        """The `.tot` strip's label at `Preview.dc.html:123`."""
+        """The `.tot` strip's label at `Preview.dc.html:157`."""
         return "Entries that would be added"
 
     @property
@@ -239,7 +426,7 @@ class PreviewReport:
     @property
     def unfilled_title(self) -> str:
         """The head of the card listing what the run could not fill
-        (`Preview.dc.html:141`). The count is in the title because the
+        (`Preview.dc.html:180`). The count is in the title because the
         card is the count: a run that filled everything draws no card."""
         one = self.unfilled_count == 1
         return (
@@ -251,72 +438,6 @@ class PreviewReport:
     @property
     def unfilled_count(self) -> int:
         return len(self.unfilled)
-
-    @property
-    def settled_sentence(self) -> str:
-        """The note beside the conflict note: how many tracks the run
-        answered itself, and where the answer came from.
-
-        Empty for a run the rule settled nothing for, the way
-        conflict_sentence is empty for a run that reported no
-        divergence: a sentence reading 0 names something this run did
-        not do.
-
-        The sentence says the values came from one named record, and the
-        row for each listed gap names which record that is - the
-        collection it was read from and its primary key, because that is
-        what a resolution names (DL-148). It says why no decision was
-        asked for: the two numbers are both Traktor's own measurements of
-        the one file, so there is no judgement to make. The count is this
-        record's own (DL-215) and its word comes from wording.plural
-        (DL-233).
-        """
-        if not self.settled:
-            return ""
-        held = plural(self.settled, "track is", "tracks are")
-        measured = plural(self.settled, "It carries", "Each carries")
-        return (
-            f"{self.settled} {held} measured differently by the two "
-            "collections - file size, length or bitrate. Both numbers are "
-            f"Traktor's own, so there is nothing to decide. {measured} the "
-            "values of the record the output keeps."
-        )
-
-    @property
-    def outlier_title(self) -> str:
-        """The head of the card listing the wide measured gaps. The card
-        is the count, so a run with no outlier draws none and this is
-        never read for one.
-
-        The count's word comes from wording.plural like every other count
-        sentence on these screens; no conditional stands here, which is
-        what tests/test_gui_wording.py reads this module for (DL-215,
-        DL-233).
-        """
-        return plural(
-            self.outlier_count,
-            "The one measured far apart",
-            f"The {self.outlier_count} measured far apart",
-        )
-
-    @property
-    def outlier_count(self) -> int:
-        """How many readings the listing draws. The count of readings
-        rather than of groups: a group reading past the band on two
-        measured attributes draws two rows, and the card's head names the
-        rows under it (DL-215)."""
-        return len(self.outliers)
-
-    @property
-    def outlier_note(self) -> str:
-        """The small print under the listing. These are readings rather
-        than rows to decide, and the line says so, so the operator does
-        not look for a control that is not there (DL-330)."""
-        return (
-            "These are read, not decided. The output carries the record "
-            "named beside each one; Traktor rewrites its own measurement "
-            "the next time it analyses the file."
-        )
 
 
 @dataclass(frozen=True)
@@ -454,17 +575,29 @@ class WriteReport:
 
 
 @dataclass(frozen=True)
-class PreviewRefusal:
+class PreviewRefusal(_SettledReading):
     """What step 2 shows for a run that assembled nothing.
 
     A refused run reports why it stopped, and the page has to say both
     what stopped it and what settles it: the conflict abort is not a
     failure but a question, and the step that answers it is the next one
     (DL-226).
+
+    It carries the settled reading as well, off _SettledReading. A run
+    populates its settled rows whatever its outcome, by the design
+    splice.py:187 and splice_cmd.py:110 both state, and the CLI prints
+    them on an abort; a collection pair holding one editorial divergence
+    aborts, so refusal is where most operators meet a run at all. A
+    screen that names what stopped the run and drops what it answered is
+    telling the operator less than the terminal does (DL-215, DL-329).
     """
 
     conflicts: int
     reasons: tuple[str, ...]
+    settled: int = 0
+    outliers: tuple["OutlierRow", ...] = ()
+    outlier_remainder: Optional[OutlierRemainder] = None
+    outlier_total: int = 0
 
     @property
     def title(self) -> str:
@@ -501,14 +634,85 @@ class PreviewRefusal:
         return bool(self.reasons)
 
 
-def preview_refusal(errors, groups) -> PreviewRefusal:
+def _settled_reading(
+    stats: Mapping[str, object],
+    settled_rows: Sequence[object],
+    labels: Sequence[str],
+) -> tuple[int, tuple[OutlierRow, ...], Optional[OutlierRemainder], int]:
+    """The four values a _SettledReading holder carries, for one run.
+
+    The count is read off `stats["groups_settled_by_rule"]`, which splice
+    writes from the same list settled_rows is, rather than off the rows
+    handed in: the count is the run's own number and the rows are what a
+    reader draws, so the record cannot state a count the run's stats
+    disagree with (DL-204, DL-215).
+
+    The readings are ordered by gap, widest first, with the track and the
+    attribute behind it so the ordering is total. The union-find order the
+    rows arrive in is the order two dicts happened to be walked, which
+    would scatter the six playtime_float groups the band exists for among
+    thousands of 2 KB filesize drifts and put a different three rows on
+    screen for two runs reporting the same readings. `(-entries, name)`
+    orders the playlist listing for the same reason.
+
+    Then divided at LISTED_OUTLIERS into the rows drawn and one row
+    standing for the rest, the way the playlists are divided, so the
+    count in the card's head and the rows under it are one division of
+    one list made once (DL-217, DL-331).
+    """
+    readings = sorted(
+        (
+            OutlierRow(
+                track=_track_reading(row),
+                label=answer_detail.LABELS[reading.attr],
+                low=reading.low,
+                high=reading.high,
+                low_detail=answer_detail.format_value(reading.attr, reading.low),
+                high_detail=answer_detail.format_value(reading.attr, reading.high),
+                relative_gap=reading.relative_gap,
+                winner=_winner_reading(row.winner, labels),
+            )
+            for row in settled_rows
+            for reading in row.outliers
+        ),
+        key=lambda reading: (-reading.relative_gap, reading.track, reading.label),
+    )
+    listed = tuple(readings[:LISTED_OUTLIERS])
+    rest = readings[LISTED_OUTLIERS:]
+    remainder = (
+        OutlierRemainder(count=len(rest), widest_gap=rest[0].relative_gap)
+        if rest
+        else None
+    )
+    return (
+        int(stats.get("groups_settled_by_rule") or 0),
+        listed,
+        remainder,
+        len(readings),
+    )
+
+
+def preview_refusal(
+    errors,
+    groups,
+    stats: Mapping[str, object],
+    settled_rows: Sequence[object],
+    labels: Sequence[str],
+) -> PreviewRefusal:
     """The step 2 record for a run that produced no output.
 
     The conflict abort's own token is dropped from the reasons: the rows
     it stands for are the groups beside it, and printing the token as
     well would name the same stop twice, once in the sentence and once as
     a machine word the operator cannot act on (DL-226).
+
+    stats, settled_rows and labels are the same three the assembled
+    record is composed from, and they are read the same way: a refused
+    run has settled rows and reported a count of them, and the screen for
+    it says so. They are required rather than defaulted, for the reason
+    preview_report requires them.
     """
+    settled, outliers, remainder, total = _settled_reading(stats, settled_rows, labels)
     return PreviewRefusal(
         conflicts=len(groups),
         reasons=tuple(
@@ -516,6 +720,10 @@ def preview_refusal(errors, groups) -> PreviewRefusal:
             for error in errors
             if error != conflict_model.CONFLICT_ABORT_TOKEN
         ),
+        settled=settled,
+        outliers=outliers,
+        outlier_remainder=remainder,
+        outlier_total=total,
     )
 
 
@@ -523,8 +731,8 @@ def preview_report(
     stats: Mapping[str, object],
     groups: Sequence[conflict_model.ConflictGroup],
     decisions: conflict_model.ConflictDecisions,
-    settled_rows: Sequence[object] = (),
-    labels: Sequence[str] = (),
+    settled_rows: Sequence[object],
+    labels: Sequence[str],
 ) -> PreviewReport:
     """The step 2 record for one held run.
 
@@ -533,14 +741,19 @@ def preview_report(
     the conflict count this reports, the count still outstanding and the
     rows the resolve step offers are all the one set (DL-215).
 
-    settled_rows are the run's own splice.SettledRow list. The count and
-    the listing are one division of that one list, made here rather than
-    in the render, for the reason LISTED_PLAYLISTS is divided here
-    (DL-217): a render that filtered the outliers itself could draw a
-    number of rows the sentence above them does not name. It is a
-    keyword-shaped trailing parameter with an empty default, so every
-    existing positional caller reads the arguments it reads (DL-100's
-    precedent, DL-104).
+    settled_rows are the run's own splice.SettledRow list. The listing is
+    divided from it here rather than in the render, for the reason
+    LISTED_PLAYLISTS is divided here (DL-217): a render that filtered the
+    outliers itself could draw a number of rows the sentence above them
+    does not name.
+
+    It is required rather than defaulted empty, and so are labels. stats
+    already carries `groups_settled_by_rule`, so a caller that omitted
+    the rows composed a record stating a settled count of 0 for a run
+    whose own stats said 2,203 - the record contradicting the mapping it
+    was built from, which no default can make safe. A caller that holds
+    the stats holds the rows beside them, so the argument is asked for
+    (DL-204, DL-215).
 
     labels is the collection name held at each input index, the tuple
     _collection_labels builds and the resolve rail's own contributor
@@ -573,6 +786,9 @@ def preview_report(
         if rest
         else None
     )
+    settled, outliers, outlier_remainder, outlier_total = _settled_reading(
+        stats, settled_rows, labels
+    )
     return PreviewReport(
         listed=listed,
         remainder=remainder,
@@ -582,21 +798,10 @@ def preview_report(
         unfilled=tuple(stats.get("unfilled_playlists") or ()),
         conflicts=len(groups),
         outstanding=conflict_model.resolve_gate(decisions, groups).outstanding,
-        settled=len(settled_rows),
-        outliers=tuple(
-            OutlierRow(
-                track=row.identity_key,
-                label=answer_detail.LABELS[reading.attr],
-                low=reading.low,
-                high=reading.high,
-                low_detail=answer_detail.format_value(reading.attr, reading.low),
-                high_detail=answer_detail.format_value(reading.attr, reading.high),
-                relative_gap=reading.relative_gap,
-                winner=_winner_reading(row.winner, labels),
-            )
-            for row in settled_rows
-            for reading in row.outliers
-        ),
+        settled=settled,
+        outliers=outliers,
+        outlier_remainder=outlier_remainder,
+        outlier_total=outlier_total,
     )
 
 
