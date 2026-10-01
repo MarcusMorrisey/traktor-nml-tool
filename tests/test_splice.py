@@ -2331,6 +2331,144 @@ def test_a_measured_only_divergence_settles_and_reports_a_settled_row() -> None:
     assert result.stats["conflicts_reported"] == 0
 
 
+def _tier_two_locations(divergence: dict) -> tuple:
+    """base and one contribution naming two DIFFERENT files that agree on
+    artist, title and album and differ on the names divergence holds.
+
+    base holds /:Music/:falling-up.mp3 and the contribution holds
+    /:Backup/:2019/:falling-up.mp3 - one file and a backup copy of an
+    older encode of it, the shape the user's own pair is full of. Neither
+    artist_title_file nor artist_title keys on LOCATION, so the cascade
+    unions the two into one identity group with two primary keys in it.
+
+    Each input also carries a playlist naming its own copy, so a merge
+    that dropped one ENTRY would be redirecting a playlist reference to
+    the other file."""
+    entries = []
+    for i, (directory, file_name) in enumerate(
+        (("/:Music/:", "falling-up.mp3"), ("/:Backup/:2019/:", "falling-up.mp3"))
+    ):
+        values = dict(_TIER_VALUES)
+        for attr, side_values in divergence.items():
+            values[attr] = side_values[i]
+        entries.append(
+            f'<ENTRY TITLE="{values["title"]}" ARTIST="{values["artist"]}" AUDIO_ID="">'
+            f'<LOCATION DIR="{directory}" FILE="{file_name}" VOLUME="C:" VOLUMEID="C:">'
+            "</LOCATION>"
+            f'<ALBUM TITLE="{values["album"]}"></ALBUM>'
+            f'<INFO BITRATE="{values["bitrate"]}"'
+            f' PLAYTIME_FLOAT="{values["playtime_float"]}"'
+            f' FILESIZE="{values["filesize"]}"></INFO></ENTRY>'
+        )
+    base_text = _nml(entries[0], 1, _playlist("Set", ["C:/:Music/:falling-up.mp3"], "u1"))
+    source_text = _nml(
+        entries[1], 1, _playlist("Backup", ["C:/:Backup/:2019/:falling-up.mp3"], "u2")
+    )
+    return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(source_text)]
+
+
+def test_two_locations_in_one_group_is_a_conflict_whatever_diverges() -> None:
+    """The rule settles one file described twice. No cascade tier keys on
+    LOCATION, so artist_title_file unions two genuinely different files
+    that agree on artist, title and album - a track and an older backup
+    encode of it - and a measured-only divergence between them is not two
+    analyses of one file at all. Settling it would merge them: one ENTRY
+    dropped and its playlist reference redirected to the other file, at
+    exit 0. The group is a conflict the operator answers, and every member
+    sharing the primary key is the test that tells the two apart.
+
+    Mutation: the `and len({record.primary_key for _, record in members}) ==
+    1` clause dropped from settled_by_rule in _resolve_conflicts, so the
+    group settled on its measured-only divergence alone.
+    Observed:
+        assert '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD...sic/:falling-up.mp3"/></ENTRY></PLAYLIST></NODE></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' is None
+         +  where '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD...sic/:falling-up.mp3"/></ENTRY></PLAYLIST></NODE></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' = SpliceResult(output='<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor...gap=0.5997713912475506), OutlierReading(attr='bitrate', kept='320000', other='128000', relative_gap=0.6)))], errors=[]).output
+
+    The output the mutation writes is the merge: one ENTRY for
+    /:Music/:falling-up.mp3 and the Backup playlist's PRIMARYKEY pointing
+    at it, the /:Backup/:2019/: entry gone.
+    """
+    result = assemble_output(
+        *_tier_two_locations(
+            {"bitrate": ("320000", "128000"), "playtime_float": ("245.1", "612.4"),
+             "filesize": ("9800", "3900")}
+        ),
+        MatchConfidence.STRICT,
+    )
+    assert result.output is None
+    assert result.errors == ["unresolved_conflicts"]
+    assert result.settled_rows == []
+    (row,) = result.conflict_rows
+    assert row.attrs == "filesize,playtime_float,bitrate"
+    assert row.resolution == "unresolved"
+    assert row.member_keys == frozenset(
+        {"C:/:Music/:falling-up.mp3", "C:/:Backup/:2019/:falling-up.mp3"}
+    )
+    assert result.stats["groups_settled_by_rule"] == 0
+
+
+def _tier_no_info(bitrate: str, playtime: str, filesize: str) -> tuple:
+    """base and one contribution describing the one LOCATION, base's ENTRY
+    carrying no INFO element at all and the contribution's carrying the
+    numbers given.
+
+    A record with no INFO reads the empty string for all three measured
+    names, so every one of them diverges and base holds no measurement of
+    the file whatsoever - the one case where settling the group discards
+    the only numbers any input carries."""
+    source_values = dict(
+        _TIER_VALUES, bitrate=bitrate, playtime_float=playtime, filesize=filesize
+    )
+    base_entry = (
+        '<ENTRY TITLE="One" ARTIST="A" AUDIO_ID="">'
+        '<LOCATION DIR="/:Music/:Sets/:Deep/:" FILE="one.mp3" VOLUME="C:" VOLUMEID="C:">'
+        '</LOCATION><ALBUM TITLE="Alb"></ALBUM></ENTRY>'
+    )
+    base_text = _nml(base_entry, 1, "")
+    source_text = _nml(_tier_entry(source_values), 1, "")
+    return base_text, parse_xml_bytes(base_text.encode("utf-8")), [_parsed(source_text)]
+
+
+def test_a_measured_name_one_side_holds_no_value_for_is_a_conflict() -> None:
+    """A record with no INFO element reads the empty string for every
+    measured name, so all three diverge and the group looks measured-only.
+    It is not two measurements disagreeing: it is one measurement and one
+    absence, and the reasoning that settles a measured divergence says
+    nothing about it. Settling it would keep the INFO-less record and
+    discard the only measurements any input holds, under a row that names
+    no reading either - the empty side parses to nothing, so the attribute
+    has fewer than two numbers to read a gap between. The group is a
+    conflict.
+
+    Mutation: the `and not
+    metadata_tier.unreadable_measured(dict(measured_values))` clause
+    dropped from settled_by_rule in _resolve_conflicts.
+    Observed:
+        assert '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD... TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' is None
+         +  where '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD... TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' = SpliceResult(output='<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor..., ('', '245.1')), ('bitrate', ('', '320000'))), winner=(0, 'C:/:Music/:Sets/:Deep/:one.mp3'), outliers=())], errors=[]).output
+
+    The row the mutation reports carries values_by_attr of ('', '245.1')
+    and ('', '320000') and outliers=(): the group settled, the output kept
+    the record with no INFO element, and nothing named the numbers that
+    were dropped.
+    """
+    result = assemble_output(
+        *_tier_no_info("320000", "245.1", "9800"), MatchConfidence.STRICT
+    )
+    assert result.output is None
+    assert result.errors == ["unresolved_conflicts"]
+    assert result.settled_rows == []
+    (row,) = result.conflict_rows
+    assert row.attrs == "filesize,playtime_float,bitrate"
+    assert result.stats["groups_settled_by_rule"] == 0
+    # The candidates name the absence as the empty string it is read as,
+    # so the row the operator answers says which side holds no numbers.
+    assert sorted(candidate.values for candidate in row.candidates) == [
+        ("", "", ""),
+        ("9800", "245.1", "320000"),
+    ]
+
+
 def test_an_editorial_divergence_is_still_put_to_the_operator() -> None:
     """A pair differing in ARTIST aborts an unresolved run exactly as it
     does today, and reports no settled row: the rule answered nothing for
@@ -2409,6 +2547,129 @@ def test_the_wide_filesize_pair_reads_as_an_outlier_and_the_drift_does_not() -> 
     assert (reading.attr, reading.low, reading.high) == ("filesize", "17564", "69203")
 
 
+def test_a_settled_row_names_the_winning_record_s_track() -> None:
+    """The listing surface spells a track, and the identity key it would
+    otherwise read is a LOCATION (DL-071). The row carries the artist and
+    the title of the record the output keeps, so the surface composes the
+    track off the run's own report.
+
+    The two names are the ones every member of a settled group agrees on
+    - a group diverging on an editorial name is a conflict - so the guard
+    states them beside a measured divergence that does settle, and reads
+    them against values no other fixture holds.
+
+    Mutation: `getattr(winner, "artist"), getattr(winner, "title")` in
+    _settled_row written as `"", ""`, so the row carried the two fields
+    and neither value.
+    Observed:
+        E       AssertionError: assert ('', '') == ('Drexciya', ...n Sand Dunes')
+        E
+        E         At index 0 diff: '' != 'Drexciya'
+        E         Use -v to get more diff
+    """
+    base_text, source_text = _tier_copies(
+        {"filesize": ("17564", "69203")},
+        artist="Drexciya",
+        title="Andreaen Sand Dunes",
+    )
+    result = assemble_output(
+        base_text,
+        parse_xml_bytes(base_text.encode("utf-8")),
+        [_parsed(source_text)],
+        MatchConfidence.STRICT,
+    )
+    (settled,) = result.settled_rows
+    assert (settled.artist, settled.title) == ("Drexciya", "Andreaen Sand Dunes")
+    # Composed the way the listing composes it, so the guard states the
+    # reading the surface draws rather than two fields in isolation.
+    assert f"{settled.artist} - {settled.title}" == "Drexciya - Andreaen Sand Dunes"
+
+
+def test_a_group_diverging_on_two_measured_names_reports_both() -> None:
+    """FILESIZE and PLAYTIME apart at once is the .stem.m4a described
+    twice, and the length is the exposure the whole outlier band exists
+    for: a row reporting the size alone drops the reading the operator
+    most needs to see (DL-330).
+
+    Every other settled fixture diverges on one measured name, so a row
+    built from the first name alone reads correctly on all of them. This
+    one states both names, both value pairs and both readings.
+
+    Mutation: `tuple(measured_attrs)` in _settled_row written as
+    `tuple(measured_attrs[:1])`, so the row reported the first diverging
+    measured name and dropped the rest.
+    Observed:
+        E       AssertionError: assert ('filesize',) == ('filesize', 'playtime_float')
+        E
+        E         Right contains one more item: 'playtime_float'
+        E         Use -v to get more diff
+    """
+    result = assemble_output(
+        *_tier_pair(
+            {"filesize": ("17564", "69203"), "playtime_float": ("100.0", "240.0")}
+        ),
+        MatchConfidence.STRICT,
+    )
+    assert result.errors == []
+    assert result.conflict_rows == []
+    (settled,) = result.settled_rows
+    # metadata_tier.TRACKED_ATTRS order, both names present.
+    assert settled.attrs == ("filesize", "playtime_float")
+    assert settled.values_by_attr == (
+        ("filesize", ("17564", "69203")),
+        ("playtime_float", ("100.0", "240.0")),
+    )
+    assert [
+        (reading.attr, reading.kept, reading.other) for reading in settled.outliers
+    ] == [
+        ("filesize", "17564", "69203"),
+        ("playtime_float", "100.0", "240.0"),
+    ]
+
+
+def test_a_multi_base_group_that_settles_keeps_its_keys_ambiguous() -> None:
+    """A settled group can hold several base records: the rule asks every
+    member for the one primary key and asks the group for a base record,
+    and base holding the one LOCATION twice answers both - the key is read
+    off the LOCATION, so two base ENTRYs for one file carry the identical
+    key. The ambiguity guard therefore stands on the settled path too, and
+    the reconstruction still refuses the group rather than redirecting a
+    playlist reference to whichever of the two it walked first (DL-094,
+    DL-122).
+
+    The key that stays ambiguous is the one every member carries, base's
+    included, which is what a group describing one LOCATION means.
+
+    Mutation: `if len(base_members) > 1:` in _resolve_conflicts written as
+    `if len(base_members) > 1 and not settled_by_rule:`, so a settled
+    group's ambiguity went unrecorded.
+    Observed:
+        E       AssertionError: assert set() == {'C:/:Music/:...eep/:one.mp3'}
+        E
+        E         Extra items in the right set:
+        E         'C:/:Music/:Sets/:Deep/:one.mp3'
+        E         Use -v to get more diff
+    """
+    first, second = _tier_copies({"filesize": ("17564", "69203")})
+    base_text = _nml(_entries_of(first) + _entries_of(first), 2, "")
+    settled = assemble_output(
+        base_text,
+        parse_xml_bytes(base_text.encode("utf-8")),
+        [_parsed(second)],
+        MatchConfidence.STRICT,
+    )
+    # The group does settle: the fixture is the settled path, not a
+    # conflict wearing a multi-base shape.
+    assert settled.errors == []
+    assert settled.conflict_rows == []
+    assert settled.stats["groups_settled_by_rule"] == 1
+
+    _redirects, _rows, _unresolved, _new, ambiguous_keys = _resolved_groups(
+        base_text, [second]
+    )
+    assert ambiguous_keys == {_TIER_KEY}
+
+
 def test_a_settled_row_stands_on_a_run_that_aborts() -> None:
     """The rule answered those groups whatever the run's outcome, so a
     reader asking what was decided for the operator reads it off an
@@ -2434,36 +2695,47 @@ def test_a_settled_row_stands_on_a_run_that_aborts() -> None:
     assert result.stats["groups_settled_by_rule"] == 1
 
 
-def test_a_group_with_no_base_member_carries_the_winners_measured_values() -> None:
-    """Where the group holds no base record the run-wide picker's winner is
-    transplanted and its measured values travel with it, so the written file
-    does not keep a number no record holds (DL-328).
+def test_a_group_with_no_base_member_is_a_conflict_the_operator_answers() -> None:
+    """A settled group's values are base's own, which is the whole of what
+    a settled row reports (DL-328). Where the group holds no base record
+    there is no such record: pick_non_base chooses the surviving ENTRY
+    itself - its CUE_V2 cue points included - off `on_conflict or
+    "keep-first"`, which is a decision the operator's own flag makes and
+    must not be reported as a group with nothing to decide. The group is a
+    conflict, so an unresolved run aborts on it and a run carrying
+    --on-conflict records that policy as the resolution.
 
-    The pair is what the assertion reads: the two sources describe the one
-    LOCATION and carry the one primary key, so a guard reading the key alone
-    passes whichever of them was picked and this one would be green in the
-    broken state (DL-148, DL-189).
-
-    Mutation: _settled_row handed the group's first member in place
-    of the winner (`*members[0]`).
+    Mutation: the `and any(idx == 0 for idx, _ in members)` clause dropped
+    from settled_by_rule in _resolve_conflicts, so a base-less group
+    settled on pick_non_base's answer.
     Observed:
-        AssertionError: assert (1, 'C:/:Musi...eep/:one.mp3') == (2, 'C:/:Musi...eep/:one.mp3')
+        assert '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD... TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' is None
+         +  where '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor" VERSION="1"></HEAD... TYPE="FOLDER" NAME="$ROOT"><SUBNODES COUNT="0"></SUBNODES></NODE></PLAYLISTS><SETS></SETS><INDEXING></INDEXING></NML>' = SpliceResult(output='<?xml version="1.0" encoding="UTF-8" standalone="no" ?>\n<NML VERSION="20"><HEAD PROGRAM="Traktor...outliers=(OutlierReading(attr='filesize', kept='17564', other='69203', relative_gap=0.7461959741629698),))], errors=[]).output
 
-          At index 0 diff: 1 != 2
-          Use -v to get more diff
+    The run the mutation writes took no flag at all: keep-first, the
+    default inside pick_non_base, chose input 1's whole ENTRY and the row
+    reported it as a group with nothing to decide.
     """
-    result = assemble_output(
-        *_tier_base_less({"filesize": ("17564", "69203")}),
-        MatchConfidence.STRICT,
-        "keep-last",
-    )
-    assert result.output is not None
-    (settled,) = result.settled_rows
-    assert settled.winner == (2, _TIER_KEY)
+    inputs = _tier_base_less({"filesize": ("17564", "69203")})
+    aborted = assemble_output(*inputs, MatchConfidence.STRICT)
+    assert aborted.output is None
+    assert aborted.errors == ["unresolved_conflicts"]
+    assert aborted.settled_rows == []
+    (row,) = aborted.conflict_rows
+    assert row.attrs == "filesize"
+    assert row.resolution == "unresolved"
+
+    decided = assemble_output(*inputs, MatchConfidence.STRICT, "keep-last")
+    assert decided.output is not None
+    assert decided.settled_rows == []
+    assert decided.stats["groups_settled_by_rule"] == 0
+    (row,) = decided.conflict_rows
+    assert row.resolution == "keep-last"
     # keep-last named input 2, and input 2's own FILESIZE is the one the
-    # transplanted ENTRY span carries.
-    assert 'FILESIZE="69203"' in _collection_of(result.output)
-    assert 'FILESIZE="17564"' not in _collection_of(result.output)
+    # transplanted ENTRY span carries - now under a row the operator was
+    # asked about.
+    assert 'FILESIZE="69203"' in _collection_of(decided.output)
+    assert 'FILESIZE="17564"' not in _collection_of(decided.output)
 
 
 def test_a_resolution_naming_a_settled_groups_record_is_inert() -> None:

@@ -134,13 +134,25 @@ class SettledRow:
     values the output carries - the shape _candidates already names a
     contributor by and conflict_model calls a CandidateRef. The pair
     rather than the key alone because base and a source describing the
-    one LOCATION carry the identical primary key, the commonest settled
-    shape there is, so a key standing alone equals identity_key and says
-    which record won of neither. DL-148 asks a settled group to name the
-    record, never a base-or-source token, and the index is the half that
-    names it.
+    one LOCATION carry the identical primary key - which every member of
+    a settled group does, since a group whose members name more than one
+    LOCATION is a conflict rather than a settled row - so a key standing
+    alone equals identity_key and says which record won of neither.
+    DL-148 asks a settled group to name the record, never a base-or-source
+    token, and the index is the half that names it. The record is base's
+    own, for the same reason: a group holding no base record is a
+    conflict, so winner's index is 0 on every row here.
+    artist and title are the winning record's own editorial values, which
+    a reader joins to spell the track the output keeps. They stand beside
+    winner rather than under it because a settled group's members agree
+    on every editorial name - a group diverging on one is a conflict - so
+    the pair reads the same whichever member is consulted, and reading it
+    off the winner keeps the row's whole account of the kept record in
+    one place. The listing surface spells a track from them because the
+    identity key is a LOCATION, and a path names no track (DL-071).
     outliers holds the readings metadata_tier.outlier_attrs answers for
-    this group - empty for the ordinary 2 KB drift.
+    this group, each naming the value the winning record carries and the
+    member value it is read against - empty for the ordinary 2 KB drift.
 
     A row, not a sentence. splice reports what the run found and a
     reader divides and words it, which is why no count and no plural
@@ -151,6 +163,8 @@ class SettledRow:
     attrs: tuple[str, ...]
     values_by_attr: tuple[tuple[str, tuple[str, ...]], ...]
     winner: tuple[int, str]
+    artist: str
+    title: str
     outliers: tuple[metadata_tier.OutlierReading, ...] = ()
 
     @property
@@ -352,25 +366,58 @@ def _settled_row(
     members: list[tuple[int, EntryRecord]],
     winner_idx: int,
     winner: EntryRecord,
+    values_by_attr: tuple[tuple[str, tuple[str, ...]], ...],
 ) -> SettledRow:
     """The row one tier-settled group reports, read off the members
     already grouped in the same pass _candidates and _agreed read them,
     with no second walk over the records.
 
+    values_by_attr is handed in rather than read again here, because the
+    caller has already read it to decide whether the group settles at all
+    - a measured attribute holding a value nothing can read makes the
+    group a conflict (metadata_tier.unreadable_measured) - so the one
+    reading of the members answers both questions.
+
     winner_idx travels beside winner because the record alone cannot say
     which collection it was read from, and its primary key is the key
     every other member of the group carries: the pair is what names it
-    (DL-148, DL-150)."""
-    values_by_attr = tuple(
-        (attr, tuple(dict.fromkeys(str(getattr(r, attr)) for _, r in members)))
-        for attr in measured_attrs
-    )
+    (DL-148, DL-150).
+
+    The readings are asked for against the winner's own values, so each
+    one names the number the output will carry and the member number it
+    is read against rather than two ends of a spread the output may hold
+    neither of (DL-330).
+
+    The artist and the title are read off that same winner, in the one
+    pass, so the row spells the record it names without a caller going
+    back to the records for a word the run already had."""
     return SettledRow(
         identity_key,
         tuple(measured_attrs),
         values_by_attr,
         (winner_idx, winner.primary_key),
-        outliers=metadata_tier.outlier_attrs(dict(values_by_attr)),
+        getattr(winner, "artist"),
+        getattr(winner, "title"),
+        outliers=metadata_tier.outlier_attrs(
+            dict(values_by_attr),
+            {attr: str(getattr(winner, attr)) for attr in measured_attrs},
+        ),
+    )
+
+
+def _measured_values(
+    members: list[tuple[int, EntryRecord]], measured_attrs: tuple[str, ...]
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """The distinct values the group's members hold for each measured
+    name, in the order the members supply them, keyed by the name.
+
+    Read in one pass over the members already grouped, and read before
+    anything is settled: the values decide whether the rule can answer
+    for the group at all, and the same tuple is what the settled row
+    carries, so the members are walked once for both (DL-325)."""
+    return tuple(
+        (attr, tuple(dict.fromkeys(str(getattr(r, attr)) for _, r in members)))
+        for attr in measured_attrs
     )
 
 
@@ -420,15 +467,25 @@ def _resolve_conflicts(
     Each group's divergence is divided by tier before anything is asked
     of the operator: a group carrying an editorial divergence is a
     conflict and is reported as a ConflictRow over every divergent
-    attribute, while a group whose divergence is measured-only is
-    answered by the rule and reported as a SettledRow. No group appears
-    on both lists, so a reader counting what was put to the operator and
-    what was decided for them counts each group once (DL-325, DL-327,
-    DL-329).
+    attribute, while a group whose divergence is measured-only and whose
+    members are one file described twice is answered by the rule and
+    reported as a SettledRow. No group appears on both lists, so a reader
+    counting what was put to the operator and what was decided for them
+    counts each group once (DL-325, DL-327, DL-329).
 
-    A settled group takes no resolution and cannot abort the run: the
-    unresolved abort DL-105 states is reached by an editorial divergence
-    with neither a named resolution nor a run-wide on_conflict (DL-328).
+    "One file described twice" is checked, not assumed: the members all
+    name the one LOCATION, the group holds the base record whose values
+    the output keeps, and every value the divergence is made of reads as
+    a number. A group failing any of those is a conflict, because the
+    reasoning that answers a measured divergence is about two analyses of
+    one file and says nothing about two files, about a whole ENTRY chosen
+    by the run-wide policy, or about a measurement missing on one side
+    (DL-325, DL-328).
+
+    A settled group takes no resolution and cannot abort the run. Every
+    other diverging group can: the unresolved abort DL-105 states is
+    reached by a divergence the rule did not answer, with neither a named
+    resolution nor a run-wide on_conflict (DL-328).
     """
     old_to_new_key: dict[str, str] = {}
     conflict_rows: list[ConflictRow] = []
@@ -462,7 +519,42 @@ def _resolve_conflicts(
         # candidates and its resolve rail stand as they stand, and its
         # measured divergence is never reported twice (DL-329).
         editorial_attrs, measured_attrs = metadata_tier.split_by_tier(divergent_attrs)
-        settled_by_rule = bool(divergent_attrs) and not editorial_attrs
+        # The rule answers one case: one file, described twice, each
+        # collection carrying its own analysis of it. Every part of that
+        # sentence is a precondition, and a group failing any of them is a
+        # conflict the operator answers, which is what every group
+        # carrying a divergence the rule has no answer for is (DL-325).
+        #
+        # Same primary key: the cascade unions through every tier, and
+        # neither artist_title_file nor artist_title keys on LOCATION, so a
+        # group can hold two genuinely different files agreeing on artist,
+        # title and album. Settling one merges them - one ENTRY dropped and
+        # its playlist references redirected - on the strength of a
+        # sentence about one file. It is also what lets SettledRow name the
+        # winner by an input index beside the one key the group carries.
+        #
+        # A base record: the values the output keeps are base's own, which
+        # is what a settled row reports (DL-328). A group holding none has
+        # its whole ENTRY, cue points included, chosen by pick_non_base -
+        # the run-wide --on-conflict policy, or keep-first where none was
+        # given - which is a decision, not an absence of one, and must not
+        # be made under a row saying there was nothing to decide.
+        #
+        # Readable values: a measured name where any member's value is
+        # empty or unparseable holds one measurement and one absence, not
+        # two analyses of one file, so the rule has no answer for it.
+        measured_values = (
+            _measured_values(members, measured_attrs)
+            if divergent_attrs and not editorial_attrs
+            else ()
+        )
+        settled_by_rule = (
+            bool(divergent_attrs)
+            and not editorial_attrs
+            and len({record.primary_key for _, record in members}) == 1
+            and any(idx == 0 for idx, _ in members)
+            and not metadata_tier.unreadable_measured(dict(measured_values))
+        )
         # A key naming no group is absent from this lookup, so an unmatched
         # entry is inert rather than an error (DL-105), and a pair naming no
         # member of the group it does name is inert the same way (DL-153):
@@ -470,8 +562,11 @@ def _resolve_conflicts(
         #
         # A settled group takes no resolution: there is nothing to name,
         # and a mapping entry naming one is inert here the way a key
-        # naming no group is (DL-105, DL-153).
-        pair = resolutions.get(identity_key) if editorial_attrs else None
+        # naming no group is (DL-105, DL-153). Every other diverging group
+        # takes one, the measured-only ones the rule cannot answer for
+        # included: they are conflicts, and a conflict is settled by a
+        # named resolution or by the run-wide policy.
+        pair = resolutions.get(identity_key) if not settled_by_rule else None
         picked = next(
             (
                 (idx, record)
@@ -483,11 +578,13 @@ def _resolve_conflicts(
         # The label the row and the CSV report carry for a settled group is
         # the pair itself, as "input index:primary key".
         resolution = None if picked is None else "%d:%s" % (picked[0], picked[1].primary_key)
-        # Only an editorial divergence can abort. A measured-only one is
-        # answered by the rule, so the run assembles where every group
-        # the operator was never asked about is the only divergence
-        # (DL-325, DL-328).
-        if editorial_attrs and resolution is None and on_conflict is None:
+        # Only a divergence the rule did not answer can abort. Where it
+        # answered, the run assembles with the operator never asked
+        # (DL-325, DL-328); where it did not - an editorial name, two
+        # LOCATIONs, no base record, a value nothing can read - the
+        # divergence aborts the whole write, with nothing written and the
+        # conflict reported (DL-105).
+        if divergent_attrs and not settled_by_rule and resolution is None and on_conflict is None:
             unresolved = True
             conflict_rows.append(
                 _metadata_conflict_row(identity_key, divergent_attrs, members, "unresolved")
@@ -538,13 +635,16 @@ def _resolve_conflicts(
         if settled_by_rule:
             # The record whose measured values the output carries, named
             # by the (input index, primary key) pair the branches above
-            # already bound: base's own record where the group holds one,
-            # because base keeps its entry and no patch is collected for
-            # it, and the run-wide picker's winner where it holds none
-            # (DL-328). The index travels with it because every member of
-            # a settled group carries the one primary key (DL-148).
+            # already bound. It is base's own record: a settled group
+            # holds one by the rule's own precondition, base keeps its
+            # entry and no patch is collected for it (DL-328). The index
+            # travels with it because every member of a settled group
+            # carries the one primary key - which is the other
+            # precondition, not an accident of the inputs (DL-148).
             settled_rows.append(
-                _settled_row(identity_key, measured_attrs, members, winner_idx, winner)
+                _settled_row(
+                    identity_key, measured_attrs, members, winner_idx, winner, measured_values
+                )
             )
         elif divergent_attrs:
             conflict_rows.append(
