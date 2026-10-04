@@ -615,6 +615,12 @@ class PreviewRefusal(_SettledReading):
         The count is the group count the run itself reported, so the
         sentence and the rows the resolve step offers are the one set
         (DL-215).
+
+        The control is named as a button rather than dropped into the
+        sentence as a bare phrase: `Continue to resolve` is a verb
+        phrase, so a sentence that makes it a subject reads as a second
+        instruction to the reader rather than as the name of the thing
+        they press (DL-338).
         """
         if not self.conflicts:
             return (
@@ -625,8 +631,8 @@ class PreviewRefusal(_SettledReading):
         return (
             f"{self.conflicts} {held} held differently by more than one "
             "collection, and the repair cannot be assembled until every one "
-            "has an answer. Continue to resolve names each one and offers "
-            "its answers."
+            "has an answer. The Continue to resolve button names each one "
+            "and offers its answers."
         )
 
     @property

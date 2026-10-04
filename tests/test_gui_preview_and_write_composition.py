@@ -887,6 +887,33 @@ def test_the_refusal_names_the_step_that_settles_it():
     assert other.title == "The repair could not be assembled"
 
 
+def test_the_refusal_names_the_control_as_a_button():
+    """`Continue to resolve` is a verb phrase, so the refusal sentence
+    has to introduce it as the name of a button rather than let it stand
+    as a clause of its own: read as a clause it tells the operator to
+    continue, and the words after it ("names each one and offers its
+    answers") then have no subject.
+
+    The guard above cannot catch that - it asks only that the control's
+    name appear somewhere in the sentence, which is true of both the
+    broken wording and the fixed one, so it is green in exactly the
+    broken state (DL-189).
+
+    Mutation: the sentence was returned to `Continue to resolve names
+    each one and offers its answers.` Observed:
+        E       AssertionError: 2 tracks are held differently by more than one collection, and the repair cannot be assembled until every one has an answer. Continue to resolve names each one and offers its answers.
+        E       assert 'The Continue to resolve button' in '2 tracks are held differently by more than one collection, and the repair cannot be assembled until every one has an answer. Continue to resolve names each one and offers its answers.'
+        E        +  where '2 tracks are held differently by more than one collection, and the repair cannot be assembled until every one has an answer. Continue to resolve names each one and offers its answers.' = PreviewRefusal(conflicts=2, reasons=(), settled=0, outliers=(), outlier_remainder=None, outlier_total=0).sentence
+    """
+    groups = [_group("one", "A", "B"), _group("two", "A", "B")]
+    conflicts = reconstruct_report.preview_refusal(
+        [conflict_model.CONFLICT_ABORT_TOKEN], groups, _stats(), (), ()
+    )
+    assert "The Continue to resolve button" in conflicts.sentence, (
+        conflicts.sentence
+    )
+
+
 def test_the_write_step_reports_the_entries_placed_on_a_duplicated_track():
     """An entry whose track the collection holds more than once is placed
     on the first of those copies rather than dropped or refused, and the

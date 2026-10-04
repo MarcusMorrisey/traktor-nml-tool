@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-337`:
+This file is the authority for the log's high-water mark, which is `DL-338`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2918,6 +2918,15 @@ names, so the next plan numbers from there.
   `tests/test_gui_settled_reading.py` parses that stylesheet with
   `tinycss2` rather than matching its text, because a pattern over the
   source reads a rule the parser never sees (DL-337).
+
+- A control named inside a sentence is introduced as the thing it is.
+  `Continue to resolve` is a verb phrase, so a sentence that lets it
+  stand as a clause of its own reads as a second instruction and strands
+  the words after it without a subject; the refusal sentence in
+  `traktor_nml/gui/reconstruct_report.py` names it as `The Continue to
+  resolve button`. A guard asserting only that a control's name appears
+  somewhere in a sentence is green in exactly the broken state, so the
+  wording carries a guard of its own (DL-189, DL-338).
 
 ## Invariants
 
