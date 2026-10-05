@@ -27,7 +27,9 @@ A bare `NAME` does not identify a playlist, because a real collection reuses one
 
 A rebuilt playlist keeps base's own node, UUID and folder position; its entries become base's own in their existing order, followed by every incoming entry not already among them, folded across each `--input` file in the order given and deduplicated. A playlist whose contents already match is left untouched and its incoming copy is not imported. Without the flag, a same-named incoming playlist is imported beside base's as `"<name> (2)"`, which is the default for every existing invocation.
 
-When two collections hold one track and disagree about its tags, `splice` refuses rather than picking for you. `--on-conflict keep-first` or `keep-last` settles every such track for the whole run; without it the run aborts and the `--conflict-report` CSV names each disagreement. The wizard's Reconstruct playlists screen resolves them one track at a time instead, offering the values each collection holds.
+When two collections hold one track and disagree about its tags, `splice` tiers the disagreement. `filesize`, `playtime_float` and `bitrate` are *measured*: Traktor wrote each number by analysing the one file, so both collections hold a real reading and there is no judgement to ask for. A track diverging on those alone is settled by rule - the base collection's record is kept - with no conflict row and no abort, provided the group names one file, holds base's record, and every value reads as a finite number. `artist`, `title` and `album` are *editorial*: someone typed them, so only a person can say which reading the merged collection carries. `splice` refuses on those rather than picking for you: `--on-conflict keep-first` or `keep-last` settles every such track for the whole run; without it the run aborts and the `--conflict-report` CSV names each disagreement. The wizard's Reconstruct playlists screen resolves them one track at a time instead, offering the values each collection holds.
+
+A run that settled groups by rule says so: the stats carry `groups_settled_by_rule`, and a settled measured gap above 1% of the larger value (such as a `playtime_float` that would show as a wrong track length in Traktor until it re-analyses) is listed on its own `settled_outlier` line - `settled_groups_outlying` and `settled_outlier_readings` count them - and the lines print on an aborted run too. Settled groups write no CSV row, so those lines are their only record.
 
 `splice` also refuses to write an output that would break the collection it assembled: two entries for one file (`entry_location_collision`), or an entry count that does not match what it merged (`collection_entry_count`). Each is reported and nothing is written.
 
@@ -53,23 +55,27 @@ So `--dry-run` with a report path is the supported way to review what a run *wou
 
 ## Install
 
+Python 3.10 or newer.
+
 ```bash
 pip install lxml mutagen pyacoustid  # lxml required; mutagen/pyacoustid optional (tag reading / fingerprinting)
 ```
 
-Installing from a checkout with `pyproject.toml` present, the same optional
-dependencies are available as extras: `pip install .[tags]` for `mutagen`,
-`pip install .[fingerprint]` for `pyacoustid`, `pip install .[gui]` for
-`nicegui`, or `pip install .[all]` for all three together.
+That is enough for the CLI. From a checkout, `pip install .` installs the
+same required dependency, and the optional ones are extras: `pip install .[tags]`
+for `mutagen`, `pip install .[fingerprint]` for `pyacoustid`, `pip install .[gui]`
+for the desktop app's `nicegui` and `pywebview`, or `pip install .[all]` for all
+three together. (`pip install .[docs]` is separate, for the API docs below.)
 
 `pyacoustid` also needs the `fpcalc` binary (from [Chromaprint](https://acoustid.org/chromaprint)) on `PATH` to compute fingerprints, **and** the chromaprint shared library to compare them - the standalone `fpcalc` download ships the binary only. With any of the three missing, `--fingerprint` names which one and matches nothing rather than failing. Everything else degrades gracefully if these are absent.
 
 ## The desktop app
 
 With the `gui` extra installed, `python -m traktor_nml.gui` opens a
-desktop window holding two sections, reached by the tabs in its header.
-Both run the same cores the subcommands do, over the same collections,
-and neither writes anything until you confirm the write on its last step.
+desktop window holding three sections, reached by the tabs in its header.
+Each runs the same core as the subcommand it mirrors, over the same
+collections, and none writes anything until you confirm the write on its
+last step.
 
 **Reconstruct playlists** is the repair described above, as four steps:
 
@@ -79,12 +85,15 @@ and neither writes anything until you confirm the write on its last step.
    many of those are empty, so you can see you picked the file you meant.
 2. **Preview** - assembles the repair in memory and counts it back: which
    playlists were filled, how many entries that added, and which ones no
-   collection could fill. Nothing is written.
+   collection could fill. It also shows the tracks the rule settled on
+   their measured numbers, with the record kept and any gap worth
+   reading. Nothing is written.
 3. **Resolve** - where the collections hold one track with different
-   values, every answer is listed with the collections that hold it and
-   you pick which record supplies it, one track at a time or all from one
-   collection at once. This is what `--on-conflict` decides in bulk from
-   the command line.
+   artist, title or album, every answer is listed with the collections
+   that hold it and you pick which record supplies it, one track at a
+   time or all from one collection at once. This is what `--on-conflict`
+   decides in bulk from the command line. Disagreements on measured
+   numbers alone are not asked about; see above.
 4. **Write** - states what the new file will hold before it is written,
    including what the run could not do cleanly: entries placed on a track
    the collection holds twice, and entries dropped because no collection
@@ -93,6 +102,15 @@ and neither writes anything until you confirm the write on its last step.
 **Reconnect wizard** is `rewrite-from-reconnect` as four steps - set up,
 scan, review, write - for reviewing ambiguous and refuted matches
 interactively instead of adjudicating them from the ambiguity CSV.
+
+**Build playlist** is `build-playlist` on one screen: choose a base
+collection and an input (a text list, CSV, M3U/M3U8 file, or a folder of
+audio files; the detected format is shown before the run), name the
+playlist, optionally pick the output folder and the collection folder to
+place it under, and choose whether to allow unmatched lines and whether
+to keep the whole source collection. A header-only CSV template can be
+downloaded from the screen, and lines that did not resolve are listed on
+the screen after the run.
 
 The window is the same page served over a local port; nothing leaves the
 machine, and every collection it reads is opened read-only for the whole
