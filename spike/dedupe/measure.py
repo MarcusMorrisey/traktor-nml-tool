@@ -101,8 +101,40 @@ def reanalysis_stability(original: list[EntryRecord], reanalysed: list[EntryReco
     return _share(sum(1 for a, b in pairs if a == b), len(pairs)), len(pairs)
 
 
+def _one_file_twice(a: EntryRecord, b: EntryRecord) -> bool:
+    """True when two entries are one file catalogued twice.
+
+    FILESIZE, PLAYTIME_FLOAT and BITRATE are what Traktor measured off the
+    bytes. Two entries agreeing on all three, already known to share an
+    AUDIO_ID, are the same file under two LOCATIONs - a copy, or one path
+    re-catalogued - whatever their artist and title say. An empty value is
+    no agreement: it is one measurement and one absence.
+    """
+    measured = (a.filesize, a.playtime_float, a.bitrate)
+    return all(measured) and measured == (b.filesize, b.playtime_float, b.bitrate)
+
+
 def false_collisions(records: list[EntryRecord]) -> int:
-    """Pairs sharing an AUDIO_ID whose artist, title or duration disagree."""
+    """Pairs sharing an AUDIO_ID that are two different recordings.
+
+    Disagreeing artist or title is not on its own evidence of that. A
+    library catalogues one file under two spellings routinely - a title
+    typed twice, a filename stem used as a title, an artist left empty on
+    one side - and counting those as collisions reports a fingerprint
+    failure where there is only a tagging difference. Measured on three
+    real collections, the tag test alone counts 32 and the recordings
+    behind them are the same file in every case but one.
+
+    So a pair is a collision when it disagrees on tags or duration AND is
+    not one file catalogued twice. Duration still stands alone: two
+    different recordings essentially never share a length to the second,
+    and a pair disagreeing on length disagrees about the audio itself.
+
+    Short entries are deliberately not excluded. Two sub-second sample
+    loops can share an AUDIO_ID and a duration, which is a real collision
+    this count should carry; it is tier 3's grouping that has reason to
+    skip them, not this measurement.
+    """
     by_id: dict[str, list[EntryRecord]] = {}
     for record in records:
         if record.audio_id:
@@ -114,7 +146,8 @@ def false_collisions(records: list[EntryRecord]) -> int:
                 seconds_a, seconds_b = _duration_seconds(a), _duration_seconds(b)
                 same_tags = (_fold(a.artist), _fold(a.title)) == (_fold(b.artist), _fold(b.title))
                 same_length = seconds_a is not None and seconds_b is not None and abs(seconds_a - seconds_b) <= 1.0
-                collisions += 0 if same_tags and same_length else 1
+                agrees = (same_tags and same_length) or _one_file_twice(a, b)
+                collisions += 0 if agrees else 1
     return collisions
 
 
