@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-339`:
+This file is the authority for the log's high-water mark, which is `DL-340`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2935,9 +2935,19 @@ names, so the next plan numbers from there.
   every row shares. They carry `overflow-wrap: anywhere` rather than
   `text-overflow: ellipsis`, in `design/reconnect-wizard/Resolve.dc.html`
   and in `theme.py` behind it, and the row grid aligns its cells to the
-  start because they no longer share one line. A Traktor LOCATION is one
-  unbroken token, so `anywhere` rather than `break-word` is what gives it
-  a break at all (DL-339).
+  start because they no longer share one line (DL-339).
+
+- A wrapping cell in a flexible track needs that track to carry a floor.
+  `minmax(0, 1fr)` lets a column collapse: measured in a browser on the
+  resolve sheet, a container under about 700px resolves the track column
+  to 24px, and a cell that wraps inside 24px is one character per line,
+  with the decision control pushed past the panel's edge. The column
+  carries a 240px floor and `.wizard-conflict-table` scrolls sideways, so
+  a window too narrow for the row reaches it by scrolling rather than by
+  clipping it. `overflow-wrap: break-word` and `anywhere` resolve
+  identically here, so the wrapping value is not what holds a column
+  open and `break-word` is preferred as the one that takes no part in
+  min-content sizing (DL-340).
 
 ## Invariants
 

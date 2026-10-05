@@ -70,20 +70,24 @@ def test_the_conflict_grid_declares_the_five_tracks_the_artboard_draws():
     108px 72px 164px 120px` - the track column taking what is left and
     four fixed columns beside it - and the sheet declares the same five.
 
-    The four fixed tracks total 464px, which is what leaves the flexible
-    track a usable width inside a table that is itself inside
-    .wizard-content-width beside a 400px rail. A guard cannot read that
-    arithmetic: the resolved track widths belong to the served-page
-    record.
+    The four fixed tracks total 464px. The flexible track carries a 240px
+    floor rather than 0 because the cell wraps: measured in a browser on
+    this sheet, a container narrower than about 700px resolves a
+    `minmax(0, 1fr)` track to 24px, and a wrapping cell in a 24px track
+    is one character per line. The floor costs a horizontal scroll, which
+    .wizard-conflict-table carries, rather than a column that collapses.
+    A guard cannot read that arithmetic: the resolved track widths belong
+    to the served-page record.
 
-    Mutation: the third track was changed from 72px to 96px in
+    Mutation: the floor was returned to `minmax(0, 1fr)` in
     CONFLICT_GRID_TRACKS in theme.py and this guard rerun. Observed:
-        E       AssertionError: assert 'minmax(0, 1f...x 164px 120px' == 'minmax(0, 1f...x 164px 120px'
+        E       AssertionError: assert 'minmax(0, 1f...x 164px 120px' == 'minmax(240px...x 164px 120px'
         E
-        E         - minmax(0, 1fr) 108px 72px 164px 120px
-        E         + minmax(0, 1fr) 108px 96px 164px 120px
+        E         - minmax(240px, 1fr) 108px 72px 164px 120px
+        E         ?        -- --
+        E         + minmax(0, 1fr) 108px 72px 164px 120px
     """
-    assert theme.CONFLICT_GRID_TRACKS == "minmax(0, 1fr) 108px 72px 164px 120px"
+    assert theme.CONFLICT_GRID_TRACKS == "minmax(240px, 1fr) 108px 72px 164px 120px"
     assert (
         f"grid-template-columns: {theme.CONFLICT_GRID_TRACKS}"
         in _rule(".wizard-conflict-grid")
@@ -102,14 +106,21 @@ def test_the_track_cell_wraps_inside_its_track_rather_than_crossing_it():
     it. `anywhere` is what lets the path break, so every value the cell
     can hold stays inside the track `minmax(0, 1fr)` gives it.
 
-    Mutation: `overflow-wrap: anywhere; ` was removed from the
+    `break-word` rather than `anywhere`: measured in a browser on this
+    sheet the two resolve identically at every container width, and
+    `break-word` is the one that does not contribute to a box's
+    min-content size, so it cannot be read as the thing holding the
+    column open. What holds the column open is the track's own 240px
+    floor, guarded above.
+
+    Mutation: `overflow-wrap: break-word; ` was removed from the
     .wizard-conflict-track rule in page_stylesheet() and this guard
     rerun. Observed:
         E       AssertionError: .wizard-conflict-track must break its text, not let it cross the tracks beside it
-        E       assert 'overflow-wrap: anywhere' in '  '
+        E       assert 'overflow-wrap: break-word' in '  '
     """
     track = _rule(".wizard-conflict-track")
-    assert "overflow-wrap: anywhere" in track, (
+    assert "overflow-wrap: break-word" in track, (
         ".wizard-conflict-track must break its text, not let it cross "
         "the tracks beside it"
     )
