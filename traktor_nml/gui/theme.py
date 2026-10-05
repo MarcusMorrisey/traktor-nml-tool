@@ -661,6 +661,9 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    below it and the mono label its cells carry. */
 .wizard-conflict-header {{ border-bottom: 1px solid {BORDER_STRONG}; background: {SURFACE_3}; }}
 .wizard-conflict-header > * {{ padding: {SPACE_10} {SPACE_12}; font: 600 {TYPE_11}/1.2 {FONT_MONO}; letter-spacing: .07em; text-transform: uppercase; color: {TEXT_FAINT}; }}
+/* Resolve.dc.html:58's .th>span:last-child: the pinned column keeps its
+   name, on the header's own ground rather than the body's. */
+.wizard-conflict-header > *:last-child {{ position: sticky; right: 0; background: {SURFACE_3}; }}
 /* Resolve.dc.html:58-59's .tr: the rule under each body row and the
    inset its cells carry. min-width: 0 is what lets a cell ellipsis
    inside its own track rather than widening it. */
@@ -675,6 +678,9 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 /* Resolve.dc.html:60's .tr.sel: the selected row's tinted ground and
    the action-blue marker inset at its leading edge. */
 .wizard-conflict-row-selected {{ background: {ACTION_TINT_BG_ALT}; box-shadow: inset {SPACE_3} 0 0 {ACTION}; }}
+/* Resolve.dc.html:61's .tr.sel .dec: a tinted row tints its pinned cell
+   with it, so the column does not read as a strip of another row. */
+.wizard-conflict-row-selected .wizard-conflict-decision, .wizard-conflict-row-selected .wizard-conflict-decided {{ background: {ACTION_TINT_BG_ALT}; }}
 /* Resolve.dc.html:70's .det and :71, :74, :105's .det-h, .det-b and
    .det-f: the rail as a bordered column of three bands - a head naming
    the file, a body holding one control per answer, and a footer holding
@@ -763,8 +769,13 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    between controls is the settled reading wherever the two disagree,
    which is the divergence "The gap between decision buttons" already
    records for Review.dc.html's identical pair (DL-088). */
-.wizard-conflict-decision {{ display: flex; gap: {CONTROL_GAP}; justify-content: flex-end; }}
-.wizard-conflict-decided {{ display: flex; align-items: center; gap: {CONTROL_GAP}; justify-content: flex-end; font-size: {TYPE_11_5}; font-weight: 600; white-space: nowrap; }}
+/* Resolve.dc.html:70's .dec and :71's .decd: the row's action holds the
+   right edge while the columns between it and the track scroll under
+   it, because a window narrower than the row must still reach the
+   control that answers it. The cell carries the row's own ground, or
+   the text passing beneath shows through it (DL-341). */
+.wizard-conflict-decision {{ display: flex; gap: {CONTROL_GAP}; justify-content: flex-end; position: sticky; right: 0; background: {SURFACE_2}; }}
+.wizard-conflict-decided {{ display: flex; align-items: center; gap: {CONTROL_GAP}; justify-content: flex-end; font-size: {TYPE_11_5}; font-weight: 600; white-space: nowrap; position: sticky; right: 0; background: {SURFACE_2}; }}
 .wizard-conflict-header > *:last-child {{ text-align: right; }}
 /* Resolve.dc.html:106's .det-a and :107's .det-a .btn: the rail's two
    actions split the footer's width between them, which is why this is

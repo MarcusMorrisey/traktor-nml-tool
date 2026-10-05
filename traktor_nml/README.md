@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-340`:
+This file is the authority for the log's high-water mark, which is `DL-341`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2948,6 +2948,18 @@ names, so the next plan numbers from there.
   identically here, so the wrapping value is not what holds a column
   open and `break-word` is preferred as the one that takes no part in
   min-content sizing (DL-340).
+
+- The control that answers a row holds the right edge. A resolve row can
+  be wider than the panel that holds it - the track column's floor plus
+  464px of fixed columns exceeds the roughly 460px a 2.5x display leaves
+  beside the rail - and every other column may scroll out of view, but a
+  row the operator can read and cannot answer is the step not working.
+  `.wizard-conflict-decision` and `.wizard-conflict-decided` are
+  `position: sticky; right: 0`, each carrying the row's own background,
+  because a sticky cell is painted in place rather than over an opaque
+  column and the columns beneath would otherwise show through it. The
+  header's last cell pins with them so the column keeps its name
+  (DL-341).
 
 ## Invariants
 

@@ -526,3 +526,36 @@ def test_every_split_puts_its_rail_at_one_width():
     assert "width: 100%" in _rule(".wizard-field-row"), (
         ".wizard-field-row takes its path's width rather than its row's"
     )
+
+
+def test_the_decision_column_holds_the_right_edge():
+    """Resolve.dc.html:70's .dec and :71's .decd pin the row's action to
+    the right edge, and the sheet pins both cells with it.
+
+    The row can be wider than the panel: the track column carries a
+    240px floor and the four fixed columns total 464px, so a window
+    around 460px of table - which a 2.5x display at this window size
+    gives - cannot show the whole row. Every other column may scroll out
+    of view; the control that answers the row may not, because a row the
+    operator can read and cannot answer is the step not working.
+
+    The pinned cell carries its own background. Without one the columns
+    passing beneath show through it, since a sticky cell is painted in
+    place rather than over an opaque column.
+
+    Mutation: `position: sticky; right: 0; ` was removed from the
+    .wizard-conflict-decision rule in page_stylesheet() and this guard
+    rerun. Observed:
+        E           AssertionError: the decision cell does not hold the right edge
+        E           assert 'position: sticky' in ' display: flex; gap: 8px; justify-content: flex-end; background: #17191C; '
+    """
+    for name in (".wizard-conflict-decision", ".wizard-conflict-decided"):
+        rule = _rule(name)
+        assert "position: sticky" in rule, (
+            "the decision cell does not hold the right edge"
+        )
+        assert "right: 0" in rule
+        assert "background:" in rule, (
+            f"{name} pins without a ground, so the row scrolls through it"
+        )
+
