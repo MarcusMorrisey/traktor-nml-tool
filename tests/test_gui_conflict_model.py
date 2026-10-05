@@ -22,6 +22,8 @@ import pytest
 
 from traktor_nml.gui.conflict_model import (
     ALREADY_LISTED,
+    ConflictRowView,
+    track_name,
     IS_A_SOURCE,
     IS_THE_BASE,
     base_refusal,
@@ -1051,3 +1053,74 @@ def test_the_resolve_tally_agrees_with_the_count_it_names():
     assert one == "1 track carries more than one answer - 0 decided, 1 to go"
     many = resolve_tally_sentence(34, 34, 0)
     assert many == "34 tracks carry more than one answer - 34 decided, 0 to go"
+
+
+def _row(*, attrs=(), candidates=(), agreed=(), key="C:/:Music/:a.mp3"):
+    return ConflictRowView(
+        identity_key=key,
+        attrs=attrs,
+        candidates=candidates,
+        decision=UNDECIDED,
+        agreed=agreed,
+    )
+
+
+def test_the_track_cell_names_a_track_rather_than_the_path():
+    """Resolve.dc.html:159 draws a title and an artist in the track cell,
+    not the LOCATION the identity is derived from. Every track in a
+    library shares that path's head, so a cell carrying the key reads as
+    the volume repeated down the column and tells no row from another.
+
+    Mutation: track_name returned `row.identity_key` before reading
+    `agreed`. Observed:
+        E       AssertionError: assert 'Macintosh HD...b4/:disco.mp3' == 'Disco Balls - Broken Toy'
+        E
+        E         - Disco Balls - Broken Toy
+        E         + Macintosh HD/:Users/:FreqKing/:b4/:disco.mp3
+    """
+    row = _row(
+        attrs=("filesize",),
+        candidates=(ConflictCandidate(values=("19776",), members=((0, "k"),)),),
+        agreed=(("artist", "Broken Toy"), ("title", "Disco Balls")),
+        key="Macintosh HD/:Users/:FreqKing/:b4/:disco.mp3",
+    )
+    assert track_name(row) == "Disco Balls - Broken Toy"
+
+
+def test_a_group_diverging_on_its_title_still_names_one():
+    """A title the two collections spell differently is not in `agreed`,
+    so it is read off the first candidate at its own index in attrs. The
+    cell exists to tell the rows apart; the answers are what the rail
+    lays out side by side.
+
+    Mutation: the `attr in ("artist", "title") and row.candidates` test
+    was changed to `False`, so only `agreed` was read. The title is then
+    empty and the cell falls back to the artist alone. Observed:
+        E       AssertionError: assert 'Broken Toy' == 'Early Mix - Broken Toy'
+        E
+        E         - Early Mix - Broken Toy
+        E         + Broken Toy
+    """
+    row = _row(
+        attrs=("title",),
+        candidates=(
+            ConflictCandidate(values=("Early Mix",), members=((0, "k"),)),
+            ConflictCandidate(values=("Late Mix",), members=((1, "j"),)),
+        ),
+        agreed=(("artist", "Broken Toy"),),
+    )
+    assert track_name(row) == "Early Mix - Broken Toy"
+
+
+def test_a_group_carrying_neither_name_reads_as_its_key():
+    """A record with no artist and no title still has to tell its row
+    from the next one, and the path is what is left to do it with.
+
+    Mutation: track_name returned `f"{title} - {artist}"` unconditionally.
+    Observed:
+        E       AssertionError: assert ' - ' == 'C:/:Music/:a.mp3'
+        E
+        E         - C:/:Music/:a.mp3
+        E         +  -
+    """
+    assert track_name(_row()) == "C:/:Music/:a.mp3"

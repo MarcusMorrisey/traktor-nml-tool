@@ -2761,7 +2761,7 @@ def _build_reconstruct_page() -> None:
                     with ui.element("div").classes(add=classes).props(
                         f'role="row" aria-selected="{str(focused).lower()}"'
                     ):
-                        ui.label(view.identity_key).classes(
+                        ui.label(conflict_model.track_name(view)).classes(
                             "wizard-mono wizard-body-12 "
                             "wizard-conflict-track"
                         )

@@ -52,14 +52,14 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:
 .seg span.on{background:#12222B;color:#E8EBED;font-weight:600}
 .split{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;min-height:0}
 .tbl{border:1px solid #2A2E32;border-radius:8px;background:#17191C;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-.gr{display:grid;grid-template-columns:minmax(0,1fr) 108px 72px 164px 120px;align-items:center}
+.gr{display:grid;grid-template-columns:minmax(0,1fr) 108px 72px 164px 120px;align-items:start}
 .th{border-bottom:1px solid #3C4248;background:#1F2225}
 .th>span{padding:10px 12px;font:600 11px/1.2 'IBM Plex Mono',ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:#8E979E}
 .tr{border-bottom:1px solid #23272B}
 .tr>*{padding:10px 12px;min-width:0}
 .tr.sel{background:#16242C;box-shadow:inset 3px 0 0 #56B4E9}
 .stat{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;white-space:nowrap}
-.trk{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trk{font-size:12.5px;overflow-wrap:anywhere}
 .trk b{font-weight:600}
 .trk i{font-style:normal;color:#97A0A7}
 .conf{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;white-space:nowrap}
@@ -69,7 +69,7 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:
 .decd{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:11.5px;font-weight:600;white-space:nowrap}
 .det{border:1px solid #2F5A72;border-radius:8px;background:#141C21;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .det-h{padding:12px 14px;border-bottom:1px solid #253038;display:flex;flex-direction:column;gap:4px}
-.det-h .t{font-size:14.5px;font-weight:600;line-height:1.3}
+.det-h .t{font-size:14.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
 .det-h .a{font-size:12px;color:#A5ADB4}
 .det-b{padding:12px 14px;display:flex;flex-direction:column;gap:13px;flex:1;min-height:0}
 .grp{display:flex;flex-direction:column;gap:7px}
@@ -84,13 +84,13 @@ main{padding:14px 24px 0;display:grid;grid-template-rows:auto auto 1fr auto;gap:
 .cand.on .rad{border-color:#56B4E9}
 .cand.on .rad::after{content:"";width:8px;height:8px;border-radius:50%;background:#56B4E9}
 .cand .b{min-width:0;display:flex;flex-direction:column;gap:3px;flex:1}
-.cand .n{font:400 11.5px/1.35 'IBM Plex Mono',monospace;color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cand .n{font:400 11.5px/1.35 'IBM Plex Mono',monospace;color:#D2D8DC;overflow-wrap:anywhere}
 .cand .m{font-size:11px;color:#8E979E}
 .num{font:600 11px/1 'IBM Plex Mono',monospace;color:#8E979E;border:1px solid #3C4248;border-radius:4px;padding:3px 5px;flex:none}
 .cmpf{display:grid;grid-template-columns:111px 1fr 82px;gap:8px;font-size:12px;align-items:center;padding:5px 0;border-bottom:1px solid #22292E}
 .cmpf:last-child{border-bottom:0}
 .cmpf .k{color:#8E979E;font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:.05em;text-transform:uppercase}
-.cmpf .v{color:#D2D8DC;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmpf .v{color:#D2D8DC;overflow-wrap:anywhere}
 /* The raw string the written file carries, beside the formatted value
    rather than instead of it: a row reading 8.0 MB alone hides which
    record wins. */

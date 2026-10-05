@@ -133,6 +133,34 @@ class WriteRefusal:
     errors: tuple[str, ...] = ()
 
 
+def track_name(row: "ConflictRowView") -> str:
+    """One conflicting group's track as ``Resolve.dc.html:159`` draws it:
+    the title, then the artist, in the cell the artboard gives a bold
+    `<b>` and a faint `<i>`.
+
+    The identity key is a LOCATION, which is a path. Every track in a
+    library shares that path's head, so a cell carrying the key names the
+    volume rather than the track, and the rail beside it already names the
+    file in full. The artboard draws a piece of music and a person there,
+    and DL-071 makes that the surface rather than a suggestion.
+
+    A value is read from `agreed` where every record holds it and off the
+    first candidate where they differ, so a group diverging on its title
+    still names one: the cell is read to tell the rows apart, and the
+    answers are what the rail lays out side by side. A group holding
+    neither reads as its identity key, which still tells the rows apart.
+    """
+    values = dict(row.agreed)
+    for index, attr in enumerate(row.attrs):
+        if attr in ("artist", "title") and row.candidates:
+            values[attr] = row.candidates[0].values[index]
+    artist = (values.get("artist") or "").strip()
+    title = (values.get("title") or "").strip()
+    if artist and title:
+        return f"{title} - {artist}"
+    return title or artist or row.identity_key
+
+
 def candidate_reference(candidate: ConflictCandidate) -> CandidateRef:
     """The pair a pick on this candidate records: its contributor of
     lowest input index. The contributors agree on every divergent

@@ -95,7 +95,7 @@ historical while that table is not; `DL-014`..`DL-023` by
 `DL-040`..`DL-043` by the two plan documents `docs/README.md` names. Every
 other number is stated in this file.
 
-This file is the authority for the log's high-water mark, which is `DL-338`:
+This file is the authority for the log's high-water mark, which is `DL-339`:
 an entry numbered against anything else collides with an entry this file
 names, so the next plan numbers from there.
 
@@ -2927,6 +2927,17 @@ names, so the next plan numbers from there.
   resolve button`. A guard asserting only that a control's name appears
   somewhere in a sentence is green in exactly the broken state, so the
   wording carries a guard of its own (DL-189, DL-338).
+
+- A value the operator has to read in full wraps rather than clips. The
+  resolve step's track cell, its answer field values and the rail's head
+  each hold a value whose end is what tells it from the next one - a
+  title, an album, a LOCATION - and a clipped one reads as the prefix
+  every row shares. They carry `overflow-wrap: anywhere` rather than
+  `text-overflow: ellipsis`, in `design/reconnect-wizard/Resolve.dc.html`
+  and in `theme.py` behind it, and the row grid aligns its cells to the
+  start because they no longer share one line. A Traktor LOCATION is one
+  unbroken token, so `anywhere` rather than `break-word` is what gives it
+  a break at all (DL-339).
 
 ## Invariants
 

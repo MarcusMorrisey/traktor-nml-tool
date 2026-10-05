@@ -90,30 +90,32 @@ def test_the_conflict_grid_declares_the_five_tracks_the_artboard_draws():
     ), ".wizard-conflict-grid declares tracks other than the artboard's five"
 
 
-def test_the_track_cell_shortens_inside_its_track_rather_than_crossing_it():
-    """Resolve.dc.html:62's .trk carries `overflow: hidden`,
-    `text-overflow: ellipsis` and `white-space: nowrap`, and the sheet
-    declares all three on .wizard-conflict-track.
+def test_the_track_cell_wraps_inside_its_track_rather_than_crossing_it():
+    """Resolve.dc.html:62's .trk carries `overflow-wrap: anywhere`, and
+    the sheet declares it on .wizard-conflict-track.
 
-    The cell holds a collection path, which offers no break opportunity,
-    so a flexible track narrower than the path is not a cell that wraps:
-    it is a cell whose text crosses the tracks beside it. min-width: 0 on
-    the row's cells lets the track hold its declared width; these three
-    are what keep the text inside it.
+    The cell names a track, which breaks at its spaces, but a group
+    carrying neither artist nor title falls back to its identity key -
+    a collection path, one unbroken token offering no break opportunity
+    of its own. A flexible track narrower than that path is then not a
+    cell that wraps: it is a cell whose text crosses the tracks beside
+    it. `anywhere` is what lets the path break, so every value the cell
+    can hold stays inside the track `minmax(0, 1fr)` gives it.
 
-    Mutation: `text-overflow: ellipsis; ` was removed from the
+    Mutation: `overflow-wrap: anywhere; ` was removed from the
     .wizard-conflict-track rule in page_stylesheet() and this guard
     rerun. Observed:
-        E       AssertionError: .wizard-conflict-track must shorten its text, not let it cross the tracks beside it
-        E       assert 'text-overflow: ellipsis' in ' overflow: hidden; white-space: nowrap; '
+        E       AssertionError: .wizard-conflict-track must break its text, not let it cross the tracks beside it
+        E       assert 'overflow-wrap: anywhere' in '  '
     """
     track = _rule(".wizard-conflict-track")
-    assert "text-overflow: ellipsis" in track, (
-        ".wizard-conflict-track must shorten its text, not let it cross "
+    assert "overflow-wrap: anywhere" in track, (
+        ".wizard-conflict-track must break its text, not let it cross "
         "the tracks beside it"
     )
-    assert "white-space: nowrap" in track
-    assert "overflow: hidden" in track
+    assert "ellipsis" not in track, (
+        "the cell clips a value the operator has to read in full"
+    )
 
 
 def test_the_header_row_sits_on_the_same_tracks_as_the_body_rows():

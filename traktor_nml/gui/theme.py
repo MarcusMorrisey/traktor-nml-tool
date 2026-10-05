@@ -656,7 +656,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    laid out on. Both rows read CONFLICT_GRID_TRACKS, so a cell cannot
    align in the header and not in the body. */
 .wizard-conflict-table {{ border: 1px solid {BORDER}; border-radius: {RADIUS_XL}; background: {SURFACE_2}; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }}
-.wizard-conflict-grid {{ display: grid; grid-template-columns: {CONFLICT_GRID_TRACKS}; align-items: center; }}
+.wizard-conflict-grid {{ display: grid; grid-template-columns: {CONFLICT_GRID_TRACKS}; align-items: start; }}
 /* Resolve.dc.html:56-57's .th: the header row's own ground, the rule
    below it and the mono label its cells carry. */
 .wizard-conflict-header {{ border-bottom: 1px solid {BORDER_STRONG}; background: {SURFACE_3}; }}
@@ -671,7 +671,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    shortens and its text crosses the tracks beside it. The full path
    stands in the detail rail's head, which is what makes shortening it
    here readable rather than lossy (DL-214). */
-.wizard-conflict-track {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.wizard-conflict-track {{ overflow-wrap: anywhere; }}
 /* Resolve.dc.html:60's .tr.sel: the selected row's tinted ground and
    the action-blue marker inset at its leading edge. */
 .wizard-conflict-row-selected {{ background: {ACTION_TINT_BG_ALT}; box-shadow: inset {SPACE_3} 0 0 {ACTION}; }}
@@ -683,6 +683,10 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
    written once. */
 .wizard-detail-rail {{ border: 1px solid {ACTION_TINT_BORDER_ALT}; border-radius: {RADIUS_XL}; background: {BORDER_SUBTLE_2}; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }}
 .wizard-detail-head {{ padding: {SPACE_12} {SPACE_14}; border-bottom: 1px solid {BORDER_SUBTLE_5}; display: flex; flex-direction: column; gap: {SPACE_4}; }}
+/* Resolve.dc.html:72's .det-h .t: the head names the file, and a
+   Traktor LOCATION is one unbroken token. Without a break anywhere
+   it overflows the rail instead of wrapping inside it. */
+.wizard-detail-head > * {{ overflow-wrap: anywhere; }}
 .wizard-detail-body {{ padding: {SPACE_12} {SPACE_14}; display: flex; flex-direction: column; gap: {SPACE_13}; flex: 1; min-height: 0; }}
 .wizard-detail-foot {{ padding: {SPACE_11} {SPACE_14}; border-top: 1px solid {BORDER_SUBTLE_5}; display: flex; flex-direction: column; gap: {SPACE_9}; }}
 /* Resolve.dc.html:75's .grp and :76's .grp-h: one answer's own block
@@ -733,7 +737,7 @@ body {{ background: {GROUND}; color: {TEXT}; font: 400 {TYPE_14}/1.45 {FONT_SANS
 .wizard-answer-field {{ display: grid; grid-template-columns: {ANSWER_FIELD_KEY_TRACK} 1fr {ANSWER_FIELD_RAW_TRACK}; gap: {SPACE_8}; align-items: center; padding: {SPACE_5} 0; border-bottom: 1px solid {BORDER_SUBTLE_4}; }}
 .wizard-answer-field:last-child {{ border-bottom: 0; }}
 .wizard-answer-field-key {{ display: flex; align-items: center; gap: {SPACE_5}; min-width: 0; font: 500 {TYPE_11}/1 {FONT_MONO}; letter-spacing: {ANSWER_FIELD_KEY_TRACKING}; text-transform: uppercase; }}
-.wizard-answer-field-value {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+.wizard-answer-field-value {{ overflow-wrap: anywhere; }}
 /* Resolve.dc.html:97's .cmpf .r. The typeface is stated here beside the
    key's, because a Quasar font class on the label would set a family of
    its own and the artboard's mono would not be the one that renders
