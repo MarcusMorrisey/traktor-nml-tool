@@ -52,7 +52,7 @@ class CollectionSummary:
 
     @property
     def repair_phrases(self) -> tuple[str, ...]:
-        """The phrases `Reconstruct.dc.html:112` prints under the
+        """The phrases ``Reconstruct.dc.html:112`` prints under the
         collection being repaired, in the order it draws them.
 
         The empty count is the reason this page exists, so it is stated
@@ -75,10 +75,10 @@ class CollectionSummary:
 
     @property
     def source_note(self) -> str:
-        """What `Reconstruct.dc.html:121` prints at the right of a
+        """What ``Reconstruct.dc.html:121`` prints at the right of a
         source's own row: how many playlists it could supply contents
         from. A source with none is what the row exists to make visible,
-        so it says so rather than reading `0 playlists with contents`."""
+        so it says so rather than reading ``0 playlists with contents``."""
         if not self.filled:
             return "no playlists with contents"
         playlists = plural(self.filled, "playlist", "playlists")

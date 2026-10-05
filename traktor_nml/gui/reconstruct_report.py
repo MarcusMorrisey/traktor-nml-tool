@@ -62,14 +62,14 @@ TONE_UNTOUCHED = "untouched"
 @dataclass(frozen=True)
 class PlaylistRow:
     """One `.pl` row: a playlist's name and how many entries it holds
-    after the run. `Preview.dc.html:144` draws the pair."""
+    after the run. ``Preview.dc.html:144`` draws the pair."""
 
     name: str
     entries: int
 
     @property
     def entry_count(self) -> str:
-        """The row's right-hand cell. `Preview.dc.html:144` prints the
+        """The row's right-hand cell. ``Preview.dc.html:144`` prints the
         unit beside the number, so a row reading `214` alone would leave
         the reader to guess what was counted."""
         return f"{self.entries:,} entries"
@@ -100,7 +100,7 @@ def _winner_reading(winner: tuple[int, str], labels: Sequence[str]) -> str:
 
 
 def _track_reading(row) -> str:
-    """One settled group's track as `Preview.dc.html:192` draws it: the
+    """One settled group's track as ``Preview.dc.html:192`` draws it: the
     artist and the title of the record the output keeps, joined the way
     the artboard's `.nm` cell joins them.
 
@@ -133,7 +133,7 @@ class OutlierRow:
     number the output keeps.
 
     track is _track_reading's wording of the winning record's artist and
-    title, which is what `Preview.dc.html:192` draws in its `.nm` cell -
+    title, which is what ``Preview.dc.html:192`` draws in its `.nm` cell -
     a track, not the LOCATION the identity is derived from. The path is
     on this row already, in the winner cell, where it is read for which
     record it names (DL-071).
@@ -194,7 +194,7 @@ class OutlierRow:
 @dataclass(frozen=True)
 class OutlierRemainder:
     """The one row standing for every measured gap the listing does not
-    draw (`Preview.dc.html:195`).
+    draw (``Preview.dc.html:195``).
 
     count is how many readings are not listed and widest_gap is the
     widest of those - the next gap below the narrowest listed one, since
@@ -342,7 +342,7 @@ class ChangeRow:
     @property
     def amount(self) -> str:
         """The count as the row prints it, grouped at the thousand the
-        way `Write.dc.html:116` draws `4,912`."""
+        way ``Write.dc.html:116`` draws `4,912`."""
         return f"{self.count:,}"
 
 
@@ -380,13 +380,13 @@ class PreviewReport(_SettledReading):
     @property
     def filled_caption(self) -> str:
         """The card head's label: how many of the empty playlists this
-        run filled. `Preview.dc.html:141` prints both numbers, because
+        run filled. ``Preview.dc.html:141`` prints both numbers, because
         the count filled means nothing without the count there were."""
         return f"{self.filled} of {self.empty} empty playlists"
 
     @property
     def conflict_sentence(self) -> str:
-        """The note at `Preview.dc.html:161`, or the empty string for a
+        """The note at ``Preview.dc.html:161``, or the empty string for a
         run that reported no divergence at all.
 
         Both counts are read off the same decisions the resolve step
@@ -415,7 +415,7 @@ class PreviewReport(_SettledReading):
 
     @property
     def total_sentence(self) -> str:
-        """The `.tot` strip's label at `Preview.dc.html:157`."""
+        """The `.tot` strip's label at ``Preview.dc.html:157``."""
         return "Entries that would be added"
 
     @property
@@ -426,7 +426,7 @@ class PreviewReport(_SettledReading):
     @property
     def unfilled_title(self) -> str:
         """The head of the card listing what the run could not fill
-        (`Preview.dc.html:180`). The count is in the title because the
+        (``Preview.dc.html:180``). The count is in the title because the
         card is the count: a run that filled everything draws no card."""
         one = self.unfilled_count == 1
         return (
@@ -464,7 +464,7 @@ class WriteReport:
 
     @property
     def head_title(self) -> str:
-        """The card's own head at `Write.dc.html:92`."""
+        """The card's own head at ``Write.dc.html:92``."""
         return "Written" if self.written else "Before anything is written"
 
     @property
@@ -476,14 +476,14 @@ class WriteReport:
 
     @property
     def contents_title(self) -> str:
-        """The head of the change list at `Write.dc.html:104`. The list
+        """The head of the change list at ``Write.dc.html:104``. The list
         itself does not change: it described what the file would hold
         and now describes what it holds."""
         return "What the new file holds" if self.written else "What the new file will hold"
 
     @property
     def destination_badge(self) -> str:
-        """The badge beside the path at `Write.dc.html:98`.
+        """The badge beside the path at ``Write.dc.html:98``.
 
         A written path says so. Before the write, a path that already
         exists is said so plainly rather than left unsaid: the write
@@ -496,7 +496,7 @@ class WriteReport:
 
     @property
     def total_sentence(self) -> str:
-        """The `.tot` strip at `Write.dc.html:129`."""
+        """The `.tot` strip at ``Write.dc.html:129``."""
         return "Tracks in the collection the new file holds"
 
     @property
@@ -505,7 +505,7 @@ class WriteReport:
 
     @property
     def confirm_question(self) -> str:
-        """The confirmation dialog's own heading at `Write.dc.html:162`.
+        """The confirmation dialog's own heading at ``Write.dc.html:162``.
 
         It names the count of playlists being filled, which is the first
         change row's count read off the row rather than recounted, so the
@@ -559,7 +559,7 @@ class WriteReport:
 
     @property
     def destination_note(self) -> str:
-        """The line under the path at `Write.dc.html:100`.
+        """The line under the path at ``Write.dc.html:100``.
 
         A path already holding a file says so here as well as in its
         badge, because the badge is a state and this is what the write
