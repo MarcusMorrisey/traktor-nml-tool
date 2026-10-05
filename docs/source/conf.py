@@ -21,7 +21,7 @@ autosummary_generate = True
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
 autodoc_preserve_defaults = True
-autodoc_mock_imports = ["acoustid", "mutagen", "nicegui"]
+autodoc_mock_imports = ["acoustid", "mutagen", "nicegui", "webview"]
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_DIR = ROOT / "traktor_nml"
